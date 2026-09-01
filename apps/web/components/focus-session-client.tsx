@@ -22,6 +22,8 @@ import {
 } from "@/lib/client/focus-offline-store";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import { addLowConversionToInbox as addLowConversionToInboxCommand } from "@/lib/api/plan-inbox";
+import { archiveNote } from "@/lib/api/notes";
+import { archiveMistake } from "@/lib/api/mistakes";
 import type { StudySessionDto } from "@/lib/contracts";
 import { isUnauthorized } from "@/lib/client/api-errors";
 import { mutationFeedback } from "@/lib/client/mutation-feedback";
@@ -412,6 +414,56 @@ export function FocusSessionClient(props: {
       : [...current, body.receipt]);
   }
 
+  const [editingReceipt, setEditingReceipt] = useState<FocusEvidenceReceipt | null>(null);
+
+  function handleEditReceipt(receipt: FocusEvidenceReceipt) {
+    setEditingReceipt(receipt);
+    setActiveEvidenceType(receipt.evidenceType);
+  }
+
+  function handleCancelEditEvidence() {
+    setEditingReceipt(null);
+  }
+
+  function handleUpdateEvidence(updatedReceipt: FocusEvidenceReceipt) {
+    setEvidenceReceipts((current) =>
+      current.map((r) =>
+        r.evidenceId === updatedReceipt.evidenceId && r.evidenceType === updatedReceipt.evidenceType
+          ? updatedReceipt
+          : r,
+      ),
+    );
+    setEditingReceipt(null);
+  }
+
+  async function handleDeleteReceipt(receipt: FocusEvidenceReceipt) {
+    try {
+      if (receipt.evidenceType === "note") {
+        void archiveNote(receipt.evidenceId, { expectedRevision: 1 }).catch(() => undefined);
+      } else if (receipt.evidenceType === "mistake") {
+        void archiveMistake(receipt.evidenceId, { expectedUpdatedAt: new Date().toISOString() }).catch(() => undefined);
+      }
+    } catch {
+      // Best-effort remote archival
+    }
+
+    setEvidenceReceipts((current) => {
+      const next = current.filter((r) => r.evidenceId !== receipt.evidenceId);
+      const hasRemainingNote = next.some((r) => r.evidenceType === "note");
+      const hasRemainingMistake = next.some((r) => r.evidenceType === "mistake");
+      setSession((prev) => ({
+        ...prev,
+        producedNote: hasRemainingNote,
+        producedMistake: hasRemainingMistake,
+      }));
+      return next;
+    });
+
+    if (editingReceipt?.evidenceId === receipt.evidenceId) {
+      setEditingReceipt(null);
+    }
+  }
+
   return (
     <FocusSessionWorkspace
       userId={props.userId}
@@ -433,6 +485,7 @@ export function FocusSessionClient(props: {
       lowConversionAdded={lowConversionAdded}
       activeEvidenceType={activeEvidenceType}
       evidenceReceipts={evidenceReceipts}
+      editingReceipt={editingReceipt}
       conflict={conflict}
       conflictOpen={conflictOpen}
       onRetryDeferredConflict={() => void retryDeferredConflict()}
@@ -455,6 +508,10 @@ export function FocusSessionClient(props: {
       onCompleteEvidence={completeEvidenceFlow}
       onEvidenceTypeChange={setActiveEvidenceType}
       onLinkEvidence={linkEvidence}
+      onEditReceipt={handleEditReceipt}
+      onDeleteReceipt={handleDeleteReceipt}
+      onCancelEditEvidence={handleCancelEditEvidence}
+      onUpdateEvidence={handleUpdateEvidence}
       onOpenConflict={() => setConflictOpen(true)}
       onCloseConflict={() => setConflictOpen(false)}
       onAdoptServer={() => void adoptLatestSession()}

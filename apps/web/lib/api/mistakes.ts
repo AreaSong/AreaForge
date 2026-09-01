@@ -47,6 +47,14 @@ export interface MistakeMutationResponse extends ApiErrorEnvelope<MistakeDto> {
   mistake?: MistakeDto;
 }
 
+export interface GetMistakeResponse extends ApiErrorEnvelope<MistakeDto> {
+  mistake?: MistakeDto;
+}
+
+export function getMistake(id: string): Promise<ApiResult<GetMistakeResponse>> {
+  return requestApiResult(`/api/mistakes/${encodeURIComponent(id)}`, { method: "GET" });
+}
+
 export interface MistakeAttemptResponse {
   attempt?: MistakeAttemptDto;
   error?: string;

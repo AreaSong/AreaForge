@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, FileText, Target } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Pencil, Target, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
@@ -17,6 +17,9 @@ export function EvidenceWorkspace(props: {
   activeType: FocusEvidenceType;
   canRetest: boolean;
   receipts: FocusEvidenceReceipt[];
+  editingReceiptId?: string | null;
+  onEditReceipt?: (receipt: FocusEvidenceReceipt) => void;
+  onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onTypeChange: (value: FocusEvidenceType) => void;
   onComplete: () => void;
   children: React.ReactNode;
@@ -72,12 +75,63 @@ export function EvidenceWorkspace(props: {
             </div>
             {props.receipts.length > 0 ? (
               <ul className="mt-3 space-y-2 border-t border-white/5 pt-2.5">
-                {props.receipts.map((receipt) => (
-                  <li key={`${receipt.evidenceType}:${receipt.evidenceId}`} className="flex items-center gap-2 text-xs text-zinc-300">
-                    <CheckCircle2 className="size-3.5 shrink-0 text-teal-400" />
-                    <span className="truncate">{evidenceTypeLabel(receipt.evidenceType)} · {receipt.label}</span>
-                  </li>
-                ))}
+                {props.receipts.map((receipt) => {
+                  const isEditing = props.editingReceiptId === receipt.evidenceId;
+                  return (
+                    <li
+                      key={`${receipt.evidenceType}:${receipt.evidenceId}`}
+                      className={`group flex items-center justify-between gap-2 rounded-xl border px-3 py-2 transition-all duration-200 ${
+                        isEditing
+                          ? "border-teal-500/40 bg-teal-500/10 text-teal-200 shadow-[0_0_12px_rgba(45,212,191,0.15)]"
+                          : "border-white/5 bg-white/[0.02] text-zinc-300 hover:border-white/10 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <CheckCircle2 className={`size-3.5 shrink-0 ${isEditing ? "text-teal-300" : "text-teal-400"}`} />
+                        <span className="truncate text-xs font-medium">
+                          {evidenceTypeLabel(receipt.evidenceType)} · {receipt.label}
+                        </span>
+                        {isEditing ? (
+                          <span className="shrink-0 rounded bg-teal-400/20 px-1.5 py-0.5 text-[10px] font-medium text-teal-300">
+                            修改中
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {props.onEditReceipt && receipt.evidenceType !== "retest" ? (
+                          <button
+                            type="button"
+                            onClick={() => props.onEditReceipt?.(receipt)}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all ${
+                              isEditing
+                                ? "bg-teal-400/30 text-teal-200 ring-1 ring-teal-400/50"
+                                : "bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                            }`}
+                            title="更改此条证据"
+                            aria-label={`更改证据 ${receipt.label}`}
+                          >
+                            <Pencil className="size-3 shrink-0" />
+                            <span>更改</span>
+                          </button>
+                        ) : null}
+
+                        {props.onDeleteReceipt ? (
+                          <button
+                            type="button"
+                            onClick={() => props.onDeleteReceipt?.(receipt)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/25 hover:text-rose-200 transition-all"
+                            title="删除此条证据"
+                            aria-label={`删除证据 ${receipt.label}`}
+                          >
+                            <Trash2 className="size-3 shrink-0" />
+                            <span>删除</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="mt-2 text-[11px] text-zinc-500">尚未保存证据，可在右侧录入。</p>

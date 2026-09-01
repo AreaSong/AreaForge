@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenCheck, Bug, FileText } from "lucide-react";
+import { BookOpenCheck, Bug, FileText, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SyllabusRetestForm } from "@/components/syllabus-retest-form";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,11 @@ import {
   savePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
 import { classifyApiFailure } from "@/lib/client/api-errors";
-import type { FocusEvidenceType } from "@/components/focus-session-panels";
+import type { FocusEvidenceReceipt, FocusEvidenceType } from "@/components/focus-session-evidence";
 import type { MistakeCauseDto, NoteMasteryStatusDto } from "@/lib/contracts";
-import { createNote } from "@/lib/api/notes";
-import { createMistake } from "@/lib/api/mistakes";
-import { isShanghaiDateInputError, shanghaiDateTimeInputToIso } from "@/lib/formatters";
+import { createNote, getNote, updateNote } from "@/lib/api/notes";
+import { createMistake, getMistake, updateMistake } from "@/lib/api/mistakes";
+import { isShanghaiDateInputError, isoToShanghaiDateTimeInput, shanghaiDateTimeInputToIso } from "@/lib/formatters";
 
 interface EvidenceContext {
   userId: string;
@@ -34,7 +34,11 @@ interface EvidenceContext {
 
 export function FocusEvidenceForms(props: EvidenceContext & {
   activeType: FocusEvidenceType;
+  editingReceipt?: FocusEvidenceReceipt | null;
+  onCancelEdit?: () => void;
+  onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onEvidenceSaved: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
+  onEvidenceUpdated?: (receipt: FocusEvidenceReceipt) => Promise<void> | void;
 }) {
   if (props.activeType === "note") return <FocusNoteForm {...props} />;
   if (props.activeType === "mistake") return <FocusMistakeForm {...props} />;
@@ -68,19 +72,52 @@ interface NoteDraft {
 const emptyNoteDraft: NoteDraft = { title: "", content: "", kind: "GENERAL", masteryStatus: "partial", nextReviewAt: "" };
 
 function FocusNoteForm(props: EvidenceContext & {
+  editingReceipt?: FocusEvidenceReceipt | null;
+  onCancelEdit?: () => void;
+  onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onEvidenceSaved: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
+  onEvidenceUpdated?: (receipt: FocusEvidenceReceipt) => Promise<void> | void;
 }) {
+  const isEditing = Boolean(props.editingReceipt && props.editingReceipt.evidenceType === "note");
   const draftKey = `areaforge.focus.evidence.note.${props.userId}.${props.sessionId}`;
   const commandScope = `focus-note:${props.sessionId}`;
   const [draft, setDraft] = useState<NoteDraft>(emptyNoteDraft);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [editingRevision, setEditingRevision] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  useEvidenceDraft(draftKey, draft, setDraft, hydrated, setHydrated, isNoteDraft, emptyNoteDraft);
+
+  useEvidenceDraft(draftKey, draft, setDraft, hydrated, setHydrated, isNoteDraft, emptyNoteDraft, isEditing);
+
+  useEffect(() => {
+    if (!isEditing || !props.editingReceipt) return;
+    let active = true;
+    setLoadingDetail(true);
+    setError(null);
+    void getNote(props.editingReceipt.evidenceId).then((res) => {
+      if (!active) return;
+      setLoadingDetail(false);
+      if (res.ok && res.body?.note) {
+        const note = res.body.note;
+        setDraft({
+          title: note.title,
+          content: note.content,
+          kind: (note.kind as NoteDraft["kind"]) || "GENERAL",
+          masteryStatus: note.masteryStatus || "partial",
+          nextReviewAt: note.nextReviewAt ? isoToShanghaiDateTimeInput(note.nextReviewAt) : "",
+        });
+        setEditingRevision(note.revision || 1);
+      } else {
+        setError("获取知识卡片详情失败，请重试。");
+      }
+    });
+    return () => { active = false; };
+  }, [isEditing, props.editingReceipt]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || loadingDetail) return;
     setSaving(true);
     setError(null);
     try {
@@ -94,31 +131,53 @@ function FocusNoteForm(props: EvidenceContext & {
         masteryStatus: draft.masteryStatus,
         nextReviewAt: draft.nextReviewAt ? shanghaiDateTimeInputToIso(draft.nextReviewAt) : null,
       };
-      const result = await createNote({
-        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "focus-note", payload),
-        ...payload,
-      });
-      if (!result.ok) {
-        const failure = classifyApiFailure(result);
-        if (failure.kind === "unauthorized") {
-          redirectToLoginWithCurrentLocation();
-          throw new Error("登录已过期，卡片草稿与重试身份已保留。重新登录后请显式重试。");
+
+      if (isEditing && props.editingReceipt) {
+        const result = await updateNote(props.editingReceipt.evidenceId, {
+          expectedRevision: editingRevision,
+          ...payload,
+        });
+        if (!result.ok || !result.body?.note) {
+          const failure = classifyApiFailure(result);
+          throw new Error(
+            failure.code
+            ?? Object.values(failure.fieldErrors).flat()[0]
+            ?? "更新知识卡片失败。",
+          );
         }
-        throw new Error(
-          failure.code
-          ?? Object.values(failure.fieldErrors).flat()[0]
-          ?? "保存知识卡片失败，草稿已保留。",
-        );
+        await props.onEvidenceUpdated?.({
+          evidenceType: "note",
+          evidenceId: props.editingReceipt.evidenceId,
+          label: result.body.note.title,
+        });
+        setDraft(emptyNoteDraft);
+      } else {
+        const result = await createNote({
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "focus-note", payload),
+          ...payload,
+        });
+        if (!result.ok) {
+          const failure = classifyApiFailure(result);
+          if (failure.kind === "unauthorized") {
+            redirectToLoginWithCurrentLocation();
+            throw new Error("登录已过期，卡片草稿与重试身份已保留。重新登录后请显式重试。");
+          }
+          throw new Error(
+            failure.code
+            ?? Object.values(failure.fieldErrors).flat()[0]
+            ?? "保存知识卡片失败，草稿已保留。",
+          );
+        }
+        if (!result.body?.note) throw new Error("保存知识卡片失败，草稿已保留。");
+        await props.onEvidenceSaved({ evidenceType: "note", evidenceId: result.body.note.id, label: result.body.note.title });
+        completeIdempotentCommand(commandScope);
+        removePrivateBusinessDraft(draftKey);
+        setDraft(emptyNoteDraft);
       }
-      if (!result.body?.note) throw new Error("保存知识卡片失败，草稿已保留。");
-      await props.onEvidenceSaved({ evidenceType: "note", evidenceId: result.body.note.id, label: result.body.note.title });
-      completeIdempotentCommand(commandScope);
-      removePrivateBusinessDraft(draftKey);
-      setDraft(emptyNoteDraft);
     } catch (caught) {
       setError(isShanghaiDateInputError(caught)
         ? "下次复习时间无效，知识卡片草稿与重试身份已保留。"
-        : evidenceErrorMessage(caught, "保存知识卡片失败，草稿与重试身份已保留。"));
+        : evidenceErrorMessage(caught, isEditing ? "更新知识卡片失败，请重试。" : "保存知识卡片失败，草稿与重试身份已保留。"));
     } finally {
       setSaving(false);
     }
@@ -126,7 +185,11 @@ function FocusNoteForm(props: EvidenceContext & {
 
   return (
     <div className="space-y-4">
-      <EvidenceHeading icon={<FileText />} title="创建知识卡片" context={contextLabel(props)} />
+      <EvidenceHeading
+        icon={<FileText />}
+        title={isEditing ? `修改知识卡片 · ${props.editingReceipt?.label || ""}` : "创建知识卡片"}
+        context={contextLabel(props)}
+      />
       <form noValidate className="space-y-3.5" onSubmit={submit}>
         {/* Card 1: Meta & Title */}
         <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-4 sm:p-5 shadow-lg space-y-3.5">
@@ -137,6 +200,7 @@ function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.kind}
                 onChange={(event) => setDraft({ ...draft, kind: event.target.value as NoteDraft["kind"] })}
+                disabled={loadingDetail}
               >
                 <option value="GENERAL">通用</option>
                 <option value="CONCEPT">概念</option>
@@ -153,6 +217,7 @@ function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.masteryStatus}
                 onChange={(event) => setDraft({ ...draft, masteryStatus: event.target.value as NoteMasteryStatusDto })}
+                disabled={loadingDetail}
               >
                 <option value="understood">理解了</option>
                 <option value="partial">似懂非懂</option>
@@ -172,6 +237,7 @@ function FocusNoteForm(props: EvidenceContext & {
               value={draft.title}
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
               placeholder="例如：极值定理的核心判别步骤"
+              disabled={loadingDetail}
             />
           </Field>
         </div>
@@ -187,6 +253,7 @@ function FocusNoteForm(props: EvidenceContext & {
               value={draft.content}
               onChange={(event) => setDraft({ ...draft, content: event.target.value })}
               placeholder="写下自己的理解、核心方法、反思或推导关键..."
+              disabled={loadingDetail}
             />
           </Field>
         </div>
@@ -201,21 +268,50 @@ function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.nextReviewAt}
                 onChange={(event) => setDraft({ ...draft, nextReviewAt: event.target.value })}
+                disabled={loadingDetail}
               />
             </Field>
           </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={saving || !draft.title.trim() || !draft.content.trim()}
-            loading={saving}
-            loadingLabel="保存中..."
-            leftIcon={<BookOpenCheck className="size-4" aria-hidden="true" />}
-            className="shrink-0"
-          >
-            保存卡片并关联本次学习
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {isEditing && props.editingReceipt ? (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => props.onDeleteReceipt?.(props.editingReceipt!)}
+                disabled={saving || loadingDetail}
+                leftIcon={<Trash2 className="size-4" aria-hidden="true" />}
+              >
+                删除此条
+              </Button>
+            ) : null}
+
+            {isEditing ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDraft(emptyNoteDraft);
+                  props.onCancelEdit?.();
+                }}
+                disabled={saving || loadingDetail}
+                leftIcon={<X className="size-4" aria-hidden="true" />}
+              >
+                取消修改
+              </Button>
+            ) : null}
+
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={saving || loadingDetail || !draft.title.trim() || !draft.content.trim()}
+              loading={saving || loadingDetail}
+              loadingLabel={isEditing ? "保存修改中..." : "保存中..."}
+              leftIcon={<BookOpenCheck className="size-4" aria-hidden="true" />}
+            >
+              {isEditing ? "保存修改并同步本次学习" : "保存卡片并关联本次学习"}
+            </Button>
+          </div>
         </div>
 
         {error ? <Alert tone="danger">{error}</Alert> : null}
@@ -238,19 +334,55 @@ interface MistakeDraft {
 const emptyMistakeDraft: MistakeDraft = { title: "", questionText: "", source: "", cause: "concept_confusion", causeNote: "", correctAnswer: "", correctIdea: "", nextReviewAt: "" };
 
 function FocusMistakeForm(props: EvidenceContext & {
+  editingReceipt?: FocusEvidenceReceipt | null;
+  onCancelEdit?: () => void;
+  onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onEvidenceSaved: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
+  onEvidenceUpdated?: (receipt: FocusEvidenceReceipt) => Promise<void> | void;
 }) {
+  const isEditing = Boolean(props.editingReceipt && props.editingReceipt.evidenceType === "mistake");
   const draftKey = `areaforge.focus.evidence.mistake.${props.userId}.${props.sessionId}`;
   const commandScope = `focus-mistake:${props.sessionId}`;
   const [draft, setDraft] = useState<MistakeDraft>(emptyMistakeDraft);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState("");
   const [error, setError] = useState<string | null>(null);
-  useEvidenceDraft(draftKey, draft, setDraft, hydrated, setHydrated, isMistakeDraft, emptyMistakeDraft);
+
+  useEvidenceDraft(draftKey, draft, setDraft, hydrated, setHydrated, isMistakeDraft, emptyMistakeDraft, isEditing);
+
+  useEffect(() => {
+    if (!isEditing || !props.editingReceipt) return;
+    let active = true;
+    setLoadingDetail(true);
+    setError(null);
+    void getMistake(props.editingReceipt.evidenceId).then((res) => {
+      if (!active) return;
+      setLoadingDetail(false);
+      if (res.ok && res.body?.mistake) {
+        const mistake = res.body.mistake;
+        setDraft({
+          title: mistake.title,
+          questionText: mistake.questionText || "",
+          source: mistake.source || "",
+          cause: (mistake.cause === "unknown" ? "concept_confusion" : mistake.cause) as MistakeDraft["cause"],
+          causeNote: mistake.causeNote || "",
+          correctAnswer: mistake.correctAnswer || "",
+          correctIdea: mistake.correctIdea || "",
+          nextReviewAt: mistake.nextReviewAt ? isoToShanghaiDateTimeInput(mistake.nextReviewAt) : "",
+        });
+        setExpectedUpdatedAt(mistake.updatedAt);
+      } else {
+        setError("获取错题详情失败，请重试。");
+      }
+    });
+    return () => { active = false; };
+  }, [isEditing, props.editingReceipt]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || loadingDetail) return;
     setSaving(true);
     setError(null);
     try {
@@ -266,31 +398,53 @@ function FocusMistakeForm(props: EvidenceContext & {
         correctIdea: draft.correctIdea.trim(),
         nextReviewAt: draft.nextReviewAt ? shanghaiDateTimeInputToIso(draft.nextReviewAt) : null,
       };
-      const result = await createMistake({
-        idempotencyKey: getOrCreateIdempotencyKey(commandScope, "focus-mistake", payload),
-        ...payload,
-      });
-      if (!result.ok) {
-        const failure = classifyApiFailure(result);
-        if (failure.kind === "unauthorized") {
-          redirectToLoginWithCurrentLocation();
-          throw new Error("登录已过期，错题草稿与重试身份已保留。重新登录后请显式重试。");
+
+      if (isEditing && props.editingReceipt) {
+        const result = await updateMistake(props.editingReceipt.evidenceId, {
+          expectedUpdatedAt,
+          ...payload,
+        });
+        if (!result.ok || !result.body?.mistake) {
+          const failure = classifyApiFailure(result);
+          throw new Error(
+            failure.code
+            ?? Object.values(failure.fieldErrors).flat()[0]
+            ?? "更新错题失败。",
+          );
         }
-        throw new Error(
-          failure.code
-          ?? Object.values(failure.fieldErrors).flat()[0]
-          ?? "保存错题失败，草稿已保留。",
-        );
+        await props.onEvidenceUpdated?.({
+          evidenceType: "mistake",
+          evidenceId: props.editingReceipt.evidenceId,
+          label: result.body.mistake.title,
+        });
+        setDraft(emptyMistakeDraft);
+      } else {
+        const result = await createMistake({
+          idempotencyKey: getOrCreateIdempotencyKey(commandScope, "focus-mistake", payload),
+          ...payload,
+        });
+        if (!result.ok) {
+          const failure = classifyApiFailure(result);
+          if (failure.kind === "unauthorized") {
+            redirectToLoginWithCurrentLocation();
+            throw new Error("登录已过期，错题草稿与重试身份已保留。重新登录后请显式重试。");
+          }
+          throw new Error(
+            failure.code
+            ?? Object.values(failure.fieldErrors).flat()[0]
+            ?? "保存错题失败，草稿已保留。",
+          );
+        }
+        if (!result.body?.mistake) throw new Error("保存错题失败，草稿已保留。");
+        await props.onEvidenceSaved({ evidenceType: "mistake", evidenceId: result.body.mistake.id, label: result.body.mistake.title });
+        completeIdempotentCommand(commandScope);
+        removePrivateBusinessDraft(draftKey);
+        setDraft(emptyMistakeDraft);
       }
-      if (!result.body?.mistake) throw new Error("保存错题失败，草稿已保留。");
-      await props.onEvidenceSaved({ evidenceType: "mistake", evidenceId: result.body.mistake.id, label: result.body.mistake.title });
-      completeIdempotentCommand(commandScope);
-      removePrivateBusinessDraft(draftKey);
-      setDraft(emptyMistakeDraft);
     } catch (caught) {
       setError(isShanghaiDateInputError(caught)
         ? "下次复习时间无效，错题草稿与重试身份已保留。"
-        : evidenceErrorMessage(caught, "保存错题失败，草稿与重试身份已保留。"));
+        : evidenceErrorMessage(caught, isEditing ? "更新错题失败，请重试。" : "保存错题失败，草稿与重试身份已保留。"));
     } finally {
       setSaving(false);
     }
@@ -298,7 +452,11 @@ function FocusMistakeForm(props: EvidenceContext & {
 
   return (
     <div className="space-y-4">
-      <EvidenceHeading icon={<Bug />} title="记录错题" context={contextLabel(props)} />
+      <EvidenceHeading
+        icon={<Bug />}
+        title={isEditing ? `修改错题记录 · ${props.editingReceipt?.label || ""}` : "记录错题"}
+        context={contextLabel(props)}
+      />
       <form noValidate className="space-y-3.5" onSubmit={submit}>
         {/* Card 1: Title & Question */}
         <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-4 sm:p-5 shadow-lg space-y-3.5">
@@ -311,6 +469,7 @@ function FocusMistakeForm(props: EvidenceContext & {
               value={draft.title}
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
               placeholder="哪一步或哪类题型出了问题"
+              disabled={loadingDetail}
             />
           </Field>
           <Field label="题目正文与条件" htmlFor="focus-mistake-question">
@@ -322,6 +481,7 @@ function FocusMistakeForm(props: EvidenceContext & {
               value={draft.questionText}
               onChange={(event) => setDraft({ ...draft, questionText: event.target.value })}
               placeholder="记录完整题面、边界条件与提问点"
+              disabled={loadingDetail}
             />
           </Field>
         </div>
@@ -335,6 +495,7 @@ function FocusMistakeForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.cause}
                 onChange={(event) => setDraft({ ...draft, cause: event.target.value as MistakeDraft["cause"] })}
+                disabled={loadingDetail}
               >
                 <option value="concept_confusion">概念混淆</option>
                 <option value="formula_unfamiliar">公式不熟</option>
@@ -353,6 +514,7 @@ function FocusMistakeForm(props: EvidenceContext & {
                 value={draft.source}
                 onChange={(event) => setDraft({ ...draft, source: event.target.value })}
                 placeholder="教材、真题年份或试卷题号"
+                disabled={loadingDetail}
               />
             </Field>
           </div>
@@ -366,6 +528,7 @@ function FocusMistakeForm(props: EvidenceContext & {
               value={draft.correctIdea}
               onChange={(event) => setDraft({ ...draft, correctIdea: event.target.value })}
               placeholder="写清错误发生在哪里，以及下一次看到这道题该如何快速破局..."
+              disabled={loadingDetail}
             />
           </Field>
         </div>
@@ -380,21 +543,50 @@ function FocusMistakeForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.nextReviewAt}
                 onChange={(event) => setDraft({ ...draft, nextReviewAt: event.target.value })}
+                disabled={loadingDetail}
               />
             </Field>
           </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={saving || !draft.title.trim() || !draft.questionText.trim() || !draft.correctIdea.trim()}
-            loading={saving}
-            loadingLabel="保存中..."
-            leftIcon={<BookOpenCheck className="size-4" aria-hidden="true" />}
-            className="shrink-0"
-          >
-            保存错题并关联本次学习
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {isEditing && props.editingReceipt ? (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => props.onDeleteReceipt?.(props.editingReceipt!)}
+                disabled={saving || loadingDetail}
+                leftIcon={<Trash2 className="size-4" aria-hidden="true" />}
+              >
+                删除此条
+              </Button>
+            ) : null}
+
+            {isEditing ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDraft(emptyMistakeDraft);
+                  props.onCancelEdit?.();
+                }}
+                disabled={saving || loadingDetail}
+                leftIcon={<X className="size-4" aria-hidden="true" />}
+              >
+                取消修改
+              </Button>
+            ) : null}
+
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={saving || loadingDetail || !draft.title.trim() || !draft.questionText.trim() || !draft.correctIdea.trim()}
+              loading={saving || loadingDetail}
+              loadingLabel={isEditing ? "保存修改中..." : "保存中..."}
+              leftIcon={<BookOpenCheck className="size-4" aria-hidden="true" />}
+            >
+              {isEditing ? "保存修改并同步本次学习" : "保存错题并关联本次学习"}
+            </Button>
+          </div>
         </div>
 
         {error ? <Alert tone="danger">{error}</Alert> : null}
@@ -411,20 +603,22 @@ function useEvidenceDraft<T>(
   setHydrated: (value: boolean) => void,
   validator: (value: unknown) => value is T,
   emptyValue: T,
+  disabled: boolean = false,
 ) {
   useEffect(() => {
+    if (disabled) return;
     const timer = window.setTimeout(() => {
       const saved = loadPrivateBusinessDraft(key, LONG_PRIVATE_DRAFT_TTL_MS, validator);
       if (saved) setValue(saved);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [key, setHydrated, setValue, validator]);
+  }, [disabled, key, setHydrated, setValue, validator]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (disabled || !hydrated) return;
     if (JSON.stringify(value) === JSON.stringify(emptyValue)) removePrivateBusinessDraft(key);
     else savePrivateBusinessDraft(key, value);
-  }, [emptyValue, hydrated, key, value]);
+  }, [disabled, emptyValue, hydrated, key, value]);
 }
 
 function EvidenceHeading(props: { icon: React.ReactNode; title: string; context: string | null }) {

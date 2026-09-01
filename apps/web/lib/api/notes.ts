@@ -42,6 +42,16 @@ export interface NoteMutationResponse extends ApiErrorEnvelope<NoteDto> {
   note?: NoteDto;
 }
 
+export interface GetNoteResponse extends ApiErrorEnvelope<NoteDto> {
+  note?: NoteDto;
+  readOnly?: boolean;
+  subjectArchived?: boolean;
+}
+
+export function getNote(id: string): Promise<ApiResult<GetNoteResponse>> {
+  return requestApiResult(`/api/notes/${encodeURIComponent(id)}`, { method: "GET" });
+}
+
 export function createNote(input: CreateNoteInput): Promise<ApiResult<NoteMutationResponse>> {
   return requestApiResult("/api/notes", createJsonRequest("POST", input));
 }

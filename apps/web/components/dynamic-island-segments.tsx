@@ -212,7 +212,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
           }`}
         />
         <span className="font-semibold text-teal-100 max-w-24 truncate">{session.subjectName || "专注学习"}</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -226,7 +225,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <span className="size-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
         <span className="font-semibold text-emerald-100 max-w-24 truncate">{session.subjectName || "专注学习"}</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -240,7 +238,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <span className="size-2 shrink-0 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
         <span className="font-semibold text-emerald-100 max-w-28 truncate">{session.subjectName || "专注学习"} 暂停中</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -254,7 +251,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <Zap size={13} className="text-amber-400 animate-pulse fill-amber-400/30 shrink-0" />
         <span className="font-semibold text-amber-200 truncate">⚡ 恢复第{stage}阶</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -268,7 +264,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <Moon size={13} className="text-indigo-300 fill-indigo-400/20 shrink-0" />
         <span className="font-semibold text-indigo-200 truncate">🌙 晚间复盘待收口</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -282,7 +277,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <span className="size-2 shrink-0 rounded-full bg-amber-400 animate-pulse" />
         <span className="max-w-24 truncate font-semibold">{title || "离线待对账"}</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }
@@ -296,7 +290,6 @@ export function CapsuleLeftSegment(props: CapsuleLeftSegmentProps) {
       >
         <span className="size-2 shrink-0 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
         <span className="max-w-24 truncate font-semibold">{pendingConfirmationsCount}项待确认</span>
-        {activeCount > 1 ? <CapsuleBreathingDots count={activeCount} activeIndex={tickerIndex} /> : null}
       </div>
     );
   }

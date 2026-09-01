@@ -49,6 +49,7 @@ interface FocusSessionWorkspaceProps {
   lowConversionAdded: boolean;
   activeEvidenceType: FocusEvidenceType;
   evidenceReceipts: FocusEvidenceReceipt[];
+  editingReceipt?: FocusEvidenceReceipt | null;
   conflict: FocusSessionConflict | null;
   conflictOpen: boolean;
   onRetryDeferredConflict: () => void;
@@ -64,11 +65,15 @@ interface FocusSessionWorkspaceProps {
   onCompleteEvidence: () => void;
   onEvidenceTypeChange: (type: FocusEvidenceType) => void;
   onLinkEvidence: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
+  onEditReceipt?: (receipt: FocusEvidenceReceipt) => void;
+  onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
+  onCancelEditEvidence?: () => void;
+  onUpdateEvidence?: (receipt: FocusEvidenceReceipt) => Promise<void> | void;
   onOpenConflict: () => void;
   onCloseConflict: () => void;
   onAdoptServer: () => void;
   onManualMerge: () => void;
-  onDiscardConflict: (() => void) | undefined;
+  onDiscardConflict?: () => void;
 }
 
 export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
@@ -117,6 +122,9 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
           activeType={props.activeEvidenceType}
           canRetest={Boolean(props.session.syllabusNodeId)}
           receipts={props.evidenceReceipts}
+          editingReceiptId={props.editingReceipt?.evidenceId}
+          onEditReceipt={props.onEditReceipt}
+          onDeleteReceipt={props.onDeleteReceipt}
           onTypeChange={props.onEvidenceTypeChange}
           onComplete={props.onCompleteEvidence}
         >
@@ -130,7 +138,11 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
             syllabusNodeId={props.session.syllabusNodeId}
             syllabusNodeTitle={props.session.syllabusNodeTitle}
             activeType={props.activeEvidenceType}
+            editingReceipt={props.editingReceipt}
+            onCancelEdit={props.onCancelEditEvidence}
+            onDeleteReceipt={props.onDeleteReceipt}
             onEvidenceSaved={props.onLinkEvidence}
+            onEvidenceUpdated={props.onUpdateEvidence}
           />
         </EvidenceWorkspace>
       ) : null}
