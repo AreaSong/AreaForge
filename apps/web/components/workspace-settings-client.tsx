@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { Save } from "lucide-react";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, SectionCard } from "@/components/ui/card";
+import { SectionCard } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/field";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { PageHeader, SectionHeader } from "@/components/ui/page";
 import { WorkspaceSubjectManager } from "@/components/workspace-subject-manager";
 import { WorkspaceSetupSection } from "@/components/workspace-setup-section";
+import { WorkspaceSettingsSidebar } from "@/components/workspace-settings-sidebar";
 import {
   isExamWorkspaceDto,
   isWorkspaceEditDraft,
@@ -32,15 +33,21 @@ import {
 } from "@/lib/client/private-business-drafts";
 import type {
   ExamWorkspaceDto,
+  SubjectDuplicateSetDto,
   SubjectGroupDto,
   TakeoverPreviewDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts";
 import {
-  buildFirstUseSubjects,
-  canProceedFromFirstUseGoal,
+  buildFirstUseGroups,
+  buildFirstUseSubjectsFromDraft,
+  canProceedFromFirstUseRows,
   canUseTakeoverPreview,
-  hasConfiguredFirstUseSubjects,
+  hasConfiguredFirstUseRows,
+  materializeFirstUseTemplateSelection,
+  type FirstUseGroupDraft,
+  type FirstUseSubjectDraft,
+  validateFirstUseRows,
   workspaceSetupErrorMessage,
 } from "@/lib/workspace/first-use";
 import {
@@ -60,6 +67,7 @@ export function WorkspaceSettingsClient(props: {
   activeId: string | null;
   subjects: WorkspaceSubjectDto[];
   groups: SubjectGroupDto[];
+  duplicateSets: SubjectDuplicateSetDto[];
   takeover: TakeoverPreviewDto | null;
   setupMode: boolean;
 }) {
@@ -77,9 +85,9 @@ export function WorkspaceSettingsClient(props: {
   const [name, setName] = useState("考研工作区");
   const [stableKey, setStableKey] = useState("ws-primary");
   const [targetExamDate, setTargetExamDate] = useState("");
-  const [subjectName, setSubjectName] = useState("");
-  const [subjectKey, setSubjectKey] = useState("subject-1");
-  const [include408, setInclude408] = useState(false);
+  const [setupSubjects, setSetupSubjects] = useState<FirstUseSubjectDraft[]>([]);
+  const [setupGroups, setSetupGroups] = useState<FirstUseGroupDraft[]>([]);
+  const [templateIds, setTemplateIds] = useState<string[]>([]);
   const [editName, setEditName] = useState(activeWorkspace?.name ?? "");
   const [editTargetDate, setEditTargetDate] = useState(
     activeWorkspace?.targetExamDate ? isoToShanghaiDateInput(activeWorkspace.targetExamDate) : "",
@@ -94,11 +102,10 @@ export function WorkspaceSettingsClient(props: {
   const [setupDraftReady, setSetupDraftReady] = useState(false);
 
   const activeSubjects = props.subjects.filter((item) => !item.archivedAt);
-  const hasNewSetupSubjects = hasConfiguredFirstUseSubjects({ subjectName, subjectKey, include408 });
-  const canProceedFromSetup = canProceedFromFirstUseGoal({
-    subjectName,
-    subjectKey,
-    include408,
+  const hasNewSetupSubjects = hasConfiguredFirstUseRows({ subjects: setupSubjects });
+  const canProceedFromSetup = canProceedFromFirstUseRows({
+    subjects: setupSubjects,
+    templateIds,
     eligibleTakeoverCount: props.takeover?.eligibleCount ?? 0,
   });
 
@@ -107,13 +114,33 @@ export function WorkspaceSettingsClient(props: {
     const timer = window.setTimeout(() => {
       const draft = loadPrivateBusinessDraft(setupDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isWorkspaceSetupDraft);
       if (draft) {
+        const restoredTemplateIds = draft.templateIds ?? (draft.include408 ? ["computer-science-408"] : []);
+        let restoredSubjects = draft.subjects ?? (draft.subjectName.trim() ? [{
+          id: "legacy-subject-1",
+          stableKey: draft.subjectKey,
+          name: draft.subjectName,
+          color: "#35d7c5",
+          groupStableKey: null,
+        }] : []);
+        let restoredGroups = draft.groups ?? [];
+        if (draft.subjects === undefined && draft.groups === undefined) {
+          for (const templateId of restoredTemplateIds) {
+            const restored = materializeFirstUseTemplateSelection({
+              subjects: restoredSubjects,
+              groups: restoredGroups,
+              templateId,
+            });
+            restoredSubjects = restored.subjects;
+            restoredGroups = restored.groups;
+          }
+        }
         setStep(draft.step);
         setName(draft.name);
         setStableKey(draft.stableKey);
         setTargetExamDate(draft.targetExamDate);
-        setSubjectName(draft.subjectName);
-        setSubjectKey(draft.subjectKey);
-        setInclude408(draft.include408);
+        setSetupSubjects(restoredSubjects);
+        setSetupGroups(restoredGroups);
+        setTemplateIds(restoredTemplateIds);
       }
       setSetupDraftReady(true);
     }, 0);
@@ -122,16 +149,20 @@ export function WorkspaceSettingsClient(props: {
 
   useEffect(() => {
     if (!props.setupMode || !setupDraftReady) return;
+    const firstSubject = setupSubjects[0];
     savePrivateBusinessDraft<WorkspaceSetupDraft>(setupDraftKey, {
       step,
       name,
       stableKey,
       targetExamDate,
-      subjectName,
-      subjectKey,
-      include408,
+      subjectName: firstSubject?.name ?? "",
+      subjectKey: firstSubject?.stableKey ?? "subject-1",
+      include408: templateIds.includes("computer-science-408"),
+      subjects: setupSubjects,
+      groups: setupGroups,
+      templateIds,
     });
-  }, [include408, name, props.setupMode, setupDraftKey, setupDraftReady, stableKey, step, subjectKey, subjectName, targetExamDate]);
+  }, [name, props.setupMode, setupDraftKey, setupDraftReady, setupGroups, setupSubjects, stableKey, step, targetExamDate, templateIds]);
 
   useEffect(() => {
     if (!activeWorkspace || !workspaceEditDraftKey || props.setupMode) return;
@@ -173,6 +204,16 @@ export function WorkspaceSettingsClient(props: {
 
   async function completeFirstUseSetup(takeover: boolean) {
     if (pending) return;
+    const rowsValidation = validateFirstUseRows({
+      subjects: setupSubjects,
+      groups: setupGroups,
+      templateIds,
+    });
+    if (!rowsValidation.valid) {
+      setStep("goal");
+      setError(rowsValidation.issue);
+      return;
+    }
     if (!hasNewSetupSubjects && (!takeover || (props.takeover?.eligibleCount ?? 0) === 0)) {
       setStep("goal");
       setError("至少填写一个科目、勾选 408 四科，或沿用一个已有科目。");
@@ -185,18 +226,19 @@ export function WorkspaceSettingsClient(props: {
     setPending(true);
     setError(null);
     try {
-      const subjects = buildFirstUseSubjects({
-        subjectKey,
-        subjectName,
-        include408,
+      const subjects = buildFirstUseSubjectsFromDraft({
+        subjects: setupSubjects,
+        templateIds,
         takeoverSubjects: takeover ? props.takeover?.eligibleSubjects ?? [] : [],
       });
+      const groups = buildFirstUseGroups({ groups: setupGroups, subjects: setupSubjects, templateIds });
       const createResult = await createExamWorkspace({
         stableKey,
         name,
         targetExamDate: targetExamDate ? shanghaiDateInputToIso(targetExamDate) : null,
         activate: true,
         subjects: subjects.length > 0 ? subjects : undefined,
+        groups: groups.length > 0 ? groups : undefined,
         takeoverSubjectIds: takeover ? props.takeover?.eligibleSubjectIds ?? [] : [],
       });
       if (isUnauthorized(createResult)) {
@@ -330,91 +372,17 @@ export function WorkspaceSettingsClient(props: {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
-        {/* Left Column (Aside) */}
-        <aside className="space-y-5">
-          {props.setupMode || !props.activeId ? (
-            <Card variant="master" className="space-y-4">
-              <CardHeader className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-teal-300">配置流程</span>
-                <CardTitle className="text-base">建立备考目标</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0 text-sm">
-                <ol className="space-y-2">
-                  <li className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors ${step === "goal" ? "border-teal-400/40 bg-teal-500/10 text-teal-200" : "border-white/5 bg-white/[0.02] text-zinc-400"}`}>
-                    <span className="grid size-6 place-items-center rounded-full border border-current text-xs font-semibold">1</span>
-                    <span className="font-medium text-xs">考试目标与首批科目</span>
-                  </li>
-                  <li className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors ${step === "takeover" ? "border-teal-400/40 bg-teal-500/10 text-teal-200" : "border-white/5 bg-white/[0.02] text-zinc-400"}`}>
-                    <span className="grid size-6 place-items-center rounded-full border border-current text-xs font-semibold">2</span>
-                    <span className="font-medium text-xs">已有数据处理方式</span>
-                  </li>
-                </ol>
-                <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-relaxed text-amber-200">
-                  完成前不会创建工作区，也不会移动任何已有学习数据。
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {activeWorkspace ? (
-                <Card variant="master" className="space-y-4">
-                  <CardHeader className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-teal-300">当前工作区</span>
-                      <Badge tone="success">生效中</Badge>
-                    </div>
-                    <CardTitle className="text-lg">{activeWorkspace.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 pt-0 text-sm">
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2 text-xs text-zinc-300">
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">目标考试日</span>
-                        <span className="font-medium text-white">{activeWorkspace.targetExamDate ? activeWorkspace.targetExamDate.slice(0, 10) : "未设置"}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">使用中科目</span>
-                        <span className="font-medium text-teal-300">{activeSubjects.length} 个</span>
-                      </div>
-                      {activeWorkspace.stageSummary ? (
-                        <div className="pt-2 border-t border-white/5 text-zinc-400">
-                          <span className="block text-zinc-500 mb-1">阶段摘要</span>
-                          <p className="line-clamp-3 leading-relaxed">{activeWorkspace.stageSummary}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : null}
+        <WorkspaceSettingsSidebar
+          setupMode={props.setupMode}
+          step={step}
+          activeId={props.activeId}
+          activeWorkspace={activeWorkspace}
+          activeSubjectCount={activeSubjects.length}
+          workspaces={props.workspaces}
+          pending={pending}
+          onActivate={(workspace) => void activateWorkspace(workspace)}
+        />
 
-              <Card variant="subtle" className="space-y-3">
-                <CardHeader className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">其他工作区</CardTitle>
-                    <Badge>{props.workspaces.length} 个</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0 text-xs">
-                  <ul className="space-y-2">
-                    {props.workspaces.map((ws) => (
-                      <li key={ws.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-white/5 bg-white/[0.02]">
-                        <span className="truncate font-medium text-zinc-300">{ws.name}</span>
-                        {ws.id !== props.activeId ? (
-                          <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => void activateWorkspace(ws)}>
-                            设为当前
-                          </Button>
-                        ) : (
-                          <Badge tone="success">使用中</Badge>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </aside>
-
-        {/* Right Column (Main) */}
         <main className="space-y-6 min-w-0">
           {props.setupMode ? (
             <WorkspaceSetupSection
@@ -426,12 +394,12 @@ export function WorkspaceSettingsClient(props: {
               setStableKey={setStableKey}
               targetExamDate={targetExamDate}
               setTargetExamDate={setTargetExamDate}
-              subjectName={subjectName}
-              setSubjectName={setSubjectName}
-              subjectKey={subjectKey}
-              setSubjectKey={setSubjectKey}
-              include408={include408}
-              setInclude408={setInclude408}
+              subjects={setupSubjects}
+              setSubjects={setSetupSubjects}
+              groups={setupGroups}
+              setGroups={setSetupGroups}
+              templateIds={templateIds}
+              setTemplateIds={setTemplateIds}
               takeover={props.takeover}
               canProceed={canProceedFromSetup}
               canCreateWithoutTakeover={hasNewSetupSubjects}
@@ -476,7 +444,12 @@ export function WorkspaceSettingsClient(props: {
                 ) : null}
               </SectionCard>
 
-              <WorkspaceSubjectManager workspace={activeWorkspace} subjects={props.subjects} groups={props.groups} />
+              <WorkspaceSubjectManager
+                workspace={activeWorkspace}
+                subjects={props.subjects}
+                groups={props.groups}
+                duplicateSets={props.duplicateSets}
+              />
             </>
           ) : null}
 

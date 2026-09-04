@@ -10,6 +10,7 @@
 - 基础版：已有低风险入口或派生规则，但还不能替代完整结构化能力。
 - 待确认：命中 migration、上传、AI、部署等高风险边界，执行前必须先确认影响、风险、验证和回滚。
 - 隔离已实现：代码与隔离环境验收已完成，但尚未进入签名 Release 或生产切换，不等同于生产可用。
+- 本地实现说明：已有真实代码与专项测试，但仍有同版本写路径、验收、PR/CI 或文档收口未完成；它不是独立状态词。
 - 未实现：已写入下一产品版本规格，但尚未进入业务代码；不计入 docs 100% 完成声明（`docs:completion` 跳过「下一产品版本」节）。
 - 暂缓：产品文档明确不进入当前版本。
 
@@ -91,7 +92,7 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 个人版完全动态化 | 未实现 | 已有科目/分组 CRUD 和显式 408 模板；首次设置仍需扩展为多自定义科目/分组，模板仍需去特殊化 | `tasks/backlog/0039-personal-dynamic-foundation.md` |
+| 个人版完全动态化 | 基础版 / 待确认 | 当前工作树已实现多自定义科目/分组首次设置、版本化通用模板目录、408 去特殊化、科目/分组 CRUD/排序/归档/恢复、重复集合识别、引用/冲突预览和执行前 snapshot hash；core/Web 测试、typecheck、完整 `pnpm check` 与既有测试池桌面/移动页面复核已通过 | `tasks/active/0039-personal-dynamic-foundation.md`；真实科目合并写入仍需专项确认、事务实现与隔离数据库验证，随后还需受保护 PR/CI、签名 Release 和独立 production apply |
 | 邀请制多用户与 Workspace Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义 | `tasks/backlog/0040-multi-user-rbac.md` |
 | 预设角色、统一授权与隐私共享 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service 或敏感资源共享授权 | `tasks/backlog/0040-multi-user-rbac.md` |
 | 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |

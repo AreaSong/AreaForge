@@ -31,7 +31,12 @@ export interface CreateExamWorkspaceInput {
     name: string;
     color: string;
     sortOrder?: number;
-    groupStableKey?: "408" | null;
+    groupStableKey?: string | null;
+  }>;
+  groups?: Array<{
+    stableKey: string;
+    name: string;
+    sortOrder?: number;
   }>;
   takeoverSubjectIds?: string[];
 }

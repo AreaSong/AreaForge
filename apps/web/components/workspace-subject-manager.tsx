@@ -17,6 +17,7 @@ import { classifyApiFailure } from "@/lib/client/api-errors";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type {
   ExamWorkspaceDto,
+  SubjectDuplicateSetDto,
   SubjectGroupDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts";
@@ -34,11 +35,13 @@ import {
   subjectErrorMessage,
   SubjectRow,
 } from "@/components/workspace-subject-manager-sections";
+import { SubjectDuplicatePreview } from "@/components/subject-duplicate-preview";
 
 export function WorkspaceSubjectManager(props: {
   workspace: ExamWorkspaceDto;
   subjects: WorkspaceSubjectDto[];
   groups: SubjectGroupDto[];
+  duplicateSets: SubjectDuplicateSetDto[];
 }) {
   const router = useRouter();
   const [localRevision, setLocalRevision] = useState({
@@ -278,6 +281,8 @@ export function WorkspaceSubjectManager(props: {
         ))}
         {activeSubjects.length === 0 ? <p className="p-4 text-sm text-zinc-500">还没有可用科目。</p> : null}
       </div>
+
+      <SubjectDuplicatePreview sets={props.duplicateSets} />
 
       <Card variant="subtle" className="af-form-action-grid grid gap-3 border-l-2 border-teal-400/40 p-4">
         <label className="text-sm text-zinc-300 font-medium">

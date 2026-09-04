@@ -99,12 +99,14 @@ test("Adversarial M5: Settings subviews conform to canonical dual-column workben
     if (page.file.endsWith("exams/page.tsx")) {
       const clientPath = findRepoPath("apps/web/components/workspace-settings-client.tsx");
       const clientContent = fs.readFileSync(clientPath, "utf-8");
+      const sidebarPath = findRepoPath("apps/web/components/workspace-settings-sidebar.tsx");
+      const sidebarContent = fs.readFileSync(sidebarPath, "utf-8");
       assert.match(
         clientContent,
         /grid grid-cols-1 gap-6 lg:grid-cols-\[280px_1fr\] xl:grid-cols-\[320px_1fr\]/,
         "WorkspaceSettingsClient must contain canonical dual-column responsive grid",
       );
-      assert.match(clientContent, /<aside className="space-y-5">/, "WorkspaceSettingsClient must contain <aside>");
+      assert.match(sidebarContent, /<aside className="space-y-5">/, "WorkspaceSettingsSidebar must own <aside>");
       assert.match(clientContent, /<main className="space-y-6 min-w-0">/, "WorkspaceSettingsClient must contain <main>");
     } else if (page.file.endsWith("system/page.tsx")) {
       const workbenchPath = findRepoPath("apps/web/components/settings-workbench.tsx");

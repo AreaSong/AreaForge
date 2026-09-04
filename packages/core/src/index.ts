@@ -19,6 +19,8 @@ export * from "./learning-tree-parse";
 export * from "./learning-tree-diff";
 export * from "./safe-markdown";
 export * from "./learning-tree-templates";
+export * from "./exam-templates";
+export * from "./subject-duplicates";
 export * from "./learning-tree-export";
 export * from "./learning-tree-selection";
 export * from "./unified-review";

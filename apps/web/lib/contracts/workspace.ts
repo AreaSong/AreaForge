@@ -34,6 +34,51 @@ export interface WorkspaceSubjectDto {
   legacyScope: boolean;
 }
 
+export interface SubjectReferenceCountDto {
+  tasks: number;
+  sessions: number;
+  activeSessions: number;
+  syllabusNodes: number;
+  notes: number;
+  mistakes: number;
+  simulationSubjectResults: number;
+  planMilestones: number;
+  planInboxItems: number;
+  studyResources: number;
+  primaryKnowledgePoints: number;
+  relatedKnowledgePoints: number;
+  knowledgeGroups: number;
+  learningArrangements: number;
+  total: number;
+}
+
+export interface SubjectDuplicateSetDto {
+  id: string;
+  /** 绑定只读预览；后续经确认的合并写入必须先重新校验该快照。 */
+  snapshotHash: string;
+  reasons: Array<{
+    code: "NORMALIZED_NAME" | "NORMALIZED_STABLE_KEY" | "LEGACY_CODE";
+    normalizedValue: string;
+    subjectIds: string[];
+  }>;
+  recommendedTargetId: string;
+  subjects: Array<{
+    subject: WorkspaceSubjectDto;
+    references: SubjectReferenceCountDto;
+  }>;
+  conflictCounts: {
+    syllabusStableKeys: number;
+    simulationExams: number;
+    relatedKnowledgePoints: number;
+  };
+  requiredReassignments: {
+    primaryKnowledgePoints: number;
+  };
+  totalReferenceCount: number;
+  canAutoApply: false;
+  requiresUserConfirmation: true;
+}
+
 export interface TakeoverPreviewDto {
   eligibleCount: number;
   unresolvedCount: number;

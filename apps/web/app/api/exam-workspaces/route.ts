@@ -17,8 +17,13 @@ const createSchema = z.object({
     name: z.string().trim().min(1).max(120),
     color: z.string().trim().min(1).max(32),
     sortOrder: z.number().int().optional(),
-    groupStableKey: z.literal("408").nullable().optional(),
+    groupStableKey: z.string().trim().min(1).max(80).nullable().optional(),
   })).min(1).max(12).optional(),
+  groups: z.array(z.object({
+    stableKey: z.string().trim().min(1).max(80),
+    name: z.string().trim().min(1).max(120),
+    sortOrder: z.number().int().optional(),
+  })).max(20).optional(),
   takeoverSubjectIds: z.array(z.string().min(1)).max(100).optional(),
 });
 

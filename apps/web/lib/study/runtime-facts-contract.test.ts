@@ -31,6 +31,36 @@ test("runtime facts: countdowns and stage windows use workspace data instead of 
   assert.match(schemas, /examDate: z\.string\(\)\.datetime\(\)/);
 });
 
+test("runtime facts: business services do not embed author subjects or legacy 408 branches", () => {
+  const services = [
+    "lib/study/action-center-service.ts",
+    "lib/study/analytics-service.ts",
+    "lib/study/dashboard-query-service.ts",
+    "lib/study/exam-workspace-service.ts",
+    "lib/study/long-term-risk-service.ts",
+    "lib/study/reports-service.ts",
+    "lib/study/simulation-service.ts",
+    "lib/study/stage-service.ts",
+    "lib/study/study-query-service.ts",
+    "lib/study/weekly-budget-service.ts",
+  ].map(loadSource).join("\n");
+
+  assert.doesNotMatch(
+    services,
+    /computer-science-408|include408|408-data-structure|408-operating-system|408-computer-network/,
+  );
+  assert.doesNotMatch(services, /"数据结构"|"计算机组成原理"|"操作系统"|"计算机网络"|"高等数学"/);
+});
+
+test("runtime facts: templates are isolated seed material instead of hidden runtime defaults", () => {
+  const templates = loadSource("../../packages/core/src/exam-templates.ts");
+  const firstUse = loadSource("lib/workspace/first-use.ts");
+
+  assert.match(templates, /seed material only/);
+  assert.match(templates, /computer-science-408/);
+  assert.match(firstUse, /getExamTemplate|materializeExamTemplate/);
+});
+
 test("subject lifecycle: archive pauses schedules and restore makes them due today", () => {
   const source = loadSource("lib/study/exam-workspace-service.ts");
   const updateSubject = sourceRange(

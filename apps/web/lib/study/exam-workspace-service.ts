@@ -3,6 +3,7 @@ import {
   buildActiveSwitchPlan,
   canActivateWorkspace,
   classifyLegacyOwnership,
+  findExamTemplateSubjectByLegacyCode,
   summarizeTakeoverPreview,
   type LegacyOwnershipVerdict,
 } from "@areaforge/core";
@@ -101,7 +102,12 @@ export async function createExamWorkspace(
       name: string;
       color: string;
       sortOrder?: number;
-      groupStableKey?: "408" | null;
+      groupStableKey?: string | null;
+    }>;
+    groups?: Array<{
+      stableKey: string;
+      name: string;
+      sortOrder?: number;
     }>;
     takeoverSubjectIds?: string[];
   },
@@ -111,11 +117,23 @@ export async function createExamWorkspace(
 
     const activate = input.activate !== false;
     const stableKeys = input.subjects?.map((subject) => subject.stableKey.trim()) ?? [];
-    if (new Set(stableKeys).size !== stableKeys.length) {
+    if (new Set(stableKeys.map((key) => key.toLocaleLowerCase())).size !== stableKeys.length) {
       throw new ApiError("SUBJECT_STABLE_KEY_DUPLICATE", 400);
     }
+    const requestedGroups = input.groups ?? [];
+    const groupKeys = requestedGroups.map((group) => group.stableKey.trim());
+    const inferredGroupDefinitions = new Map<string, { name: string; sortOrder: number }>();
+    const subjectGroupKeys = input.subjects?.map((subject) => subject.groupStableKey?.trim()).filter(Boolean) ?? [];
+    if (new Set(groupKeys.map((key) => key.toLocaleLowerCase())).size !== groupKeys.length) {
+      throw new ApiError("SUBJECT_GROUP_STABLE_KEY_DUPLICATE", 400);
+    }
+    const allGroupKeys = [...groupKeys];
+    for (const groupKey of subjectGroupKeys as string[]) {
+      if (!allGroupKeys.some((key) => key.toLocaleLowerCase() === groupKey.toLocaleLowerCase())) {
+        allGroupKeys.push(groupKey);
+      }
+    }
     const requestedTakeover = Array.from(new Set(input.takeoverSubjectIds ?? []));
-    let needs408Group = input.subjects?.some((subject) => subject.groupStableKey === "408") ?? false;
     if (requestedTakeover.length > 0) {
       const preview = await previewWorkspaceTakeoverWithClient(actorId, tx);
       const eligibleSet = new Set(preview.eligibleSubjectIds);
@@ -129,9 +147,20 @@ export async function createExamWorkspace(
         where: { id: { in: requestedTakeover }, workspaceId: null },
         select: { stableKey: true, legacyCode: true },
       });
-      needs408Group ||= takeoverSubjects.some((subject) => is408LegacyCode(subject.legacyCode));
-      const takeoverStableKeys = new Set(takeoverSubjects.map((subject) => subject.stableKey));
-      const conflictingKeys = stableKeys.filter((stableKey) => takeoverStableKeys.has(stableKey));
+      for (const subject of takeoverSubjects) {
+        const match = findExamTemplateSubjectByLegacyCode(subject.legacyCode);
+        if (match && !allGroupKeys.some((key) => key.toLocaleLowerCase() === match.groupStableKey.toLocaleLowerCase())) {
+          allGroupKeys.push(match.groupStableKey);
+        }
+        if (match) {
+          inferredGroupDefinitions.set(match.groupStableKey.toLocaleLowerCase(), {
+            name: match.groupName,
+            sortOrder: match.groupSortOrder,
+          });
+        }
+      }
+      const takeoverStableKeys = new Set(takeoverSubjects.map((subject) => subject.stableKey.toLocaleLowerCase()));
+      const conflictingKeys = stableKeys.filter((stableKey) => takeoverStableKeys.has(stableKey.toLocaleLowerCase()));
       if (conflictingKeys.length > 0) {
         throw new ApiError("SUBJECT_STABLE_KEY_CONFLICT_WITH_TAKEOVER", 409, {
           conflictFields: ["subjects", "takeoverSubjectIds"],
@@ -157,22 +186,26 @@ export async function createExamWorkspace(
       },
     });
 
-    const group408 = needs408Group
-      ? await tx.subjectGroup.create({
+    const groupRows = new Map<string, { id: string; stableKey: string }>();
+    for (const groupKey of allGroupKeys) {
+      const normalizedGroupKey = groupKey.toLocaleLowerCase();
+      const requested = requestedGroups.find((group) => group.stableKey.trim().toLocaleLowerCase() === normalizedGroupKey);
+      const inferred = inferredGroupDefinitions.get(normalizedGroupKey);
+      const group = await tx.subjectGroup.create({
         data: {
           workspaceId: created.id,
-          stableKey: "408",
-          name: "408",
-          sortOrder: 40,
+          stableKey: groupKey,
+          name: requested?.name.trim() ?? inferred?.name ?? groupKey,
+          sortOrder: requested?.sortOrder ?? inferred?.sortOrder ?? (groupRows.size + 1) * 10,
         },
-      })
-      : null;
-
+      });
+      groupRows.set(normalizedGroupKey, group);
+    }
     if (input.subjects?.length) {
       await tx.subject.createMany({
         data: input.subjects.map((subject, index) => ({
           workspaceId: created.id,
-          groupId: subject.groupStableKey === "408" ? group408?.id ?? null : null,
+          groupId: subject.groupStableKey ? groupRows.get(subject.groupStableKey.trim().toLocaleLowerCase())?.id ?? null : null,
           stableKey: subject.stableKey.trim(),
           name: subject.name.trim(),
           color: subject.color,
@@ -183,7 +216,12 @@ export async function createExamWorkspace(
     }
 
     if (requestedTakeover.length > 0) {
-      await applyEligibleLegacySubjects(tx, created.id, group408?.id ?? null, requestedTakeover);
+      const legacySubjects = await tx.subject.findMany({
+        where: { id: { in: requestedTakeover }, workspaceId: null },
+        select: { legacyCode: true },
+      });
+      const legacyGroupIds = await ensureLegacyTemplateGroups(tx, created.id, legacySubjects);
+      await applyEligibleLegacySubjects(tx, created.id, legacyGroupIds, requestedTakeover);
       await applyEligibleLegacyRoots(tx, actorId, created.id);
     }
 
@@ -464,10 +502,12 @@ export async function applyWorkspaceTakeover(
       return { workspace: serializeWorkspace(workspace), takenOverSubjectIds: [] };
     }
 
-    const group408 = await tx.subjectGroup.findFirst({
-      where: { workspaceId: workspace.id, stableKey: "408" },
+    const legacySubjects = await tx.subject.findMany({
+      where: { id: { in: requested }, workspaceId: null },
+      select: { legacyCode: true },
     });
-    await applyEligibleLegacySubjects(tx, workspace.id, group408?.id ?? null, requested);
+    const legacyGroupIds = await ensureLegacyTemplateGroups(tx, workspace.id, legacySubjects);
+    await applyEligibleLegacySubjects(tx, workspace.id, legacyGroupIds, requested);
     await applyEligibleLegacyRoots(tx, actorId, workspace.id);
 
     const changed = await tx.examWorkspace.updateMany({
@@ -494,31 +534,50 @@ export async function applyWorkspaceTakeover(
 async function applyEligibleLegacySubjects(
   tx: Prisma.TransactionClient,
   workspaceId: string,
-  group408Id: string | null,
+  groupIdByLegacyCode: ReadonlyMap<string, string>,
   subjectIds: string[],
 ): Promise<void> {
   for (const subjectId of subjectIds) {
     const subject = await tx.subject.findFirst({ where: { id: subjectId, workspaceId: null } });
     if (!subject) throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409);
 
-    const is408 = is408LegacyCode(subject.legacyCode);
-
     const changed = await tx.subject.updateMany({
       where: { id: subject.id, workspaceId: null },
       data: {
         workspaceId,
-        groupId: is408 ? group408Id : null,
+        groupId: subject.legacyCode ? groupIdByLegacyCode.get(subject.legacyCode) ?? null : null,
       },
     });
     if (changed.count !== 1) throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409);
   }
 }
 
-function is408LegacyCode(value: string | null): boolean {
-  return value === "DATA_STRUCTURE"
-    || value === "COMPUTER_ORGANIZATION"
-    || value === "OPERATING_SYSTEM"
-    || value === "COMPUTER_NETWORK";
+async function ensureLegacyTemplateGroups(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  subjects: Array<{ legacyCode: string | null }>,
+): Promise<Map<string, string>> {
+  const groupIds = new Map<string, string>();
+  for (const subject of subjects) {
+    if (!subject.legacyCode) continue;
+    const match = findExamTemplateSubjectByLegacyCode(subject.legacyCode);
+    if (!match) continue;
+    let group = await tx.subjectGroup.findFirst({
+      where: { workspaceId, stableKey: match.groupStableKey },
+      select: { id: true },
+    });
+    group ??= await tx.subjectGroup.create({
+      data: {
+        workspaceId,
+        stableKey: match.groupStableKey,
+        name: match.groupName,
+        sortOrder: match.groupSortOrder,
+      },
+      select: { id: true },
+    });
+    groupIds.set(subject.legacyCode, group.id);
+  }
+  return groupIds;
 }
 
 async function applyEligibleLegacyRoots(
