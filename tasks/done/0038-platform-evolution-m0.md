@@ -1,10 +1,9 @@
 # 0038 A -> B 平台演进 M0 基线归一
 
 ```yaml
-status: in-progress
-phase: implementation
-blockers:
-  - current branch has no protected pull request yet
+status: done
+phase: complete
+blockers: []
 risk: medium
 ownerSkill: areaforge-operating-loop
 validation:
@@ -20,7 +19,7 @@ residualRiskIds: []
 releaseRequired: false
 ```
 
-状态：执行中。当前已定位并修复 Prisma 工具链间接依赖审计阻断，正在同步 A -> B 源事实；受保护 PR、CI 和状态漂移收口尚未完成。
+状态：已完成。依赖审计、治理门禁、状态同步、受保护 PR、PR CI 和合并后 main CI 均已通过；M0 不代表 v1.3-v2.0 runtime、Release 或 production apply 已完成。
 
 ## 目标
 
@@ -58,3 +57,10 @@ releaseRequired: false
 ## 残余风险
 
 - M0 完成不表示 v1.3-v2.0 功能完成。
+
+## 完成证据
+
+- 冻结安装、`pnpm audit:all`、`pnpm audit:prod`、`pnpm governance:preflight`、`pnpm check`、`pnpm docs:readiness`、`pnpm tasks:doctor` 和 `git diff --check` 已通过。
+- PR #54（`https://github.com/AreaSong/AreaForge/pull/54`）的两个 required `verify` 运行已通过，均绑定提交 `9001f37`。
+- PR 已 squash 合并到 `main`，合并提交为 `7720177d9ab691d509004ce8c8201e631f84be0f`；main push CI run `33879794378` 已通过全部治理、审计、文档和 `Check` 步骤。
+- 当前生产仍为 `v1.1.1`，最新稳定 Release 仍为 `v1.2.0`；本任务未执行 production apply、migration、备份恢复、回滚或服务器命令。

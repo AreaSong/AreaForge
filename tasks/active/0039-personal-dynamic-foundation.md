@@ -2,9 +2,8 @@
 
 ```yaml
 status: in-progress
-phase: implementation
+phase: awaiting-high-risk-confirmation
 blockers:
-  - 0038 M0 protected PR and CI closeout must complete
   - subject merge write requires the exact v1.3 confirmation packet
 risk: medium
 ownerSkill: areaforge-product-experience
@@ -34,7 +33,7 @@ releaseRequired: true
 - 已实现重复科目规则、业务引用统计、活动 session 阻断提示、三类结构冲突预览、主知识点重分配统计和推荐保留科目。
 - 已增加执行前 snapshot hash；当前仍没有写 endpoint，不迁移引用、不删除或归档来源科目。
 - core 106/106、Web 902/902、Web typecheck、复杂度门禁和完整 `pnpm check` 已通过；既有测试池页面已复核。新增 snapshot hash 后需重跑对应验证。
-- 尚缺真实合并事务、隔离 PostgreSQL 验证、空库全旅程、PR/CI、Release 和 production apply。
+- M0 已完成并合并到 `main`；本任务尚缺真实合并事务、隔离 PostgreSQL 验证、空库全旅程、v1.3 独立 PR/CI、Release 和 production apply。
 
 ## 高风险边界
 
