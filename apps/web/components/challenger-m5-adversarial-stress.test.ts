@@ -69,6 +69,9 @@ test("Challenger 2 - Dual-Column Layout Contract & AST Verification across all S
     const filePath = findRepoPath(item.file);
     assert.ok(fs.existsSync(filePath), `File exists: ${item.file}`);
     const content = fs.readFileSync(filePath, "utf-8");
+    const semanticContent = item.file.endsWith("workspace-settings-client.tsx")
+      ? `${content}\n${fs.readFileSync(findRepoPath("apps/web/components/workspace-settings-sidebar.tsx"), "utf-8")}`
+      : content;
 
     // Must have standard dual-column grid class
     assert.match(
@@ -78,16 +81,16 @@ test("Challenger 2 - Dual-Column Layout Contract & AST Verification across all S
     );
 
     // Must have aside and main semantic elements
-    assert.match(content, /<aside[\s\S]*?>/, `${item.name} must have <aside> semantic container`);
+    assert.match(semanticContent, /<aside[\s\S]*?>/, `${item.name} must have <aside> semantic container`);
     assert.match(content, /<main[\s\S]*?>/, `${item.name} must have <main> semantic container`);
 
     // Must have min-w-0 on main container to prevent grid blowout on small screens
     assert.match(content, /<main[^>]*min-w-0[^>]*>/, `${item.name} main must have min-w-0`);
 
     // Must not have legacy raw background color overrides
-    assert.doesNotMatch(content, /bg-\[#0d1117\]/, `${item.name} must not contain raw bg-[#0d1117]`);
-    assert.doesNotMatch(content, /bg-\[#101419\]/, `${item.name} must not contain raw bg-[#101419]`);
-    assert.doesNotMatch(content, /bg-\[#151a20\]/, `${item.name} must not contain raw bg-[#151a20]`);
+    assert.doesNotMatch(semanticContent, /bg-\[#0d1117\]/, `${item.name} must not contain raw bg-[#0d1117]`);
+    assert.doesNotMatch(semanticContent, /bg-\[#101419\]/, `${item.name} must not contain raw bg-[#101419]`);
+    assert.doesNotMatch(semanticContent, /bg-\[#151a20\]/, `${item.name} must not contain raw bg-[#151a20]`);
   }
 });
 

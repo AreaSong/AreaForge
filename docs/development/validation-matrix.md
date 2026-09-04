@@ -176,7 +176,7 @@
 - `pnpm --filter @areaforge/web typecheck`
 - `pnpm --filter @areaforge/web lint`
 - `pnpm check`
-- API 烟测：无 active 状态时 dashboard fallback 实时规则；手动和规则触发创建 active `RecoveryState`；完成或取消只更新 `RecoveryState.status/endedAt/exitCondition`；`StudyTask` 不被批量改写。
+- API 烟测：无 active 状态时 dashboard fallback 实时规则且读取不创建 `RecoveryState`；显式规则命令和手动命令创建 active `RecoveryState`；完成或取消只更新 `RecoveryState.status/endedAt/exitCondition`；`StudyTask` 不被批量改写。
 - 页面烟测：首页恢复模式刷新后持久，计时器聚焦恢复候选但任务面板保留完整任务列表；退出后恢复正常任务展示和实时 fallback。
 
 注意：Batch 3 获确认并完成前，`pnpm risk:preflight` 必须继续阻止 `model RecoveryState` 在 schema 中出现；Batch 3 完成并更新台账后，门禁应要求 `RecoveryState` 存在。Batch 6 完成前，门禁继续阻止 Batch 6 未确认模型越界。

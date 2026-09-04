@@ -58,10 +58,11 @@ export function SimulationWorkbench({
   motivationVault,
   initialNow,
 }: SimulationWorkbenchProps) {
+  const defaultTimelineDate = stage.simulationNode?.date ?? initialNow ?? new Date().toISOString();
   const router = useRouter();
-  const [examName, setExamName] = useState("2026 同步全真自测");
-  const [examDate, setExamDate] = useState(toDatetimeLocal(stage.simulationNode.date));
-  const [isFirstSynchronized, setIsFirstSynchronized] = useState(true);
+  const [examName, setExamName] = useState("模拟考试");
+  const [examDate, setExamDate] = useState(toDatetimeLocal(defaultTimelineDate));
+  const [isFirstSynchronized, setIsFirstSynchronized] = useState(false);
   const [targetDurationMinutes, setTargetDurationMinutes] = useState(180);
   const [examTargetScore, setExamTargetScore] = useState("");
   const [selectedExamId, setSelectedExamId] = useState(exams[0]?.id ?? "");
@@ -74,10 +75,10 @@ export function SimulationWorkbench({
   const [mindset, setMindset] = useState("");
   const [summary, setSummary] = useState("");
   const [firstSimulationDiary, setFirstSimulationDiary] = useState(motivationVault?.firstSimulationDiary ?? "");
-  const [stagePlanName, setStagePlanName] = useState("2026 同步全真自测准备期");
-  const [stagePlanGoal, setStagePlanGoal] = useState("2026 年 12 月同步全真自测");
-  const [stagePlanStartDate, setStagePlanStartDate] = useState(toDatetimeLocal(initialNow ?? stage.simulationNode.date));
-  const [stagePlanEndDate, setStagePlanEndDate] = useState(toDatetimeLocal(stage.simulationNode.date));
+  const [stagePlanName, setStagePlanName] = useState("当前考试目标准备期");
+  const [stagePlanGoal, setStagePlanGoal] = useState("完成当前考试目标");
+  const [stagePlanStartDate, setStagePlanStartDate] = useState(toDatetimeLocal(initialNow ?? defaultTimelineDate));
+  const [stagePlanEndDate, setStagePlanEndDate] = useState(toDatetimeLocal(defaultTimelineDate));
   const [stagePlanMode, setStagePlanMode] = useState<StagePlanDto["mode"]>("maintain");
   const [stagePlanStatus, setStagePlanStatus] = useState<StagePlanDto["status"]>("active");
   const [selectedStagePlanId, setSelectedStagePlanId] = useState(stagePlans.find((plan) => plan.status === "active")?.id ?? stagePlans[0]?.id ?? "");

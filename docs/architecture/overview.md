@@ -47,7 +47,7 @@ packages/ai -> Sub2API / OpenAI compatible API
 各层承载的能力：
 
 - Web 应用：作战台真实数据库聚合、每日任务 CRUD、专注计时持久化、每晚复盘、考纲树与笔记、错题、掌握证明显式记录、动机封存、情绪标签、阶段称号、基础统计、作战地图筛选、周/月报告、结构化模拟考试和恢复模式。
-- 认证与会话：单管理员登录、数据库会话、`HttpOnly` Cookie、登录限速；seed 初始化管理员和基础科目。
+- 认证与会话：单管理员登录、数据库会话、`HttpOnly` Cookie、登录限速；普通 seed 只初始化管理员，业务工作区和科目由首次设置创建。
 - 结构化状态：`CheckIn` 日快照、`TaskDebtEvent` 事件账本、`RecoveryState` 恢复状态、计时收口判断，支撑任务债务、打卡检查、反假学习和恢复模式闭环。
 - `packages/core`：结构化收口、近窗打卡历史、轻量任务债务动作、掌握证明、作战地图状态、阶段称号、动机唤醒、模拟准备度、模拟结果复盘和阶段调整草稿等平台无关规则。
 - `packages/ai`：本地规则 fallback、结构化 schema、OpenAI-compatible JSON provider、mock/外呼测试和敏感上下文拦截。

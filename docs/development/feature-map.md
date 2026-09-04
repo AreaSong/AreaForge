@@ -42,7 +42,7 @@
 |---|---|---|---|---|
 | `module.auth` | 单管理员登录与会话 | done | `packages/auth`、`/api/auth/*`、`AuthSession` | scrypt 口令 + 会话；`lastSeenAt` 5 分钟节流写 |
 | `module.dashboard-today` | 今日作战台聚合 | done | `apps/web/lib/study/dashboard-query-service.ts` | React `cache()` 消除首页重复查询编排 |
-| `module.countdown` | 双节点倒计时 | done | `apps/web/lib/study/exam-dates.ts` | 2026/2027 节点单一事实源，与冲刺主题联动 |
+| `module.countdown` | 工作区目标与模拟倒计时 | done | `apps/web/lib/study/dashboard-query-service.ts` | 当前工作区目标日与下一场真实模拟驱动；无日期时保持未知 |
 | `module.tasks` | 每日任务 | done | `/api/tasks`、`StudyTask` | 今日任务表单写入已有 `StudyTask.type` |
 | `module.task-debt` | 任务债务 | done | `StudyTask.debtStatus`、`TaskDebtEvent`、complete/defer/drop/recover/split/convert-review API | 自动阶段联动/批量应用需另行确认 |
 | `module.timer` | 学习计时 | done | `/api/study-sessions/*`、`StudySession` | 结构化收口字段；并发一致性生产证据见 `ops.concurrency` |
@@ -71,12 +71,16 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `loop.simulation-exam` | 全真模拟考试完整实现 | done | `SimulationExam/SimulationSubjectResult`、`/api/simulation/exams*` | 旧任务型模拟只读兼容，写 API 拒绝 legacy |
-| `loop.first-sync-test` | 2026-12 同步自测专题流程 | done | `isFirstSynchronized`、`/api/simulation/first-diary` | 考后本地重校准草稿可持久化为待确认草稿 |
+| `loop.first-sync-test` | 可配置同步自测流程 | done | `isFirstSynchronized`、`/api/simulation/first-diary` | 日期由用户填写，考后本地重校准草稿可持久化为待确认草稿 |
 | `loop.weekly-report` | 周审判报告 | done | `/api/reports/periodic`、`packages/core/periodic-report.ts` | 时长/占比/欠账/低转化/短板/决策预览 |
 | `loop.monthly-report` | 月复盘报告 | done | 同上（monthly 口径） | 展示最新持久阶段计划与草稿边界 |
 | `loop.report-decision` | 报告确认/驳回/只读回放 | done | `PeriodicReportDecision`、`/api/reports/periodic/decisions` | 冻结 `reportSnapshot`；固定 `canAutoApply=false` |
 | `loop.debt-reorder` | 任务债务自动重排建议 | done | `GET /api/tasks/debt-reorder` + decisions/applications | 只应用用户所选项，不自动应用全部 |
 | `loop.forget-risk` | 知识点遗忘风险提醒 | done | `/api/analytics/long-term-risks`、`packages/core/long-term-risk.ts` | 报告/统计/笔记/模拟/首页读同一风险 DTO |
+| `loop.today-continuity` | 今日进度与行动接力 | done | `/api/action-center/today`、`/api/action-center/recommendation-feedback`、`components/continue-next-action.tsx` | 三阶段进度、断点续学、推荐反馈、完成后继续与学习日结束 |
+| `loop.weekly-budget` | 每科自然周投入预算 | done | `GET|PATCH /api/weekly-budget`、`LearningArrangement` | 显式预算 + 真实 session；不复用考纲目标，不自动建任务 |
+| `loop.analytics-risk-inbox` | 趋势风险到投入草稿 | done | `POST /api/plan-inbox/analytics-risk`、`ANALYTICS_RISK` | 服务端重算风险并保留来源快照，仍需显式转换 |
+| `loop.closeout-preferences` | 当前设备收口模板 | done | `/settings/learning`、`lib/client/closeout-preferences.ts` | 只保存提示和展开方式，不预填事实、不跨设备同步 |
 | `loop.note-review-reminder` | 知识卡片复习提醒 | done | `Note.nextReviewAt`、`/knowledge/cards` 筛选 | 到期笔记用 `count` 查询 |
 | `loop.map-advanced` | 作战地图高级可视化 | done | `/knowledge/syllabi` 分科摘要/状态分布/优先节点 | 与显式掌握证明记录联动 |
 | `loop.theme-state` | 状态主题深度联动 | done | `packages/core` `determineThemeState` | 不隐藏任务列表、不自动修改任务或阶段计划 |

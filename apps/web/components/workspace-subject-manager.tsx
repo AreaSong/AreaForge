@@ -17,6 +17,7 @@ import { classifyApiFailure } from "@/lib/client/api-errors";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
 import type {
   ExamWorkspaceDto,
+  SubjectDuplicateSetDto,
   SubjectGroupDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts";
@@ -34,19 +35,29 @@ import {
   subjectErrorMessage,
   SubjectRow,
 } from "@/components/workspace-subject-manager-sections";
+import { SubjectDuplicatePreview } from "@/components/subject-duplicate-preview";
 
 export function WorkspaceSubjectManager(props: {
   workspace: ExamWorkspaceDto;
   subjects: WorkspaceSubjectDto[];
   groups: SubjectGroupDto[];
+  duplicateSets: SubjectDuplicateSetDto[];
 }) {
   const router = useRouter();
-  const [revision, setRevision] = useState(props.workspace.revision);
+  const [localRevision, setLocalRevision] = useState({
+    workspaceId: props.workspace.id,
+    value: props.workspace.revision,
+  });
+  const revision = localRevision.workspaceId === props.workspace.id
+    ? Math.max(localRevision.value, props.workspace.revision)
+    : props.workspace.revision;
+  const setRevision = (value: number) => setLocalRevision({ workspaceId: props.workspace.id, value });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [archiveSubject, setArchiveSubject] = useState<WorkspaceSubjectDto | null>(null);
+  const [archiveGroup, setArchiveGroup] = useState<SubjectGroupDto | null>(null);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [createdSubjectKeys, setCreatedSubjectKeys] = useState<string[]>([]);
   const [newSubjectKey, setNewSubjectKey] = useState(() =>
@@ -86,7 +97,7 @@ export function WorkspaceSubjectManager(props: {
         setError(subjectErrorMessage(failure.code ?? undefined, "添加科目失败，请检查名称和内部标识"));
         return;
       }
-      setRevision((current) => current + 1);
+      if (result.body?.workspace) setRevision(result.body.workspace.revision);
       setNewSubjectName("");
       const createdKey = newSubjectKey.trim();
       setCreatedSubjectKeys((current) => [...current, createdKey]);
@@ -124,7 +135,20 @@ export function WorkspaceSubjectManager(props: {
         return false;
       }
       if (result.body?.workspace) setRevision(result.body.workspace.revision);
-      setNotice(success);
+      const lifecycle = result.body?.lifecycle;
+      if (patch.archived === false && lifecycle) {
+        const resumed = lifecycle.resumedReviewScheduleCount ?? 0;
+        const remaining = lifecycle.remainingPausedReviewScheduleCount ?? 0;
+        setNotice(remaining > 0
+          ? `科目已恢复；有 ${remaining} 项复习排期需要重新安排日期。`
+          : resumed > 0
+            ? `科目已恢复，相关复习排期已恢复 ${resumed} 项。`
+            : "科目已恢复，当前没有需要恢复的复习排期。");
+      } else if (patch.archived === true && lifecycle) {
+        setNotice(`科目已归档，相关复习排期已暂停 ${lifecycle.pausedReviewScheduleCount ?? 0} 项。`);
+      } else {
+        setNotice(success);
+      }
       router.refresh();
       return true;
     } catch {
@@ -190,7 +214,10 @@ export function WorkspaceSubjectManager(props: {
         return false;
       }
       if (result.body?.workspace) setRevision(result.body.workspace.revision);
-      setNotice(success);
+      const ungrouped = result.body?.lifecycle?.ungroupedSubjectCount ?? 0;
+      setNotice(patch.archived === true
+        ? `分组已归档，${ungrouped} 个科目已移至不分组。`
+        : success);
       router.refresh();
       return true;
     } catch {
@@ -211,6 +238,11 @@ export function WorkspaceSubjectManager(props: {
     failure: ReturnType<typeof classifyApiFailure>,
   ) {
     if (body?.latest) setRevision(body.latest.revision);
+    if (failure.code === "WORKSPACE_NOT_FOUND") {
+      router.replace("/settings/exams");
+      router.refresh();
+      return;
+    }
     if (failure.kind === "conflict" || failure.code === "WORKSPACE_REVISION_CONFLICT") router.refresh();
   }
 
@@ -249,6 +281,8 @@ export function WorkspaceSubjectManager(props: {
         ))}
         {activeSubjects.length === 0 ? <p className="p-4 text-sm text-zinc-500">还没有可用科目。</p> : null}
       </div>
+
+      <SubjectDuplicatePreview sets={props.duplicateSets} />
 
       <Card variant="subtle" className="af-form-action-grid grid gap-3 border-l-2 border-teal-400/40 p-4">
         <label className="text-sm text-zinc-300 font-medium">
@@ -305,6 +339,7 @@ export function WorkspaceSubjectManager(props: {
         onKeyChange={setNewGroupKey}
         onAdd={() => void addGroup()}
         onUpdate={updateGroup}
+        onRequestArchive={setArchiveGroup}
       />
 
       {archivedSubjects.length > 0 ? (
@@ -314,8 +349,8 @@ export function WorkspaceSubjectManager(props: {
           </summary>
           <ul className="mt-3 space-y-2">
             {archivedSubjects.map((subject) => (
-              <li key={subject.id} className="flex items-center justify-between gap-3 text-sm text-zinc-500">
-                <span>{subject.name}</span>
+              <li key={subject.id} className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                <span className="min-w-0 flex-1 break-words">{subject.name}</span>
                 <Button
                   type="button"
                   variant="secondary"
@@ -347,6 +382,31 @@ export function WorkspaceSubjectManager(props: {
                 if (!archiveSubject) return;
                 const archived = await updateSubject(archiveSubject, { archived: true }, "科目已归档。");
                 if (archived) setArchiveSubject(null);
+              }}
+            >
+              <Archive size={16} aria-hidden="true" />确认归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(archiveGroup)} title="归档分组" onClose={() => setArchiveGroup(null)} allowEscape={!pending}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>
+            归档“{archiveGroup?.name}”后，分组内的
+            {props.subjects.filter((subject) => subject.groupId === archiveGroup?.id).length} 个科目会移到“不分组”。
+            科目和历史学习记录都会保留；恢复分组后不会自动重新关联。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={pending} onClick={() => setArchiveGroup(null)}>取消</Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={pending || !archiveGroup}
+              onClick={async () => {
+                if (!archiveGroup) return;
+                const archived = await updateGroup(archiveGroup, { archived: true }, "分组已归档。");
+                if (archived) setArchiveGroup(null);
               }}
             >
               <Archive size={16} aria-hidden="true" />确认归档

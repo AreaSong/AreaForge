@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { ContinueNextAction } from "@/components/continue-next-action";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert, Badge } from "@/components/ui/feedback";
@@ -122,6 +123,7 @@ function SimulationLinks({ returnTo, primaryLabel }: { returnTo: string; primary
       <ButtonLink href={withReturnTo("/roadmap/stages", returnTo)} variant="secondary" size="sm">
         重新评估阶段
       </ButtonLink>
+      <ContinueNextAction fallbackHref={returnTo} fallbackLabel="返回模拟考试" size="sm" variant="secondary" />
     </div>
   );
 }

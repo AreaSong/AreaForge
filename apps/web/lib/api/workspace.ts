@@ -11,6 +11,12 @@ export interface WorkspaceMutationResponse {
   group?: SubjectGroupDto;
   latest?: ExamWorkspaceDto;
   conflictFields?: string[];
+  lifecycle?: {
+    pausedReviewScheduleCount?: number;
+    resumedReviewScheduleCount?: number;
+    remainingPausedReviewScheduleCount?: number;
+    ungroupedSubjectCount?: number;
+  };
   error?: string;
 }
 
@@ -25,7 +31,12 @@ export interface CreateExamWorkspaceInput {
     name: string;
     color: string;
     sortOrder?: number;
-    groupStableKey?: "408" | null;
+    groupStableKey?: string | null;
+  }>;
+  groups?: Array<{
+    stableKey: string;
+    name: string;
+    sortOrder?: number;
   }>;
   takeoverSubjectIds?: string[];
 }

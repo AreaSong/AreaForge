@@ -10,7 +10,8 @@ import {
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyDayRange } from "./date";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { createPlanInboxItemWithResult } from "./plan-inbox-service";
 import type { RecoveryV2Dto } from "@/lib/contracts/recovery";
 
 const recoveryV2LockNamespace = 2026072122;
@@ -89,16 +90,21 @@ export async function startRecoveryV2(
   input?: { reason?: string; triggerType?: "manual" | "rule" },
 ): Promise<RecoveryV2Dto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     await lockRecoveryV2Scope(tx, actorId, workspace.id);
 
     const active = await findActiveRecoveryV2InTx(tx, actorId, workspace.id);
     if (active) {
       const current = await expireRecoveryV2IfNeeded(tx, active, new Date());
-      if (normalizeStatus(current.status) === "ACTIVE") return serialize(current);
+      if (normalizeStatus(current.status) === "ACTIVE") {
+        await syncRecoveryMinimumInbox(tx, actorId, workspace.id, current);
+        return serialize(current);
+      }
     }
 
-    return serialize(await createRecoveryV2InTx(tx, actorId, workspace.id, input?.reason, input?.triggerType ?? "manual"));
+    const created = await createRecoveryV2InTx(tx, actorId, workspace.id, input?.reason, input?.triggerType ?? "manual");
+    await syncRecoveryMinimumInbox(tx, actorId, workspace.id, created);
+    return serialize(created);
   });
 }
 
@@ -108,7 +114,7 @@ export async function cancelRecoveryV2(
   input: { expectedRevision: number },
 ): Promise<RecoveryV2Dto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     await lockRecoveryV2Scope(tx, actorId, workspace.id);
     const existing = await findRecoveryV2ByIdInTx(tx, actorId, workspace.id, recoveryId);
     if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
@@ -142,7 +148,7 @@ export async function restartRecoveryV2(
   input: { expectedRevision: number },
 ): Promise<RecoveryV2Dto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     await lockRecoveryV2Scope(tx, actorId, workspace.id);
     const existing = await findRecoveryV2ByIdInTx(tx, actorId, workspace.id, recoveryId);
     if (!existing) throw new ApiError("RECOVERY_NOT_FOUND", 404);
@@ -158,12 +164,14 @@ export async function restartRecoveryV2(
       });
     }
 
-    return serialize(await createRecoveryV2InTx(
+    const restarted = await createRecoveryV2InTx(
       tx,
       actorId,
       workspace.id,
       "重新开始恢复三阶。",
-    ));
+    );
+    await syncRecoveryMinimumInbox(tx, actorId, workspace.id, restarted);
+    return serialize(restarted);
   });
 }
 
@@ -172,7 +180,7 @@ export async function applyRecoveryDayProgress(
   input: { progressMinutesToday: number },
 ): Promise<RecoveryV2Dto | null> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     await lockRecoveryV2Scope(tx, actorId, workspace.id);
     const existing = await findActiveRecoveryV2InTx(tx, actorId, workspace.id);
     if (!existing) return null;
@@ -263,6 +271,34 @@ async function createRecoveryV2InTx(
   });
 }
 
+async function syncRecoveryMinimumInbox(
+  tx: Tx,
+  actorId: string,
+  workspaceId: string,
+  recovery: RecoveryV2Record,
+): Promise<void> {
+  const originKey = `recovery:${recovery.id}:minimum`;
+  await createPlanInboxItemWithResult(tx, workspaceId, actorId, {
+    stableKey: `${originKey}:v${recovery.progressionVersion}`,
+    originKey,
+    originVersion: recovery.progressionVersion,
+    originType: "RECOVERY_MINIMUM",
+    originSnapshot: {
+      recoveryId: recovery.id,
+      recoveryStage: recovery.currentStage,
+      recoveryRevision: recovery.revision,
+      targetMinutes: recovery.targetMinutes,
+      triggerType: recovery.triggerType,
+      startedAt: recovery.startedAt.toISOString(),
+    },
+    title: `完成恢复第 ${recovery.currentStage} 阶段的最小学习`,
+    plannedDate: getStudyDayRange().start.toISOString(),
+    estimatedMinutes: recovery.targetMinutes,
+    priority: "HIGH",
+    type: "focus",
+  });
+}
+
 async function expireRecoveryV2IfNeeded(
   tx: Tx,
   existing: RecoveryV2Record,
@@ -303,7 +339,7 @@ async function applyRecoveryV2ProgressInTx(
   });
 
   if (!result.advanced && result.nextStatus === status) return existing;
-  return tx.recoveryState.update({
+  const updated = await tx.recoveryState.update({
     where: { id: existing.id },
     data: {
       currentStage: result.nextStage,
@@ -321,6 +357,10 @@ async function applyRecoveryV2ProgressInTx(
       revision: { increment: 1 },
     },
   });
+  if (normalizeStatus(updated.status) === "ACTIVE" && updated.userId && updated.workspaceId) {
+    await syncRecoveryMinimumInbox(tx, updated.userId, updated.workspaceId, updated);
+  }
+  return updated;
 }
 
 function isRecoveryV2Expired(

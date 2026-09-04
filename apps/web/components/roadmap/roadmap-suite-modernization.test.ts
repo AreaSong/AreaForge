@@ -1,162 +1,49 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeSubjectConversionRows } from "./roadmap-budget-conversion";
+import { computeWeeklyBudgetConversionRows } from "./roadmap-budget-conversion";
 import {
   computeGanttTimeBounds,
   computeMilestoneGanttPoint,
   computeStageGanttSpan,
 } from "./roadmap-gantt-utils";
 import type {
-  AnalyticsSubjectShareDto,
   PlanMilestoneDto,
   StagePlanDto,
-  SyllabusMapOverviewDto,
-  WorkspaceSubjectDto,
+  WeeklyBudgetDto,
 } from "@/lib/contracts";
 
-test("Roadmap: computeSubjectConversionRows accurately calculates budget, actual, and conversion efficiency", () => {
-  const mockAnalyticsSubjects: AnalyticsSubjectShareDto[] = [
-    {
-      subjectId: "sub-math",
-      subjectName: "高等数学",
-      subjectColor: "#3b82f6",
-      totalMinutes: 6510, // 108.5 h
-      effectiveMinutes: 5996, // 99.9 h
-      share: 45,
-      activity: {
-        studyMinutes: 5000,
-        reviewMinutes: 1000,
-        testMinutes: 510,
-        totalMinutes: 6510,
-        effectiveStudyMinutes: 4500,
-        effectiveReviewMinutes: 900,
-        effectiveTestMinutes: 510,
-        studySessionCount: 20,
-        reviewSessionCount: 5,
-        testSessionCount: 2,
-      },
-    },
-    {
-      subjectId: "sub-408",
-      subjectName: "408 计算机",
-      subjectColor: "#10b981",
-      totalMinutes: 6900, // 115 h
-      effectiveMinutes: 5831, // 97.2 h
-      share: 48,
-      activity: {
-        studyMinutes: 4000,
-        reviewMinutes: 2000,
-        testMinutes: 900,
-        totalMinutes: 6900,
-        effectiveStudyMinutes: 3500,
-        effectiveReviewMinutes: 1800,
-        effectiveTestMinutes: 900,
-        studySessionCount: 25,
-        reviewSessionCount: 8,
-        testSessionCount: 3,
-      },
-    },
-  ];
-
-  const mockOverview: SyllabusMapOverviewDto = {
-    nodes: [
+test("Roadmap: weekly budget rows calculate budget, actual, and conversion efficiency", () => {
+  const budget: WeeklyBudgetDto = {
+    workspaceId: "ws-1",
+    weekStart: "2026-08-10",
+    weekEnd: "2026-08-16",
+    configuredSubjectCount: 2,
+    totalTargetMinutes: 14_100,
+    totalActualMinutes: 13_410,
+    totalEffectiveMinutes: 11_827,
+    subjects: [
       {
-        id: "node-1",
-        revision: 1,
-        stableKey: "math-node-1",
-        archivedAt: null,
         subjectId: "sub-math",
-        subjectName: "高等数学",
+        subjectName: "高等数学 (自定)",
         subjectColor: "#3b82f6",
-        parentId: null,
-        title: "高等数学考纲",
-        kind: "chapter",
-        status: "covered",
-        masteryLevel: "exam_stable",
-        masteryStatus: "STABLE",
-        needsRetest: false,
-        masteryConfidence: 95,
-        sortOrder: 1,
-        targetMinutes: 7200, // 120 h
+        targetMinutes: 7200,
         actualMinutes: 6510,
-        evidence: {
-          taskCount: 0,
-          sessionCount: 5,
-          noteCount: 2,
-          mistakeCount: 0,
-          lastEvidenceAt: "2026-08-10T00:00:00.000Z",
-          daysSinceLastEvidence: 2,
-          source: "explicit",
-        },
-        masteryConditions: [],
-        masteryConditionRecords: [],
-        masteryEvidence: [],
-        masteryRetests: [],
-        masteryEvidenceCandidates: {
-          note: [],
-          retest: [],
-          task: [],
-          session: [],
-          mistake: [],
-        },
-        masteryProof: {
-          allowedLevel: "exam_stable",
-          canMarkRequestedLevel: true,
-          requestedLevel: "exam_stable",
-          evidenceCount: 5,
-          evidenceTypes: ["note", "retest"],
-          missingConditions: [],
-          missingEvidence: [],
-          risk: "ready",
-          nextAction: "",
-        },
-        mapSignal: {
-          cellStatus: "verified",
-          markers: ["check"],
-          reasons: [],
-          nextAction: "",
-        },
-        children: [],
+        effectiveMinutes: 5996,
+        revision: 1,
+      },
+      {
+        subjectId: "sub-408",
+        subjectName: "408 计算机",
+        subjectColor: "#10b981",
+        targetMinutes: 6900,
+        actualMinutes: 6900,
+        effectiveMinutes: 5831,
+        revision: 1,
       },
     ],
-    summary: {
-      totalNodes: 1,
-      coverageRate: 100,
-      verificationRate: 100,
-      counts: {
-        not_started: 0,
-        learning: 0,
-        covered: 0,
-        verified: 1,
-        weak: 0,
-        forgetting_risk: 0,
-        mistake_hotspot: 0,
-        deferred: 0,
-      },
-      riskLevel: "clear",
-      recommendedFilters: [],
-      focusNodeIds: [],
-      nextActions: ["保持复测节奏"],
-    },
-    summaryBySubject: {},
   };
 
-  const mockWorkspaceSubjects: WorkspaceSubjectDto[] = [
-    {
-      id: "sub-math",
-      workspaceId: "ws-1",
-      groupId: null,
-      stableKey: "math",
-      legacyCode: null,
-      name: "高等数学 (自定)",
-      color: "#3b82f6",
-      sortOrder: 1,
-      archivedAt: null,
-      legacyScope: false,
-    },
-  ];
-
-  const rows = computeSubjectConversionRows(mockAnalyticsSubjects, mockOverview, mockWorkspaceSubjects);
+  const rows = computeWeeklyBudgetConversionRows(budget);
 
   assert.equal(rows.length, 2);
   const mathRow = rows.find((r) => r.subjectId === "sub-math");
@@ -246,114 +133,38 @@ test("Roadmap: Gantt bounds calculation handles multiple stages and boundary con
   assert.equal(milestonePoint.daysUntil, 5);
 });
 
-test("Roadmap: computeSubjectConversionRows handles edge cases (lag, low conversion, zero input)", () => {
-  const edgeSubjects: AnalyticsSubjectShareDto[] = [
-    {
-      subjectId: "sub-lag",
-      subjectName: "英语",
-      subjectColor: "#f59e0b",
-      totalMinutes: 1200, // 20 h actual
-      effectiveMinutes: 960, // 16 h effective (80% conversion, but budget is 60h -> 33% progress -> lag)
-      share: 10,
-      activity: {
-        studyMinutes: 1200,
-        reviewMinutes: 0,
-        testMinutes: 0,
-        totalMinutes: 1200,
-        effectiveStudyMinutes: 960,
-        effectiveReviewMinutes: 0,
-        effectiveTestMinutes: 0,
-        studySessionCount: 5,
-        reviewSessionCount: 0,
-        testSessionCount: 0,
-      },
-    },
-    {
-      subjectId: "sub-low-conv",
-      subjectName: "政治",
-      subjectColor: "#ef4444",
-      totalMinutes: 3600, // 60 h
-      effectiveMinutes: 1800, // 30 h (50% conversion -> low_conversion)
-      share: 20,
-      activity: {
-        studyMinutes: 3600,
-        reviewMinutes: 0,
-        testMinutes: 0,
-        totalMinutes: 3600,
-        effectiveStudyMinutes: 1800,
-        effectiveReviewMinutes: 0,
-        effectiveTestMinutes: 0,
-        studySessionCount: 10,
-        reviewSessionCount: 0,
-        testSessionCount: 0,
-      },
-    },
-  ];
-
-  const overviewWithBudgets: SyllabusMapOverviewDto = {
-    nodes: [
+test("Roadmap: weekly budget rows handle lag and low conversion", () => {
+  const budget: WeeklyBudgetDto = {
+    workspaceId: "ws-1",
+    weekStart: "2026-08-10",
+    weekEnd: "2026-08-16",
+    configuredSubjectCount: 2,
+    totalTargetMinutes: 3900,
+    totalActualMinutes: 1380,
+    totalEffectiveMinutes: 1050,
+    subjects: [
       {
-        id: "node-eng",
-        revision: 1,
-        stableKey: "eng-1",
-        archivedAt: null,
         subjectId: "sub-lag",
         subjectName: "英语",
         subjectColor: "#f59e0b",
-        parentId: null,
-        title: "英语长难句",
-        kind: "chapter",
-        status: "learning",
-        masteryLevel: "learned",
-        masteryStatus: "LEARNING",
-        needsRetest: false,
-        masteryConfidence: 50,
-        sortOrder: 1,
-        targetMinutes: 3600, // 60 h budget
+        targetMinutes: 3600,
         actualMinutes: 1200,
-        evidence: {
-          taskCount: 1,
-          sessionCount: 2,
-          noteCount: 0,
-          mistakeCount: 0,
-          lastEvidenceAt: null,
-          daysSinceLastEvidence: null,
-          source: "explicit",
-        },
-        masteryConditions: [],
-        masteryConditionRecords: [],
-        masteryEvidence: [],
-        masteryRetests: [],
-        masteryEvidenceCandidates: { task: [], session: [], note: [], mistake: [], retest: [] },
-        masteryProof: {
-          allowedLevel: "learned",
-          canMarkRequestedLevel: true,
-          requestedLevel: "learned",
-          evidenceCount: 1,
-          evidenceTypes: ["task"],
-          missingConditions: [],
-          missingEvidence: [],
-          risk: "ready",
-          nextAction: "",
-        },
-        mapSignal: { cellStatus: "learning", markers: [], reasons: [], nextAction: "" },
-        children: [],
+        effectiveMinutes: 960,
+        revision: 1,
+      },
+      {
+        subjectId: "sub-low-conv",
+        subjectName: "政治",
+        subjectColor: "#ef4444",
+        targetMinutes: 300,
+        actualMinutes: 180,
+        effectiveMinutes: 90,
+        revision: 1,
       },
     ],
-    summary: {
-      totalNodes: 1,
-      coverageRate: 50,
-      verificationRate: 0,
-      counts: { not_started: 0, learning: 1, covered: 0, verified: 0, weak: 0, forgetting_risk: 0, mistake_hotspot: 0, deferred: 0 },
-      riskLevel: "attention",
-      recommendedFilters: [],
-      focusNodeIds: [],
-      nextActions: [],
-    },
-    summaryBySubject: {},
   };
 
-  const rows = computeSubjectConversionRows(edgeSubjects, overviewWithBudgets, []);
+  const rows = computeWeeklyBudgetConversionRows(budget);
   assert.equal(rows.length, 2);
 
   const lagRow = rows.find((r) => r.subjectId === "sub-lag");

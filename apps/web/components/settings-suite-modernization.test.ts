@@ -97,6 +97,10 @@ test("workspace-subject-manager-sections: verifies error mapping and color palet
   }
 
   assert.equal(
+    subjectErrorMessage("WORKSPACE_NOT_FOUND", "default"),
+    "当前工作区已切换，页面正在刷新；请在新工作区中重新操作。",
+  );
+  assert.equal(
     subjectErrorMessage("WORKSPACE_REVISION_CONFLICT", "default"),
     "工作区刚刚发生变化，页面已刷新；请检查后再次提交。",
   );

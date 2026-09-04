@@ -1,5 +1,8 @@
-import { ArrowLeft, BookOpen, Clock3 } from "lucide-react";
+"use client";
+
+import { ArrowLeft, BookOpen, ChevronDown, Clock3, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Textarea } from "@/components/ui/field";
 import { SegmentedField } from "@/components/ui/segmented-control";
@@ -8,6 +11,10 @@ import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { KnowledgePointDto } from "@/lib/contracts";
 import type { StudySessionLowReasonDto } from "@/lib/contracts";
 import type { SyllabusOptionNodeDto, StudyTaskDto } from "@/lib/contracts";
+import {
+  defaultCloseoutPreferences,
+  loadCloseoutPreferences,
+} from "@/lib/client/closeout-preferences";
 
 export type CloseoutOutcome = "achieved" | "partial" | "not-achieved";
 export type UnderstandingLevel = "清晰" | "基本理解" | "模糊" | "不会";
@@ -83,13 +90,14 @@ export function CloseoutWorkspace(props: {
   context: FocusContext;
   elapsedLabel: string;
   outcome: CloseoutOutcome;
-  understandingLevel: UnderstandingLevel;
+  understandingLevel: UnderstandingLevel | "";
   lowReasons: StudySessionLowReasonDto[];
   focusLevel: string;
   energyLevel: string;
   minimalOutput: string;
   nextAction: string;
   nextDisposition: string;
+  note: string;
   taskDisposition: TaskDisposition;
   validationError: string | null;
   submitting: boolean;
@@ -101,11 +109,24 @@ export function CloseoutWorkspace(props: {
   onMinimalOutputChange: (value: string) => void;
   onNextActionChange: (value: string) => void;
   onNextDispositionChange: (value: string) => void;
+  onNoteChange: (value: string) => void;
   onTaskDispositionChange: (value: TaskDisposition) => void;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
   const nextActionLabel = props.taskDisposition === "blocked" ? "阻塞原因" : "下一动作";
+  const [preferences, setPreferences] = useState(defaultCloseoutPreferences);
+  const [optionalReviewOpen, setOptionalReviewOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const loaded = loadCloseoutPreferences();
+      setPreferences(loaded);
+      setOptionalReviewOpen(loaded.expandOptionalReview);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-white/10 bg-[var(--af-canvas)] animate-[fade-in_0.2s_ease-out]">
       {/* Left Column: Responsive 30% Context & Stats Sidebar */}
@@ -113,7 +134,7 @@ export function CloseoutWorkspace(props: {
         <div className="space-y-4 sm:space-y-5">
           <div className="flex items-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-300">
             <span className="flex size-2 rounded-full bg-teal-400" />
-            专注战报 · 成就已锁定
+            本次学习 · 时间已冻结
           </div>
 
           <div>
@@ -130,12 +151,8 @@ export function CloseoutWorkspace(props: {
             </h1>
           </div>
 
-          {/* Highlight Elapsed Time Card with Flow Badge */}
           <div className="rounded-2xl border border-teal-500/30 bg-teal-500/10 p-4 sm:p-5 text-center shadow-[inset_0_0_24px_rgba(45,212,191,0.08)]">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-medium text-teal-200/90">本次有效专注投入</span>
-              <span className="rounded-full bg-teal-400/20 px-2 py-0.5 text-[10px] font-semibold text-teal-300">🔥 心流饱满</span>
-            </div>
+            <span className="text-xs font-medium text-teal-200/90">本次专注时长</span>
             <p className="mt-1 sm:mt-1.5 font-mono text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight text-white tabular-nums">
               {props.elapsedLabel}
             </p>
@@ -148,12 +165,9 @@ export function CloseoutWorkspace(props: {
           </div>
         </div>
 
-        <div className="mt-4 sm:mt-6 rounded-xl border border-teal-500/15 bg-teal-500/5 p-3.5 text-xs text-teal-200/80 leading-relaxed">
-          <p className="font-semibold text-teal-300 flex items-center gap-1.5 mb-1">
-            <span>💡</span> 为何必须收口？
-          </p>
-          花 1 分钟沉淀盲点与产出断点，能将零散时间转化为真实掌控力，杜绝假装努力。
-        </div>
+        <p className="mt-4 sm:mt-6 text-xs leading-relaxed text-zinc-500">
+          保存真实产出和下一步后即可完成；更多自评按需补充。
+        </p>
       </aside>
 
       {/* Right Column: Responsive Full-Width Rich Dashboard Form */}
@@ -165,21 +179,19 @@ export function CloseoutWorkspace(props: {
             props.onSubmit();
           }}
         >
-          {/* Upper Cards Area */}
           <div className="space-y-3 sm:space-y-3.5">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-3.5">
               <div>
                 <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-300">成果沉淀</p>
                 <h2 className="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-white">把这段时间转化为真实记录</h2>
-                <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">记录真实的理解深度与产出断点，为下一次学习快速切入提供锚点。</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400">选择结果，写下真实产出和下一步即可完成。</p>
               </div>
               <span className="hidden sm:inline-block rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-400 font-mono">
-                ⏱️ 1 分钟极速收口
+                3 项必填
               </span>
             </div>
 
-            {/* Row 1: Outcome & Understanding Level */}
-            <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
+            <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
               <SegmentedField
                 legend="收口结果"
                 value={props.outcome}
@@ -190,37 +202,8 @@ export function CloseoutWorkspace(props: {
                 ]}
                 onChange={(value) => props.onOutcomeChange(value as CloseoutOutcome)}
               />
-
-              <SegmentedField
-                legend="理解程度"
-                value={props.understandingLevel}
-                options={[
-                  { value: "清晰", label: "清晰" },
-                  { value: "基本理解", label: "理解" },
-                  { value: "模糊", label: "模糊" },
-                  { value: "不会", label: "不会" },
-                ]}
-                onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
-              />
             </div>
 
-            {/* Row 2: Focus & Energy Rating */}
-            <div className="grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
-              <SegmentedField
-                legend="专注度（1-5 分）"
-                value={props.focusLevel}
-                options={ratingOptions()}
-                onChange={props.onFocusLevelChange}
-              />
-              <SegmentedField
-                legend="精力状态（1-5 分）"
-                value={props.energyLevel}
-                options={ratingOptions()}
-                onChange={props.onEnergyLevelChange}
-              />
-            </div>
-
-            {/* Low reason checkbox if not achieved */}
             {props.outcome === "not-achieved" ? (
               <fieldset className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4 shadow-lg">
                 <legend className="text-xs font-medium text-amber-200">低效或受阻原因（至少勾选一项）</legend>
@@ -246,7 +229,6 @@ export function CloseoutWorkspace(props: {
               </fieldset>
             ) : null}
 
-            {/* Row 3: Output & Takeaways */}
             <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
               <label className="block text-xs font-medium text-zinc-200">
                 <div className="flex items-center justify-between">
@@ -259,14 +241,13 @@ export function CloseoutWorkspace(props: {
                   maxLength={1000}
                   controlHeight="sm"
                   className="mt-2 h-18 sm:h-22 min-h-18 rounded-xl border-white/10 bg-white/5 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none resize-none leading-relaxed"
-                  placeholder="例如：一元函数微分学理解了极值定理，做完了例题 3-5，整理了 1 个错题"
+                  placeholder={preferences.outputPrompt}
                   value={props.minimalOutput}
                   onChange={(event) => props.onMinimalOutputChange(event.target.value)}
                 />
               </label>
             </div>
 
-            {/* Row 4: Next Actions & Task Disposition */}
             <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3 sm:p-4 shadow-lg">
               <div className="grid gap-3 sm:grid-cols-2">
                 {props.context.taskTitle ? (
@@ -291,32 +272,83 @@ export function CloseoutWorkspace(props: {
                     placeholder={
                       props.taskDisposition === "blocked"
                         ? "说明卡在哪里，下一次从哪里恢复"
-                        : "下一次打开时要继续做什么"
+                        : preferences.nextActionPrompt
                     }
                     value={props.nextAction}
                     onChange={(event) => props.onNextActionChange(event.target.value)}
                   />
                 </label>
 
-                {!props.context.taskTitle ? (
-                  <label className="block text-xs font-medium text-zinc-200">
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-100">收口后处置与备忘（可选）</span>
-                    <Input
-                      maxLength={500}
-                      className="mt-1.5 h-8.5 sm:h-9 rounded-xl border-white/10 bg-white/5 px-3 text-xs sm:text-sm text-white placeholder:text-zinc-600 focus:border-teal-400 focus:outline-none"
-                      placeholder="例如：补做两道题、安排复测"
-                      value={props.nextDisposition}
-                      onChange={(event) => props.onNextDispositionChange(event.target.value)}
-                    />
-                  </label>
-                ) : null}
               </div>
             </div>
+
+            <details
+              open={optionalReviewOpen}
+              onToggle={(event) => setOptionalReviewOpen(event.currentTarget.open)}
+              className="group rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 sm:px-4"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-300 marker:content-none">
+                <span className="inline-flex items-center gap-2">
+                  <SlidersHorizontal className="size-4 text-zinc-500" aria-hidden="true" />
+                  可选补充
+                </span>
+                <ChevronDown className="size-4 text-zinc-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <SegmentedField
+                    legend="理解程度（可选）"
+                    value={props.understandingLevel}
+                    options={[
+                      { value: "清晰", label: "清晰" },
+                      { value: "基本理解", label: "理解" },
+                      { value: "模糊", label: "模糊" },
+                      { value: "不会", label: "不会" },
+                    ]}
+                    onChange={(value) => props.onUnderstandingChange(value as UnderstandingLevel)}
+                  />
+                  <div className="grid gap-4">
+                    <SegmentedField
+                      legend="专注度（可选）"
+                      value={props.focusLevel}
+                      options={ratingOptions()}
+                      onChange={props.onFocusLevelChange}
+                    />
+                    <SegmentedField
+                      legend="精力状态（可选）"
+                      value={props.energyLevel}
+                      options={ratingOptions()}
+                      onChange={props.onEnergyLevelChange}
+                    />
+                  </div>
+                </div>
+                <label className="block text-xs font-medium text-zinc-300">
+                  收口后处置（可选）
+                  <Input
+                    maxLength={500}
+                    className="mt-1.5"
+                    placeholder="例如：安排复测"
+                    value={props.nextDisposition}
+                    onChange={(event) => props.onNextDispositionChange(event.target.value)}
+                  />
+                </label>
+                <label className="block text-xs font-medium text-zinc-300">
+                  补充备注（可选）
+                  <Textarea
+                    maxLength={2000}
+                    controlHeight="sm"
+                    className="mt-1.5 min-h-20 resize-y"
+                    placeholder="只记录本次需要保留的额外信息"
+                    value={props.note}
+                    onChange={(event) => props.onNoteChange(event.target.value)}
+                  />
+                </label>
+              </div>
+            </details>
 
             {props.validationError ? <Alert tone="danger">{props.validationError}</Alert> : null}
           </div>
 
-          {/* Bottom Actions: Strictly pinned to bottom */}
           <div className="flex items-center justify-between gap-3 sm:gap-4 border-t border-white/10 pt-3.5 mt-auto">
             <Button
               type="button"
@@ -334,7 +366,7 @@ export function CloseoutWorkspace(props: {
               loading={props.submitting}
               loadingLabel="正在保存..."
             >
-              保存并沉淀本次学习
+              保存本次学习
             </Button>
           </div>
         </form>
@@ -379,4 +411,3 @@ function statusLabel(status: "running" | "paused" | "closing" | "completed" | "c
   if (status === "completed") return "已结束";
   return "已取消";
 }
-

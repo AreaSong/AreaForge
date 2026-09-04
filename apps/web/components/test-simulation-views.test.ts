@@ -85,7 +85,8 @@ test("Simulation Exams Architecture: SimulationExamCard & Page multi-column batt
 
   // 2. Page multi-column battle report grid
   assert.match(pageSource, /grid grid-cols-1 gap-4 md:grid-cols-2/);
-  assert.match(pageSource, /<SimulationExamCard exam=\{latestDraft\} primary \/>/);
+  assert.match(pageSource, /exam\.status === "DRAFT" \|\| exam\.status === "IN_PROGRESS"/);
+  assert.match(pageSource, /<SimulationExamCard exam=\{latestUnfinished\} primary \/>/);
   assert.match(pageSource, /<SimulationExamCard key=\{exam\.id\} exam=\{exam\} \/>/);
 });
 

@@ -19,6 +19,8 @@ export * from "./learning-tree-parse";
 export * from "./learning-tree-diff";
 export * from "./safe-markdown";
 export * from "./learning-tree-templates";
+export * from "./exam-templates";
+export * from "./subject-duplicates";
 export * from "./learning-tree-export";
 export * from "./learning-tree-selection";
 export * from "./unified-review";
@@ -69,16 +71,16 @@ export interface StudyTaskInput {
 }
 
 export interface DashboardInput {
-  targetExamDate: Date;
-  simulationDate: Date;
+  targetExamDate: Date | null;
+  simulationDate: Date | null;
   todayMinutes: number;
   effectiveMinutes: number;
   taskCompletionRate: number;
   streakDays: number;
   missedDays: number;
   debtCount: number;
-  daysToFinal: number;
-  daysToSimulation: number;
+  daysToFinal: number | null;
+  daysToSimulation: number | null;
   tasks: StudyTaskInput[];
 }
 
@@ -158,7 +160,7 @@ export interface StageLevelInput {
   recentEffectiveMinutes: number;
   taskCompletionRate: number;
   syllabusProgress: number;
-  daysToFinal: number;
+  daysToFinal: number | null;
 }
 
 export interface StageLevelSummary {
@@ -174,7 +176,7 @@ export interface MotivationWakeInput {
   riskState: RiskState;
   missedDays: number;
   debtCount: number;
-  daysToSimulation: number;
+  daysToSimulation: number | null;
   hasMajorReview?: boolean;
   todayMood?: string | null;
 }
@@ -193,10 +195,10 @@ export interface MotivationWakeSignal {
 }
 
 export interface SimulationReadinessInput {
-  daysToSimulation: number;
+  daysToSimulation: number | null;
   weeklyEffectiveMinutes: number;
-  weeklyTaskCompletionRate: number;
-  reviewCompletionRate: number;
+  weeklyTaskCompletionRate: number | null;
+  reviewCompletionRate: number | null;
   weakNodeCount: number;
   dueMistakeCount: number;
   hasFirstSimulationDiary: boolean;
@@ -219,7 +221,7 @@ export interface TimerSessionInput {
 }
 
 export function determineRiskState(input: DashboardInput): RiskState {
-  if (input.daysToFinal <= 120) return "sprint";
+  if (input.daysToFinal != null && input.daysToFinal <= 120) return "sprint";
   if (input.missedDays >= 5 || input.taskCompletionRate < 0.25) return "danger";
   if (input.missedDays >= 3 || input.debtCount >= 10) return "lost";
   if (input.debtCount >= 6) return "volatile";
@@ -338,7 +340,7 @@ export function createRecoveryPlan(input: RecoveryPlanInput): RecoveryPlan {
 }
 
 export function evaluateStageLevel(input: StageLevelInput): StageLevelSummary {
-  if (input.daysToFinal <= 120) {
+  if (input.daysToFinal != null && input.daysToFinal <= 120) {
     return {
       title: "冲刺",
       score: 100,
@@ -374,7 +376,7 @@ export function evaluateMotivationWake(input: MotivationWakeInput): MotivationWa
     };
   }
 
-  if (Math.abs(input.daysToSimulation) <= 7) {
+  if (input.daysToSimulation != null && Math.abs(input.daysToSimulation) <= 7) {
     return {
       shouldWake: true,
       trigger: "simulation_window",
@@ -422,14 +424,20 @@ export function evaluateMotivationWake(input: MotivationWakeInput): MotivationWa
 }
 
 export function evaluateSimulationReadiness(input: SimulationReadinessInput): SimulationReadinessSummary {
-  const score = clampScore(
-    scoreSimulationTiming(input.daysToSimulation) +
-      scoreSimulationEffectiveMinutes(input.weeklyEffectiveMinutes) +
-      scoreSimulationCompletion(input.weeklyTaskCompletionRate) +
-      scoreSimulationReview(input.reviewCompletionRate) -
-      scoreSimulationRisks(input.weakNodeCount, input.dueMistakeCount) +
-      (input.hasFirstSimulationDiary ? 8 : 0),
-  );
+  const taskScore = input.weeklyTaskCompletionRate == null
+    ? null
+    : scoreSimulationCompletion(input.weeklyTaskCompletionRate);
+  const reviewScore = input.reviewCompletionRate == null
+    ? null
+    : scoreSimulationReview(input.reviewCompletionRate);
+  const positiveScore = scoreSimulationTiming(input.daysToSimulation) +
+    scoreSimulationEffectiveMinutes(input.weeklyEffectiveMinutes) +
+    (taskScore ?? 0) +
+    (reviewScore ?? 0) +
+    (input.hasFirstSimulationDiary ? 8 : 0);
+  const availablePositiveWeight = 92 - (taskScore == null ? 20 : 0) - (reviewScore == null ? 14 : 0);
+  const normalizedPositiveScore = positiveScore * (92 / availablePositiveWeight);
+  const score = clampScore(normalizedPositiveScore - scoreSimulationRisks(input.weakNodeCount, input.dueMistakeCount));
   const level = simulationLevelFromScore(score, input.daysToSimulation);
 
   return {
@@ -477,7 +485,8 @@ function clampScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function scoreSimulationTiming(daysToSimulation: number): number {
+function scoreSimulationTiming(daysToSimulation: number | null): number {
+  if (daysToSimulation == null) return 0;
   if (daysToSimulation <= 0) return 22;
   if (daysToSimulation <= 7) return 20;
   if (daysToSimulation <= 30) return 14;
@@ -514,24 +523,35 @@ function scoreSimulationRisks(weakNodeCount: number, dueMistakeCount: number): n
 
 function simulationLevelFromScore(
   score: number,
-  daysToSimulation: number,
+  daysToSimulation: number | null,
 ): SimulationReadinessSummary["level"] {
-  if (Math.abs(daysToSimulation) <= 7) return "simulation_window";
+  if (daysToSimulation != null && Math.abs(daysToSimulation) <= 7) return "simulation_window";
   if (score >= 70) return "ready";
   if (score >= 40) return "warming_up";
   return "not_ready";
 }
 
 function createSimulationReason(level: SimulationReadinessSummary["level"], input: SimulationReadinessInput): string {
+  const missingSamples = [
+    input.weeklyTaskCompletionRate == null ? "任务完成率" : null,
+    input.reviewCompletionRate == null ? "复盘完成率" : null,
+  ].filter((value): value is string => value !== null);
+  const taskSampleNote = missingSamples.length > 0
+    ? `${missingSamples.join("、")}暂无样本，未参与本次判断。`
+    : "";
   switch (level) {
     case "simulation_window":
-      return "第一次全真自测窗口已经临近，重点不是临时加戏，而是按真实考试完成一次闭环。";
+      return `第一次全真自测窗口已经临近，重点不是临时加戏，而是按真实考试完成一次闭环。${taskSampleNote}`;
     case "ready":
-      return "近 7 天有效学习、任务完成和复盘指标能支撑一次全真自测。";
+      return input.weeklyTaskCompletionRate == null
+        ? `近 7 天有效学习与复盘指标能支撑一次全真自测。${taskSampleNote}`
+        : "近 7 天有效学习、任务完成和复盘指标能支撑一次全真自测。";
     case "warming_up":
-      return "已有部分准备基础，但有效时长、完成率或复盘仍不足以支撑稳定发挥。";
+      return `已有部分准备基础，但现有有效时长、复盘或风险证据仍不足以支撑稳定发挥。${taskSampleNote}`;
     case "not_ready":
-      return "当前准备度不足，先恢复有效学习、任务完成和错题复盘，再谈模拟表现。";
+      return input.weeklyTaskCompletionRate == null
+        ? `当前准备度不足，先恢复有效学习和错题复盘，再谈模拟表现。${taskSampleNote}`
+        : "当前准备度不足，先恢复有效学习、任务完成和错题复盘，再谈模拟表现。";
   }
 }
 
@@ -546,11 +566,11 @@ function createSimulationActions(level: SimulationReadinessSummary["level"], inp
     actions.push("先补足近 7 天有效学习，至少完成 3 次 60 分钟闭环。");
   }
 
-  if (input.weeklyTaskCompletionRate < 0.6) {
+  if (input.weeklyTaskCompletionRate != null && input.weeklyTaskCompletionRate < 0.6) {
     actions.push("把模拟前任务缩小到最关键的 1 到 2 项，先提高完成率。");
   }
 
-  if (input.reviewCompletionRate < 0.5) {
+  if (input.reviewCompletionRate != null && input.reviewCompletionRate < 0.5) {
     actions.push("补齐复盘，把失控点和明日最小动作写清楚。");
   }
 
@@ -713,7 +733,7 @@ function createDisciplineLine(riskState: RiskState, input: DashboardInput): stri
     case "rising":
       return `连续 ${input.streakDays} 天在场，别把稳定误认成胜利，今天继续加压。`;
     case "stable":
-      return "你已经在轨道上，但清华不会因为你难过就降分。下一步只看行动。";
+      return "你已经在轨道上，但目标不会因为状态起伏而降低要求。下一步只看行动。";
     case "volatile":
       return "现在的问题不是野心太大，是执行还不够硬。先完成一个最小闭环。";
     case "lost":

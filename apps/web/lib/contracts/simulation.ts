@@ -84,7 +84,7 @@ export interface SimulationStageDraftDto {
     date: string;
     daysToSimulation: number;
     isPhaseNode: true;
-  };
+  } | null;
   readiness: SimulationReadinessSummary;
   draft: {
     status: "local_rule_fallback";

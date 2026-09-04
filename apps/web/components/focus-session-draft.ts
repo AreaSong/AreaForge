@@ -6,7 +6,7 @@ import type {
 } from "@/components/focus-session-panels";
 
 const DRAFT_PREFIX = "areaforge.focus.closeout.";
-const DRAFT_VERSION = 3;
+const DRAFT_VERSION = 4;
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type FocusPhase = "focus" | "closeout" | "low-conversion" | "evidence" | "complete";
@@ -14,7 +14,7 @@ export type FocusPhase = "focus" | "closeout" | "low-conversion" | "evidence" | 
 export interface FocusCloseoutDraft {
   qualityScore: string;
   isEffective: string;
-  understandingLevel: UnderstandingLevel;
+  understandingLevel: UnderstandingLevel | "";
   lowReasons: StudySessionLowReasonDto[];
   focusLevel: string;
   energyLevel: string;
@@ -33,10 +33,10 @@ export type FocusCloseoutSubmission =
       mode: "complete";
       qualityScore: number;
       isEffective: boolean;
-      understandingLevel: UnderstandingLevel;
+      understandingLevel?: UnderstandingLevel;
       lowReasons: StudySessionLowReasonDto[];
-      focusLevel: number;
-      energyLevel: number;
+      focusLevel?: number;
+      energyLevel?: number;
       minimalOutput: string;
       nextAction: string;
       nextDisposition: string;
@@ -48,7 +48,7 @@ export type FocusCloseoutSubmission =
   };
 
 export function focusDraftKey(userId: string, sessionId: string) {
-  return `${DRAFT_PREFIX}v3.${userId}.${sessionId}`;
+  return `${DRAFT_PREFIX}v4.${userId}.${sessionId}`;
 }
 
 export function readFocusDraft(userId: string, sessionId: string) {
@@ -64,7 +64,7 @@ export function readFocusDraft(userId: string, sessionId: string) {
       updatedAt?: number;
       qualityScore?: string;
       isEffective?: string;
-      understandingLevel?: UnderstandingLevel;
+      understandingLevel?: UnderstandingLevel | "";
       lowReasons?: StudySessionLowReasonDto[];
       focusLevel?: string;
       energyLevel?: string;
@@ -95,12 +95,12 @@ export function defaultFocusCloseoutDraft(): FocusCloseoutDraft {
   return {
     qualityScore: "3",
     isEffective: "true",
-    understandingLevel: "基本理解",
+    understandingLevel: "",
     lowReasons: [],
-    focusLevel: "3",
-    energyLevel: "3",
+    focusLevel: "",
+    energyLevel: "",
     minimalOutput: "",
-    nextAction: "继续推进",
+    nextAction: "",
     nextDisposition: "",
     note: "",
     taskDisposition: "continue",
@@ -203,6 +203,9 @@ export function buildFocusCloseoutSubmission(
 ): FocusCloseoutSubmission {
   const minimalOutput = draft.minimalOutput.trim();
   const nextAction = draft.nextAction.trim();
+  const understandingLevel = draft.understandingLevel || undefined;
+  const focusLevel = draft.focusLevel ? Number(draft.focusLevel) : undefined;
+  const energyLevel = draft.energyLevel ? Number(draft.energyLevel) : undefined;
   if (minimalOutput.length < 4) {
     return { ok: false, error: "请填写至少 4 个字符的真实最小产出，系统不会代填学习事实。" };
   }
@@ -223,10 +226,10 @@ export function buildFocusCloseoutSubmission(
       mode: "complete",
       qualityScore: Number(draft.qualityScore),
       isEffective: draft.isEffective === "true",
-      understandingLevel: draft.understandingLevel,
+      ...(understandingLevel ? { understandingLevel } : {}),
       lowReasons: draft.lowReasons,
-      focusLevel: Number(draft.focusLevel),
-      energyLevel: Number(draft.energyLevel),
+      ...(focusLevel ? { focusLevel } : {}),
+      ...(energyLevel ? { energyLevel } : {}),
       minimalOutput,
       nextAction,
       nextDisposition: draft.nextDisposition.trim() || nextAction,

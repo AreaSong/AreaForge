@@ -153,7 +153,7 @@ Batch 2 已新增字段：
 兼容策略：
 
 - 首页优先读取 active `RecoveryState`；没有 active 状态时使用 `createRecoveryPlan` 实时规则。
-- 规则触发恢复时幂等创建 `triggerType=rule` 的 active 状态。
+- Dashboard/Today GET 只读取 active 状态并在无状态时返回实时规则 fallback，不在查询期间持久化规则触发；需要记录规则触发时必须走显式命令，幂等创建 `triggerType=rule` 的 active 状态。
 - 用户主动“我需要恢复”只创建或复用 `triggerType=manual` 的 active 状态，不删除、不隐藏原任务。
 - 完成或取消退出只更新 `RecoveryState.status/endedAt/exitCondition`，不自动批量改历史欠账。
 - 首页计时器聚焦 `visibleRecoveryTasks`，任务面板保留完整 `StudyTask` 列表。

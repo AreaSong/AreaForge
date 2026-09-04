@@ -17,9 +17,11 @@
 ## 产品
 
 - `product/charter.md`：产品定位和边界。
+- `product/learning-loop.md`：跨工作台学习闭环、状态语义、关键行为契约与后续优先级。
 - `product/prd.md`：产品需求文档。
 - `product/feature-scope.md`：版本范围和功能分期。
 - `product/roadmap.md`：阶段路线图。
+- `../workflow/versions/v1.3-v2.0-platform-evolution.md`：A -> B 平台演进的完整版本、依赖、门禁和退出条件。
 
 ## 架构
 

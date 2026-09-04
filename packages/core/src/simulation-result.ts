@@ -222,7 +222,7 @@ function createSimulationResultActions(
     actions.add("空题必须归类：不会、来不及、还是心态乱。");
   }
   if (input.isFirstSynchronizedSimulation) {
-    actions.add("写第一次全真自测阶段日记，作为 2027 计划重校准输入。");
+    actions.add("写第一次全真自测阶段日记，作为后续计划重校准输入。");
   }
   if (shortfalls.length > 0) {
     actions.add("把主要短板关联到错题或考纲节点，别只写感受。");

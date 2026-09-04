@@ -44,17 +44,17 @@ export interface LongTermRiskSimulationInput {
 export interface LongTermRiskStageInput {
   mode: "recovery" | "strengthen" | "sprint" | "maintain" | string;
   goal: string;
-  daysToFinal: number;
+  daysToFinal: number | null;
   activeDraftCount?: number;
 }
 
 export interface LongTermRiskSummaryInput {
   window: LongTermRiskWindowInput;
   effectiveMinutes: number;
-  taskCompletionRate: number;
+  taskCompletionRate: number | null;
   debtCount: number;
   lowConversionCount: number;
-  reviewCompletionRate: number;
+  reviewCompletionRate: number | null;
   dueMistakeCount: number;
   dueNoteCount: number;
   weakNodes: LongTermRiskWeakNodeInput[];
@@ -120,7 +120,7 @@ function createLongTermRiskItems(input: LongTermRiskSummaryInput): LongTermRiskI
     });
   }
 
-  if (input.taskCompletionRate < 0.45) {
+  if (input.taskCompletionRate != null && input.taskCompletionRate < 0.45) {
     risks.push({
       id: "periodic-low-completion",
       source: "periodic_report",
@@ -162,7 +162,7 @@ function createLongTermRiskItems(input: LongTermRiskSummaryInput): LongTermRiskI
     });
   }
 
-  if (input.reviewCompletionRate < 0.5) {
+  if (input.reviewCompletionRate != null && input.reviewCompletionRate < 0.5) {
     risks.push({
       id: "review-coverage-gap",
       source: "review_queue",
@@ -253,7 +253,7 @@ function createLongTermRiskItems(input: LongTermRiskSummaryInput): LongTermRiskI
       });
     }
 
-    if (input.stage.daysToFinal <= 120) {
+    if (input.stage.daysToFinal != null && input.stage.daysToFinal <= 120) {
       risks.push({
         id: "stage-sprint-window",
         source: "stage_plan",

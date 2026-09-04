@@ -103,6 +103,7 @@ export function GroupManager(props: {
   onKeyChange: (value: string) => void;
   onAdd: () => void;
   onUpdate: (group: SubjectGroupDto, patch: Record<string, unknown>, success: string) => Promise<boolean>;
+  onRequestArchive: (group: SubjectGroupDto) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -149,7 +150,13 @@ export function GroupManager(props: {
                     <IconButton label={`编辑${group.name}`} disabled={props.pending || Boolean(group.archivedAt)} onClick={() => { setEditingId(group.id); setEditingName(group.name); }}><Pencil size={15} /></IconButton>
                     <IconButton label={`${group.name}上移`} disabled={props.pending || Boolean(group.archivedAt) || activeGroupIds[0] === group.id} onClick={() => void props.onUpdate(group, { move: "UP" }, "分组顺序已更新。")}><ArrowUp size={15} /></IconButton>
                     <IconButton label={`${group.name}下移`} disabled={props.pending || Boolean(group.archivedAt) || activeGroupIds.at(-1) === group.id} onClick={() => void props.onUpdate(group, { move: "DOWN" }, "分组顺序已更新。")}><ArrowDown size={15} /></IconButton>
-                    <IconButton label={group.archivedAt ? `恢复${group.name}` : `归档${group.name}`} disabled={props.pending} onClick={() => void props.onUpdate(group, { archived: !group.archivedAt }, group.archivedAt ? "分组已恢复。" : "分组已归档。")}>
+                    <IconButton
+                      label={group.archivedAt ? `恢复${group.name}` : `归档${group.name}`}
+                      disabled={props.pending}
+                      onClick={() => group.archivedAt
+                        ? void props.onUpdate(group, { archived: false }, "分组已恢复，可重新关联科目。")
+                        : props.onRequestArchive(group)}
+                    >
                       {group.archivedAt ? <RotateCcw size={15} /> : <Archive size={15} />}
                     </IconButton>
                   </>
@@ -177,6 +184,7 @@ export function GroupManager(props: {
 }
 
 export function subjectErrorMessage(code: string | undefined, fallback: string): string {
+  if (code === "WORKSPACE_NOT_FOUND") return "当前工作区已切换，页面正在刷新；请在新工作区中重新操作。";
   if (code === "WORKSPACE_REVISION_CONFLICT") return "工作区刚刚发生变化，页面已刷新；请检查后再次提交。";
   if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少需要保留一个使用中的科目。";
   if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE") return "这个科目仍有进行中的计时，请先结束计时。";

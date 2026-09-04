@@ -1,6 +1,5 @@
 import type {
   KnowledgeRetestListItemDto,
-  KnowledgeRetestResultDto,
   KnowledgeRetestStatusDto,
 } from "@/lib/contracts/knowledge-retest";
 import type {
@@ -115,7 +114,7 @@ export interface TestKpis {
   avgActualScore: number | null;
   avgTargetScore: number | null;
   avgScoreDelta: number | null;
-  cumulativeLostScore: number;
+  cumulativeLostScore: number | null;
   pendingTotalLoad: number;
   scoreTrajectory: number[];
 }
@@ -142,41 +141,46 @@ export function calculateTestKpis(
   let avgScoreDelta: number | null = null;
 
   if (scoredConfirmed.length > 0) {
-    const totalActual = scoredConfirmed.reduce((sum, e) => sum + (e.actualScore ?? 0), 0);
+    const totalActual = scoredConfirmed.reduce((sum, e) => sum + e.actualScore!, 0);
     avgActualScore = Math.round((totalActual / scoredConfirmed.length) * 10) / 10;
 
-    const targeted = scoredConfirmed.filter((e) => typeof e.targetScore === "number");
-    if (targeted.length > 0) {
-      const totalTarget = targeted.reduce((sum, e) => sum + (e.targetScore ?? 0), 0);
-      avgTargetScore = Math.round((totalTarget / targeted.length) * 10) / 10;
-      avgScoreDelta = Math.round((avgActualScore - avgTargetScore) * 10) / 10;
+    const paired = scoredConfirmed.filter((e) => typeof e.targetScore === "number");
+    if (paired.length > 0) {
+      const totalTarget = paired.reduce((sum, e) => sum + e.targetScore!, 0);
+      const totalDelta = paired.reduce((sum, e) => sum + (e.actualScore! - e.targetScore!), 0);
+      avgTargetScore = Math.round((totalTarget / paired.length) * 10) / 10;
+      avgScoreDelta = Math.round((totalDelta / paired.length) * 10) / 10;
     }
   }
 
   // Cumulative lost score from confirmed exams
   let cumulativeLostScore = 0;
+  let hasLostScoreEvidence = false;
   for (const exam of confirmedExams) {
     for (const sub of exam.subjectResults) {
-      const full = sub.paperFullScore ?? 0;
-      const act = sub.actualScore ?? 0;
-      if (full > 0 && act >= 0) {
+      const full = sub.paperFullScore;
+      const act = sub.actualScore;
+      if (full != null && full > 0 && act != null && act >= 0) {
+        hasLostScoreEvidence = true;
         cumulativeLostScore += Math.max(0, full - act);
       } else {
-        for (const item of sub.lossItems) {
-          if (!item.archivedAt) {
-            cumulativeLostScore += item.lostScore;
-          }
+        const activeLossItems = sub.lossItems.filter((item) => !item.archivedAt);
+        if (activeLossItems.length > 0) hasLostScoreEvidence = true;
+        for (const item of activeLossItems) {
+          cumulativeLostScore += item.lostScore;
         }
       }
     }
   }
-  cumulativeLostScore = Math.round(cumulativeLostScore * 10) / 10;
+  const normalizedLostScore = hasLostScoreEvidence
+    ? Math.round(cumulativeLostScore * 10) / 10
+    : null;
 
   // Chronological score trajectory for sparklines
   const sortedScored = [...scoredConfirmed].sort(
     (a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime(),
   );
-  const scoreTrajectory = sortedScored.map((e) => e.actualScore ?? 0);
+  const scoreTrajectory = sortedScored.map((e) => e.actualScore!);
 
   return {
     totalSimulations: simulations.length,
@@ -189,7 +193,7 @@ export function calculateTestKpis(
     avgActualScore,
     avgTargetScore,
     avgScoreDelta,
-    cumulativeLostScore,
+    cumulativeLostScore: normalizedLostScore,
     pendingTotalLoad: openRetests.length + draftExams.length,
     scoreTrajectory,
   };
@@ -204,16 +208,16 @@ export interface MockExamTrendPoint {
   name: string;
   examDate: string;
   actualScore: number;
-  targetScore: number;
-  fullScore: number;
-  delta: number;
-  isAboveTarget: boolean;
+  targetScore: number | null;
+  fullScore: number | null;
+  delta: number | null;
+  isAboveTarget: boolean | null;
   subjectScores: Array<{
     subjectName: string;
     subjectColor: string;
-    actualScore: number;
-    targetScore: number;
-    paperFullScore: number;
+    actualScore: number | null;
+    targetScore: number | null;
+    paperFullScore: number | null;
   }>;
 }
 
@@ -233,19 +237,21 @@ export function calculateMockExamTrends(simulations: SimulationExamDto[]): MockE
   );
 
   const points: MockExamTrendPoint[] = sorted.map((exam) => {
-    const actualScore = exam.actualScore ?? 0;
-    const targetScore = exam.targetScore ?? 0;
-    const fullScore =
-      exam.subjectResults.reduce((sum, s) => sum + (s.paperFullScore ?? 0), 0) ||
-      (targetScore > 0 ? Math.round(targetScore * 1.3) : 500);
-    const delta = Math.round((actualScore - targetScore) * 10) / 10;
+    const actualScore = exam.actualScore!;
+    const targetScore = exam.targetScore;
+    const hasCompleteFullScore = exam.subjectResults.length > 0
+      && exam.subjectResults.every((subject) => subject.paperFullScore != null && subject.paperFullScore > 0);
+    const fullScore = hasCompleteFullScore
+      ? exam.subjectResults.reduce((sum, subject) => sum + (subject.paperFullScore ?? 0), 0)
+      : null;
+    const delta = targetScore == null ? null : Math.round((actualScore - targetScore) * 10) / 10;
 
     const subjectScores = exam.subjectResults.map((sub) => ({
       subjectName: sub.subjectName,
       subjectColor: sub.subjectColor || "#2dd4bf",
-      actualScore: sub.actualScore ?? 0,
-      targetScore: sub.targetScore ?? 0,
-      paperFullScore: sub.paperFullScore ?? 100,
+      actualScore: sub.actualScore,
+      targetScore: sub.targetScore,
+      paperFullScore: sub.paperFullScore,
     }));
 
     return {
@@ -256,7 +262,7 @@ export function calculateMockExamTrends(simulations: SimulationExamDto[]): MockE
       targetScore,
       fullScore,
       delta,
-      isAboveTarget: delta >= 0,
+      isAboveTarget: delta == null ? null : delta >= 0,
       subjectScores,
     };
   });
@@ -264,7 +270,7 @@ export function calculateMockExamTrends(simulations: SimulationExamDto[]): MockE
   if (points.length === 0) {
     return {
       points: [],
-      maxScore: 500,
+      maxScore: 0,
       minScore: 0,
       latestDelta: null,
       avgDelta: null,
@@ -273,20 +279,27 @@ export function calculateMockExamTrends(simulations: SimulationExamDto[]): MockE
   }
 
   const allActuals = points.map((p) => p.actualScore);
-  const allTargets = points.map((p) => p.targetScore);
-  const allFulls = points.map((p) => p.fullScore);
+  const allTargets = points.flatMap((point) => point.targetScore == null ? [] : [point.targetScore]);
+  const allFulls = points.flatMap((point) => point.fullScore == null ? [] : [point.fullScore]);
 
   const maxScore = Math.max(...allActuals, ...allTargets, ...allFulls);
   const minScore = Math.min(0, ...allActuals, ...allTargets);
 
   const latest = points[points.length - 1];
-  const latestDelta = latest ? latest.delta : null;
+  const latestDelta = latest?.delta ?? null;
 
-  const totalDelta = points.reduce((sum, p) => sum + p.delta, 0);
-  const avgDelta = Math.round((totalDelta / points.length) * 10) / 10;
+  const pairedPoints = points.filter((point): point is MockExamTrendPoint & { delta: number; isAboveTarget: boolean } =>
+    point.delta != null && point.isAboveTarget != null,
+  );
+  const totalDelta = pairedPoints.reduce((sum, point) => sum + point.delta, 0);
+  const avgDelta = pairedPoints.length > 0
+    ? Math.round((totalDelta / pairedPoints.length) * 10) / 10
+    : null;
 
-  const passedCount = points.filter((p) => p.isAboveTarget).length;
-  const targetPassRate = Math.round((passedCount / points.length) * 1000) / 10;
+  const passedCount = pairedPoints.filter((point) => point.isAboveTarget).length;
+  const targetPassRate = pairedPoints.length > 0
+    ? Math.round((passedCount / pairedPoints.length) * 1000) / 10
+    : null;
 
   return {
     points,
@@ -490,7 +503,7 @@ export type PendingTestQueueItem =
       pointCount: number;
       pointTitles: string[];
       status: KnowledgeRetestStatusDto;
-      dueStatus: "overdue" | "due_today" | "upcoming" | "in_progress";
+      dueStatus: "overdue" | "due_today" | "upcoming" | "unscheduled" | "in_progress";
       dueText: string;
       actionUrl: string;
       actionLabel: string;
@@ -523,8 +536,8 @@ export function buildPendingTestQueue(
   // 1. Open Retests
   const openRetests = retests.filter((r) => r.status !== "CLOSED" && r.status !== "VOIDED");
   for (const retest of openRetests) {
-    let dueStatus: "overdue" | "due_today" | "upcoming" | "in_progress" = "due_today";
-    let dueText = "今日待测";
+    let dueStatus: "overdue" | "due_today" | "upcoming" | "unscheduled" | "in_progress" = "unscheduled";
+    let dueText = "未排期";
 
     if (retest.status === "IN_PROGRESS") {
       dueStatus = "in_progress";
@@ -591,6 +604,7 @@ export function buildPendingTestQueue(
     due_today: 3,
     draft_pending: 4,
     upcoming: 5,
+    unscheduled: 6,
   };
 
   return queue.sort((a, b) => {

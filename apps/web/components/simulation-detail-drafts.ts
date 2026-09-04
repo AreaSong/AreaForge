@@ -34,10 +34,10 @@ export interface SubjectDraft {
   subjectId: string;
   subjectResultId: string | null;
   expectedRevision?: number;
-  paperFullScore: number;
-  targetScore: number;
-  actualScore: number;
-  durationMinutes: number;
+  paperFullScore: number | null;
+  targetScore: number | null;
+  actualScore: number | null;
+  durationMinutes: number | null;
   blankQuestionCount: number;
   summary: string;
   lossItems: SimulationLossItemDraft[];
@@ -84,6 +84,7 @@ export function sameStringSet(left: string[], right: string[]): boolean {
 export function isReadyForConfirmation(exam: SimulationExamDto): boolean {
   return exam.status !== "CONFIRMED"
     && hasPersistedSubjectResults(exam)
+    && exam.subjectResults.every((result) => result.actualScore != null)
     && Boolean(exam.summary?.trim())
     && Boolean(exam.reviewText?.trim())
     && Boolean(exam.mindset?.trim());
@@ -96,10 +97,10 @@ export function buildSubjectDrafts(exam: SimulationExamDto, subjects: Array<{ id
       subjectId: subject.id,
       subjectResultId: existing?.id ?? null,
       expectedRevision: existing?.revision,
-      paperFullScore: existing?.paperFullScore ?? 100,
-      targetScore: existing?.targetScore ?? 0,
-      actualScore: existing?.actualScore ?? 0,
-      durationMinutes: existing?.durationMinutes ?? 0,
+      paperFullScore: existing?.paperFullScore ?? null,
+      targetScore: existing?.targetScore ?? null,
+      actualScore: existing?.actualScore ?? null,
+      durationMinutes: existing?.durationMinutes ?? null,
       blankQuestionCount: existing?.blankQuestionCount ?? 0,
       summary: existing?.summary ?? "",
       lossItems: existing?.lossItems.map(toLossItemDraft) ?? [],
@@ -143,11 +144,18 @@ function isSubjectDraft(value: unknown): value is SubjectDraft {
   return typeof draft.subjectId === "string"
     && (draft.subjectResultId === null || typeof draft.subjectResultId === "string")
     && (draft.expectedRevision === undefined || typeof draft.expectedRevision === "number")
-    && [draft.paperFullScore, draft.targetScore, draft.actualScore, draft.durationMinutes, draft.blankQuestionCount]
-      .every((field) => typeof field === "number")
+    && isNullableNumber(draft.paperFullScore)
+    && isNullableNumber(draft.targetScore)
+    && isNullableNumber(draft.actualScore)
+    && isNullableNumber(draft.durationMinutes)
+    && typeof draft.blankQuestionCount === "number"
     && typeof draft.summary === "string"
     && Array.isArray(draft.lossItems)
     && draft.lossItems.every(isSimulationLossItemDraft);
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || typeof value === "number";
 }
 
 function isSimulationLossItemDraft(value: unknown): value is SimulationLossItemDraft {
@@ -257,6 +265,7 @@ export function labelLossItemError(error: string | undefined): string {
   if (error === "SIMULATION_EXAM_REVISION_CONFLICT" || error === "SIMULATION_SUBJECT_REVISION_CONFLICT") return "考试或分科已在其他页面更新；失分操作未执行，请先处理父版本差异。";
   if (error === "SIMULATION_EXAM_CONFIRMED") return "这场模拟已确认，失分条目已只读。";
   if (error === "SIMULATION_REVIEW_REQUIRED") return "请先保存整场复盘，再确认模拟考试。";
+  if (error === "SIMULATION_ACTUAL_SCORES_REQUIRED") return "请先填写所有已选科目的实际分，再确认模拟考试。";
   if (error === "SUBJECT_ARCHIVED") return "相关科目已归档，失分操作未执行。";
   return error ?? "失分操作失败，当前输入仍保留。";
 }

@@ -80,11 +80,13 @@ function createMockTodayDto(overrides: Partial<ActionCenterTodayDto> = {}): Acti
     },
     queuesEmpty: false,
     activity: null,
+    continuation: null,
     checkIn: null,
     learningLoop: {
       totalMinutes: 120,
       effectiveMinutes: 95,
       effectiveSessionCount: 3,
+      evidenceCount: 1,
       lowConversionCount: 1,
       plannedTaskCount: 5,
       completedTaskCount: 3,
@@ -273,6 +275,7 @@ test("Today Action Center: Learning Loop Summary renders Master SectionCard and 
       totalMinutes: 180,
       effectiveMinutes: 150,
       effectiveSessionCount: 5,
+      evidenceCount: 2,
       lowConversionCount: 0,
       plannedTaskCount: 6,
       completedTaskCount: 6,
@@ -346,9 +349,15 @@ test("PinnedActionBar in /today: Layout tokens, text truncation, and responsive 
 
   // 3. Right slot action cluster
   assert.match(source, /创建最小任务/);
-  assert.match(source, /快速复盘/);
+  assert.match(source, /dailyClosureLabel\(today\)/);
+  assert.match(source, /href="\/roadmap\/reviews\/daily"/);
   assert.match(source, /开始今日推荐/);
   assert.match(source, /shadow-\[0_0_16px_rgba\(45,212,191,0\.35\)\]/);
+
+  const supportSource = loadSource("components/action-center-today-support.tsx");
+  assert.match(supportSource, /完成今日复盘/);
+  assert.match(supportSource, /结束学习并复盘/);
+  assert.match(supportSource, /今日已闭环/);
 });
 
 test("PinnedActionBar in /confirmations: Safety notices and primary/danger action cluster", () => {
@@ -552,4 +561,3 @@ test("Today Action Center Helpers: flattenShortcutNodes handles 10-level deep sy
     assert.equal(flattened[i].depth, i);
   }
 });
-

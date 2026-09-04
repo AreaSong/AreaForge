@@ -1,4 +1,4 @@
-import type { StudySessionDto, StudySessionLowReasonDto } from "@/lib/contracts";
+import type { StudySessionDto, StudySessionLowReasonDto, StudySessionStartSourceDto } from "@/lib/contracts";
 
 export type FocusOfflineAction = "start" | "pause" | "resume" | "end" | "context";
 export type FocusOfflineSyncState = "current" | "pending" | "offline" | "blocked" | "deferred";
@@ -37,6 +37,7 @@ export interface LocalFocusSessionInput {
   syllabusNodeTitle?: string | null;
   knowledgePoints?: StudySessionDto["knowledgePoints"];
   goalMinutes?: number | null;
+  startSource?: StudySessionStartSourceDto;
   clientDeviceId?: string | null;
   clientDeviceLabel?: string | null;
 }
@@ -102,7 +103,7 @@ export function createLocalFocusSession(
     closeoutVersion: 1,
     note: null,
     goalMinutes: input.goalMinutes ?? null,
-    startSource: "SUBJECT_SHORTCUT",
+    startSource: input.startSource ?? "SUBJECT_SHORTCUT",
     clientDeviceId: input.clientDeviceId ?? null,
     clientDeviceLabel: input.clientDeviceLabel ?? null,
     lastHeartbeatAt: timestamp,

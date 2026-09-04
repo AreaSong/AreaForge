@@ -18,8 +18,8 @@ export interface SyllabusOverviewDto {
 export interface TodayDashboardDto {
   studyDay: { key: string; start: string; end: string };
   metrics: {
-    daysToSimulation: number;
-    daysToFinal: number;
+    daysToSimulation: number | null;
+    daysToFinal: number | null;
     todayMinutes: number;
     effectiveMinutes: number;
     taskCompletionRate: number;

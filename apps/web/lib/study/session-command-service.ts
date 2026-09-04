@@ -203,8 +203,8 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       throw new ApiError("SESSION_CLOSEOUT_REQUIRES_CLOSING", 409, { conflictFields: ["status"] });
     }
 
-    if (input.qualityScore === undefined || input.isEffective === undefined || !input.understandingLevel || !input.minimalOutput || !input.nextAction) {
-      throw new ApiError("SESSION_CLOSEOUT_REQUIRED", 400, { conflictFields: ["qualityScore", "isEffective", "understandingLevel", "minimalOutput", "nextAction"] });
+    if (input.qualityScore === undefined || input.isEffective === undefined || !input.minimalOutput || !input.nextAction) {
+      throw new ApiError("SESSION_CLOSEOUT_REQUIRED", 400, { conflictFields: ["qualityScore", "isEffective", "minimalOutput", "nextAction"] });
     }
 
     const qualityScore = input.qualityScore;
@@ -264,7 +264,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     await tx.studySessionCloseout.upsert({
       where: { sessionId: existing.id },
       update: {
-        understanding: toCloseoutUnderstanding(input.understandingLevel),
+        understanding: toCloseoutUnderstanding(input.understandingLevel, input.qualityScore),
         efficiency: toCloseoutEfficiency(closeout.isEffective, input.qualityScore),
         lowReasons: lowReasons as Prisma.InputJsonValue,
         focusLevel: input.focusLevel ?? null,
@@ -277,7 +277,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
       },
       create: {
         sessionId: existing.id,
-        understanding: toCloseoutUnderstanding(input.understandingLevel),
+        understanding: toCloseoutUnderstanding(input.understandingLevel, input.qualityScore),
         efficiency: toCloseoutEfficiency(closeout.isEffective, input.qualityScore),
         lowReasons: lowReasons as Prisma.InputJsonValue,
         focusLevel: input.focusLevel ?? null,
@@ -303,7 +303,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
           sessionId: existing.id,
           summary: minimalOutput.trim(),
           dimensions: {
-            understandingLevel: input.understandingLevel,
+            understandingLevel: input.understandingLevel ?? null,
             qualityScore: input.qualityScore,
             isEffective: closeout.isEffective,
             focusLevel: input.focusLevel ?? null,

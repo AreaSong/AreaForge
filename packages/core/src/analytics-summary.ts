@@ -28,8 +28,8 @@ export interface AnalyticsWeakNodeInput {
 
 export interface AnalyticsRiskSummaryInput {
   weekEffectiveMinutes: number;
-  weeklyTaskCompletionRate: number;
-  reviewCompletionRate: number;
+  weeklyTaskCompletionRate: number | null;
+  reviewCompletionRate: number | null;
   dueMistakes: AnalyticsReviewItemInput[];
   dueNotes: AnalyticsReviewItemInput[];
   weakNodes: AnalyticsWeakNodeInput[];
@@ -83,7 +83,7 @@ function createAnalyticsRiskItems(input: AnalyticsRiskSummaryInput): AnalyticsRi
     });
   }
 
-  if (input.weeklyTaskCompletionRate < 0.4) {
+  if (input.weeklyTaskCompletionRate != null && input.weeklyTaskCompletionRate < 0.4) {
     risks.push({
       id: "low-task-completion",
       type: "low_completion",
@@ -94,7 +94,7 @@ function createAnalyticsRiskItems(input: AnalyticsRiskSummaryInput): AnalyticsRi
     });
   }
 
-  if (input.reviewCompletionRate < 0.5) {
+  if (input.reviewCompletionRate != null && input.reviewCompletionRate < 0.5) {
     risks.push({
       id: "review-gap",
       type: "review_gap",
@@ -154,8 +154,8 @@ function createAnalyticsRiskItems(input: AnalyticsRiskSummaryInput): AnalyticsRi
 
 function createAnalyticsActions(input: {
   weekEffectiveMinutes: number;
-  weeklyTaskCompletionRate: number;
-  reviewCompletionRate: number;
+  weeklyTaskCompletionRate: number | null;
+  reviewCompletionRate: number | null;
   risks: AnalyticsRiskSummaryItem[];
 }): string[] {
   const actions: string[] = [];
@@ -166,11 +166,11 @@ function createAnalyticsActions(input: {
     actions.push("今天只追求一次有效学习闭环，不补过去的总账。");
   }
 
-  if (input.weeklyTaskCompletionRate < 0.4) {
+  if (input.weeklyTaskCompletionRate != null && input.weeklyTaskCompletionRate < 0.4) {
     actions.push("明天任务缩到 1 到 2 项，优先完成最高优先级任务。");
   }
 
-  if (input.reviewCompletionRate < 0.5) {
+  if (input.reviewCompletionRate != null && input.reviewCompletionRate < 0.5) {
     actions.push("今晚提交复盘，至少写清失控点和明天最小动作。");
   }
 

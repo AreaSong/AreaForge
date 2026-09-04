@@ -59,12 +59,12 @@ export interface PeriodicWeakness {
 export interface PeriodicReportStrategyInput {
   kind: PeriodicReportKind;
   effectiveMinutes: number;
-  taskCompletionRate: number;
+  taskCompletionRate: number | null;
   debtCount: number;
   lowConversionCount: number;
   mistakesCreatedCount: number;
   mistakeReviewCount: number;
-  reviewCompletionRate: number;
+  reviewCompletionRate: number | null;
   weakNodeCount: number;
   dueNoteCount: number;
   maxWeakness?: string;
@@ -108,10 +108,10 @@ export interface PeriodicReportDecisionSnapshotInput {
   metrics: {
     totalMinutes: number;
     effectiveMinutes: number;
-    taskCompletionRate: number;
+    taskCompletionRate: number | null;
     debtCount: number;
     lowConversionCount: number;
-    reviewCompletionRate: number;
+    reviewCompletionRate: number | null;
     weakNodeCount: number;
     dueNoteCount: number;
     mistakesCreatedCount: number;
@@ -315,13 +315,13 @@ function mostFrequentPeriodicValue(values: string[]): { value: string; count: nu
 
 function choosePeriodicTheme(input: PeriodicReportStrategyInput): PeriodicReportTheme {
   const minimumMinutes = input.kind === "week" ? 180 : 900;
-  if (input.effectiveMinutes < minimumMinutes || input.taskCompletionRate < 0.3 || input.debtCount >= 8) {
+  if (input.effectiveMinutes < minimumMinutes || isBelow(input.taskCompletionRate, 0.3) || input.debtCount >= 8) {
     return "recovery";
   }
 
   if (
     input.lowConversionCount >= 3 ||
-    input.taskCompletionRate < 0.6 ||
+    isBelow(input.taskCompletionRate, 0.6) ||
     input.mistakesCreatedCount > input.mistakeReviewCount + 2 ||
     input.weakNodeCount >= 5
   ) {
@@ -330,8 +330,8 @@ function choosePeriodicTheme(input: PeriodicReportStrategyInput): PeriodicReport
 
   if (
     input.effectiveMinutes >= (input.kind === "week" ? 720 : 2400) &&
-    input.taskCompletionRate >= 0.75 &&
-    input.reviewCompletionRate >= 0.65
+    isAtLeast(input.taskCompletionRate, 0.75) &&
+    isAtLeast(input.reviewCompletionRate, 0.65)
   ) {
     return "sprint";
   }
@@ -342,11 +342,11 @@ function choosePeriodicTheme(input: PeriodicReportStrategyInput): PeriodicReport
 function choosePeriodicMustPressIssue(input: PeriodicReportStrategyInput): string {
   const minimumMinutes = input.kind === "week" ? 180 : 900;
   if (input.effectiveMinutes < minimumMinutes) return "先恢复有效学习时长，不扩任务。";
-  if (input.taskCompletionRate < 0.5) return "先压任务完成率，减少明面任务数量。";
+  if (isBelow(input.taskCompletionRate, 0.5)) return "先压任务完成率，减少明面任务数量。";
   if (input.debtCount > 0) return "先处理最影响阶段推进的欠账。";
   if (input.lowConversionCount > 0) return "先提高学习转化率，每次必须留产出。";
   if (input.mistakesCreatedCount > input.mistakeReviewCount) return "先把新增错题变成复盘证据。";
-  if (input.reviewCompletionRate < 0.5) return "先恢复周期复盘，不让记录散掉。";
+  if (isBelow(input.reviewCompletionRate, 0.5)) return "先恢复周期复盘，不让记录散掉。";
   if (input.weakNodeCount > 0) return input.maxWeakness ?? "先压最薄弱的考纲节点。";
   if (input.dueNoteCount > 0) return "先处理到期笔记复习，避免遗忘滚大。";
   return input.maxWeakness ?? "保持稳态推进，并固定复盘最大短板。";
@@ -360,7 +360,7 @@ function createPeriodicNextActions(input: PeriodicReportStrategyInput): string[]
     actions.push(input.kind === "week" ? "下周先保证 3 次有效学习闭环。" : "下月先保证每周至少 3 次有效学习闭环。");
   }
 
-  if (input.taskCompletionRate < 0.5) {
+  if (isBelow(input.taskCompletionRate, 0.5)) {
     actions.push("把下一周期任务量降到能完成，优先最高优先级任务。");
   }
 
@@ -376,7 +376,7 @@ function createPeriodicNextActions(input: PeriodicReportStrategyInput): string[]
     actions.push("新增错题必须配套复盘更新，别只收集不会。");
   }
 
-  if (input.reviewCompletionRate < 0.5) {
+  if (isBelow(input.reviewCompletionRate, 0.5)) {
     actions.push("复盘缺口先补，至少写清失控点和下个最小动作。");
   }
 
@@ -389,6 +389,14 @@ function createPeriodicNextActions(input: PeriodicReportStrategyInput): string[]
   }
 
   return [...new Set(actions)].slice(0, 5);
+}
+
+function isBelow(value: number | null, threshold: number): boolean {
+  return value != null && value < threshold;
+}
+
+function isAtLeast(value: number | null, threshold: number): boolean {
+  return value != null && value >= threshold;
 }
 
 function createPeriodicStageAdjustment(kind: PeriodicReportKind, theme: PeriodicReportTheme): string {

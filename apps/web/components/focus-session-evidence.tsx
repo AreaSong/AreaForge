@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, FileText, Pencil, Target, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { ContinueNextAction } from "@/components/continue-next-action";
 import { Button } from "@/components/ui/button";
 import { getReturnContextLabel } from "@/lib/navigation/return-context";
 import type { TaskStatusDto } from "@/lib/contracts";
@@ -270,12 +271,7 @@ export function CompleteWorkspace(props: {
               </Link>
             ) : <div />}
 
-            <Link
-              href="/today"
-              className="inline-flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl bg-teal-400 px-8 text-xs sm:text-sm font-semibold text-[#061012] shadow-[0_0_20px_rgba(45,212,191,0.35)] transition-all hover:bg-teal-300 hover:shadow-[0_0_28px_rgba(45,212,191,0.5)] active:scale-[0.98]"
-            >
-              回到今日总览，查看下一行动
-            </Link>
+            <ContinueNextAction fallbackLabel="回到今日总览" size="lg" />
           </div>
         </div>
       </section>

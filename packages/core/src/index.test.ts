@@ -397,6 +397,21 @@ test("simulation readiness blocks overconfident stage adjustment", () => {
   assert.match(readiness.reason, /准备度不足/);
 });
 
+test("simulation readiness skips missing task and review samples", () => {
+  const readiness = evaluateSimulationReadiness({
+    daysToSimulation: 60,
+    weeklyEffectiveMinutes: 480,
+    weeklyTaskCompletionRate: null,
+    reviewCompletionRate: null,
+    weakNodeCount: 0,
+    dueMistakeCount: 0,
+    hasFirstSimulationDiary: true,
+  });
+
+  assert.match(readiness.reason, /任务完成率、复盘完成率暂无样本/);
+  assert.equal(readiness.nextActions.some((action) => action.includes("补齐复盘")), false);
+});
+
 test("normalizeStudyCloseout turns weak self-report into low conversion", () => {
   const closeout = normalizeStudyCloseout({
     minutes: 60,
@@ -439,6 +454,19 @@ test("normalizeStudyCloseout does not impose a duration gate on free study", () 
 
   assert.equal(closeout.isEffective, true);
   assert.equal(closeout.isLowConversion, false);
+});
+
+test("normalizeStudyCloseout keeps an omitted understanding level unknown", () => {
+  const closeout = normalizeStudyCloseout({
+    minutes: 30,
+    userMarkedEffective: true,
+    minimalOutput: "整理了本节核心定义",
+    nextAction: "完成对应基础练习",
+  });
+
+  assert.equal(closeout.canExplain, null);
+  assert.equal(closeout.isLowConversion, false);
+  assert.doesNotMatch(closeout.closeoutText, /理解程度：/);
 });
 
 test("summarizeCheckInHistory derives streak and missed dates from snapshots", () => {
@@ -897,6 +925,20 @@ test("summarizeAnalyticsRisks gives steady fallback action when risk is clear", 
   assert.deepEqual(summary.actions, ["继续保持当前节奏，把新增产出关联到任务或考纲节点。"]);
 });
 
+test("summarizeAnalyticsRisks does not turn a missing review sample into a review gap", () => {
+  const summary = summarizeAnalyticsRisks({
+    weekEffectiveMinutes: 520,
+    weeklyTaskCompletionRate: null,
+    reviewCompletionRate: null,
+    weakNodes: [],
+    dueMistakes: [],
+    dueNotes: [],
+  });
+
+  assert.equal(summary.risks.some((risk) => risk.type === "review_gap"), false);
+  assert.equal(summary.actions.some((action) => action.includes("提交复盘")), false);
+});
+
 test("summarizeLongTermRisks combines long-term evidence without auto application", () => {
   const summary = summarizeLongTermRisks({
     window: {
@@ -1223,6 +1265,56 @@ test("draftStageAdjustment switches to sprint near final exam", () => {
   assert.match(draft.riskConclusion, /冲刺窗口/);
 });
 
+test("draftStageAdjustment keeps missing balance and review samples neutral", () => {
+  const draft = draftStageAdjustment({
+    stageGoal: "当前阶段",
+    taskCompletionRate: 0.8,
+    subjectInvestmentBalance: null,
+    mistakeReviewRate: null,
+    reviewCompletionRate: null,
+    currentStreakDays: 10,
+    breakCount: 0,
+    lowConversionCount: 0,
+    weakSubjectNames: [],
+    simulationScoreRate: null,
+    daysToFinal: null,
+  });
+
+  assert.equal(draft.mode, "maintain");
+  assert.equal(draft.risk, "low");
+  assert.deepEqual(draft.taskAdjustmentActions, []);
+});
+
+test("periodic and long-term rules skip a missing review sample", () => {
+  const strategy = summarizePeriodicReportStrategy({
+    kind: "week",
+    effectiveMinutes: 800,
+    taskCompletionRate: 0.8,
+    debtCount: 0,
+    lowConversionCount: 0,
+    mistakesCreatedCount: 1,
+    mistakeReviewCount: 1,
+    reviewCompletionRate: null,
+    weakNodeCount: 0,
+    dueNoteCount: 0,
+  });
+  assert.equal(strategy.theme, "steady");
+  assert.equal(strategy.nextActions.some((action) => action.includes("复盘缺口")), false);
+
+  const risks = summarizeLongTermRisks({
+    window: { start: "2026-08-01", end: "2026-09-01", label: "近 30 天" },
+    effectiveMinutes: 1200,
+    taskCompletionRate: null,
+    debtCount: 0,
+    lowConversionCount: 0,
+    reviewCompletionRate: null,
+    dueMistakeCount: 0,
+    dueNoteCount: 0,
+    weakNodes: [],
+  });
+  assert.equal(risks.risks.some((risk) => risk.id === "review-coverage-gap"), false);
+});
+
 test("evaluateSyllabusMapSignal highlights mistake hotspots before mastery", () => {
   const signal = evaluateSyllabusMapSignal({
     nodeStatus: "mastered",
@@ -1301,7 +1393,8 @@ test("summarizeSimulationResult recalibrates after first synchronized simulation
   assert.equal(result.timePressure, "high");
   assert.equal(result.shouldRecalibratePlan, true);
   assert.ok(result.postSimulationRequiredFields.includes("第一次全真自测阶段日记"));
-  assert.match(result.nextActions.join("\n"), /2027/);
+  assert.match(result.nextActions.join("\n"), /后续计划重校准/);
+  assert.doesNotMatch(result.nextActions.join("\n"), /2027/);
 });
 
 test("summarizeSimulationResult keeps near target simulations focused", () => {

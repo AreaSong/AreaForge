@@ -17,6 +17,9 @@ import { formatPlanDay, formatShortDate } from "./plan-rolling-day-list";
 import {
   buildPlanInboxConflictComparisons,
   detailHref,
+  getPlanInboxMissingFields,
+  initialPlanInboxEditorFields,
+  isPlanInboxEditorFieldVisible,
   planInboxDraftsEqual,
   planInboxStatusLabel,
   shanghaiDateOffset,
@@ -164,7 +167,23 @@ test("plan inbox item utils: toPlanInboxFormDraft and comparison", () => {
   const modified = { ...draft, title: "Different Title" };
   assert.equal(planInboxDraftsEqual(draft, modified), false);
 
-  assert.equal(planInboxStatusLabel("OPEN"), "待补全");
+  assert.equal(planInboxStatusLabel("OPEN"), "待安排");
   assert.equal(planInboxStatusLabel("CONVERTED"), "已转为任务");
   assert.equal(planInboxStatusLabel("DISMISSED"), "已忽略");
+
+  assert.deepEqual(getPlanInboxMissingFields(draft, null), []);
+  assert.equal(initialPlanInboxEditorFields(draft, null), null);
+  assert.deepEqual(
+    getPlanInboxMissingFields({ ...draft, subjectId: "", plannedDate: "", estimatedMinutes: "" }, null),
+    [
+      { key: "subjectId", label: "科目" },
+      { key: "plannedDate", label: "日期" },
+      { key: "estimatedMinutes", label: "预计时长" },
+    ],
+  );
+  const missingOnly = initialPlanInboxEditorFields({ ...draft, subjectId: "", plannedDate: "" }, null);
+  assert.deepEqual(missingOnly, ["subjectId", "plannedDate"]);
+  assert.equal(isPlanInboxEditorFieldVisible(missingOnly, "subjectId"), true);
+  assert.equal(isPlanInboxEditorFieldVisible(missingOnly, "title"), false);
+  assert.equal(isPlanInboxEditorFieldVisible("all", "title"), true);
 });

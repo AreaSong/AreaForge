@@ -27,7 +27,7 @@ export interface SimulationSubjectEditorProps {
   busy: boolean;
   activeLossItems: SimulationLossItemDraft[];
   archivedLossItems: SimulationLossItemDraft[];
-  onUpdateField: (field: SubjectNumericField, value: number) => void;
+  onUpdateField: (field: SubjectNumericField, value: number | null) => void;
   onUpdateSummary: (value: string) => void;
   onAddLossItem: () => void;
   onUpdateLossItem: (clientKey: string, patch: Partial<SimulationLossItemDraft>) => void;
@@ -65,11 +65,11 @@ function SubjectResultFields(props: {
   active: SubjectDraft;
   subjectName: string;
   disabled: boolean;
-  onUpdateField: (field: SubjectNumericField, value: number) => void;
+  onUpdateField: (field: SubjectNumericField, value: number | null) => void;
   onUpdateSummary: (value: string) => void;
 }) {
   const fields: Array<[SubjectNumericField, string, number, number]> = [
-    ["paperFullScore", "卷面满分", 1, 0],
+    ["paperFullScore", "卷面满分", 1, 1],
     ["targetScore", "目标分", 0.5, 0],
     ["actualScore", "实际分", 0.5, 0],
     ["durationMinutes", "用时（分）", 1, 0],
@@ -90,9 +90,12 @@ function SubjectResultFields(props: {
               type="number"
               step={step}
               min={min}
-              value={props.active[field]}
+              value={props.active[field] ?? ""}
               disabled={props.disabled}
-              onChange={(event) => props.onUpdateField(field, Number(event.target.value))}
+              onChange={(event) => props.onUpdateField(
+                field,
+                event.target.value === "" ? (field === "blankQuestionCount" ? 0 : null) : Number(event.target.value),
+              )}
               className="mt-1 h-11 bg-white/[0.03] text-white"
             />
           </label>

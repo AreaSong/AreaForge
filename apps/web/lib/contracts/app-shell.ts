@@ -19,5 +19,11 @@ export interface AppShellStatusDto extends AppShellStatusProjection {
     trigger: "RECOVERY" | "LOW_CONVERSION" | null;
     blockedByActiveActivity: boolean;
   };
+  activeRecovery?: {
+    id: string;
+    currentStage: number;
+    targetMinutes: number;
+    reason: string;
+  } | null;
   activeSession: StudySessionDto | null;
 }

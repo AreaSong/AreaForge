@@ -195,6 +195,7 @@ function FocusCloseout(props: FocusSessionWorkspaceProps & { elapsedLabel: strin
       minimalOutput={draft.minimalOutput}
       nextAction={draft.nextAction}
       nextDisposition={draft.nextDisposition}
+      note={draft.note}
       taskDisposition={draft.taskDisposition}
       validationError={props.closeoutError}
       submitting={props.submittingCloseout}
@@ -211,10 +212,11 @@ function FocusCloseout(props: FocusSessionWorkspaceProps & { elapsedLabel: strin
       onMinimalOutputChange={(minimalOutput) => { props.onClearCloseoutError(); props.onDraftChange({ ...draft, minimalOutput }); }}
       onNextActionChange={(nextAction) => { props.onClearCloseoutError(); props.onDraftChange({ ...draft, nextAction }); }}
       onNextDispositionChange={(nextDisposition) => props.onDraftChange({ ...draft, nextDisposition })}
+      onNoteChange={(note) => props.onDraftChange({ ...draft, note })}
       onTaskDispositionChange={(taskDisposition) => props.onDraftChange({
         ...draft,
         taskDisposition,
-        nextAction: taskDisposition === "complete" ? "转入下一项" : taskDisposition === "blocked" ? "" : "继续推进",
+        nextAction: taskDisposition === "complete" ? "转入下一项" : "",
       })}
       onCancel={props.onCancelCloseout}
       onSubmit={props.onSubmitCloseout}

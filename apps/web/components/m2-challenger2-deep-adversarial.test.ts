@@ -659,14 +659,14 @@ test("ReviewScheduleQueue: Progress math, Accent Hero, and 2-column queue cards"
 
   // 1. Progress math division by zero safety
   assert.match(source, /const totalToday = props\.summary\.completedTodayCount \+ props\.dueItems\.length/);
-  assert.match(source, /const progress = totalToday > 0 \? Math\.round\(\(props\.summary\.completedTodayCount \/ totalToday\) \* 100\) : 100/);
+  assert.match(source, /const progress = totalToday > 0 \? Math\.round\(\(props\.summary\.completedTodayCount \/ totalToday\) \* 100\) : 0/);
 
   // Test math invariants
   function calcReviewProgress(completed: number, due: number): number {
     const total = completed + due;
-    return total > 0 ? Math.round((completed / total) * 100) : 100;
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
   }
-  assert.equal(calcReviewProgress(0, 0), 100); // empty today = 100% complete
+  assert.equal(calcReviewProgress(0, 0), 0); // no schedule is not fabricated as completion
   assert.equal(calcReviewProgress(5, 5), 50);
   assert.equal(calcReviewProgress(10, 0), 100);
   assert.equal(calcReviewProgress(0, 10), 0);

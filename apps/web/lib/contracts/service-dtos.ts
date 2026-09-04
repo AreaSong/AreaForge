@@ -26,7 +26,9 @@ export type {
 export type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 export type {
   ExamWorkspaceDto,
+  SubjectDuplicateSetDto,
   SubjectGroupDto,
+  SubjectReferenceCountDto,
   TakeoverPreviewDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts/workspace";

@@ -32,7 +32,7 @@
 | Batch 0 | 已完成 | `StudySession` 结构化收口字段；只新增字段并保留 `note` 双写；临时库 deploy、API 烟测和首页刷新烟测通过 |
 | Batch 1 | 已完成 | `CheckIn` 日快照；新增 additive migration；新写路径 upsert；dashboard/analytics/reports 快照优先并保留缺失日期 fallback |
 | Batch 2 | 已完成 | `StudyTask.parentTaskId` 与 `TaskDebtEvent`；债务动作双写 `AuditEvent` 与事件账本；拆小任务写入父子关系 |
-| Batch 3 | 已完成 | `RecoveryState`；规则触发和手动触发会创建或复用 active 状态；dashboard/homepage 优先读 active 状态并保留实时规则 fallback；完成/取消只更新恢复状态 |
+| Batch 3 | 已完成 | `RecoveryState`；显式规则/手动命令会创建或复用 active 状态；dashboard/homepage GET 只读 active 状态并保留实时规则 fallback；完成/取消只更新恢复状态 |
 | Batch 4 | 已完成 | `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`；条件勾选、证据引用和复测记录写入；掌握证明显式记录优先并保留 `_count` fallback |
 | Batch 5 | 已完成 | `SimulationExam` 与 `SimulationSubjectResult`；结构化模拟考试主写入和旧任务型模拟只读兼容 |
 | Batch 6 | 已完成 | `StagePlan` 与 `StageAdjustmentDraft`；本地规则草稿持久化，用户确认后只更新关联阶段计划和审计 |
@@ -70,7 +70,7 @@ Batch 3 已完成：
 
 - 已新增 `RecoveryState` schema 和 `20260707030000_add_recovery_state` additive migration。
 - `getTodayDashboard` 会优先读取 active `RecoveryState`；无 active 状态时继续使用 `createRecoveryPlan` 实时规则 fallback。
-- 首页和 dashboard API 规则触发恢复时会幂等创建 `triggerType=rule` 的 active 状态；AI 建议等复用 dashboard 数据的路径默认不记录规则触发。
+- 首页和 dashboard API 只读取 active 状态并保留实时规则 fallback，不在 GET 期间写入；需要持久化规则触发时走显式命令幂等创建 `triggerType=rule` 的 active 状态；AI 建议等复用 dashboard 数据的路径默认不记录规则触发。
 - `POST /api/recovery-states/manual` 创建或复用 `triggerType=manual` 的 active 状态，不复用任务补做 API。
 - `POST /api/recovery-states/:id/complete` 和 `POST /api/recovery-states/:id/cancel` 只更新 `RecoveryState.status/endedAt/exitCondition`。
 - 首页计时器聚焦恢复候选，任务面板保留完整任务列表；不批量修改历史欠账，不删除、不隐藏、不延期原任务。

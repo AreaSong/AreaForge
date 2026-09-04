@@ -2,16 +2,16 @@ export type StageAdjustmentMode = "recovery" | "strengthen" | "sprint" | "mainta
 
 export interface StageAdjustmentDraftInput {
   stageGoal: string;
-  taskCompletionRate: number;
-  subjectInvestmentBalance: number;
-  mistakeReviewRate: number;
-  reviewCompletionRate: number;
+  taskCompletionRate: number | null;
+  subjectInvestmentBalance: number | null;
+  mistakeReviewRate: number | null;
+  reviewCompletionRate: number | null;
   currentStreakDays: number;
   breakCount: number;
   lowConversionCount: number;
   weakSubjectNames: string[];
   simulationScoreRate?: number | null;
-  daysToFinal: number;
+  daysToFinal: number | null;
 }
 
 export interface StageAdjustmentDraft {
@@ -45,9 +45,9 @@ export function draftStageAdjustment(input: StageAdjustmentDraftInput): StageAdj
 }
 
 function determineAdjustmentMode(input: StageAdjustmentDraftInput): StageAdjustmentMode {
-  if (input.daysToFinal <= 120) return "sprint";
+  if (input.daysToFinal != null && input.daysToFinal <= 120) return "sprint";
   if (
-    input.taskCompletionRate < 0.35 ||
+    (input.taskCompletionRate != null && input.taskCompletionRate < 0.35) ||
     input.breakCount >= 3 ||
     input.lowConversionCount >= 4 ||
     (input.simulationScoreRate != null && input.simulationScoreRate < 0.45)
@@ -55,9 +55,9 @@ function determineAdjustmentMode(input: StageAdjustmentDraftInput): StageAdjustm
     return "recovery";
   }
   if (
-    input.taskCompletionRate >= 0.72 &&
-    input.mistakeReviewRate >= 0.6 &&
-    input.reviewCompletionRate >= 0.6 &&
+    input.taskCompletionRate != null && input.taskCompletionRate >= 0.72 &&
+    input.mistakeReviewRate != null && input.mistakeReviewRate >= 0.6 &&
+    input.reviewCompletionRate != null && input.reviewCompletionRate >= 0.6 &&
     input.currentStreakDays >= 7
   ) {
     return "strengthen";
@@ -70,8 +70,11 @@ function determineAdjustmentRisk(
   mode: StageAdjustmentMode,
 ): StageAdjustmentDraft["risk"] {
   if (mode === "sprint") return input.simulationScoreRate != null && input.simulationScoreRate < 0.55 ? "critical" : "high";
-  if (mode === "recovery") return input.breakCount >= 5 || input.taskCompletionRate < 0.2 ? "critical" : "high";
-  if (input.lowConversionCount > 0 || input.subjectInvestmentBalance < 0.45) return "medium";
+  if (mode === "recovery") return input.breakCount >= 5 || (input.taskCompletionRate != null && input.taskCompletionRate < 0.2) ? "critical" : "high";
+  if (
+    input.lowConversionCount > 0 ||
+    (input.subjectInvestmentBalance != null && input.subjectInvestmentBalance < 0.45)
+  ) return "medium";
   return "low";
 }
 
@@ -81,7 +84,7 @@ function determineTaskIntensity(
 ): StageAdjustmentDraft["taskIntensity"] {
   if (mode === "sprint") return "sprint";
   if (mode === "recovery") return "reduce";
-  if (mode === "strengthen" && input.subjectInvestmentBalance >= 0.6) return "increase";
+  if (mode === "strengthen" && input.subjectInvestmentBalance != null && input.subjectInvestmentBalance >= 0.6) return "increase";
   return "keep";
 }
 
@@ -97,11 +100,11 @@ function createTaskAdjustmentActions(
     actions.add("drop");
   }
 
-  if (input.lowConversionCount > 0 || input.reviewCompletionRate < 0.5) {
+  if (input.lowConversionCount > 0 || (input.reviewCompletionRate != null && input.reviewCompletionRate < 0.5)) {
     actions.add("convert_review");
   }
 
-  if (input.mistakeReviewRate < 0.6) {
+  if (input.mistakeReviewRate != null && input.mistakeReviewRate < 0.6) {
     actions.add("retest");
   }
 
@@ -116,7 +119,7 @@ function createTaskAdjustmentActions(
 
 function createFocusSubjects(input: StageAdjustmentDraftInput): string[] {
   const subjects = input.weakSubjectNames.map((subject) => subject.trim()).filter(Boolean);
-  return subjects.length > 0 ? [...new Set(subjects)].slice(0, 3) : ["当前阶段最薄弱科目"];
+  return [...new Set(subjects)].slice(0, 3);
 }
 
 function createRiskConclusion(
@@ -136,7 +139,7 @@ function createNextStageEmphasis(
   mode: StageAdjustmentMode,
   focusSubjects: string[],
 ): string {
-  const focus = focusSubjects.join("、");
+  const focus = focusSubjects.length > 0 ? focusSubjects.join("、") : "当前阶段目标";
   switch (mode) {
     case "recovery":
       return `下一阶段先保 ${focus} 的最小闭环，任务少一点，但每天必须有产出。`;

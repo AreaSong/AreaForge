@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useId, useState } from "react";
-import { ArrowUpRight, BarChart3, CheckCircle2, ChevronRight, HelpCircle, Layers, Target, TrendingUp } from "lucide-react";
+import { ArrowUpRight, BarChart3, CheckCircle2, ChevronRight, Layers, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/feedback";
-import { MiniSparkline, StatusDot } from "@/components/ui/micro-charts";
 import { formatDate } from "@/lib/formatters";
 import type { MockExamTrendPoint, MockExamTrendSummary } from "./test-support";
 
@@ -18,7 +16,7 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
   const gradientId = useId();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const { points, maxScore, latestDelta, avgDelta, targetPassRate } = trend;
+  const { points, maxScore, latestDelta, targetPassRate } = trend;
   const hasData = points.length > 0;
 
   // Selected or latest exam for subject breakdown inspection
@@ -44,7 +42,10 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
 
   // Generate Actual Score Points & Area
   const actualPolyline = points.map((p, i) => `${getX(i)},${getY(p.actualScore)}`).join(" ");
-  const targetPolyline = points.map((p, i) => `${getX(i)},${getY(p.targetScore)}`).join(" ");
+  const hasCompleteTargetScores = points.length > 0 && points.every((point) => point.targetScore != null);
+  const targetPolyline = hasCompleteTargetScores
+    ? points.map((point, index) => `${getX(index)},${getY(point.targetScore!)}`).join(" ")
+    : "";
 
   const actualAreaPath =
     points.length > 1
@@ -53,9 +54,10 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
         ` L ${getX(points.length - 1)},${chartHeight - padY} L ${getX(0)},${chartHeight - padY} Z`
       : "";
 
-  // Full score baseline (default 500 or maximum full score)
-  const fullScoreBaseline = points[0]?.fullScore || 500;
-  const fullScoreY = getY(fullScoreBaseline);
+  const hasCompleteFullScores = points.length > 0 && points.every((point) => point.fullScore != null);
+  const fullScorePolyline = hasCompleteFullScores
+    ? points.map((point, index) => `${getX(index)},${getY(point.fullScore ?? 0)}`).join(" ")
+    : "";
 
   return (
     <Card
@@ -117,14 +119,18 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                   <span className="inline-block w-3 h-0.5 bg-teal-400 rounded-full" />
                   <span className="text-teal-300">实际得分</span>
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-0.5 border-b border-amber-400 border-dashed" />
-                  <span className="text-amber-300">目标分数</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-0.5 border-b border-zinc-600 border-dotted" />
-                  <span className="text-zinc-500">满分线 ({fullScoreBaseline}分)</span>
-                </span>
+                {hasCompleteTargetScores ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-3 h-0.5 border-b border-amber-400 border-dashed" />
+                    <span className="text-amber-300">目标分数</span>
+                  </span>
+                ) : null}
+                {hasCompleteFullScores ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-3 h-0.5 border-b border-zinc-600 border-dotted" />
+                    <span className="text-zinc-500">满分线</span>
+                  </span>
+                ) : null}
               </div>
               <span>
                 {activeExam
@@ -149,28 +155,30 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                 </defs>
 
                 {/* Grid guidelines */}
-                <line
-                  x1={padX}
-                  y1={fullScoreY}
-                  x2={chartWidth - padX}
-                  y2={fullScoreY}
-                  stroke="rgba(255, 255, 255, 0.12)"
-                  strokeWidth="1"
-                  strokeDasharray="3,3"
-                />
-                <text
-                  x={chartWidth - padX}
-                  y={fullScoreY - 4}
-                  fill="#71717a"
-                  fontSize="9"
-                  textAnchor="end"
-                  fontFamily="monospace"
-                >
-                  满分 {fullScoreBaseline}
-                </text>
+                {hasCompleteFullScores ? (
+                  points.length > 1 ? (
+                    <polyline
+                      points={fullScorePolyline}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.2)"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                    />
+                  ) : (
+                    <line
+                      x1={padX}
+                      y1={getY(points[0].fullScore ?? 0)}
+                      x2={chartWidth - padX}
+                      y2={getY(points[0].fullScore ?? 0)}
+                      stroke="rgba(255, 255, 255, 0.2)"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                    />
+                  )
+                ) : null}
 
                 {/* Target Baseline */}
-                {points.length > 1 ? (
+                {hasCompleteTargetScores && points.length > 1 ? (
                   <polyline
                     points={targetPolyline}
                     fill="none"
@@ -179,17 +187,17 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                     strokeDasharray="4,3"
                     strokeOpacity="0.85"
                   />
-                ) : (
+                ) : hasCompleteTargetScores ? (
                   <line
                     x1={padX}
-                    y1={getY(points[0].targetScore)}
+                    y1={getY(points[0].targetScore!)}
                     x2={chartWidth - padX}
-                    y2={getY(points[0].targetScore)}
+                    y2={getY(points[0].targetScore!)}
                     stroke="#fbbf24"
                     strokeWidth="1.5"
                     strokeDasharray="4,3"
                   />
-                )}
+                ) : null}
 
                 {/* Actual Area Gradient */}
                 {actualAreaPath ? <path d={actualAreaPath} fill={`url(#${gradientId})`} /> : null}
@@ -219,7 +227,7 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                 {points.map((p, i) => {
                   const cx = getX(i);
                   const cy = getY(p.actualScore);
-                  const targetCy = getY(p.targetScore);
+                  const targetCy = p.targetScore == null ? null : getY(p.targetScore);
                   const isHovered = hoveredIndex === i;
 
                   return (
@@ -230,16 +238,18 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                       onMouseLeave={() => setHoveredIndex(null)}
                       tabIndex={0}
                       role="button"
-                      aria-label={`${p.name}: 实际 ${p.actualScore}分, 目标 ${p.targetScore}分`}
+                      aria-label={`${p.name}: 实际 ${p.actualScore}分, 目标 ${p.targetScore ?? "未录入"}`}
                     >
                       {/* Target node dot */}
-                      <circle
-                        cx={cx}
-                        cy={targetCy}
-                        r="2.5"
-                        fill="#fbbf24"
-                        opacity={isHovered ? 1 : 0.6}
-                      />
+                      {targetCy == null ? null : (
+                        <circle
+                          cx={cx}
+                          cy={targetCy}
+                          r="2.5"
+                          fill="#fbbf24"
+                          opacity={isHovered ? 1 : 0.6}
+                        />
+                      )}
 
                       {/* Actual node dot with glow */}
                       <circle
@@ -319,13 +329,16 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
               </span>
             </span>
             <span className="font-mono text-zinc-400">
-              总得分: <strong className="text-teal-300 font-semibold">{activeExam.actualScore}</strong> / {activeExam.fullScore}
+              总得分: <strong className="text-teal-300 font-semibold">{activeExam.actualScore}</strong>
+              {activeExam.fullScore == null ? " / 满分未录入" : ` / ${activeExam.fullScore}`}
             </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {activeExam.subjectScores.map((sub, idx) => {
-              const subDelta = sub.actualScore - sub.targetScore;
+              const subDelta = sub.actualScore != null && sub.targetScore != null
+                ? sub.actualScore - sub.targetScore
+                : null;
               return (
                 <div
                   key={idx}
@@ -335,21 +348,25 @@ export function TestMockExamTrend({ trend, className = "" }: TestMockExamTrendPr
                     <span className="truncate text-xs font-medium text-zinc-300">
                       {sub.subjectName}
                     </span>
-                    <span
-                      className={`text-[10px] font-mono ${
-                        subDelta >= 0 ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {subDelta >= 0 ? `+${subDelta}` : subDelta}
-                    </span>
+                    {subDelta == null ? (
+                      <span className="text-[10px] text-zinc-500">暂无对照</span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-mono ${subDelta >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                      >
+                        {subDelta >= 0 ? `+${subDelta}` : subDelta}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 flex items-baseline justify-between gap-1">
                     <span className="text-sm font-bold font-mono text-white">
-                      {sub.actualScore}
-                      <span className="text-[10px] font-normal text-zinc-500">/{sub.paperFullScore}</span>
+                      {sub.actualScore ?? "-"}
+                      <span className="text-[10px] font-normal text-zinc-500">
+                        {sub.paperFullScore == null ? "/满分未录入" : `/${sub.paperFullScore}`}
+                      </span>
                     </span>
                     <span className="text-[10px] font-mono text-zinc-500">
-                      目: {sub.targetScore}
+                      目: {sub.targetScore ?? "-"}
                     </span>
                   </div>
                 </div>

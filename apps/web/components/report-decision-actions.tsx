@@ -153,7 +153,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       const counts = inbox ? `入箱新增 ${inbox.createdCount}，复用 ${inbox.reusedCount}，替代 ${inbox.supersededCount}` : "";
       setNotice(body?.decision?.alreadyDecided
         ? "该周期复盘已经处理，正在刷新回放。"
-        : action === "confirm" ? `报告已冻结，${counts}；阶段建议仍需独立确认。` : "报告版本已不可逆驳回。");
+        : action === "confirm" ? `已接受下周期判断，报告事实已冻结，${counts}；阶段建议仍需独立决定。` : "已驳回下周期判断，报告版本已冻结。");
       startTransition(() => router.refresh());
     } catch {
       setError("网络结果未知，报告决策命令已保留；恢复网络后请先核对服务端状态，再显式重试。");
@@ -199,22 +199,22 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       <div className="af-action-grid grid gap-5">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id="report-decision-heading" className="text-lg font-medium text-zinc-100">确认下周期策略</h2>
+            <h2 id="report-decision-heading" className="text-lg font-medium text-zinc-100">决定是否接受下周期判断</h2>
             <Badge tone={decision?.status === "confirmed" ? "success" : decision?.status === "rejected" ? "neutral" : "warning"}>
-              {decision?.status === "confirmed" ? "已确认" : decision?.status === "rejected" ? "已驳回" : "需要你的决定"}
+              {decision?.status === "confirmed" ? "已接受" : decision?.status === "rejected" ? "已驳回" : "等待决定"}
             </Badge>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
-            确认本报告会冻结当前事实，并将下周期动作作为草稿送入收件箱；阶段建议仍需独立确认，不会直接修改现有任务或当前阶段。
+            这里只决定报告判断是否成立。接受后会冻结本期事实，并把行动候选送入投入草稿；排期与正式任务仍在草稿页单独处理。
           </p>
         </div>
         {!decision ? (
           <div className="af-action-cluster">
             <Button variant="primary" size="lg" loading={isDeciding && command?.action === "confirm"} disabled={disabled} onClick={() => void decide("confirm")} type="button">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />确认本报告并送入收件箱
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />接受下周期判断
             </Button>
             <Button variant="danger" size="lg" disabled={disabled} onClick={() => setRejectConfirmOpen(true)} type="button">
-              <XCircle className="h-4 w-4" aria-hidden="true" />驳回本报告
+              <XCircle className="h-4 w-4" aria-hidden="true" />驳回下周期判断
             </Button>
           </div>
         ) : null}
@@ -226,11 +226,11 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
             <p className="text-sm font-medium text-zinc-100">
               {decision.status === "confirmed"
                 ? decision.inboxResult.createdCount > 0
-                  ? "决策已冻结，下一步处理新生成的草稿"
+                  ? "判断已接受，下一步安排新生成的投入草稿"
                   : decision.inboxResult.reusedCount > 0
-                    ? "决策已冻结，本次复用了已有计划草稿"
-                    : "决策已冻结，本次没有生成计划草稿"
-                : "本期报告已驳回，没有应用任何调整"}
+                    ? "判断已接受，本次复用了已有投入草稿"
+                    : "判断已接受，本次没有生成投入草稿"
+                : "下周期判断已驳回，没有创建或修改正式安排"}
             </p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
               {formatDateTime(decision.decidedAt)}
@@ -238,7 +238,7 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
             </p>
           </div>
           <div className="af-action-cluster">
-            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />处理计划草稿</ButtonLink> : null}
+            {decision.status === "confirmed" && decision.inboxResult.createdCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="primary"><ClipboardList size={16} aria-hidden="true" />安排投入草稿</ButtonLink> : null}
             {decision.status === "confirmed" && decision.inboxResult.createdCount === 0 && decision.inboxResult.reusedCount > 0 ? <ButtonLink href={withReturnTo("/roadmap/allocation/drafts", returnTo)} variant="secondary"><ClipboardList size={16} aria-hidden="true" />查看投入草稿</ButtonLink> : null}
             {decision.stageDraftId ? <ButtonLink href="/roadmap/stages" variant="secondary">审阅阶段建议<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
             {decision.status === "rejected" ? <ButtonLink href="/roadmap/stages" variant="secondary">前往阶段总览<ArrowRight size={15} aria-hidden="true" /></ButtonLink> : null}
@@ -249,12 +249,12 @@ export function ReportDecisionActions({ report, returnTo = "/roadmap/reviews" }:
       {notice ? <Alert tone="success" className="mt-4">{notice}</Alert> : null}
       {error ? <Alert tone="danger" className="mt-4">{error}</Alert> : null}
 
-      <Modal open={rejectConfirmOpen} title="确认不可逆驳回" onClose={() => setRejectConfirmOpen(false)} allowEscape={false}>
+      <Modal open={rejectConfirmOpen} title="驳回下周期判断" onClose={() => setRejectConfirmOpen(false)} allowEscape={false}>
         <div className="space-y-4 text-sm text-zinc-300">
           <p>驳回后当前周期决策进入终态，不能恢复、确认或再次驳回。重新评估必须生成新版本。</p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" size="md" onClick={() => setRejectConfirmOpen(false)}>取消</Button>
-            <Button type="button" variant="danger" size="md" onClick={() => { setRejectConfirmOpen(false); void decide("reject"); }}>确认驳回</Button>
+            <Button type="button" variant="danger" size="md" onClick={() => { setRejectConfirmOpen(false); void decide("reject"); }}>驳回判断</Button>
           </div>
         </div>
       </Modal>

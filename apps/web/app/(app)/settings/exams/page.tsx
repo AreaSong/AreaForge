@@ -9,6 +9,7 @@ import {
   listWorkspaceSubjects,
   previewWorkspaceTakeover,
 } from "@/lib/study/exam-workspace-service";
+import { listSubjectDuplicatePreviews } from "@/lib/study/subject-duplicate-query-service";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +23,18 @@ export default async function SettingsExamsPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const params = await searchParams;
-  const workspaces = await listExamWorkspaces(user.id);
-  const active = await findActiveWorkspaceOrNull(user.id);
-  const subjects = active ? await listWorkspaceSubjects(user.id, active.id) : [];
-  const groups = active ? await listSubjectGroups(user.id, active.id) : [];
-  const takeover = await previewWorkspaceTakeover(user.id).catch(() => null);
+  const [workspaces, active, takeover] = await Promise.all([
+    listExamWorkspaces(user.id),
+    findActiveWorkspaceOrNull(user.id),
+    previewWorkspaceTakeover(user.id).catch(() => null),
+  ]);
+  const [subjects, groups, duplicateSets] = active
+    ? await Promise.all([
+        listWorkspaceSubjects(user.id, active.id),
+        listSubjectGroups(user.id, active.id),
+        listSubjectDuplicatePreviews(user.id, active.id),
+      ])
+    : [[], [], []];
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
@@ -36,6 +44,7 @@ export default async function SettingsExamsPage({
         activeId={active?.id ?? null}
         subjects={subjects}
         groups={groups}
+        duplicateSets={duplicateSets}
         takeover={takeover}
         setupMode={params.setup === "1" || !active}
       />

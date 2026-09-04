@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { formatDateMonthDay, formatDateRange } from "@/lib/formatters";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 import { getAnalyticsSummary, type AnalyticsRiskItemDto } from "@/lib/study/analytics-service";
+import { AnalyticsRiskDraftButton } from "@/components/analytics-risk-draft-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap/stages/trend");
@@ -49,9 +50,12 @@ export default async function StageAnalyticsPage({
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{primaryRisk?.detail ?? "继续按当前节奏执行，并在周期复盘中确认下一阶段是否需要调整。"}</p>
           <p className="mt-3 text-sm text-zinc-500">建议：{primaryRisk?.action ?? analytics.actions[0] ?? "保持当前行动节奏。"}</p>
         </div>
-        <ButtonLink href={primaryRisk ? riskHref(primaryRisk) : "/roadmap/reviews"} variant="primary" size="lg" className="shrink-0">
-          {primaryRisk ? riskActionLabel(primaryRisk) : "查看周期复盘"}<ArrowRight size={16} aria-hidden="true" />
-        </ButtonLink>
+        <div className="flex shrink-0 flex-wrap items-start gap-2">
+          {primaryRisk ? <AnalyticsRiskDraftButton risk={primaryRisk} windowDays={windowDays} size="lg" /> : null}
+          <ButtonLink href={primaryRisk ? riskHref(primaryRisk) : "/roadmap/reviews"} variant="primary" size="lg">
+            {primaryRisk ? riskActionLabel(primaryRisk) : "查看周期复盘"}<ArrowRight size={16} aria-hidden="true" />
+          </ButtonLink>
+        </div>
       </Card>
 
       <section className="space-y-4">
@@ -63,7 +67,7 @@ export default async function StageAnalyticsPage({
           </Card>
           <Card variant="subtle" className="p-4">
             <p className="text-xs text-zinc-400">任务完成率</p>
-            <p className="mt-2 text-xl font-semibold text-white">{Math.round(analytics.totals.weeklyTaskCompletionRate * 100)}%</p>
+            <p className="mt-2 text-xl font-semibold text-white">{analytics.totals.weeklyTaskCompletionRate == null ? "暂无样本" : `${Math.round(analytics.totals.weeklyTaskCompletionRate * 100)}%`}</p>
           </Card>
           <Card variant="subtle" className="p-4">
             <p className="text-xs text-zinc-400">连续学习</p>
@@ -131,9 +135,12 @@ export default async function StageAnalyticsPage({
                   <div className="flex flex-col gap-1.5">
                     <p className={riskTone(risk.severity)}>{risk.title}</p>
                     <p className="text-xs leading-5 text-zinc-400">{risk.detail}</p>
-                    <Link className="self-start text-xs font-medium text-teal-300 hover:underline mt-1" href={riskHref(risk)}>
-                      {riskActionLabel(risk)} →
-                    </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Link className="self-start text-xs font-medium text-teal-300 hover:underline" href={riskHref(risk)}>
+                        {riskActionLabel(risk)} →
+                      </Link>
+                      <AnalyticsRiskDraftButton risk={risk} windowDays={windowDays} />
+                    </div>
                   </div>
                 </li>
               ))}

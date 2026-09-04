@@ -10,7 +10,7 @@ const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   color: z.string().trim().min(1).max(32).optional(),
   sortOrder: z.number().int().optional(),
-  groupId: z.string().nullable().optional(),
+  groupId: z.string().trim().min(1).nullable().optional(),
   archived: z.boolean().optional(),
   move: z.enum(["UP", "DOWN"]).optional(),
 })

@@ -13,7 +13,7 @@ export type AppWorkbenchId = keyof typeof WORKBENCH_ROOT_ROUTES;
 export const ROOT_ROUTES = {
   public: "/",
   login: "/login",
-  app: WORKBENCH_ROOT_ROUTES.focus,
+  app: WORKBENCH_ROOT_ROUTES.today,
 } as const;
 
 export const DYNAMIC_ROUTE_PATTERNS = {

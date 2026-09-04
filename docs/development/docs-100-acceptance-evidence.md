@@ -29,7 +29,7 @@
 |---|---|---|
 | 单管理员登录 | 私有 Web 入口受保护 | 登录/登出/API `me` 烟测；Cookie `HttpOnly`；登录限速验证 |
 | 今日作战台 | 展示真实数据库聚合 | `GET /api/dashboard/today` 返回真实任务、计时、复盘、风险、阶段和恢复信号 |
-| 双节点倒计时 | 2026 自测和 2027 终局目标可见 | 首页显示倒计时；阶段规则使用对应日期 |
+| 工作区目标与模拟倒计时 | 用户目标考试日和下一场真实模拟可见 | 首页按当前工作区数据显示倒计时；日期缺失时保持未知且不触发窗口规则 |
 | 每日任务 | CRUD 和状态流转可用 | `/api/tasks`、complete/defer/drop/recover/split/convert-review 烟测 |
 | 任务债务基础版 | 欠账可见且可处理 | 逾期任务进入债务；补做、延期、放弃、拆小、改复习有结构化或事件证据 |
 | 学习计时 | start/pause/resume/end 持久化 | active session 恢复；结束后写入 session 和任务 actualMinutes |

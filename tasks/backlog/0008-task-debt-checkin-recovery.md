@@ -48,7 +48,7 @@
 - `CheckIn` 日快照已由 Package B Batch 1 落地：结束计时、保存复盘、任务创建、计划日变化和状态变化后会按学习日 upsert；dashboard、analytics、reports 优先读快照并保留缺失日期 fallback。
 - 首页已展示打卡连续性原因、恢复模式建议、手动恢复入口、完成/取消恢复入口和欠账预览。
 - Dashboard API 已返回 `checkIn`、`recovery`、`debtTasks`、`visibleRecoveryTasks` 和低转化次数；Batch 3 后 `recovery` 包含 `stateId/source/status/triggerType/startedAt/endedAt/exitCondition`。
-- 恢复模式已接入 `RecoveryState`：规则触发和手动触发会创建或复用 active 状态，完成/取消只更新恢复状态；首页计时器聚焦最小可执行任务，任务面板保留完整任务列表，不删除原任务。
+- 恢复模式已接入 `RecoveryState`：Dashboard/Today GET 只读 active 状态并保留实时规则 fallback；显式规则/手动命令创建或复用 active 状态，完成/取消只更新恢复状态；首页计时器聚焦最小可执行任务，任务面板保留完整任务列表，不删除原任务。
 - 已新增任务轻量流转 API/UI：补做、拆小、改成复习任务；Package B Batch 2 后这些动作继续复用 `StudyTask` 现有字段和 `reviewText` 备注，并同步写入 `TaskDebtEvent`。
 - Package D Batch D2 后，债务重排建议可在首页勾选后确认、驳回或应用所选；确认/驳回不修改任务，只写 `TaskDebtEvent.action=reorder_suggested` 和 `AuditEvent`；应用所选会重新校验当前建议和任务状态，只处理所选小批量，并写 `TaskDebtEvent.action=reorder_applied` 和 `AuditEvent`。
 - 计时结束已接入反假学习规则，结果写入现有 `StudySession.isEffective` 和文本化 `note`。

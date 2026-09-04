@@ -4,6 +4,7 @@ import {
   type AppWorkbenchId,
   type CanonicalRouteDefinition,
 } from "@/lib/navigation/canonical-routes";
+import { WORKBENCH_ROOT_ROUTES } from "@/lib/navigation/route-helpers";
 
 export interface AppNavigationItem {
   href: string;
@@ -105,8 +106,11 @@ export function getRouteMetadata(pathname: string): { title: string } {
   return { title: getRouteTitle(pathname) };
 }
 
-export function sanitizeReturnPath(value: string | null | undefined): string {
-  return normalizeReturnPath(value, 3);
+export function sanitizeReturnPath(
+  value: string | null | undefined,
+  fallback: string = WORKBENCH_ROOT_ROUTES.focus,
+): string {
+  return normalizeReturnPath(value, 3, fallback);
 }
 
 export function withReturnTo(href: string, returnTo: string): string {
@@ -144,13 +148,17 @@ function createWorkbenchItem(
   };
 }
 
-function normalizeReturnPath(value: string | null | undefined, remainingReturnDepth: number): string {
-  if (!value || value.length > 2_048 || !value.startsWith("/") || value.startsWith("//")) return "/focus";
+function normalizeReturnPath(
+  value: string | null | undefined,
+  remainingReturnDepth: number,
+  fallback: string,
+): string {
+  if (!value || value.length > 2_048 || !value.startsWith("/") || value.startsWith("//")) return fallback;
   try {
     const url = new URL(value, "https://areaforge.invalid");
-    if (url.origin !== "https://areaforge.invalid" || url.hash) return "/focus";
+    if (url.origin !== "https://areaforge.invalid" || url.hash) return fallback;
     const route = getCanonicalRoute(url.pathname);
-    if (!route || route.path === "/login") return "/focus";
+    if (!route || route.path === "/login") return fallback;
 
     const allowedKeys = new Set(route.returnQueryKeys ?? []);
     const normalized = new URLSearchParams();
@@ -158,7 +166,9 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
       const entry = url.searchParams.get(key);
       if (entry === null || entry.length > 512) continue;
       if (key === "returnTo") {
-        if (remainingReturnDepth > 0) normalized.set(key, normalizeReturnPath(entry, remainingReturnDepth - 1));
+        if (remainingReturnDepth > 0) {
+          normalized.set(key, normalizeReturnPath(entry, remainingReturnDepth - 1, fallback));
+        }
         continue;
       }
       normalized.set(key, entry);
@@ -166,6 +176,6 @@ function normalizeReturnPath(value: string | null | undefined, remainingReturnDe
     const query = normalized.toString();
     return `${url.pathname}${query ? `?${query}` : ""}`;
   } catch {
-    return "/focus";
+    return fallback;
   }
 }

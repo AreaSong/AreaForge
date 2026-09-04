@@ -13,7 +13,7 @@ import { listSyllabusOptions } from "@/lib/study/syllabus-service";
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/focus");
 
-export default async function FocusLandingPage({ searchParams }: { searchParams: Promise<{ returnTo?: string; mode?: string; command?: string }> }) {
+export default async function FocusLandingPage({ searchParams }: { searchParams: Promise<{ returnTo?: string; mode?: string; command?: string; subjectId?: string; taskId?: string; goalMinutes?: string; source?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
@@ -26,6 +26,18 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
     listKnowledgePoints(user.id),
     getFocusLauncherSummary(user.id),
   ]);
+  const requestedTask = tasks.find(
+    (task) => task.id === query.taskId && (task.status === "todo" || task.status === "in_progress"),
+  ) ?? null;
+  const requestedSubject = subjects.find((subject) => subject.id === query.subjectId) ?? null;
+  const initialSubject = requestedTask
+    ? subjects.find((subject) => subject.id === requestedTask.subjectId) ?? null
+    : requestedSubject;
+  const matchingTask = requestedTask && requestedTask.subjectId === initialSubject?.id ? requestedTask : null;
+  const parsedGoalMinutes = Number(query.goalMinutes);
+  const initialGoalMinutes = Number.isInteger(parsedGoalMinutes) && parsedGoalMinutes >= 5 && parsedGoalMinutes <= 180
+    ? parsedGoalMinutes
+    : undefined;
   if (activeSession && activeSession.activityMode !== "FREE_STUDY") {
     redirect(withReturnTo(activitySourcePath(activeSession), returnTo));
   }
@@ -59,6 +71,10 @@ export default async function FocusLandingPage({ searchParams }: { searchParams:
         launcherSummary={launcherSummary}
         commandMode={query.mode === "now" ? "now" : undefined}
         commandText={query.command}
+        initialSubjectId={initialSubject?.id}
+        initialTaskId={matchingTask?.id}
+        initialGoalMinutes={initialGoalMinutes}
+        initialStartSource={query.source === "recovery" ? "RECOVERY" : undefined}
       />
     </PageFrame>
   );

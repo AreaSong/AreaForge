@@ -5,12 +5,11 @@ import { resolve } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  getSubjectSparklineData,
   SubjectTimerList,
   TodayLearningSummary,
 } from "./action-center-today-support";
 import {
-  computeSubjectConversionRows,
+  computeWeeklyBudgetConversionRows,
   RoadmapBudgetConversionTable,
 } from "./roadmap/roadmap-budget-conversion";
 import {
@@ -21,9 +20,7 @@ import { TestWeakLossRanking } from "./test/test-weak-loss-ranking";
 import { MiniSparkline } from "./ui/micro-charts";
 import type {
   ActionCenterTodayDto,
-  AnalyticsSummaryDto,
-  SyllabusMapOverviewDto,
-  WorkspaceSubjectDto,
+  WeeklyBudgetDto,
 } from "@/lib/contracts";
 
 function loadSource(relPath: string): string {
@@ -226,108 +223,53 @@ test("RoadmapBudgetConversionTable: Column width & scrollbar elimination math on
 });
 
 test("RoadmapBudgetConversionTable: Computes subject rows, conversion rates, and renders accurately", () => {
-  const mockActivity = {
-    studyMinutes: 100,
-    reviewMinutes: 0,
-    testMinutes: 0,
-    totalMinutes: 100,
-    effectiveStudyMinutes: 80,
-    effectiveReviewMinutes: 0,
-    effectiveTestMinutes: 0,
-    studySessionCount: 1,
-    reviewSessionCount: 0,
-    testSessionCount: 0,
-  };
-
-  const analytics: AnalyticsSummaryDto = {
-    range: {
-      start: "2026-08-20",
-      end: "2026-08-26",
-      days: 7,
-    },
-    totals: {
-      todayMinutes: 120,
-      todayEffectiveMinutes: 100,
-      weekMinutes: 600,
-      weekEffectiveMinutes: 510,
-      dailyTaskCompletionRate: 100,
-      weeklyTaskCompletionRate: 100,
-      streakDays: 5,
-      missedDays: 0,
-      reviewCompletionRate: 100,
-      totalMistakes: 0,
-      dueMistakes: 0,
-      dueNotes: 0,
-      weakNodeCount: 0,
-      lowConversionCount: 0,
-      activity: {
-        studyMinutes: 500,
-        reviewMinutes: 0,
-        testMinutes: 100,
-        totalMinutes: 600,
-        effectiveStudyMinutes: 450,
-        effectiveReviewMinutes: 0,
-        effectiveTestMinutes: 60,
-        studySessionCount: 5,
-        reviewSessionCount: 0,
-        testSessionCount: 1,
-      },
-    },
-    daily: [],
+  const weeklyBudget: WeeklyBudgetDto = {
+    workspaceId: "ws-1",
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    configuredSubjectCount: 0,
+    totalTargetMinutes: 0,
+    totalActualMinutes: 600,
+    totalEffectiveMinutes: 510,
     subjects: [
       {
         subjectId: "sub-math",
         subjectName: "高等数学",
         subjectColor: "#38bdf8",
-        totalMinutes: 300,
+        targetMinutes: null,
+        actualMinutes: 300,
         effectiveMinutes: 270,
-        share: 50,
-        activity: { ...mockActivity, totalMinutes: 300, effectiveStudyMinutes: 270 },
+        revision: 0,
       },
       {
         subjectId: "sub-eng",
         subjectName: "考研英语",
         subjectColor: "#a855f7",
-        totalMinutes: 200,
+        targetMinutes: null,
+        actualMinutes: 200,
         effectiveMinutes: 160,
-        share: 33,
-        activity: { ...mockActivity, totalMinutes: 200, effectiveStudyMinutes: 160 },
+        revision: 0,
       },
       {
         subjectId: "sub-pol",
         subjectName: "考研政治",
         subjectColor: "#f43f5e",
-        totalMinutes: 100,
+        targetMinutes: null,
+        actualMinutes: 100,
         effectiveMinutes: 80,
-        share: 17,
-        activity: { ...mockActivity, totalMinutes: 100, effectiveStudyMinutes: 80 },
+        revision: 0,
       },
     ],
-    risks: [],
-    actions: [],
   };
 
-  const subjects: WorkspaceSubjectDto[] = [
-    {
-      id: "sub-math",
-      workspaceId: "ws-1",
-      groupId: null,
-      stableKey: "math",
-      legacyCode: null,
-      name: "高等数学",
-      color: "#38bdf8",
-      sortOrder: 1,
-      archivedAt: null,
-      legacyScope: false,
-    },
-  ];
-
-  const rows = computeSubjectConversionRows(analytics.subjects, undefined, subjects);
+  const rows = computeWeeklyBudgetConversionRows(weeklyBudget);
   assert.equal(rows.length, 3);
   assert.equal(rows[0].subjectId, "sub-math");
   assert.equal(rows[0].conversionRate, 90); // 270 / 300 = 90%
-  assert.equal(rows[0].status, "high");
-  assert.equal(rows[0].statusLabel, "高效转化");
+  assert.equal(rows[0].budgetMinutes, null);
+  assert.equal(rows[0].progressRate, null);
+  assert.equal(rows[0].status, "normal");
+  assert.equal(rows[0].statusLabel, "未设置预算");
 
   assert.equal(rows[1].subjectId, "sub-eng");
   assert.equal(rows[1].conversionRate, 80); // 160 / 200 = 80%
@@ -336,19 +278,20 @@ test("RoadmapBudgetConversionTable: Computes subject rows, conversion rates, and
   assert.equal(rows[2].conversionRate, 80);
 
   const html = renderToStaticMarkup(
-    React.createElement(RoadmapBudgetConversionTable, { analytics, subjects })
+    React.createElement(RoadmapBudgetConversionTable, { weeklyBudget })
   );
   assert.ok(html.includes("高等数学"));
   assert.ok(html.includes("考研英语"));
-  assert.ok(html.includes("高效转化"));
+  assert.ok(html.includes("未设置预算"));
+  assert.ok(!html.includes("60.0 h"));
   assert.ok(html.includes("全科平均转化率"));
 });
 
 // ============================================================================
-// SUITE 3: SubjectTimerList 7-Day Sparkline Visual Overlap & Layout Invariants
+// SUITE 3: SubjectTimerList Truthful 7-Day Totals & Layout Invariants
 // ============================================================================
 
-test("SubjectTimerList: Container Query grid & sparkline row spacing invariants", () => {
+test("SubjectTimerList: Container Query grid & factual recent total invariants", () => {
   const source = loadSource("components/action-center-today-support.tsx");
 
   // 1. Root Container Query on Card
@@ -357,10 +300,10 @@ test("SubjectTimerList: Container Query grid & sparkline row spacing invariants"
   // 2. Responsive Subject Grid: 1 col (<28rem), 2 cols (28rem~52rem), 3 cols (>=52rem)
   assert.match(source, /grid grid-cols-1 gap-2 @\[28rem\]:grid-cols-2 @\[52rem\]:grid-cols-3/);
 
-  // 3. Sparkline row with justify-between and gap-1
+  // 3. Summary row uses only service-provided totals
   assert.match(source, /<div className="flex items-center justify-between text-xs text-zinc-400">/);
-  assert.match(source, /<div className="flex items-center gap-1 text-\[11px\] text-zinc-500">/);
-  assert.match(source, /<MiniSparkline data=\{sparklineData\} width=\{40\} height=\{10\} strokeWidth=\{1\} \/>/);
+  assert.match(source, /近 7 日 \{subject\.last7EffectiveMinutes\}m/);
+  assert.doesNotMatch(source, /sparklineData|<MiniSparkline/);
 });
 
 test("SubjectTimerList: Layout Math & No Visual Overlap Proof on 14\" MacBook Pro", () => {
@@ -378,10 +321,10 @@ test("SubjectTimerList: Layout Math & No Visual Overlap Proof on 14\" MacBook Pr
   const cardPadding = 20; // p-2.5 (10px each side)
   const usableCardWidth = subjectCardWidth1440 - cardPadding; // 284px
 
-  // Sparkline row element widths:
+  // Recent-total row element widths:
   const leftItem_TodayMinutes = 60; // "今日 120m"
-  const rightItem_SparklineGroup = 66 + 4 + 40; // "7日投入热度"(66px) + gap(4px) + MiniSparkline(40px) = 110px
-  const totalRowContentWidth = leftItem_TodayMinutes + rightItem_SparklineGroup; // 170px
+  const rightItem_RecentTotal = 92; // "近 7 日 1200m"
+  const totalRowContentWidth = leftItem_TodayMinutes + rightItem_RecentTotal;
 
   assert.ok(
     usableCardWidth > totalRowContentWidth,
@@ -389,7 +332,7 @@ test("SubjectTimerList: Layout Math & No Visual Overlap Proof on 14\" MacBook Pr
   );
 
   const rowMargin = usableCardWidth - totalRowContentWidth; // 114px
-  assert.ok(rowMargin >= 100, `Breathing margin (${rowMargin}px) guarantees zero text clipping and zero sparkline visual overlap`);
+  assert.ok(rowMargin >= 100, `Breathing margin (${rowMargin}px) guarantees zero text clipping and overlap`);
 });
 
 test("MiniSparkline: Renders SVG with strictly bounded coordinates and monotonic X steps", () => {
@@ -468,11 +411,13 @@ test("SubjectTimerList: Handles edge cases (0 minutes, 10+ subjects, single subj
     },
     queuesEmpty: true,
     activity: null,
+    continuation: null,
     checkIn: null,
     learningLoop: {
       totalMinutes: 0,
       effectiveMinutes: 0,
       effectiveSessionCount: 0,
+      evidenceCount: 0,
       lowConversionCount: 0,
       plannedTaskCount: 0,
       completedTaskCount: 0,
@@ -503,14 +448,10 @@ test("SubjectTimerList: Handles edge cases (0 minutes, 10+ subjects, single subj
     },
   };
 
-  const zeroSparkline = getSubjectSparklineData(baseToday.subjectTimers.subjects[0]);
-  assert.deepEqual(zeroSparkline, [0, 0, 0, 0, 0, 0, 0]);
-
   const html = renderToStaticMarkup(
     React.createElement(SubjectTimerList, { today: baseToday, onStart: () => {} })
   );
   assert.ok(html.includes("@container"));
   assert.ok(html.includes("零时长测试科目"));
-  assert.ok(html.includes("7日投入热度"));
-  assert.ok(html.includes("<svg"));
+  assert.ok(html.includes("近 7 日 0m"));
 });

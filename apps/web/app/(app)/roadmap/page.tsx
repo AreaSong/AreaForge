@@ -2,15 +2,15 @@ import { redirect } from "next/navigation";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
-import { getAnalyticsSummaryShared } from "@/lib/study/analytics-service";
 import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "@/lib/study/exam-workspace-service";
 import { listPlanMilestones } from "@/lib/study/plan-milestone-service";
 import { listStagePlans } from "@/lib/study/stage-service";
 import { getSyllabusMapOverviewShared } from "@/lib/study/syllabus-service";
-import { RoadmapBudgetConversionTable } from "@/components/roadmap/roadmap-budget-conversion";
+import { RoadmapBudgetWorkspace } from "@/components/roadmap/roadmap-budget-workspace";
 import { RoadmapSyllabusMatrix } from "@/components/roadmap/roadmap-syllabus-matrix";
 import { RoadmapTimelineGantt } from "@/components/roadmap/roadmap-timeline-gantt";
 import { RoadmapWorkbenchLaunchers } from "@/components/roadmap/roadmap-workbench-launchers";
+import { getWeeklyBudget } from "@/lib/study/weekly-budget-service";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/roadmap");
@@ -19,15 +19,17 @@ export default async function RoadmapOverviewPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [activeWorkspace, stagePlans, milestones, syllabusOverview, analytics] = await Promise.all([
+  const [activeWorkspace, stagePlans, milestones, syllabusOverview] = await Promise.all([
     findActiveWorkspaceOrNull(user.id),
     listStagePlans(user.id),
     listPlanMilestones(user.id),
     getSyllabusMapOverviewShared(user.id),
-    getAnalyticsSummaryShared(user.id),
   ]);
 
-  const subjects = activeWorkspace ? await listWorkspaceSubjects(user.id, activeWorkspace.id) : [];
+  const [subjects, weeklyBudget] = await Promise.all([
+    activeWorkspace ? listWorkspaceSubjects(user.id, activeWorkspace.id) : Promise.resolve([]),
+    getWeeklyBudget(user.id),
+  ]);
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-4">
@@ -61,10 +63,8 @@ export default async function RoadmapOverviewPage() {
         {/* 3. Subject Budget vs. Actual Study Time Conversion Table */}
         <section aria-labelledby="roadmap-budget-section" className="min-w-0">
           <h2 id="roadmap-budget-section" className="sr-only">科目预算与实际投入转化对比</h2>
-          <RoadmapBudgetConversionTable
-            analytics={analytics}
-            syllabusOverview={syllabusOverview}
-            subjects={subjects}
+          <RoadmapBudgetWorkspace
+            initialBudget={weeklyBudget}
           />
         </section>
       </div>

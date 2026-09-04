@@ -17,15 +17,17 @@ export function SimulationExamCard({ exam, primary = false, returnTo = "/test/si
     (total, result) => total + result.lossItems.filter((item) => !item.archivedAt).length,
     0,
   );
-  const nextAction = exam.status === "DRAFT"
-    ? exam.subjectResults.length > 0
-      ? "核对并确认"
-      : "录入分科成绩"
-    : lossCount > 0
-      ? "选择补救"
-      : "查看考试事实";
+  const nextAction = exam.status === "CONFIRMED"
+    ? lossCount > 0 ? "选择补救" : "查看考试事实"
+    : exam.status === "IN_PROGRESS"
+      ? "继续录入结果"
+      : exam.subjectResults.length > 0 ? "核对并确认" : "录入分科成绩";
 
-  const isDraft = exam.status === "DRAFT";
+  const statusLabel = exam.status === "IN_PROGRESS" ? "进行中" : exam.status === "DRAFT" ? "未确认" : "已确认";
+  const statusTone = exam.status === "CONFIRMED" ? "success" : exam.status === "IN_PROGRESS" ? "info" : "warning";
+  const hasCompleteSubjectScores = exam.subjectResults.length > 0
+    && exam.actualScore != null
+    && exam.targetScore != null;
 
   return (
     <Card
@@ -34,8 +36,8 @@ export function SimulationExamCard({ exam, primary = false, returnTo = "/test/si
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge tone={isDraft ? "warning" : "success"}>
-            {isDraft ? "未确认" : "已确认"}
+          <Badge tone={statusTone}>
+            {statusLabel}
           </Badge>
           <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
             <Calendar className="h-3 w-3 text-zinc-500" aria-hidden="true" />
@@ -52,11 +54,15 @@ export function SimulationExamCard({ exam, primary = false, returnTo = "/test/si
             <span className="rounded-md border border-white/5 bg-white/[0.03] px-2 py-0.5 text-zinc-400">
               旧版总分记录
             </span>
-          ) : (
+          ) : hasCompleteSubjectScores ? (
             <span className="rounded-md border border-white/5 bg-white/[0.03] px-2 py-0.5 text-zinc-200">
-              <strong className="text-teal-300 font-semibold">{exam.actualScore ?? 0}</strong>
+              <strong className="text-teal-300 font-semibold">{exam.actualScore}</strong>
               <span className="text-zinc-500"> / </span>
-              {exam.targetScore ?? 0} 分
+              {exam.targetScore} 分
+            </span>
+          ) : (
+            <span className="rounded-md border border-white/5 bg-white/[0.03] px-2 py-0.5 text-zinc-500">
+              {exam.subjectResults.length > 0 ? "分数未完整录入" : "尚未录分"}
             </span>
           )}
           <span className="inline-flex items-center gap-1 text-zinc-400">
@@ -76,7 +82,7 @@ export function SimulationExamCard({ exam, primary = false, returnTo = "/test/si
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
-        <span className="text-xs text-zinc-500">{isDraft ? "阶段：待收口" : "阶段：事实已冻结"}</span>
+        <span className="text-xs text-zinc-500">{exam.status === "CONFIRMED" ? "阶段：事实已冻结" : exam.status === "IN_PROGRESS" ? "阶段：录入中" : "阶段：待收口"}</span>
         <Link
           href={withReturnTo(`/test/simulations/${exam.id}`, returnTo)}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-300 transition-colors group-hover:text-teal-200"

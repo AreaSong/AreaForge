@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ChevronDown, Inbox, TimerReset } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, Circle, CornerDownRight, Inbox, TimerReset } from "lucide-react";
 import type { ActionCenterTodayController } from "@/components/action-center-today-controller";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
@@ -9,7 +9,6 @@ import { Metric } from "@/components/ui/metric";
 import {
   CompactBadge,
   HourlyHeatbar,
-  MiniSparkline,
   StatusDot,
   SubjectProportionBar,
 } from "@/components/ui/micro-charts";
@@ -63,46 +62,105 @@ export function flattenShortcutNodes(nodes: ActionCenterTodayDto["shortcutOption
 }
 
 export function getHourlySlots(today: ActionCenterTodayDto): number[] {
-  return (
-    today.learningLoop.hourlyMinutes ?? [
-      0, 0, 0, 0, 0, 0, 0, 0, 20, 45, 50, 15,
-      0, 10, 40, 50, 45, 20, 0, 30, 55, 45, 20, 0,
-    ]
-  );
+  return today.learningLoop.hourlyMinutes ?? Array(24).fill(0);
 }
 
 export function getSubjectProportionItems(today: ActionCenterTodayDto) {
   const colors = ["#2dd4bf", "#38bdf8", "#a78bfa", "#fb7185", "#fbbf24", "#34d399"];
   const validSubjects = today.subjectTimers.subjects.filter((s) => s.todayEffectiveMinutes > 0);
-  if (validSubjects.length > 0) {
-    return validSubjects.map((s, idx) => ({
-      label: s.title,
-      minutes: s.todayEffectiveMinutes,
-      color: colors[idx % colors.length],
-    }));
-  }
-  return [
-    { label: "政治", minutes: 45, color: "#fb7185" },
-    { label: "英语", minutes: 60, color: "#38bdf8" },
-    { label: "数学", minutes: 90, color: "#2dd4bf" },
-    { label: "专业课", minutes: 75, color: "#a78bfa" },
-  ];
+  return validSubjects.map((subject, index) => ({
+    label: subject.title,
+    minutes: subject.todayEffectiveMinutes,
+    color: colors[index % colors.length],
+  }));
 }
 
-export function getSubjectSparklineData(subject: ActionCenterTodayDto["subjectTimers"]["subjects"][number]): number[] {
-  const base = subject.todayEffectiveMinutes || subject.last7EffectiveMinutes / 7 || 0;
-  if (base === 0) return [0, 0, 0, 0, 0, 0, 0];
-  const charSum = subject.title.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const factor = (charSum % 7) + 1;
-  return [
-    Math.max(0, Math.round(base * 0.6 + (factor % 3) * 5)),
-    Math.max(0, Math.round(base * 0.8 + ((factor + 1) % 4) * 4)),
-    Math.max(0, Math.round(base * 0.5 + ((factor + 2) % 3) * 6)),
-    Math.max(0, Math.round(base * 1.1 - ((factor + 3) % 4) * 3)),
-    Math.max(0, Math.round(base * 0.9 + ((factor + 4) % 3) * 5)),
-    Math.max(0, Math.round(base * 0.75 + ((factor + 5) % 4) * 4)),
-    Math.max(0, Math.round(base)),
+export function dailyClosureLabel(today: ActionCenterTodayDto): string {
+  if (today.learningLoop.reviewSubmitted) return "今日已闭环";
+  if (today.learningLoop.effectiveSessionCount > 0) return "结束学习并复盘";
+  return "完成今日复盘";
+}
+
+export function TodayLoopProgress({ today }: { today: ActionCenterTodayDto }) {
+  const executionComplete = today.learningLoop.effectiveSessionCount > 0;
+  const evidenceComplete = today.learningLoop.evidenceCount > 0;
+  const reviewComplete = today.learningLoop.reviewSubmitted;
+  const steps = [
+    {
+      label: "行动执行",
+      detail: today.activity ? "活动进行中" : executionComplete ? `${today.learningLoop.effectiveSessionCount} 段有效学习` : "等待开始",
+      complete: executionComplete,
+      current: Boolean(today.activity) || (!executionComplete && !reviewComplete),
+      optional: false,
+    },
+    {
+      label: "证据接力",
+      detail: evidenceComplete ? `${today.learningLoop.evidenceCount} 条证据` : executionComplete ? "可选补充" : "等待行动",
+      complete: evidenceComplete,
+      current: executionComplete && !reviewComplete && evidenceComplete,
+      optional: !evidenceComplete,
+    },
+    {
+      label: "每日复盘",
+      detail: reviewComplete ? "今日已闭环" : executionComplete ? "可以收口" : "等待事实",
+      complete: reviewComplete,
+      current: executionComplete && !reviewComplete,
+      optional: false,
+    },
   ];
+
+  return (
+    <section className="border-y border-white/10 bg-white/[0.015] px-3 py-2.5 sm:px-4" aria-label="今日学习闭环进度">
+      <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-0">
+        {steps.map((step, index) => (
+          <li
+            key={step.label}
+            aria-current={step.current ? "step" : undefined}
+            className={`flex min-w-0 items-center gap-2.5 px-2 py-1.5 ${index > 0 ? "sm:border-l sm:border-white/10 sm:pl-4" : ""}`}
+          >
+            <span className={`grid size-6 shrink-0 place-items-center rounded-full border ${
+              step.complete
+                ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-300"
+                : step.current
+                  ? "border-teal-400/60 bg-teal-500/10 text-teal-300"
+                  : "border-white/10 text-zinc-600"
+            }`}>
+              {step.complete ? <Check className="size-3.5" aria-hidden="true" /> : <Circle className="size-2.5" aria-hidden="true" />}
+            </span>
+            <span className="min-w-0">
+              <span className={`block truncate text-xs font-medium ${step.current || step.complete ? "text-zinc-100" : "text-zinc-500"}`}>
+                {step.label}{step.optional ? " · 可选" : ""}
+              </span>
+              <span className="block truncate text-xs text-zinc-500">{step.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export function TodayContinuation({ today }: { today: ActionCenterTodayDto }) {
+  const continuation = today.continuation;
+  if (!today.isToday || !continuation || today.activity || today.recovery?.effectiveStatus === "ACTIVE") return null;
+  return (
+    <section className="flex flex-col gap-3 border-y border-white/10 bg-sky-400/[0.035] px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between" aria-label="断点续学">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-xs font-medium text-sky-300">
+          <CornerDownRight className="size-3.5" aria-hidden="true" />
+          续上次 · {continuation.subjectName}
+        </p>
+        <p className="mt-1 break-words text-sm text-zinc-200">{continuation.nextAction}</p>
+        {continuation.taskTitle ? <p className="mt-1 truncate text-xs text-zinc-500">关联任务：{continuation.taskTitle}</p> : null}
+      </div>
+      <Link
+        href={continuation.href}
+        className={buttonClassName({ variant: "secondary", size: "sm", className: "shrink-0" })}
+      >
+        继续上次
+      </Link>
+    </section>
+  );
 }
 
 export function QueueList(props: {
@@ -123,10 +181,14 @@ export function QueueList(props: {
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {props.items.map((item) => {
         const isUrgent = item.reason.includes("逾期") || Boolean(item.softDependencyHint);
-        const isMistake = item.title.includes("错题") || props.actionLabel.includes("错题");
-        const isReview = props.actionLabel.includes("复习");
-        const priorityTone = isUrgent ? "rose" : isMistake ? "amber" : isReview ? "sky" : "teal";
-        const priorityLabel = isUrgent ? "P0/紧急" : isMistake ? "P1/错题复测" : isReview ? "P1/优先复习" : "P2/常规任务";
+        const priorityTone = isUrgent ? "rose" : item.kind === "review" ? "sky" : "teal";
+        const itemLabel = item.kind === "review"
+          ? "到期复习"
+          : item.kind === "activity"
+            ? "进行中"
+            : item.kind === "recovery"
+              ? "恢复行动"
+              : "计划任务";
 
         return (
           <Card
@@ -138,7 +200,7 @@ export function QueueList(props: {
             <div className="min-w-0 space-y-1.5">
               <h3 className="break-words text-sm font-semibold text-white group-hover:text-teal-200">
                 <span className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs font-normal">
-                  <CompactBadge tone={priorityTone} size="xs">{priorityLabel}</CompactBadge>
+                  <CompactBadge tone={priorityTone} size="xs">{itemLabel}</CompactBadge>
                 </span>
                 <span className="leading-snug">{item.title}</span>
               </h3>
@@ -150,10 +212,7 @@ export function QueueList(props: {
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-between border-t border-white/5 pt-2">
-              <span className="font-mono text-xs text-zinc-400">
-                25m · 5pt
-              </span>
+            <div className="flex items-center justify-end border-t border-white/5 pt-2">
               <Link
                 href={withTodayReturnTo(item.href)}
                 className={buttonClassName({
@@ -179,7 +238,8 @@ export function TodayMetric(props: { label: string; value: string }) {
 export function TodayLearningSummary({ today }: { today: ActionCenterTodayDto }) {
   const hourlySlots = getHourlySlots(today);
   const subjectProportionItems = getSubjectProportionItems(today);
-  const activeSubjectCount = today.subjectTimers.subjects.filter((s) => s.todayEffectiveMinutes > 0 || s.last7EffectiveMinutes > 0).length;
+  const activeSubjectCount = subjectProportionItems.length;
+  const subjectProportionTotal = subjectProportionItems.reduce((sum, item) => sum + item.minutes, 0);
   const maxHourly = Math.max(0, ...hourlySlots);
 
   return (
@@ -231,7 +291,13 @@ export function TodayLearningSummary({ today }: { today: ActionCenterTodayDto })
             </span>
             <span className="font-mono text-xs text-zinc-400">共 {activeSubjectCount} 科投入</span>
           </div>
-          <SubjectProportionBar items={subjectProportionItems} totalMinutes={today.learningLoop.totalMinutes} height={5} showLegend={true} />
+          {subjectProportionItems.length > 0 ? (
+            <SubjectProportionBar items={subjectProportionItems} totalMinutes={subjectProportionTotal} height={5} showLegend />
+          ) : (
+            <p className="rounded-lg border border-dashed border-white/10 px-3 py-2 text-xs text-zinc-500" role="status">
+              今日尚无有效学习记录，完成一次收口后显示真实占比。
+            </p>
+          )}
         </div>
       </div>
     </SectionCard>
@@ -268,8 +334,6 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
             {today.subjectTimers.subjects.map((subject) => {
               const maxRecent = Math.max(1, ...today.subjectTimers.subjects.map((s) => s.last7EffectiveMinutes));
               const progressPct = Math.min(100, Math.round((subject.last7EffectiveMinutes / maxRecent) * 100));
-              const sparklineData = getSubjectSparklineData(subject);
-
               return (
                 <Card
                   key={subject.subjectId}
@@ -297,10 +361,7 @@ export function SubjectTimerList({ today, onStart }: { today: ActionCenterTodayD
                   <div className="mt-2 space-y-1 border-t border-white/5 pt-1.5">
                     <div className="flex items-center justify-between text-xs text-zinc-400">
                       <span className="font-mono">今日 <strong className="text-teal-300 font-semibold">{subject.todayEffectiveMinutes}m</strong></span>
-                      <div className="flex items-center gap-1 text-[11px] text-zinc-500">
-                        <span>7日投入热度</span>
-                        <MiniSparkline data={sparklineData} width={40} height={10} strokeWidth={1} />
-                      </div>
+                      <span className="text-[11px] text-zinc-500">近 7 日 {subject.last7EffectiveMinutes}m</span>
                     </div>
                     <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
                       <div

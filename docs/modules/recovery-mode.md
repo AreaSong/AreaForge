@@ -33,7 +33,7 @@
 
 - dashboard 和首页优先读取 active `RecoveryState`。
 - 无 active 状态时继续使用 `createRecoveryPlan` 实时规则 fallback。
-- 规则触发恢复时幂等创建 `triggerType=rule` 的 active 状态。
+- GET 读取和规则评估只返回实时 fallback，不创建 `RecoveryState`；规则来源若要持久化，必须通过显式命令写入 `triggerType=rule` 状态。
 - 用户点击“我需要恢复”时创建或复用 `triggerType=manual` 的 active 状态。
 - 完成或取消恢复只更新 `RecoveryState.status/endedAt/exitCondition`。
 - 恢复状态不会批量修改历史欠账，不隐藏、删除或延期原任务；首页计时器聚焦恢复候选，任务区保留完整任务列表。

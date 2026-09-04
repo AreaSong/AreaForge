@@ -27,7 +27,7 @@
 
 - `GET /api/dashboard/today`
 
-今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。dashboard 优先读取 active `RecoveryState`；无 active 状态时继续按 `createRecoveryPlan` 实时规则 fallback。首页和 dashboard API 在规则触发恢复时会幂等创建一条 active `RecoveryState`，不会修改、隐藏或删除 `StudyTask`。
+今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。dashboard 优先读取 active `RecoveryState`；无 active 状态时继续按 `createRecoveryPlan` 实时规则 fallback。Dashboard/Today 的 GET 保持只读，不因读取或规则评估创建 `RecoveryState`；只有显式恢复命令才写入状态，不会修改、隐藏或删除 `StudyTask`。
 
 本接口继续作为旧首页聚合兼容入口；学习行动中心使用独立的行动中心与五工作台 API。
 
@@ -70,6 +70,9 @@
 - `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
 - `GET /api/confirmations?filter=pending|history`：鉴权后只读返回统一确认投影；公共工具栏 Drawer 使用 `pending`，`/confirmations` 完整页和历史页继续复用同一确认服务。该接口不提供绕过来源页面安全边界的写入能力。
 - `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影；无 ACTIVE 工作区时返回 `setupRequired`。
+- `POST /api/action-center/recommendation-feedback`：校验当前推荐身份后记录“适合当前节奏”或“暂时换一项”；换一项只影响当前推荐选择，不修改任务。
+- `GET|PATCH /api/weekly-budget`：读取指定自然周预算，或按科目和 revision 设置/清空预算；返回同周真实 session 投入并使用 CAS 防止覆盖。
+- `POST /api/plan-inbox/analytics-risk`：服务端重算 7/30 天统计风险，仍存在时创建或复用带来源快照的投入草稿。
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。
 - `PATCH /api/exam-workspaces/:id/subjects/:subjectId` 与 `PATCH /api/exam-workspaces/:id/subject-groups/:groupId`：名称、颜色、归属、归档/恢复和 `move=UP|DOWN` 相邻换位；move 不与其他字段混用，边界移动不增加 workspace revision 或审计事件。

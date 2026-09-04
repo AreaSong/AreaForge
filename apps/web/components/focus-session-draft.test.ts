@@ -24,6 +24,7 @@ test("focus closeout submission rejects incomplete evidence", () => {
     ...base,
     minimalOutput: "完成例题",
     isEffective: "false",
+    nextAction: "补做基础题",
     lowReasons: [],
   }), {
     ok: false,
@@ -48,7 +49,6 @@ test("focus closeout submission freezes normalized values", () => {
     mode: "complete",
     qualityScore: 4,
     isEffective: true,
-    understandingLevel: "基本理解",
     lowReasons: [],
     focusLevel: 5,
     energyLevel: 2,
@@ -60,4 +60,17 @@ test("focus closeout submission freezes normalized values", () => {
     note: "",
     completeTask: true,
   });
+});
+
+test("focus closeout submission does not invent optional self-ratings", () => {
+  const result = buildFocusCloseoutSubmission({
+    ...defaultFocusCloseoutDraft(),
+    minimalOutput: "完成两道例题",
+    nextAction: "复盘错因",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal("understandingLevel" in result.body, false);
+  assert.equal("focusLevel" in result.body, false);
+  assert.equal("energyLevel" in result.body, false);
 });

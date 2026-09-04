@@ -108,6 +108,8 @@ test("SimulationExamCard: Battle report card, loss count reduction, totalsSource
   // totalsSource fallback detection
   assert.match(cardSource, /exam\.totalsSource === "legacy_fallback"/);
   assert.match(cardSource, /旧版总分记录/);
+  assert.match(cardSource, /尚未录分/);
+  assert.doesNotMatch(cardSource, /exam\.actualScore \?\? 0/);
 
   // nextAction state mapping check in source
   assert.match(cardSource, /exam\.status === "DRAFT"/);
@@ -118,7 +120,8 @@ test("SimulationExamCard: Battle report card, loss count reduction, totalsSource
 
   // Simulations page multi-column grid & primary hero card
   assert.match(pageSource, /grid grid-cols-1 gap-4 md:grid-cols-2/);
-  assert.match(pageSource, /<SimulationExamCard exam=\{latestDraft\} primary \/>/);
+  assert.match(pageSource, /exam\.status === "DRAFT" \|\| exam\.status === "IN_PROGRESS"/);
+  assert.match(pageSource, /<SimulationExamCard exam=\{latestUnfinished\} primary \/>/);
 });
 
 // --------------------------------------------------------------------------
@@ -129,7 +132,7 @@ test("SimulationSubjectEditor: 5-field numeric scoreboard grid, loss item operat
 
   // 5-field scoreboard layout: 2-col on mobile, 3-col on sm, 5-col on lg (no wide stretching)
   assert.match(editorSource, /grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5/);
-  assert.match(editorSource, /"paperFullScore", "卷面满分", 1, 0/);
+  assert.match(editorSource, /"paperFullScore", "卷面满分", 1, 1/);
   assert.match(editorSource, /"targetScore", "目标分", 0.5, 0/);
   assert.match(editorSource, /"actualScore", "实际分", 0.5, 0/);
   assert.match(editorSource, /"durationMinutes", "用时（分）", 1, 0/);

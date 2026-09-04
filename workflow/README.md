@@ -20,6 +20,7 @@
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
 - `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；覆盖 M0 基线归一、个人版动态化、多用户、RBAC、数据生命周期、受控运维、挑战排名、平台加固和 v2.0 门禁。它是未来计划，不表示对应 runtime、Release 或 production 已完成。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
