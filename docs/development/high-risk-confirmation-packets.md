@@ -1794,3 +1794,20 @@ pnpm ops:ops-001:preflight
 明确确认句：
 
 > 确认执行 v1.3 科目合并写入本地实施：范围仅限同一 Workspace 内由用户明确选择的重复科目 preview/confirm API、snapshot hash 重新校验、活动 session 与唯一冲突阻断、单事务全引用迁移、审计/范围 hash/计数记录、来源科目软归档、幂等与失败回滚、隔离 PostgreSQL 和桌面/移动验收；不执行物理删除、账户导出、认证/RBAC、生产 migration、备份恢复、production apply、Release/tag 或服务器命令。
+
+**确认状态（2026-09-04）**：用户已确认上述本地实施范围。2026-09-05 当前工作树已实现严格 preview/confirm/undo、单事务全引用迁移、知识点确定性去重、模拟补救来源重建、来源软归档、4 MiB 精确 preimage 和 24 小时撤销；全新临时 PostgreSQL 17 应用当前 36 个 migration 后，10 组专项 runtime 检查通过。该状态不授权或证明生产 migration、production apply、Release/tag、物理删除、账户导出、AUTH/RBAC 或服务器命令；共享测试池现有 latest 可用，但仍待以最终源码刷新并完成桌面/移动验收。
+
+## A -> B 后续高风险确认包登记（未确认）
+
+本节只是下一轮确认包的登记和最低字段，不是实施授权。每个包必须在对应版本开始前，根据当时的 schema、API、数据清单和生产基线补全精确文件/表/API/页面、migration preimage、测试命令、回滚开关和确认句；一个包的确认不得替代另一个包，也不得替代生产 migration/apply 的独立确认。
+
+| 确认包 | 进入版本 | 实施前必须冻结 | 最低验证 | 失败/回滚边界 | 当前状态 |
+|---|---|---|---|---|---|
+| `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 未确认 |
+| `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 未确认 |
+| `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 未确认 |
+| `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 未确认 |
+| `OPS` | v1.7 | 白名单 operation catalog、参数 schema、风险等级、审批、expected-before/TTL/nonce/hash、请求状态机、root-agent journal | 任意命令/路径/env 拒绝、重放/漂移/超时/崩溃/取消/重试/hold/reconciliation、逐动作生产证据 | agent 进入 hold，按 phase journal 和固定 rollback target 恢复；Web 永不接管执行 | 未确认 |
+| `RANKING` | v1.8 | 指标、`scoreVersion`、窗口/时区/并列、隐私字段禁区、opt-in、挑战状态机、反作弊/申诉、退出/删除联动 | 重算确定性、异常/重复 session、跨租户、挑战 CRUD/参与者/所有权、退出/删除重建 | 关闭挑战与排名投影并重建，不改写个人学习源事实 | 未确认 |
+
+这些包对应 `AF-RISK-DATA-001`、`AF-RISK-DATA-002`、`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009`。只有专项实现、Release、生产和人工 residual 复核证据分别成立后，才可改变相应状态。

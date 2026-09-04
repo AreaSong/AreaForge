@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { STUDY_RESOURCE_CATEGORIES } from "@areaforge/core";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import {
@@ -9,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const categorySchema = z.enum(["TEXTBOOK", "COURSE", "EXERCISE", "PAST_PAPER", "SOLUTION", "SUMMARY", "IMAGE", "OTHER"]);
+const categorySchema = z.enum(STUDY_RESOURCE_CATEGORIES);
 
 const patchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),

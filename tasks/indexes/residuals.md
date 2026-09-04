@@ -46,10 +46,10 @@
 | AF-RISK-OPS-008 | `tasks/active/0022-updater-phase-journal-hold.md` | active；residual 已 closed-evidence，task 仅保留证据/实现追溯 |
 | AF-RISK-SC-004 | `tasks/backlog/0023-github-main-protection.md`、`tasks/active/0035-v11-batch11-minor-release.md` | 历史远端实施已 `closed-evidence`；Batch 11 只承接 v1.1 admission 所需 fresh readback/controlled PR，不自动改变 residual 状态 |
 | AF-RISK-UX-001 | `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0037-v12-release-preparation.md` | active；v1.2 任务只重采 current-bound 体验证据，不自动改变 residual 状态 |
-| AF-RISK-DATA-001 | `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/active/0035-v11-batch11-minor-release.md`、`tasks/backlog/0041-data-lifecycle.md` | 既有批次保持历史完成；0041 承接未来完整生命周期，不自动授权或关闭 residual |
-| AF-RISK-DATA-002 | `tasks/backlog/0040-multi-user-rbac.md` | backlog；等待前置和 AUTH/RBAC 独立确认包 |
-| AF-RISK-DATA-003 | `tasks/backlog/0043-ranking-platform-hardening.md` | backlog；等待授权/生命周期前置和 RANKING 独立确认包 |
-| AF-RISK-OPS-009 | `tasks/backlog/0042-controlled-operations-center.md` | backlog；等待平台运维授权边界和 OPS 独立确认包 |
+| AF-RISK-DATA-001 | `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/active/0035-v11-batch11-minor-release.md`、`tasks/backlog/0041-data-lifecycle.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md` | 既有批次保持历史完成；0041 承接完整生命周期，0045/0046 承接加固与总门禁，不自动授权或关闭 residual |
+| AF-RISK-DATA-002 | `tasks/backlog/0040-multi-user-rbac.md`、`tasks/backlog/0044-rbac-privacy-collaboration.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md` | backlog；0040 等待 AUTH 包，0044 等待 RBAC 包，0045/0046 只承接后续加固与门禁 |
+| AF-RISK-DATA-003 | `tasks/backlog/0043-ranking-platform-hardening.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md` | backlog；等待授权/生命周期/运维前置和 RANKING 独立确认包，随后进入平台加固与总门禁 |
+| AF-RISK-OPS-009 | `tasks/backlog/0042-controlled-operations-center.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md` | backlog；等待 OPS 包，随后进入平台加固与总门禁 |
 | AF-RISK-SC-002 | `tasks/active/0035-v11-batch11-minor-release.md`、`tasks/done/0037-v12-release-preparation.md` | active；v1.2 第一阶段已重采匹配 commit 的 CI/供应链证据，后续 Release 仍须绑定最终 tag；不自动改变 residual 状态 |
 
 其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。

@@ -5,12 +5,11 @@ import type { StudyResourceDto, StudyResourceEditorOptionsDto } from "@/lib/cont
 import { formatBytes } from "@/lib/formatters";
 import { withReturnTo } from "@/lib/navigation/app-navigation";
 import type { ResourceDetailValues } from "@/components/study-resource-detail-draft";
+import { getStudyResourceCategoryLabel, STUDY_RESOURCE_CATEGORY_OPTIONS } from "@areaforge/core";
 
-export const categories = [
-  ["TEXTBOOK", "教材/讲义"], ["COURSE", "课程资料"], ["EXERCISE", "习题/题集"],
-  ["PAST_PAPER", "真题/模拟"], ["SOLUTION", "题解/解析"], ["SUMMARY", "总结/速查"],
-  ["IMAGE", "截图/图片"], ["OTHER", "其他"],
-] as const;
+export const categories = STUDY_RESOURCE_CATEGORY_OPTIONS.map(
+  ({ value, label }) => [value, label] as const,
+);
 
 export function ResourceFacts(props: {
   resource: StudyResourceDto;
@@ -113,7 +112,7 @@ export function organizeStatusLabel(value: StudyResourceDto["organizeStatus"]) {
 }
 
 function categoryLabel(value: string) {
-  return categories.find(([key]) => key === value)?.[1] ?? value;
+  return getStudyResourceCategoryLabel(value);
 }
 
 export function isStudyResourceDto(value: unknown): value is StudyResourceDto {

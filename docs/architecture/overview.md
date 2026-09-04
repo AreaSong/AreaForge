@@ -54,8 +54,12 @@ packages/ai -> Sub2API / OpenAI compatible API
 - `packages/storage`：附件上传纯规则安全底座；Web 层实现 noteId 绑定附件上传、私有落盘和鉴权下载。
 - 发布与运维：GitHub Release 签名发布（SBOM/provenance、checksum、cosign、GHCR digest，stable 签名 fail closed）、服务器侧 updater 受控更新、备份/恢复/回滚流程；Web 版本中心只提交受控请求。
 
-## 暂缓项
+## 已规划但尚未实现
 
-AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、多用户、排名系统、复杂权限系统，以及 Web runtime 直接执行服务器命令的一键运维入口。
+邀请制多用户、Workspace Membership、预设角色权限、对象级分享、完整账户导出、物理删除、受控运维中心和主动加入的私有挑战排名，按 `v1.3 -> v2.0` 路线逐版交付。它们在对应代码、专项验证、Release 和生产证据完成前都不是当前 runtime 能力。
+
+## 暂缓或永久禁止
+
+AI 自动完整学习计划、复杂 PDF 自动解析、小程序、原生 App、全站公开排名、企业组织树、SSO/SCIM 和计费继续暂缓。Web runtime 直接执行服务器命令、挂载 Docker socket、持有 root/生产 secrets 或接受任意 shell 永久禁止；未来运维中心只能提交白名单 operation intent，由 root-only agent 执行。
 
 功能实现进度以 [功能追踪矩阵](../development/feature-traceability.md) 为准；生产与发布的当前状态、残余风险以 [运营 readiness](../development/operational-readiness.md) 和 [残余风险台账](../development/residual-risk-ledger.md) 为准。

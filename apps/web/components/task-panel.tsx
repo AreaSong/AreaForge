@@ -20,6 +20,7 @@ import {
   labelTaskType,
 } from "@/components/task-panel-utils";
 import { formatTaskStatus } from "@/lib/formatters";
+import { TASK_TYPE_DEFINITIONS, type TaskType } from "@areaforge/core";
 
 interface TaskPanelProps {
   subjects: SubjectDto[];
@@ -38,7 +39,7 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [syllabusNodeId, setSyllabusNodeId] = useState("");
   const [title, setTitle] = useState("");
-  const [taskType, setTaskType] = useState("study");
+  const [taskType, setTaskType] = useState<TaskType>("study");
   const [estimatedMinutes, setEstimatedMinutes] = useState(45);
   const [priority, setPriority] = useState<TaskPriorityDto>("medium");
   const [error, setError] = useState<string | null>(null);
@@ -209,13 +210,11 @@ export function TaskPanel({ subjects, tasks, syllabusNodes, debtReorder }: TaskP
           <Select
             className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"
             value={taskType}
-            onChange={(event) => setTaskType(event.target.value)}
+            onChange={(event) => setTaskType(event.target.value as TaskType)}
           >
-            <option value="study">学习</option>
-            <option value="review">复习</option>
-            <option value="practice">刷题</option>
-            <option value="mistake">错题</option>
-            <option value="simulation_exam">模拟</option>
+            {TASK_TYPE_DEFINITIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </Select>
           <Select
             className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-sm text-zinc-100"

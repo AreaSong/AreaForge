@@ -92,14 +92,15 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 个人版完全动态化 | 基础版 / 待确认 | 当前工作树已实现多自定义科目/分组首次设置、版本化通用模板目录、408 去特殊化、科目/分组 CRUD/排序/归档/恢复、重复集合识别、引用/冲突预览和执行前 snapshot hash；core/Web 测试、typecheck、完整 `pnpm check` 与既有测试池桌面/移动页面复核已通过 | `tasks/active/0039-personal-dynamic-foundation.md`；真实科目合并写入仍需专项确认、事务实现与隔离数据库验证，随后还需受保护 PR/CI、签名 Release 和独立 production apply |
-| 邀请制多用户与 Workspace Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义 | `tasks/backlog/0040-multi-user-rbac.md` |
-| 预设角色、统一授权与隐私共享 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service 或敏感资源共享授权 | `tasks/backlog/0040-multi-user-rbac.md` |
+| 个人版完全动态化 | 隔离已实现 | 当前工作树已实现多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo；合并具备 snapshot/revision/幂等、全引用单事务迁移、知识点去重、模拟来源重建、软归档和漂移阻断。全新临时 PostgreSQL 17 应用 36 个 migration 后 10 组专项 runtime 检查通过；空库未选模板旅程已完成自定义工作区/唯一科目/阶段/任务/专注/证据/复盘闭环，390×844 与 1440×900 浏览器验收无页面级横向溢出；Core 109/109、Web 914/914、Core/Web/专项 typecheck、`pnpm check` 和文档/风险/治理/任务门禁通过，Web lint 0 error | `tasks/active/0039-personal-dynamic-foundation.md`；本地总门禁已通过，尚缺受保护 PR/CI、签名 Release 和独立 production apply |
+| 邀请制多用户、Workspace 与 Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义，没有 Workspace/成员完整生命周期 | `tasks/backlog/0040-multi-user-rbac.md` |
+| 预设角色、分享授权与 Coach 协作 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
 | 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
-| 回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
-| 受控运维中心 | 未实现 | 当前版本中心已有受控 updater request；Web runtime 不执行服务器命令，未来只扩展白名单 operation intent | `tasks/backlog/0042-controlled-operations-center.md` |
-| 个人成长指标、私有挑战与排名 | 未实现 | 当前统计服务个人学习闭环，不存在多人排名投影、挑战、opt-in 或反作弊 | `tasks/backlog/0043-ranking-platform-hardening.md` |
-| 平台化加固与 v2.0 门禁 | 未实现 | 当前运营、发布和安全门禁服务单管理员私有部署；尚无多人通知、后台任务、搜索、举报申诉和多租户观测 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 数据任务中心、回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留，没有持久数据任务状态机；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
+| 受控运维中心 | 未实现 | 当前版本中心已有受控 updater request；尚无通用请求生命周期和 operation catalog；Web runtime 不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
+| 个人成长指标、私有挑战与排名 | 未实现 | 当前统计服务个人学习闭环，不存在挑战 CRUD、参与者管理、排名投影、opt-in 或反作弊 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 平台化加固 | 未实现 | 尚无通用后台任务扩展、多人通知/搜索、滥用保护、举报申诉和多租户观测 | `tasks/backlog/0045-platform-hardening.md` |
+| v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE/OPS/RANKING、Release、生产和运营证据均未形成 | `tasks/backlog/0046-v2-platform-gate.md` |
 
 ## 暂缓项
 

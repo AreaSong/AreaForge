@@ -21,11 +21,14 @@ import { classifyApiFailure } from "@/lib/client/api-errors";
 import {
   isShanghaiDateInputError,
   isValidShanghaiDateRangeInput,
+  shiftShanghaiDateInput,
   shanghaiDateRangeInputToIso,
 } from "@/lib/formatters";
+import { listStageTemplates, STAGE_TEMPLATE_CATALOG_VERSION } from "@areaforge/core";
 
 const commandScope = "stage-plan:create";
 const formDraftKey = "areaforge.command.stage-plan.create-draft";
+const stageTemplates = listStageTemplates();
 
 interface StagePlanPayload {
   baseRevision: number | null;
@@ -214,8 +217,45 @@ export function StagePlanCreateForm(props: { initialStartDate: string; initialEn
     setFirstSubmittedPayload(null);
   }
 
+  function applyTemplate(templateId: string) {
+    const template = stageTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    let templateEndDate: string;
+    try {
+      templateEndDate = shiftShanghaiDateInput(startDate, template.durationDays - 1);
+    } catch {
+      setError("请先填写有效的阶段开始日期，再载入模板。");
+      return;
+    }
+    setError(null);
+    setName(template.name);
+    setGoal(template.goal);
+    setMode(template.mode);
+    setEndDate(templateEndDate);
+    markEdited();
+    setNotice(`已载入「${template.name}」模板。字段仍可编辑，提交前不会写入。`);
+  }
+
   return (
     <form className="grid gap-4" onSubmit={submit}>
+      <Field label="从阶段模板开始（可选）" htmlFor="stage-plan-template">
+        <Select
+          id="stage-plan-template"
+          className="h-11 bg-[#0d1117]"
+          defaultValue=""
+          onChange={(event) => applyTemplate(event.target.value)}
+        >
+          <option value="">不使用模板，完全自定义</option>
+          {stageTemplates.map((template) => (
+            <option key={`${template.id}:${template.version}`} value={template.id}>
+              {template.name} · {template.durationDays} 天
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <p className="text-xs leading-5 text-zinc-500">
+        模板目录 {STAGE_TEMPLATE_CATALOG_VERSION} 只填充表单，不会创建隐藏阶段；载入后可以修改全部字段。
+      </p>
       <div className="af-content-grid-two grid gap-3">
         <Field label="阶段名称" htmlFor="stage-plan-name">
           <Input id="stage-plan-name" className="h-11 bg-[#0d1117]" maxLength={160} onChange={(event) => { setName(event.target.value); markEdited(); }} required value={name} />

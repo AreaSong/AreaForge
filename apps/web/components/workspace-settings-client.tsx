@@ -34,6 +34,7 @@ import {
 import type {
   ExamWorkspaceDto,
   SubjectDuplicateSetDto,
+  SubjectMergeOperationDto,
   SubjectGroupDto,
   TakeoverPreviewDto,
   WorkspaceSubjectDto,
@@ -44,7 +45,6 @@ import {
   canProceedFromFirstUseRows,
   canUseTakeoverPreview,
   hasConfiguredFirstUseRows,
-  materializeFirstUseTemplateSelection,
   type FirstUseGroupDraft,
   type FirstUseSubjectDraft,
   validateFirstUseRows,
@@ -68,6 +68,7 @@ export function WorkspaceSettingsClient(props: {
   subjects: WorkspaceSubjectDto[];
   groups: SubjectGroupDto[];
   duplicateSets: SubjectDuplicateSetDto[];
+  mergeOperations: SubjectMergeOperationDto[];
   takeover: TakeoverPreviewDto | null;
   setupMode: boolean;
 }) {
@@ -114,33 +115,13 @@ export function WorkspaceSettingsClient(props: {
     const timer = window.setTimeout(() => {
       const draft = loadPrivateBusinessDraft(setupDraftKey, LONG_PRIVATE_DRAFT_TTL_MS, isWorkspaceSetupDraft);
       if (draft) {
-        const restoredTemplateIds = draft.templateIds ?? (draft.include408 ? ["computer-science-408"] : []);
-        let restoredSubjects = draft.subjects ?? (draft.subjectName.trim() ? [{
-          id: "legacy-subject-1",
-          stableKey: draft.subjectKey,
-          name: draft.subjectName,
-          color: "#35d7c5",
-          groupStableKey: null,
-        }] : []);
-        let restoredGroups = draft.groups ?? [];
-        if (draft.subjects === undefined && draft.groups === undefined) {
-          for (const templateId of restoredTemplateIds) {
-            const restored = materializeFirstUseTemplateSelection({
-              subjects: restoredSubjects,
-              groups: restoredGroups,
-              templateId,
-            });
-            restoredSubjects = restored.subjects;
-            restoredGroups = restored.groups;
-          }
-        }
         setStep(draft.step);
         setName(draft.name);
         setStableKey(draft.stableKey);
         setTargetExamDate(draft.targetExamDate);
-        setSetupSubjects(restoredSubjects);
-        setSetupGroups(restoredGroups);
-        setTemplateIds(restoredTemplateIds);
+        setSetupSubjects(draft.subjects);
+        setSetupGroups(draft.groups);
+        setTemplateIds(draft.templateIds);
       }
       setSetupDraftReady(true);
     }, 0);
@@ -149,15 +130,12 @@ export function WorkspaceSettingsClient(props: {
 
   useEffect(() => {
     if (!props.setupMode || !setupDraftReady) return;
-    const firstSubject = setupSubjects[0];
     savePrivateBusinessDraft<WorkspaceSetupDraft>(setupDraftKey, {
+      schemaVersion: 2,
       step,
       name,
       stableKey,
       targetExamDate,
-      subjectName: firstSubject?.name ?? "",
-      subjectKey: firstSubject?.stableKey ?? "subject-1",
-      include408: templateIds.includes("computer-science-408"),
       subjects: setupSubjects,
       groups: setupGroups,
       templateIds,
@@ -449,6 +427,7 @@ export function WorkspaceSettingsClient(props: {
                 subjects={props.subjects}
                 groups={props.groups}
                 duplicateSets={props.duplicateSets}
+                mergeOperations={props.mergeOperations}
               />
             </>
           ) : null}

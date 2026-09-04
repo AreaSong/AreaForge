@@ -61,6 +61,18 @@ test("runtime facts: templates are isolated seed material instead of hidden runt
   assert.match(firstUse, /getExamTemplate|materializeExamTemplate/);
 });
 
+test("task detail loads stage names for the relation summary", () => {
+  const source = loadSource("lib/study/task-detail-service.ts");
+  const detailQuery = sourceRange(
+    source,
+    "export async function getStudyTaskDetail",
+    "export async function getTaskUpdateSnapshot",
+  );
+
+  assert.match(detailQuery, /stageLinks:\s*\{[\s\S]*stagePlan:\s*\{\s*select:\s*\{\s*name:\s*true\s*\}\s*\}/);
+  assert.match(detailQuery, /task:\s*serializeTask\(task\)/);
+});
+
 test("subject lifecycle: archive pauses schedules and restore makes them due today", () => {
   const source = loadSource("lib/study/exam-workspace-service.ts");
   const updateSubject = sourceRange(

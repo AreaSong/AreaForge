@@ -10,6 +10,7 @@ import {
   previewWorkspaceTakeover,
 } from "@/lib/study/exam-workspace-service";
 import { listSubjectDuplicatePreviews } from "@/lib/study/subject-duplicate-query-service";
+import { listRecentSubjectMergeOperations } from "@/lib/study/subject-merge-undo-service";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +29,14 @@ export default async function SettingsExamsPage({
     findActiveWorkspaceOrNull(user.id),
     previewWorkspaceTakeover(user.id).catch(() => null),
   ]);
-  const [subjects, groups, duplicateSets] = active
+  const [subjects, groups, duplicateSets, mergeOperations] = active
     ? await Promise.all([
         listWorkspaceSubjects(user.id, active.id),
         listSubjectGroups(user.id, active.id),
         listSubjectDuplicatePreviews(user.id, active.id),
+        listRecentSubjectMergeOperations(user.id, active.id),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
@@ -45,6 +47,7 @@ export default async function SettingsExamsPage({
         subjects={subjects}
         groups={groups}
         duplicateSets={duplicateSets}
+        mergeOperations={mergeOperations}
         takeover={takeover}
         setupMode={params.setup === "1" || !active}
       />

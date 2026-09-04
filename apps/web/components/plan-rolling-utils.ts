@@ -1,4 +1,5 @@
 import type { SyllabusOptionNodeDto, TaskPriorityDto } from "@/lib/contracts";
+import { isTaskType, type TaskType } from "@areaforge/core";
 
 export interface TaskCreateDraft {
   subjectId: string;
@@ -8,7 +9,7 @@ export interface TaskCreateDraft {
   knowledgePointIds: string[];
   planMilestoneId: string;
   title: string;
-  type: string;
+  type: TaskType;
   priority: TaskPriorityDto;
   estimatedMinutes: number;
 }
@@ -31,7 +32,7 @@ export function createDraftSnapshot(input: {
   knowledgePointIds: string[];
   planMilestoneId: string;
   title: string;
-  taskType: string;
+  taskType: TaskType;
   priority: TaskPriorityDto;
   estimatedMinutes: number;
 }): TaskCreateDraft {
@@ -62,7 +63,7 @@ export function isTaskCreateDraft(value: unknown): value is TaskCreateDraft {
     && draft.knowledgePointIds.every((id) => typeof id === "string")
     && typeof draft.planMilestoneId === "string"
     && typeof draft.title === "string"
-    && typeof draft.type === "string"
+    && isTaskType(draft.type)
     && ["low", "medium", "high", "critical"].includes(draft.priority ?? "")
     && typeof draft.estimatedMinutes === "number";
 }

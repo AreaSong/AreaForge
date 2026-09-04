@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import {
   canonicalizeHttpsUrl,
   createStableKey,
+  isStudyResourceCategory,
+  type StudyResourceCategory,
 } from "@areaforge/core";
 import {
   STUDY_RESOURCE_MAX_FILES_PER_BATCH,
@@ -45,18 +47,6 @@ export type {
   StudyResourceEditorOptionsDto,
   StudyResourceOrganizeStatus,
 } from "@/lib/contracts/study-resource";
-
-const RESOURCE_CATEGORIES = [
-  "TEXTBOOK",
-  "COURSE",
-  "EXERCISE",
-  "PAST_PAPER",
-  "SOLUTION",
-  "SUMMARY",
-  "IMAGE",
-  "OTHER",
-] as const;
-type StudyResourceCategoryValue = (typeof RESOURCE_CATEGORIES)[number];
 
 export interface StudyResourceUploadBatchItem {
   index: number;
@@ -1680,10 +1670,8 @@ function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase().slice(0, 64);
 }
 
-function normalizeCategory(value: string | undefined): StudyResourceCategoryValue {
-  return value && (RESOURCE_CATEGORIES as readonly string[]).includes(value)
-    ? (value as StudyResourceCategoryValue)
-    : "OTHER";
+function normalizeCategory(value: string | undefined): StudyResourceCategory {
+  return isStudyResourceCategory(value) ? value : "OTHER";
 }
 
 function isUnique(error: unknown): boolean {

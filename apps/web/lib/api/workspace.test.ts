@@ -5,6 +5,7 @@ import {
   createExamWorkspace,
   createSubjectGroup,
   createWorkspaceSubject,
+  confirmSubjectMerge,
   updateExamWorkspace,
   updateSubjectGroup,
   updateWorkspaceSubject,
@@ -47,6 +48,14 @@ test("workspace adapters own encoded paths and revision-bearing JSON commands", 
       expectedWorkspaceRevision: 2,
       archived: true,
     });
+    await confirmSubjectMerge("workspace/1", {
+      targetSubjectId: "subject-target",
+      sourceSubjectIds: ["subject-source"],
+      snapshotHash: "sha256:" + "a".repeat(64),
+      expectedWorkspaceRevision: 2,
+      idempotencyKey: "subject-merge-command-1",
+      confirm: true,
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -59,6 +68,7 @@ test("workspace adapters own encoded paths and revision-bearing JSON commands", 
     ["PATCH", "http://local.test/api/exam-workspaces/workspace%2F1/subjects/subject%2F1"],
     ["POST", "http://local.test/api/exam-workspaces/workspace%2F1/subject-groups"],
     ["PATCH", "http://local.test/api/exam-workspaces/workspace%2F1/subject-groups/group%2F1"],
+    ["POST", "http://local.test/api/exam-workspaces/workspace%2F1/subject-merges"],
   ]);
   assert.equal(requests.every((request) => request.headers.get("Content-Type") === "application/json"), true);
   assert.deepEqual(await requests[0]!.json(), {
@@ -70,4 +80,12 @@ test("workspace adapters own encoded paths and revision-bearing JSON commands", 
   });
   assert.deepEqual(await requests[2]!.json(), { expectedRevision: 2 });
   assert.deepEqual(await requests[4]!.json(), { expectedWorkspaceRevision: 2, move: "UP" });
+  assert.deepEqual(await requests[7]!.json(), {
+    targetSubjectId: "subject-target",
+    sourceSubjectIds: ["subject-source"],
+    snapshotHash: "sha256:" + "a".repeat(64),
+    expectedWorkspaceRevision: 2,
+    idempotencyKey: "subject-merge-command-1",
+    confirm: true,
+  });
 });

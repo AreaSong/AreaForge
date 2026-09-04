@@ -53,7 +53,10 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
           orderBy: { createdAt: "asc" },
         },
         stageLinks: {
-          select: { stagePlanId: true },
+          select: {
+            stagePlanId: true,
+            stagePlan: { select: { name: true } },
+          },
           orderBy: { createdAt: "asc" },
         },
         knowledgePointLinks: {

@@ -3,6 +3,7 @@ import type {
   SyllabusOptionNodeDto,
   TaskDebtReorderDto,
 } from "@/lib/contracts";
+import { getTaskTypeLabel } from "@areaforge/core";
 
 interface FlatNode {
   id: string;
@@ -54,18 +55,5 @@ export function labelPriority(priority: StudyTaskDto["priority"]): string {
 }
 
 export function labelTaskType(type: string): string {
-  switch (type) {
-    case "study":
-      return "学习";
-    case "review":
-      return "复习";
-    case "practice":
-      return "刷题";
-    case "mistake":
-      return "错题";
-    case "simulation_exam":
-      return "模拟";
-    default:
-      return type;
-  }
+  return getTaskTypeLabel(type);
 }

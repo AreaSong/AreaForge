@@ -5,6 +5,7 @@ import { mutationFeedback } from "@/lib/client/mutation-feedback";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import type { TaskType } from "@areaforge/core";
 import { Search } from "lucide-react";
 import { ListDetailLink, useRestoreListReturn } from "@/components/list-return-context";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export function PlanRollingClient(props: {
   const [stagePlanIds, setStagePlanIds] = useState<string[]>([]);
   const [knowledgePointIds, setKnowledgePointIds] = useState<string[]>([]);
   const [planMilestoneId, setPlanMilestoneId] = useState("");
-  const [taskType, setTaskType] = useState("study");
+  const [taskType, setTaskType] = useState<TaskType>("study");
   const [priority, setPriority] = useState<TaskPriorityDto>(props.createMinimum ? "high" : "medium");
   const [estimatedMinutes, setEstimatedMinutes] = useState(props.createMinimum ? 25 : 45);
   const [creatingTask, setCreatingTask] = useState(false);

@@ -46,13 +46,14 @@ import type {
 
 test("workspace-settings-support: validates setup drafts and edit drafts deterministically", () => {
   const validSetup = {
+    schemaVersion: 2,
     step: "goal",
     name: "2027 考研工作区",
     stableKey: "ws-2027",
     targetExamDate: "2026-12-26",
-    subjectName: "高等数学",
-    subjectKey: "math-advanced",
-    include408: true,
+    subjects: [{ id: "subject-1", stableKey: "custom-one", name: "自定义科目", color: "#35d7c5", groupStableKey: null }],
+    groups: [],
+    templateIds: [],
   };
 
   assert.equal(isWorkspaceSetupDraft(validSetup), true);

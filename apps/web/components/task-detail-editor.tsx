@@ -35,6 +35,7 @@ import {
   type TaskEditConflict,
   type TaskEditValues,
 } from "@/components/task-detail-editor-utils";
+import { isTaskType, TASK_TYPE_DEFINITIONS, type TaskType } from "@areaforge/core";
 
 export function TaskDetailEditor(props: {
   snapshot: TaskUpdateSnapshotDto;
@@ -262,13 +263,12 @@ export function TaskDetailEditor(props: {
             <Select
               className="h-11 rounded-md border border-white/10 bg-[#0d1117] px-3 text-white"
               value={values.type}
-              onChange={(event) => setValues((current) => ({ ...current, type: event.target.value }))}
+              onChange={(event) => setValues((current) => ({ ...current, type: event.target.value as TaskType }))}
             >
-              <option value="study">学习</option>
-              <option value="review">复习</option>
-              <option value="practice">刷题</option>
-              <option value="mistake">错题</option>
-              <option value="simulation_exam">模拟</option>
+              {!isTaskType(values.type) ? <option value={values.type}>学习（历史类型）</option> : null}
+              {TASK_TYPE_DEFINITIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </Select>
           </label>
           <label className="grid gap-2 text-sm text-zinc-300">

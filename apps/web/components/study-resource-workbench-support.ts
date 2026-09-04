@@ -7,6 +7,7 @@ import type {
   ResolveUploadRequest,
   UploadResolutionLatest,
 } from "@/lib/api/uploads";
+import { STUDY_RESOURCE_CATEGORY_OPTIONS } from "@areaforge/core";
 import type { StudyResourceDto, StagingUploadResult } from "@/lib/contracts";
 
 export type UploadResolutionRequest = ResolveUploadRequest;
@@ -57,11 +58,9 @@ export type ResourceFormDraft = {
   linkUrl: string;
 };
 
-export const resourceCategories = [
-  ["TEXTBOOK", "教材/讲义"], ["COURSE", "课程资料"], ["EXERCISE", "习题/题集"],
-  ["PAST_PAPER", "真题/模拟"], ["SOLUTION", "题解/解析"], ["SUMMARY", "总结/速查"],
-  ["IMAGE", "截图/图片"], ["OTHER", "其他"],
-] as const;
+export const resourceCategories = STUDY_RESOURCE_CATEGORY_OPTIONS.map(
+  ({ value, label }) => [value, label] as const,
+);
 
 export function statusLabel(item: UploadItem) { if (item.status === "ready") return "待上传"; if (item.status === "staging") return "检查中"; if (item.status === "duplicate") return "待重复决策"; if (item.status === "failed") return "失败"; return item.resultTitle ?? "完成"; }
 export function splitTags(value: string) { return value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean).slice(0, 20); }

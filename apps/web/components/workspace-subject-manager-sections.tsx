@@ -13,6 +13,7 @@ import {
 import { Button, IconButton } from "@/components/ui/button";
 import { ColorSwatches } from "@/components/ui/color-swatches";
 import { Input, Select } from "@/components/ui/field";
+import { Modal } from "@/components/ui/overlays";
 import type { SubjectGroupDto, WorkspaceSubjectDto } from "@/lib/contracts";
 
 export const subjectColors = ["#35d7c5", "#22c55e", "#f59e0b", "#3b82f6", "#ef4444", "#a78bfa"];
@@ -193,4 +194,85 @@ export function subjectErrorMessage(code: string | undefined, fallback: string):
   if (code === "SUBJECT_GROUP_STABLE_KEY_ALREADY_EXISTS") return "该分组内部标识已存在，请修改后重试。";
   if (code === "INTERNAL_ERROR") return "保存失败，请刷新后重试；若持续出现，请通过支持入口反馈。";
   return fallback;
+}
+
+export function SubjectManagerArchiveModals(props: {
+  subject: WorkspaceSubjectDto | null;
+  group: SubjectGroupDto | null;
+  subjectCountInGroup: number;
+  pending: boolean;
+  onCloseSubject: () => void;
+  onCloseGroup: () => void;
+  onArchiveSubject: (subject: WorkspaceSubjectDto) => Promise<boolean>;
+  onArchiveGroup: (group: SubjectGroupDto) => Promise<boolean>;
+}) {
+  return (
+    <>
+      <Modal open={Boolean(props.subject)} title="归档科目" onClose={props.onCloseSubject} allowEscape={!props.pending}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>归档“{props.subject?.name}”后，历史任务和学习记录会保留，但相关复习排期会暂停。</p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={props.onCloseSubject}>取消</Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !props.subject}
+              onClick={() => {
+                if (!props.subject) return;
+                void props.onArchiveSubject(props.subject).then((archived) => {
+                  if (archived) props.onCloseSubject();
+                });
+              }}
+            >
+              <Archive size={16} aria-hidden="true" />确认归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={Boolean(props.group)} title="归档分组" onClose={props.onCloseGroup} allowEscape={!props.pending}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>
+            归档“{props.group?.name}”后，分组内的 {props.subjectCountInGroup} 个科目会移到“不分组”。
+            科目和历史学习记录都会保留；恢复分组后不会自动重新关联。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={props.onCloseGroup}>取消</Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !props.group}
+              onClick={() => {
+                if (!props.group) return;
+                void props.onArchiveGroup(props.group).then((archived) => {
+                  if (archived) props.onCloseGroup();
+                });
+              }}
+            >
+              <Archive size={16} aria-hidden="true" />确认归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export function subjectMergeErrorMessage(code?: string): string {
+  if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_MERGE") return "存在进行中的学习活动，请先完成或取消后再合并。";
+  if (code === "SUBJECT_MERGE_SNAPSHOT_CONFLICT") return "科目或引用已变化，预览已过期；页面正在刷新，请重新核对。";
+  if (code === "SUBJECT_MERGE_UNIQUE_CONFLICT") return "存在无法自动判断的结构冲突，请按预览处理后再合并。";
+  if (code === "SUBJECT_MERGE_SUBJECT_ARCHIVED") return "目标或来源科目已归档，请刷新并重新选择。";
+  if (code === "SUBJECT_MERGE_RETRY_REQUIRED") return "并发写入导致合并未执行，请刷新后重试。";
+  if (code === "SUBJECT_MERGE_IDEMPOTENCY_CONFLICT") return "同一合并命令已绑定不同范围，请刷新后重新确认。";
+  return "科目合并失败，未写入任何部分结果。";
+}
+
+export function subjectMergeUndoErrorMessage(code?: string): string {
+  if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_MERGE_UNDO") return "存在进行中的学习活动，请先完成或取消后再撤销。";
+  if (code === "SUBJECT_MERGE_UNDO_WINDOW_EXPIRED") return "该合并已超过 24 小时安全撤销窗口。";
+  if (code === "SUBJECT_MERGE_ALREADY_UNDONE") return "该合并已经撤销，页面正在刷新。";
+  if (code === "SUBJECT_MERGE_UNDO_SCOPE_CHANGED") return "合并后的关联对象已经变化，不能自动撤销。";
+  if (code === "SUBJECT_MERGE_UNDO_SNAPSHOT_CONFLICT") return "工作区状态已变化，请刷新后重新核对撤销范围。";
+  if (code === "SUBJECT_MERGE_UNDO_UNIQUE_CONFLICT") return "恢复原引用会产生唯一性冲突，撤销未写入任何部分结果。";
+  return "科目合并撤销失败，未写入任何部分结果。";
 }
