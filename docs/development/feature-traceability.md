@@ -92,7 +92,7 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 个人版完全动态化 | 隔离已实现 | 当前工作树已实现多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo；合并具备 snapshot/revision/幂等、全引用单事务迁移、知识点去重、模拟来源重建、软归档和漂移阻断。全新临时 PostgreSQL 17 应用 36 个 migration 后 10 组专项 runtime 检查通过；空库未选模板旅程已完成自定义工作区/唯一科目/阶段/任务/专注/证据/复盘闭环，390×844 与 1440×900 浏览器验收无页面级横向溢出；Core 109/109、Web 914/914、Core/Web/专项 typecheck、`pnpm check` 和文档/风险/治理/任务门禁通过，Web lint 0 error | `tasks/active/0039-personal-dynamic-foundation.md`；本地总门禁已通过，尚缺受保护 PR/CI、签名 Release 和独立 production apply |
+| 个人版完全动态化 | 隔离已实现 | 多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo 已实现；全新临时 PostgreSQL 17 的 10 组专项 runtime、空库闭环、桌面/移动、Core 109/109、Web 914/914、`pnpm check` 和文档/风险/治理/任务门禁通过。PR #56 的 push/pull_request `ci/verify` 均成功并 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，main push CI run `33906942919` 成功 | `tasks/active/0039-personal-dynamic-foundation.md`；尚缺独立签名 Release 和 production apply |
 | 邀请制多用户、Workspace 与 Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义，没有 Workspace/成员完整生命周期 | `tasks/backlog/0040-multi-user-rbac.md` |
 | 预设角色、分享授权与 Coach 协作 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
 | 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
