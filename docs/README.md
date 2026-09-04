@@ -21,6 +21,7 @@
 - `product/prd.md`：产品需求文档。
 - `product/feature-scope.md`：版本范围和功能分期。
 - `product/roadmap.md`：阶段路线图。
+- `../workflow/versions/v1.3-v2.0-platform-evolution.md`：A -> B 平台演进的完整版本、依赖、门禁和退出条件。
 
 ## 架构
 

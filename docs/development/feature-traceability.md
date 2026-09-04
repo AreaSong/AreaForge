@@ -85,6 +85,21 @@
 | 完整 minor Release | 已完成 | `v1.1.0`、`v1.1.1`、`v1.1.2` Release 历史保持不变，既有完整 minor Release 证据仍然有效 | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变；production apply 另行确认 |
 | v1.2.0 稳定 Release | 已完成 | 第一阶段统一 package version、完成 additive migration 隔离验证、完整门禁、本地测试池与浏览器验收；PR CI run `33505174259` 与 main push CI run `33506280124` 成功，fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 已创建 annotated tag `v1.2.0`；Release workflow run `33521890241`、签名资产、SBOM、provenance、checksum 与 immutable digest 严格验证见 `docs/development/release-supply-chain-v1.2.0.md` | 未执行生产 migration、生产更新、备份恢复、回滚、写入型 smoke 或自动应用策略变更；`AF-RISK-SC-001`/`AF-RISK-SC-002` 等 residual 保持待人工复核 |
 
+## 下一产品版本：A -> B 平台演进
+
+本节记录已经进入版本计划、但尚未完成 runtime 的能力；不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
+
+| 功能项 | 当前状态 | 当前证据 | 后续承接 |
+|---|---|---|---|
+| 个人版完全动态化 | 未实现 | 已有科目/分组 CRUD 和显式 408 模板；首次设置仍需扩展为多自定义科目/分组，模板仍需去特殊化 | `tasks/backlog/0039-personal-dynamic-foundation.md` |
+| 邀请制多用户与 Workspace Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义 | `tasks/backlog/0040-multi-user-rbac.md` |
+| 预设角色、统一授权与隐私共享 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service 或敏感资源共享授权 | `tasks/backlog/0040-multi-user-rbac.md` |
+| 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
+| 回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
+| 受控运维中心 | 未实现 | 当前版本中心已有受控 updater request；Web runtime 不执行服务器命令，未来只扩展白名单 operation intent | `tasks/backlog/0042-controlled-operations-center.md` |
+| 个人成长指标、私有挑战与排名 | 未实现 | 当前统计服务个人学习闭环，不存在多人排名投影、挑战、opt-in 或反作弊 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 平台化加固与 v2.0 门禁 | 未实现 | 当前运营、发布和安全门禁服务单管理员私有部署；尚无多人通知、后台任务、搜索、举报申诉和多租户观测 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+
 ## 暂缓项
 
 | 功能项 | 当前状态 | 说明 |
@@ -93,10 +108,9 @@
 | AI 自动解析复杂 PDF 大纲 | 暂缓 | 当前仅支持受限 Markdown 导入 |
 | 小程序 | 暂缓 | 私有 Web 优先 |
 | 原生手机 App | 暂缓 | 后续可考虑 PWA 或独立 App |
-| 多用户系统 | 暂缓 | 当前单管理员自用 |
-| 排名系统 | 暂缓 | 不符合当前个人备考定位 |
-| Web runtime 直接执行服务器命令的一键更新 | 暂缓 / 高风险 | 不允许 Web runtime 直接执行部署、备份、恢复、migration 或 Docker 命令；当前已完成的是版本中心提交受控更新请求，由 `areaforge-update-agent.timer` 触发服务器侧 root agent 执行签名校验更新 |
-| 复杂权限系统 | 暂缓 | 单管理员阶段不引入 RBAC |
+| 全站公开社区与默认公开排名 | 暂缓 | v1.8 只规划主动加入的私有挑战；公开社区需独立产品、隐私、审核和申诉设计 |
+| 企业组织树、SSO/SAML、SCIM 和计费订阅 | 暂缓 | 不属于 A -> B 第一阶段的必要能力 |
+| Web runtime 任意 shell、Docker socket、root 权限或服务器密钥 | 暂缓 / 高风险 | 永久保持禁止；未来受控运维中心仍由 root-only agent 执行白名单动作 |
 
 ## docs 100% 完成判定
 

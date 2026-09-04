@@ -277,7 +277,64 @@
       "taskRefs": [
         "tasks/done/0029-v11-batch5-resources-import-confirm.md",
         "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
-        "tasks/active/0035-v11-batch11-minor-release.md"
+        "tasks/active/0035-v11-batch11-minor-release.md",
+        "tasks/backlog/0041-data-lifecycle.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-DATA-002",
+      "type": "deferred-work",
+      "reviewAt": "2026-11-15",
+      "currentImpact": "A -> B 已规划邀请制多用户、Membership 和 RBAC，但当前仍是单管理员 owner 语义；若未完成全链路 workspace scope、敏感数据矩阵和 IDOR 负向验证，开放成员能力会产生跨租户读写与隐私泄露风险",
+      "executableNow": false,
+      "closeCondition": "AUTH/RBAC 独立确认包、additive migration、旧 owner 回填、统一授权层、角色/敏感资源矩阵、跨租户负向测试、会话撤销和生产迁移证据齐全后进入人工关闭复核",
+      "requiredEvidence": "威胁模型、migration preimage、权限矩阵、敏感数据矩阵、IDOR/API/service/query 测试、浏览器验收、审计记录、Release/production evidence",
+      "ownerSkills": [
+        "areaforge-security-governance",
+        "areaforge-validation-driver"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0040-multi-user-rbac.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-DATA-003",
+      "type": "deferred-work",
+      "reviewAt": "2026-12-15",
+      "currentImpact": "私有挑战与排名已进入 v1.8 计划，但尚无指标版本、opt-in、异常/作弊、申诉、退出和删除联动；直接排行可能泄露个人学习信息并激励刷时长",
+      "executableNow": false,
+      "closeCondition": "RANKING 独立确认包、个人基准、可重建投影、隐私字段禁区、反作弊、退出/删除重建和申诉证据齐全后进入人工关闭复核",
+      "requiredEvidence": "指标/隐私规范、scoreVersion fixture、重复 session/异常/删除重建测试、挑战 opt-in/退出浏览器验收、跨租户负向测试",
+      "ownerSkills": [
+        "areaforge-product-experience",
+        "areaforge-security-governance",
+        "areaforge-validation-driver"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0043-ranking-platform-hardening.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-009",
+      "type": "deferred-work",
+      "reviewAt": "2026-11-30",
+      "currentImpact": "受控运维中心已进入 v1.7 计划；扩大 Web 可请求的生产动作会增加提权、重放、状态漂移和误操作风险，Web runtime 任意 shell 仍永久禁止",
+      "executableNow": false,
+      "closeCondition": "OPS 独立确认包、白名单 operation catalog、expected-before/TTL/nonce/hash/幂等/审批、root-only agent journal/锁/恢复以及逐动作生产证据齐全后进入人工关闭复核",
+      "requiredEvidence": "协议与威胁模型、请求/agent selftest、kill-point、权限负向测试、签名/备份/hash/smoke/rollback/redacted evidence",
+      "ownerSkills": [
+        "areaforge-sre-ops",
+        "areaforge-security-governance",
+        "areaforge-supply-chain"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0042-controlled-operations-center.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
