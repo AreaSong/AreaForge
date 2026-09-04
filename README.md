@@ -10,7 +10,7 @@
 
 AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把直接学习、专注投入、知识证据、复盘和阶段调整串成一条长期学习闭环，让数据持续回答两个问题：这次是否真正学进去，以及接下来应该如何复测和调整。
 
-[线上版本](https://forge.areasong.top/) · [产品定位](docs/product/charter.md) · [使用指南](docs/guide/user-guide.md) · [完整文档](docs/README.md) · [自托管指南](docs/deployment/operator-onboarding.md) · [安全披露](SECURITY.md)
+[线上版本](https://forge.areasong.top/) · [产品定位](docs/product/charter.md) · [学习闭环](docs/product/learning-loop.md) · [使用指南](docs/guide/user-guide.md) · [完整文档](docs/README.md) · [自托管指南](docs/deployment/operator-onboarding.md) · [安全披露](SECURITY.md)
 
 ![AreaForge 今日作战台](output/playwright/experience-review/desktop-dashboard.png)
 
@@ -24,10 +24,12 @@ AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把直�
 ## 核心闭环
 
 ```text
-开始学习（选科目） -> 专注计时 -> 学习收口 -> 证据/复测 -> 今日闭环 -> 周期报告与阶段调整
+首次设置 -> 今日判断 -> 行动执行 -> 活动收口 -> 可选证据 -> 每日复盘 -> 行动安排 -> 周月校准
 ```
 
 AreaForge 的重点不是记录得更多，而是让每次学习都留下可复核的结果，并把结果转成下一步行动。AI 只生成建议或草稿，不直接覆盖用户记录，也不自动修改任务或阶段计划。
+
+跨工作台的完整流程、状态语义、当前实现与后续功能优先级见 [学习闭环](docs/product/learning-loop.md)。
 
 ## 产品内容重点
 
@@ -111,7 +113,7 @@ pnpm db:migrate:dev
 pnpm auth:hash '<local-password>'
 ```
 
-把输出写回 `.env` 后，再初始化管理员和基础科目并启动应用：
+把输出写回 `.env` 后，再初始化管理员并启动应用。普通 seed 不创建业务科目；首次登录后在考试与科目设置中建立工作区和科目：
 
 ```bash
 pnpm db:seed
@@ -161,7 +163,7 @@ pnpm dev:test:list
 
 | 主题 | 入口 |
 |---|---|
-| 产品定位、范围与路线 | [产品 Charter](docs/product/charter.md)、[PRD](docs/product/prd.md)、[功能范围](docs/product/feature-scope.md)、[路线图](docs/product/roadmap.md) |
+| 产品定位、范围与路线 | [产品 Charter](docs/product/charter.md)、[学习闭环](docs/product/learning-loop.md)、[PRD](docs/product/prd.md)、[功能范围](docs/product/feature-scope.md)、[路线图](docs/product/roadmap.md) |
 | 架构与数据边界 | [架构总览](docs/architecture/overview.md)、[数据模型](docs/architecture/data-model.md)、[API 边界](docs/architecture/api-surface.md) |
 | 模块与页面行为 | [模块文档](docs/modules/)、[UX 文档](docs/ux/)、[品牌素材](docs/ux/brand-assets.md) |
 | 实现与完成证据 | [实现顺序](docs/development/implementation-order.md)、[功能追踪矩阵](docs/development/feature-traceability.md)、[完成记录](docs/development/docs-100-completion-record.md) |

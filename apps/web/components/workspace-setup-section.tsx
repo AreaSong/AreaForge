@@ -25,6 +25,8 @@ export function WorkspaceSetupSection(props: {
   include408: boolean;
   setInclude408: (include: boolean) => void;
   takeover: TakeoverPreviewDto | null;
+  canProceed: boolean;
+  canCreateWithoutTakeover: boolean;
   pending: boolean;
   onComplete: (takeover: boolean) => void;
 }) {
@@ -46,7 +48,7 @@ export function WorkspaceSetupSection(props: {
           </label>
           <label className="block text-sm font-medium text-zinc-300">
             <span>首个科目</span>
-            <Input className="mt-1.5" value={props.subjectName} onChange={(e) => props.setSubjectName(e.target.value)} />
+            <Input className="mt-1.5" placeholder="例如：数学分析" value={props.subjectName} onChange={(e) => props.setSubjectName(e.target.value)} />
           </label>
         </div>
 
@@ -68,11 +70,15 @@ export function WorkspaceSetupSection(props: {
 
         <PinnedActionBar
           mode="sticky"
-          status={<span className="text-xs text-zinc-400">首次建立未生效</span>}
+          status={
+            <span className={props.canProceed ? "text-xs text-zinc-400" : "text-xs text-amber-300"}>
+              {props.canProceed ? "首次建立未生效" : "至少添加一个科目或选择 408 四科"}
+            </span>
+          }
           right={
             <div className="flex gap-2">
               <ButtonLink href="/today" variant="ghost" size="md">取消</ButtonLink>
-              <Button type="button" variant="primary" size="md" onClick={() => props.setStep("takeover")}>
+              <Button type="button" variant="primary" size="md" disabled={!props.canProceed} onClick={() => props.setStep("takeover")}>
                 下一步：检查已有数据
               </Button>
             </div>
@@ -94,7 +100,7 @@ export function WorkspaceSetupSection(props: {
           {props.takeover.unresolvedCount > 0 || props.takeover.crossOwnerBlockedCount > 0 ? (
             <p className="text-amber-300">另有 {props.takeover.unresolvedCount} 个待确认，{props.takeover.crossOwnerBlockedCount} 个因归属冲突被阻止，本次不会移动。</p>
           ) : null}
-          <p className="text-xs text-zinc-500">选择沿用时，已有数学和 408 科目不会重复创建；其他新科目仍按上一步设置创建。</p>
+          <p className="text-xs text-zinc-500">选择沿用时，已有科目会直接归入新工作区；只有你在上一步填写或勾选的科目才会新增。</p>
         </div>
       ) : (
         <Alert tone="warning">旧数据预览暂时不可用。刷新后再沿用，或明确选择新建工作区且不移动旧数据。</Alert>
@@ -107,8 +113,8 @@ export function WorkspaceSetupSection(props: {
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="ghost" size="md" disabled={props.pending} onClick={() => props.setStep("goal")}>返回修改</Button>
             <ButtonLink href="/today" variant="ghost" size="md">取消</ButtonLink>
-            <Button type="button" variant="secondary" size="md" disabled={props.pending} onClick={() => void props.onComplete(false)}>全新建立，不沿用</Button>
-            <Button type="button" variant="primary" size="md" loading={props.pending} loadingLabel="创建中..." disabled={!canUseTakeoverPreview(props.takeover)} onClick={() => void props.onComplete(true)}>
+            <Button type="button" variant="secondary" size="md" disabled={props.pending || !props.canCreateWithoutTakeover} onClick={() => void props.onComplete(false)}>全新建立，不沿用</Button>
+            <Button type="button" variant="primary" size="md" loading={props.pending} loadingLabel="创建中..." disabled={!canUseTakeoverPreview(props.takeover) || !props.canProceed} onClick={() => void props.onComplete(true)}>
               沿用已有数据并完成
             </Button>
           </div>

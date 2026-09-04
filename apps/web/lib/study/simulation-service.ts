@@ -20,8 +20,7 @@ import type {
 import { getAnalyticsSummary } from "./analytics-service";
 import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { applyTaskCas } from "./concurrency";
-import { daysUntil } from "./date";
-import { finalExamDate, simulationDate } from "./exam-dates";
+import { getStudyDayRange, optionalDaysUntil } from "./date";
 import { completeConfiguredActivitySessionInTx } from "./session-command-service";
 import { getMotivationVault, getMotivationVaultShared, saveMotivationVault } from "./motivation-vault-service";
 import { activeTimerSessionId } from "./activity-session-state";
@@ -70,7 +69,7 @@ export interface CreateSimulationTaskInput {
   subjectId: string;
   syllabusNodeId?: string | null;
   title: string;
-  plannedDate?: string;
+  plannedDate: string;
   estimatedMinutes: number;
 }
 
@@ -87,7 +86,7 @@ export interface CompleteSimulationTaskInput {
 export interface CreateSimulationExamInput {
   idempotencyKey: string;
   name: string;
-  examDate?: string;
+  examDate: string;
   isFirstSynchronized?: boolean;
   targetDurationMinutes?: number;
   targetScore?: number;
@@ -96,10 +95,10 @@ export interface CreateSimulationExamInput {
 export interface SimulationSubjectResultInput {
   subjectId: string;
   expectedRevision?: number;
-  paperFullScore: number;
-  targetScore: number;
-  actualScore: number;
-  durationMinutes?: number;
+  paperFullScore: number | null;
+  targetScore: number | null;
+  actualScore: number | null;
+  durationMinutes?: number | null;
   blankQuestionCount: number;
   lossReasons: string[];
   summary?: string;
@@ -184,7 +183,7 @@ export async function createSimulationExam(
   actorId: string,
 ): Promise<SimulationExamDto> {
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
-  const examDate = input.examDate ? new Date(input.examDate) : simulationDate;
+  const examDate = new Date(input.examDate);
   const requestFingerprint = buildPersistentCreateFingerprint("simulation-exam-create-v1", {
     name: input.name,
     examDate: input.examDate ?? null,
@@ -220,7 +219,7 @@ export async function createSimulationExam(
         workspaceId: workspace.id,
         name: input.name,
         examDate,
-        isFirstSynchronized: input.isFirstSynchronized ?? isFirstSimulationTask(examDate),
+        isFirstSynchronized: input.isFirstSynchronized ?? false,
         targetDurationMinutes: input.targetDurationMinutes,
         targetScore: input.targetScore,
       },
@@ -377,11 +376,10 @@ export async function saveSimulationExamResults(
       }
     }
 
-    const scoreSummary = summarizeSimulationScores(input.subjectResults);
     const targetDurationMinutes = input.targetDurationMinutes ?? existing.targetDurationMinutes;
-    const actualDurationMinutes = input.actualDurationMinutes ?? sumDefined(input.subjectResults, "durationMinutes");
-    const targetScore = scoreSummary.targetScore;
-    const actualScore = scoreSummary.actualScore;
+    const actualDurationMinutes = input.actualDurationMinutes ?? sumComplete(input.subjectResults, "durationMinutes");
+    const targetScore = sumComplete(input.subjectResults, "targetScore");
+    const actualScore = sumComplete(input.subjectResults, "actualScore");
     const blankQuestionCount =
       input.blankQuestionCount ?? input.subjectResults.reduce((total, result) => total + result.blankQuestionCount, 0);
     const lossReasons = normalizeLossReasons([
@@ -524,6 +522,11 @@ export async function confirmSimulationExam(
     }
     if (existing.subjectResults.length === 0) {
       throw new ApiError("SIMULATION_SUBJECT_RESULTS_REQUIRED", 400);
+    }
+    if (existing.subjectResults.some((result) => result.actualScore == null)) {
+      throw new ApiError("SIMULATION_ACTUAL_SCORES_REQUIRED", 400, {
+        conflictFields: ["subjectResults.actualScore"],
+      });
     }
     if (!existing.summary?.trim() || !existing.reviewText?.trim()) {
       throw new ApiError("SIMULATION_REVIEW_REQUIRED", 400, {
@@ -1030,7 +1033,7 @@ export async function createSimulationTask(
         title: input.title,
         type: "simulation_exam",
         priority: "CRITICAL",
-        plannedDate: input.plannedDate ? new Date(input.plannedDate) : simulationDate,
+        plannedDate: new Date(input.plannedDate),
         estimatedMinutes: input.estimatedMinutes,
       },
       include: {
@@ -1082,7 +1085,7 @@ export async function completeSimulationTask(
     }
 
     const completedAt = new Date();
-    const isFirstSynchronizedSimulation = isFirstSimulationTask(existing.plannedDate);
+    const isFirstSynchronizedSimulation = false;
     await applyTaskCas(tx, existing, {
       status: "DONE",
       debtStatus: "NONE",
@@ -1135,11 +1138,21 @@ export async function completeSimulationTask(
 }
 
 export async function getSimulationStageDraft(actorId: string, now = new Date()): Promise<SimulationStageDraftDto> {
-  const [analytics, motivationVault] = await Promise.all([
+  const workspace = await resolveActiveWorkspace(actorId);
+  const [analytics, motivationVault, nextSimulation] = await Promise.all([
     getAnalyticsSummary(now, actorId),
     getMotivationVaultShared(),
+    prisma.simulationExam.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        status: { not: "CONFIRMED" },
+        examDate: { gte: getStudyDayRange(now).start },
+      },
+      orderBy: [{ examDate: "asc" }, { createdAt: "asc" }],
+      select: { name: true, examDate: true },
+    }),
   ]);
-  const daysToSimulation = daysUntil(simulationDate, now);
+  const daysToSimulation = optionalDaysUntil(nextSimulation?.examDate, now);
   const readiness = evaluateSimulationReadiness({
     daysToSimulation,
     weeklyEffectiveMinutes: analytics.totals.weekEffectiveMinutes,
@@ -1150,7 +1163,7 @@ export async function getSimulationStageDraft(actorId: string, now = new Date())
     hasFirstSimulationDiary: Boolean(motivationVault?.firstSimulationDiary),
   });
   const stageAdjustment = draftStageAdjustment({
-    stageGoal: "2026 年 12 月同步全真自测",
+    stageGoal: workspace.stageSummary?.trim() || "当前考试目标",
     taskCompletionRate: analytics.totals.weeklyTaskCompletionRate,
     subjectInvestmentBalance: calculateSubjectInvestmentBalance(analytics.subjects),
     mistakeReviewRate: calculateMistakeReviewRate(analytics.totals.totalMistakes, analytics.totals.dueMistakes),
@@ -1160,16 +1173,16 @@ export async function getSimulationStageDraft(actorId: string, now = new Date())
     lowConversionCount: analytics.totals.lowConversionCount,
     weakSubjectNames: chooseFocusSubjects(analytics.subjects),
     simulationScoreRate: null,
-    daysToFinal: daysUntil(finalExamDate, now),
+    daysToFinal: optionalDaysUntil(workspace.targetExamDate, now),
   });
 
   return {
-    simulationNode: {
-      title: "2026 年 12 月同步全真自测",
-      date: simulationDate.toISOString(),
-      daysToSimulation,
+    simulationNode: nextSimulation ? {
+      title: nextSimulation.name,
+      date: nextSimulation.examDate.toISOString(),
+      daysToSimulation: optionalDaysUntil(nextSimulation.examDate, now) ?? 0,
       isPhaseNode: true,
-    },
+    } : null,
     readiness,
     draft: {
       status: "local_rule_fallback",
@@ -1266,10 +1279,6 @@ function splitLossReasons(value: string | undefined): string[] {
     .split(/[\n,，;；、]/)
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function isFirstSimulationTask(plannedDate: Date): boolean {
-  return Math.abs(plannedDate.getTime() - simulationDate.getTime()) <= 1000 * 60 * 60 * 24 * 7;
 }
 
 function formatSimulationResultSummary(summary: SimulationResultSummary): string {
@@ -1375,16 +1384,17 @@ function chooseFocusSubjects(
     .slice(0, 3)
     .map((subject) => subject.subjectName);
 
-  return focus.length > 0 ? focus : ["数学", "英语", "408"];
+  return focus;
 }
 
-function calculateSubjectInvestmentBalance(subjects: Array<{ share: number }>): number {
+function calculateSubjectInvestmentBalance(subjects: Array<{ share: number }>): number | null {
+  if (subjects.length === 0 || subjects.every((subject) => subject.share === 0)) return null;
   const maxShare = Math.max(0, ...subjects.map((subject) => subject.share));
   return Math.max(0, Math.min(1, 1 - maxShare / 100));
 }
 
-function calculateMistakeReviewRate(totalMistakes: number, dueMistakes: number): number {
-  if (totalMistakes <= 0) return 1;
+function calculateMistakeReviewRate(totalMistakes: number, dueMistakes: number): number | null {
+  if (totalMistakes <= 0) return null;
   return Math.max(0, Math.min(1, 1 - dueMistakes / totalMistakes));
 }
 
@@ -1474,14 +1484,8 @@ function serializeSimulationExam(exam: {
   const timerSession = exam.studySessions[0] ?? null;
   const hasLegacyTotals = exam.targetScore != null || exam.actualScore != null || exam.lossReasons != null;
   const totalsSource = exam.subjectResults.length > 0 || !hasLegacyTotals ? "subject_sum" : "legacy_fallback";
-  const scoreSummary = totalsSource === "subject_sum"
-    ? summarizeSimulationScores(exam.subjectResults.map((result) => ({
-        subjectId: result.subjectId,
-        paperFullScore: result.paperFullScore ?? Math.max(result.targetScore ?? 0, result.actualScore ?? 0),
-        targetScore: result.targetScore ?? 0,
-        actualScore: result.actualScore ?? 0,
-      })))
-    : null;
+  const subjectTargetScore = sumComplete(exam.subjectResults, "targetScore");
+  const subjectActualScore = sumComplete(exam.subjectResults, "actualScore");
   const warnings = exam.subjectResults.flatMap((result) => {
     if (result.paperFullScore == null || result.actualScore == null) return [];
     const structuredLoss = result.lossItems
@@ -1499,8 +1503,8 @@ function serializeSimulationExam(exam: {
     isFirstSynchronized: exam.isFirstSynchronized,
     targetDurationMinutes: exam.targetDurationMinutes,
     actualDurationMinutes: exam.actualDurationMinutes,
-    targetScore: scoreSummary?.targetScore ?? exam.targetScore,
-    actualScore: scoreSummary?.actualScore ?? exam.actualScore,
+    targetScore: totalsSource === "subject_sum" ? subjectTargetScore : exam.targetScore,
+    actualScore: totalsSource === "subject_sum" ? subjectActualScore : exam.actualScore,
     blankQuestionCount: exam.blankQuestionCount,
     lossReasons: parseLossReasons(exam.lossReasons),
     mindset: exam.mindset,
@@ -1573,10 +1577,14 @@ async function assertSimulationLossNodes(
   }
 }
 
-function sumDefined(items: SimulationSubjectResultInput[], key: keyof SimulationSubjectResultInput): number | undefined {
-  const values = items.map((item) => item[key]).filter((value): value is number => typeof value === "number");
-  if (values.length === 0) return undefined;
-  return values.reduce((total, value) => total + value, 0);
+function sumComplete<K extends PropertyKey>(
+  items: Array<Partial<Record<K, number | null | undefined>>>,
+  key: K,
+): number | null {
+  const values = items.map((item) => item[key]);
+  const numericValues = values.filter((value): value is number => typeof value === "number");
+  if (values.length === 0 || numericValues.length !== values.length) return null;
+  return numericValues.reduce((total, value) => total + value, 0);
 }
 
 function normalizeLossReasons(values: string[]): string[] {

@@ -159,7 +159,7 @@ test("M3 CHALLENGER 2: 5-Field Scoreboard Editor & Step/Min Attributes", () => {
   assert.match(editor, /className="af-five-field-grid mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"/);
 
   // Field configurations: paperFullScore, targetScore, actualScore, durationMinutes, blankQuestionCount
-  assert.match(editor, /\["paperFullScore", "卷面满分", 1, 0\]/);
+  assert.match(editor, /\["paperFullScore", "卷面满分", 1, 1\]/);
   assert.match(editor, /\["targetScore", "目标分", 0\.5, 0\]/);
   assert.match(editor, /\["actualScore", "实际分", 0\.5, 0\]/);
   assert.match(editor, /\["durationMinutes", "用时（分）", 1, 0\]/);
@@ -267,7 +267,7 @@ test("M3 CHALLENGER 2: Simulation Draft Domain Rules & Invariant Oracles", () =>
   assert.equal(drafts[0].lossItems.length, 1);
   assert.equal(drafts[0].lossItems[0].lostScore, 10);
   assert.equal(drafts[1].subjectId, "sub-math");
-  assert.equal(drafts[1].actualScore, 0);
+  assert.equal(drafts[1].actualScore, null);
 
   // 4. Editor draft conversion oracle
   const editorDraft = toSimulationEditorDraft(mockExam, subjects);

@@ -25,6 +25,7 @@ import {
   isPlanInboxItemDto,
   isPlanInboxStoredDraftValue,
   legacyPlanInboxStoredDraft,
+  initialPlanInboxEditorFields,
   planInboxDraftsEqual,
   toPlanInboxFormDraft,
   withInboxStatus,
@@ -32,6 +33,7 @@ import {
   type PendingPlanInboxConvert,
   type PlanInboxConflict,
   type PlanInboxFormDraft,
+  type PlanInboxEditorFields,
   type PlanInboxStoredDraft,
 } from "@/components/plan-inbox-item-utils";
 
@@ -62,6 +64,9 @@ export function PlanInboxItemClient({ userId, item: initialItem, options, return
   const [conflictOpen, setConflictOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
+  const [editorFields, setEditorFields] = useState<PlanInboxEditorFields>(() => (
+    initialPlanInboxEditorFields(savedBaseline.current, initialItem.requiredMilestoneKey)
+  ));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -464,6 +469,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options, return
       conflict={conflict}
       conflictOpen={conflictOpen}
       busy={busy}
+      editorFields={editorFields}
       onDraftChange={(patch) => applyFormDraft({ ...currentDraft, ...patch })}
       onToggleRelated={toggleRelated}
       onTogglePredecessor={togglePredecessor}
@@ -473,6 +479,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options, return
       onConvert={() => void convert()}
       onTransition={(action) => void transition(action)}
       onCreateRequiredMilestone={() => void createRequiredMilestone()}
+      onOpenAllFields={() => setEditorFields("all")}
       onConflictOpen={() => setConflictOpen(true)}
       onConflictClose={() => setConflictOpen(false)}
       onApplyServerVersion={applyServerVersion}

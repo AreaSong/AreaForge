@@ -80,7 +80,9 @@ export function TestPendingQueue({ queue, className = "" }: TestPendingQueueProp
                             : item.dueStatus === "in_progress"
                               ? "teal"
                               : item.dueStatus === "draft_pending"
-                                ? "amber"
+                              ? "amber"
+                              : item.dueStatus === "unscheduled"
+                                ? "zinc"
                                 : "sky"
                         }
                         size="xs"

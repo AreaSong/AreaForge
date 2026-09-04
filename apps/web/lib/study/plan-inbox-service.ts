@@ -22,6 +22,8 @@ import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-work
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { getBridgableReviewScheduleInTx } from "./review-schedule-service";
 import { acknowledgeAiDraftResultInTx } from "./ai-draft-service";
+import { getAnalyticsSummary } from "./analytics-service";
+import { buildAnalyticsRiskPlanDraft } from "./analytics-risk-plan";
 import { lockWorkspaceDependencyGraph } from "./task-dependency-service";
 import {
   buildPersistentCreateFingerprint,
@@ -512,6 +514,86 @@ export async function createLowConversionPlanInboxItem(
       type: "focus",
       primaryNodeId: session.syllabusNodeId,
     })).item;
+  });
+}
+
+export async function createAnalyticsRiskPlanInboxItem(
+  actorId: string,
+  input: {
+    riskId: string;
+    riskType: "weak_node" | "note_review" | "mistake_review" | "review_gap" | "low_completion" | "low_effective";
+    windowDays: 7 | 30;
+  },
+): Promise<PlanInboxItemDto> {
+  const now = new Date();
+  const analytics = await getAnalyticsSummary(now, actorId, input.windowDays);
+  const risk = analytics.risks.find((candidate) => (
+    candidate.id === input.riskId && candidate.type === input.riskType
+  ));
+  if (!risk) {
+    throw new ApiError("ANALYTICS_RISK_NOT_CURRENT", 409, {
+      latest: { risks: analytics.risks, range: analytics.range },
+      conflictFields: ["riskId", "riskType", "windowDays"],
+      workbench: "/roadmap/stages/trend",
+    });
+  }
+  const day = getStudyDayRange(now);
+  const draft = buildAnalyticsRiskPlanDraft(analytics, risk, input.windowDays, day.start.toISOString());
+
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext(${draft.originKey}))`;
+    const existing = await tx.planInboxItem.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        originKey: draft.originKey,
+        originVersion: draft.originVersion,
+      },
+      include: { dependencyRefs: true },
+    });
+    if (existing) return serialize(existing);
+
+    const sourceSubject = risk.syllabusNodeId
+      ? await tx.syllabusNode.findFirst({
+          where: {
+            id: risk.syllabusNodeId,
+            archivedAt: null,
+            subject: { workspaceId: workspace.id, archivedAt: null },
+          },
+          select: { subjectId: true },
+        })
+      : null;
+    const namedSubject = !sourceSubject && risk.subjectName
+      ? await tx.subject.findFirst({
+          where: { workspaceId: workspace.id, name: risk.subjectName, archivedAt: null },
+          select: { id: true },
+        })
+      : null;
+    const subjectId = sourceSubject?.subjectId ?? namedSubject?.id ?? null;
+    const primaryNodeId = sourceSubject ? draft.primaryNodeId : null;
+    const result = await createPlanInboxItemWithResult(tx, workspace.id, actorId, {
+      ...draft,
+      subjectId,
+      primaryNodeId,
+      relatedNodeIds: primaryNodeId ? [primaryNodeId] : [],
+    });
+    if (result.created) {
+      await tx.auditEvent.create({
+        data: {
+          actorId,
+          action: "ANALYTICS_RISK_ADDED_TO_INBOX",
+          entityType: "PlanInboxItem",
+          entityId: result.item.id,
+          metadata: {
+            riskId: risk.id,
+            riskType: risk.type,
+            windowDays: input.windowDays,
+            range: analytics.range,
+          },
+        },
+      });
+    }
+    return result.item;
   });
 }
 
@@ -1227,6 +1309,20 @@ async function isOriginArchived(tx: Prisma.TransactionClient, workspaceId: strin
       select: { subject: { select: { archivedAt: true } } },
     });
     return !source || Boolean(source.subject.archivedAt);
+  }
+  if (item.originType === "RECOVERY_MINIMUM" && typeof snapshot.recoveryId === "string") {
+    const source = await tx.recoveryState.findFirst({
+      where: { id: snapshot.recoveryId, workspaceId },
+      select: { status: true, progressionVersion: true },
+    });
+    return !source || source.status !== "ACTIVE" || source.progressionVersion !== item.originVersion;
+  }
+  if (item.originType === "RETEST_FOLLOW_UP" && typeof snapshot.retestId === "string") {
+    const source = await tx.knowledgeRetest.findFirst({
+      where: { id: snapshot.retestId, workspaceId },
+      select: { status: true },
+    });
+    return !source || source.status !== "CLOSED";
   }
   return false;
 }

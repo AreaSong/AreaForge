@@ -8,8 +8,8 @@ import {
 import { prisma } from "@areaforge/db";
 import type { LongTermRiskSummaryDto } from "@/lib/contracts/analytics";
 import { getAnalyticsSummaryShared } from "./analytics-service";
-import { daysUntil } from "./date";
-import { finalExamDate, simulationDate } from "./exam-dates";
+import { getStudyDayRange, optionalDaysUntil } from "./date";
+import { resolveActiveWorkspace } from "./exam-workspace-service";
 import { getTodayDashboardShared } from "./dashboard-query-service";
 import { getSyllabusMapOverviewShared } from "./syllabus-service";
 import type { SyllabusNodeDto } from "@/lib/contracts";
@@ -20,12 +20,13 @@ export async function getLongTermRiskSummary(actorId: string): Promise<LongTermR
   // 走请求级共享副本：与页面主查询及 AI 建议复用同一份 dashboard/analytics/考纲地图。
   // dashboard/analytics 共享副本内部各自取当前时间，这里的 now 只喂给模拟与阶段子查询。
   const now = new Date();
+  const workspace = await resolveActiveWorkspace(actorId);
   const [analytics, dashboard, syllabusMap, latestSimulation, stage] = await Promise.all([
     getAnalyticsSummaryShared(actorId),
     getTodayDashboardShared(actorId),
     getSyllabusMapOverviewShared(actorId),
-    getLatestSimulationInput(now),
-    getStageInput(now),
+    getLatestSimulationInput(workspace.id, now),
+    getStageInput(workspace.id, workspace.targetExamDate, now),
   ]);
 
   return ensureLongTermRiskDtoContract(summarizeLongTermRisks({
@@ -48,20 +49,28 @@ export async function getLongTermRiskSummary(actorId: string): Promise<LongTermR
   }));
 }
 
-async function getLatestSimulationInput(now: Date) {
-  const exam = await prisma.simulationExam.findFirst({
-    where: {
-      actualScore: { not: null },
-      targetScore: { not: null },
-      subjectResults: { some: {} },
-    },
-    include: {
-      subjectResults: {
-        include: { subject: true },
+async function getLatestSimulationInput(workspaceId: string, now: Date) {
+  const [exam, nextSimulation] = await Promise.all([
+    prisma.simulationExam.findFirst({
+      where: {
+        workspaceId,
+        actualScore: { not: null },
+        targetScore: { not: null },
+        subjectResults: { some: {} },
       },
-    },
-    orderBy: [{ examDate: "desc" }, { updatedAt: "desc" }],
-  });
+      include: {
+        subjectResults: {
+          include: { subject: true },
+        },
+      },
+      orderBy: [{ examDate: "desc" }, { updatedAt: "desc" }],
+    }),
+    prisma.simulationExam.findFirst({
+      where: { workspaceId, status: { not: "CONFIRMED" }, examDate: { gte: getStudyDayRange(now).start } },
+      orderBy: [{ examDate: "asc" }, { createdAt: "asc" }],
+      select: { examDate: true },
+    }),
+  ]);
 
   const latestScoreRate = exam?.actualScore != null && exam.targetScore != null && exam.targetScore > 0
     ? exam.actualScore / exam.targetScore
@@ -73,24 +82,24 @@ async function getLatestSimulationInput(now: Date) {
 
   return {
     latestScoreRate,
-    daysToNextSimulation: daysUntil(simulationDate, now),
+    daysToNextSimulation: optionalDaysUntil(nextSimulation?.examDate, now),
     weakSubjectNames,
     isFirstSynchronized: exam?.isFirstSynchronized ?? false,
   };
 }
 
-async function getStageInput(now: Date): Promise<LongTermRiskStageInput | null> {
+async function getStageInput(workspaceId: string, targetExamDate: Date | null, now: Date): Promise<LongTermRiskStageInput | null> {
   const [activePlan, draftPlan, activeDraftCount] = await Promise.all([
     prisma.stagePlan.findFirst({
-      where: { status: "active" },
+      where: { workspaceId, status: "active" },
       orderBy: [{ endDate: "asc" }, { updatedAt: "desc" }],
     }),
     prisma.stagePlan.findFirst({
-      where: { status: "draft" },
+      where: { workspaceId, status: "draft" },
       orderBy: [{ startDate: "asc" }, { updatedAt: "desc" }],
     }),
     prisma.stageAdjustmentDraft.count({
-      where: { status: "draft" },
+      where: { workspaceId, status: "draft" },
     }),
   ]);
   const plan = activePlan ?? draftPlan;
@@ -99,7 +108,7 @@ async function getStageInput(now: Date): Promise<LongTermRiskStageInput | null> 
   return {
     mode: plan.mode,
     goal: plan.goal,
-    daysToFinal: daysUntil(finalExamDate, now),
+    daysToFinal: optionalDaysUntil(targetExamDate, now),
     activeDraftCount,
   };
 }

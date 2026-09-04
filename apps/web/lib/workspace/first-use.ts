@@ -1,5 +1,7 @@
 export interface FirstUseTakeoverSubject {
   legacyCode: string | null;
+  stableKey?: string;
+  name?: string;
 }
 
 export interface FirstUseSubjectInput {
@@ -12,6 +14,26 @@ export interface FirstUseSubjectInput {
 
 export function canUseTakeoverPreview(preview: unknown): boolean {
   return preview !== null && preview !== undefined;
+}
+
+export function hasConfiguredFirstUseSubjects(input: {
+  subjectKey: string;
+  subjectName: string;
+  include408: boolean;
+}): boolean {
+  return Boolean(
+    (input.subjectKey.trim() && input.subjectName.trim())
+    || input.include408,
+  );
+}
+
+export function canProceedFromFirstUseGoal(input: {
+  subjectKey: string;
+  subjectName: string;
+  include408: boolean;
+  eligibleTakeoverCount: number;
+}): boolean {
+  return hasConfiguredFirstUseSubjects(input) || input.eligibleTakeoverCount > 0;
 }
 
 export function nextAvailableGeneratedKey(
@@ -38,13 +60,17 @@ export function buildFirstUseSubjects(input: {
   takeoverSubjects: FirstUseTakeoverSubject[];
 }): FirstUseSubjectInput[] {
   const reusedCodes = new Set(input.takeoverSubjects.map((subject) => subject.legacyCode));
+  const reusedKeys = new Set(input.takeoverSubjects.map((subject) => subject.stableKey).filter(Boolean));
+  const reusedNames = new Set(input.takeoverSubjects.map((subject) => subject.name?.trim()).filter(Boolean));
   const subjects: FirstUseSubjectInput[] = [];
   const subjectKey = input.subjectKey.trim();
   const subjectName = input.subjectName.trim();
-  const configuredSubjectIsDefaultMath = ["math", "advanced-math"].includes(subjectKey)
-    && subjectName === "高等数学";
+  const configuredSubjectIsDefaultMath = ["math", "advanced-math"].includes(subjectKey) && subjectName === "高等数学";
+  const configuredSubjectAlreadyReused = reusedKeys.has(subjectKey)
+    || reusedNames.has(subjectName)
+    || (configuredSubjectIsDefaultMath && reusedCodes.has("MATH"));
 
-  if (!configuredSubjectIsDefaultMath || !reusedCodes.has("MATH")) {
+  if (subjectKey && subjectName && !configuredSubjectAlreadyReused) {
     subjects.push({ stableKey: subjectKey, name: subjectName, color: "#35d7c5", sortOrder: 10 });
   }
   if (input.include408) {
@@ -61,6 +87,7 @@ export function workspaceSetupErrorMessage(code: string | undefined): string {
     return "旧数据状态已经变化，请刷新预览后重新确认。";
   }
   if (code === "SUBJECT_STABLE_KEY_DUPLICATE") return "新科目的内部标识重复，请返回修改。";
+  if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少填写一个科目、勾选 408 四科，或沿用一个已有科目。";
   if (code === "INTERNAL_ERROR") return "设置未完成，请刷新后重试；草稿仍保留。";
   return code ?? "创建工作区失败，首次设置草稿已保留";
 }

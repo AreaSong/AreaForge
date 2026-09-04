@@ -72,7 +72,7 @@ interface SimulationDetailWorkspaceProps {
   onToggleSubject: (subjectId: string, checked: boolean) => void;
   onSelectSubject: (subjectId: string) => void;
   onSubjectTabKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
-  onUpdateField: (field: SubjectNumericField, value: number) => void;
+  onUpdateField: (field: SubjectNumericField, value: number | null) => void;
   onUpdateSubjectSummary: (value: string) => void;
   onAddLossItem: () => void;
   onUpdateLossItem: (clientKey: string, patch: Partial<SimulationLossItemDraft>) => void;

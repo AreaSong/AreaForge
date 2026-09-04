@@ -1,10 +1,10 @@
 # 站点导航与页面跳转关系
 
-本文档记录 AreaForge 当前唯一的 Web 路由体系、三级工作台结构和跨页面返回约定。页面布局基线见 `docs/ux/application-shell-and-workbench-layouts.md`，功能状态见 `docs/development/feature-traceability.md`。
+本文档记录 AreaForge 当前唯一的 Web 路由体系、三级工作台结构和跨页面返回约定。跨工作台的目标学习闭环、当前实现与后续机会见 `docs/product/learning-loop.md`，页面布局基线见 `docs/ux/application-shell-and-workbench-layouts.md`，功能状态见 `docs/development/feature-traceability.md`。
 
 ## 导航拓扑
 
-登录后默认进入 `/focus`。一级导航是开始学习、今日、知识、检验、路线；设置位于侧栏底部工具区，确认中心是共享工作流入口，不与一级业务并列。
+登录后的默认入口由统一 resolver 决定：无活动且设置完整时进入 `/today`，存在活动时回到活动来源，无当前工作区时进入 `/settings/exams?setup=1`。一级导航是开始学习、今日、知识、检验、路线；设置位于侧栏底部工具区，确认中心是共享工作流入口，不与一级业务并列。
 
 知识、检验、路线和设置遵循固定三级结构；开始学习与今日直接进入内容，不制造空的二级导航：
 
@@ -24,8 +24,10 @@
 
 ```mermaid
 flowchart TB
-  login["/login 登录"] --> focus["/focus 开始学习"]
-  login --> today["/today 今日"]
+  login["/login 登录"] --> entry{"统一入口判断"}
+  entry --> setup["/settings/exams?setup=1 首次设置"]
+  entry --> focus["/focus 或活动来源"]
+  entry --> today["/today 今日"]
   today --> knowledge["/knowledge 知识"]
   today --> test["/test/retests 检验"]
   today --> roadmap["/roadmap 路线"]
@@ -75,8 +77,8 @@ flowchart TB
 
 | 路由 | 名称 | 职责 |
 |---|---|---|
-| `/` | 根入口 | 按会话重定向到 `/login` 或 `/focus` |
-| `/login` | 登录 | 未登录用户进入应用的唯一认证页面；已登录用户返回 `/focus` |
+| `/` | 根入口 | 未登录进入 `/login`；已登录时按工作区和活动事实解析目标 |
+| `/login` | 登录 | 未登录用户进入应用的唯一认证页面；已登录且没有显式安全返回地址时复用统一入口解析 |
 | `/focus` | 开始学习 | 只选择科目后直接进行自由学习、暂停/继续、收口和证据接力 |
 | `/today` | 今日 | 今日事实、下一行动、计划和完成闭环；日期可切换，默认今天 |
 | `/knowledge` | 知识概览 | 知识对象、最近证据和下一行动入口 |
@@ -141,7 +143,7 @@ flowchart TB
 ## 鉴权与返回
 
 - `(app)/layout.tsx` 统一校验会话，未登录回 `/login`。
-- `/login` 已登录访问回 `/focus`。
+- `/login` 已登录且没有显式安全 `returnTo` 时复用 `resolveAuthenticatedAppEntry`；显式安全返回地址优先。
 - `apps/web/lib/navigation/canonical-routes.ts` 是 49 个 canonical 页面的声明式契约，记录工作台、导航层级、PageFrame、工具栏、返回兜底和安全查询参数；`apps/web/lib/navigation/app-navigation.ts` 只负责把该契约投影成导航、标题、面包屑和 `returnTo` 行为。
 - 非法来源、外部来源和已移除旧路径统一回 `/focus`。
 

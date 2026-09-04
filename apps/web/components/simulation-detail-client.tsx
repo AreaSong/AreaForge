@@ -185,6 +185,10 @@ export function SimulationDetailClient(props: SimulationDetailClientProps) {
     if (busy) return;
     setError(null);
     setNotice(null);
+    if (configuredSubjectDrafts.some((draft) => draft.paperFullScore == null || draft.paperFullScore <= 0)) {
+      setError("请为所有已选科目填写大于 0 的真实卷面满分。");
+      return;
+    }
     if (hasPendingPersistedLossEdits(configuredSubjectDrafts)) {
       setError("已有分科仍有未保存的失分条目，请先逐项创建或保存，再保存整场结果。");
       return;

@@ -7,6 +7,12 @@ export interface StudyDayRange {
   end: Date;
 }
 
+export interface StudyWeekRange {
+  key: string;
+  start: Date;
+  end: Date;
+}
+
 export function getStudyDayRange(now = new Date()): StudyDayRange {
   const shifted = new Date(now.getTime() + shanghaiOffsetMs);
   const year = shifted.getUTCFullYear();
@@ -26,9 +32,25 @@ export function getNextStudyDayStart(now = new Date()): Date {
   return getStudyDayRange(new Date(now.getTime() + dayMs)).start;
 }
 
+export function getStudyWeekRange(now = new Date()): StudyWeekRange {
+  const day = getStudyDayRange(now);
+  const weekday = new Date(day.start.getTime() + shanghaiOffsetMs).getUTCDay();
+  const daysFromMonday = (weekday + 6) % 7;
+  const start = new Date(day.start.getTime() - daysFromMonday * dayMs);
+  return {
+    key: getStudyDayKey(start),
+    start,
+    end: new Date(start.getTime() + 7 * dayMs),
+  };
+}
+
 export function daysUntil(target: Date, now = new Date()): number {
   const range = getStudyDayRange(now);
   return Math.max(0, Math.ceil((target.getTime() - range.start.getTime()) / dayMs));
+}
+
+export function optionalDaysUntil(target: Date | null | undefined, now = new Date()): number | null {
+  return target ? daysUntil(target, now) : null;
 }
 
 export function getStudyDayKey(value: Date): string {

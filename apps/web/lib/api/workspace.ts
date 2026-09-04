@@ -11,6 +11,12 @@ export interface WorkspaceMutationResponse {
   group?: SubjectGroupDto;
   latest?: ExamWorkspaceDto;
   conflictFields?: string[];
+  lifecycle?: {
+    pausedReviewScheduleCount?: number;
+    resumedReviewScheduleCount?: number;
+    remainingPausedReviewScheduleCount?: number;
+    ungroupedSubjectCount?: number;
+  };
   error?: string;
 }
 

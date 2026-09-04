@@ -11,8 +11,7 @@ import type {
   StagePlanConflictLatest,
 } from "@/lib/contracts/simulation";
 import { getAnalyticsSummary } from "./analytics-service";
-import { daysUntil, getStudyDayRange } from "./date";
-import { finalExamDate, simulationDate } from "./exam-dates";
+import { getStudyDayRange, optionalDaysUntil } from "./date";
 import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan-inbox-service";
 import type {
   PlanInboxWriteSummaryDto,
@@ -35,7 +34,6 @@ export type {
   StagePlanConflictLatest,
 } from "@/lib/contracts/simulation";
 
-const defaultStageGoal = "2026 年 12 月同步全真自测";
 const stageWorkbench = "/roadmap/stages";
 
 type StageDbClient = PrismaClient | Prisma.TransactionClient;
@@ -256,7 +254,7 @@ export async function createStageAdjustmentDraft(
     resolveStagePlan(input.stagePlanId, workspace.id),
   ]);
   const adjustment = draftStageAdjustment({
-    stageGoal: stagePlan?.goal ?? defaultStageGoal,
+    stageGoal: stagePlan?.goal ?? workspace.stageSummary?.trim() ?? "当前考试目标",
     taskCompletionRate: analytics.totals.weeklyTaskCompletionRate,
     subjectInvestmentBalance: calculateSubjectInvestmentBalance(analytics.subjects),
     mistakeReviewRate: calculateMistakeReviewRate(analytics.totals.totalMistakes, analytics.totals.dueMistakes),
@@ -266,7 +264,7 @@ export async function createStageAdjustmentDraft(
     lowConversionCount: analytics.totals.lowConversionCount,
     weakSubjectNames: chooseFocusSubjects(analytics.subjects),
     simulationScoreRate: latestExam,
-    daysToFinal: daysUntil(finalExamDate, now),
+    daysToFinal: optionalDaysUntil(workspace.targetExamDate, now),
   });
   const requestFingerprint = buildPersistentCreateFingerprint("stage-adjustment-draft-create-v1", {
     stagePlanId: input.stagePlanId ?? null,
@@ -716,15 +714,17 @@ function summarizeInboxWrites(writes: PlanInboxWriteResult[]): PlanInboxWriteSum
 }
 
 export async function createDefaultStagePlan(actorId: string, now = new Date()): Promise<StagePlanDto> {
+  const workspace = await resolveActiveWorkspace(actorId);
+  if (!workspace.targetExamDate) throw new ApiError("TARGET_EXAM_DATE_REQUIRED", 400);
   const range = getStudyDayRange(now);
   return createStagePlan(
     {
       idempotencyKey: `default-stage-plan-${range.start.toISOString()}`,
       baseRevision: null,
-      name: "2026 同步全真自测准备期",
+      name: `${workspace.name}准备期`,
       startDate: range.start.toISOString(),
-      endDate: simulationDate.toISOString(),
-      goal: defaultStageGoal,
+      endDate: workspace.targetExamDate.toISOString(),
+      goal: workspace.stageSummary?.trim() || `完成${workspace.name}`,
       mode: "maintain",
       status: "active",
     },
@@ -756,15 +756,15 @@ async function getLatestSimulationExamScoreRate(workspaceId: string): Promise<nu
   return exam.actualScore / exam.targetScore;
 }
 
-function calculateSubjectInvestmentBalance(subjects: Array<{ totalMinutes: number }>): number {
+function calculateSubjectInvestmentBalance(subjects: Array<{ totalMinutes: number }>): number | null {
   const total = subjects.reduce((sum, subject) => sum + subject.totalMinutes, 0);
-  if (total === 0 || subjects.length === 0) return 0;
+  if (total === 0 || subjects.length === 0) return null;
   const shares = subjects.map((subject) => subject.totalMinutes / total);
   return Math.min(...shares) / Math.max(...shares);
 }
 
-function calculateMistakeReviewRate(totalMistakes: number, dueMistakes: number): number {
-  if (totalMistakes === 0) return 1;
+function calculateMistakeReviewRate(totalMistakes: number, dueMistakes: number): number | null {
+  if (totalMistakes === 0) return null;
   return Math.max(0, Math.min(1, 1 - dueMistakes / totalMistakes));
 }
 
@@ -777,7 +777,7 @@ function chooseFocusSubjects(subjects: Array<{ subjectName: string; effectiveMin
     .slice(0, 3)
     .map((subject) => subject.subjectName);
 
-  return focus.length > 0 ? focus : ["数学", "英语", "408"];
+  return focus;
 }
 
 function serializeStagePlan(plan: {

@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   getHourlySlots,
   getSubjectProportionItems,
-  getSubjectSparklineData,
   TodayLearningSummary,
   QueueList,
 } from "./action-center-today-support";
@@ -72,11 +71,13 @@ function createMockTodayDto(overrides: Partial<ActionCenterTodayDto> = {}): Acti
     },
     queuesEmpty: false,
     activity: null,
+    continuation: null,
     checkIn: null,
     learningLoop: {
       totalMinutes: 150,
       effectiveMinutes: 135,
       effectiveSessionCount: 4,
+      evidenceCount: 2,
       lowConversionCount: 1,
       plannedTaskCount: 6,
       completedTaskCount: 4,
@@ -147,6 +148,7 @@ test("getHourlySlots: Returns 24 hourly buckets matching session distribution", 
       totalMinutes: 100,
       effectiveMinutes: 90,
       effectiveSessionCount: 2,
+      evidenceCount: 0,
       lowConversionCount: 0,
       plannedTaskCount: 2,
       completedTaskCount: 2,
@@ -157,8 +159,7 @@ test("getHourlySlots: Returns 24 hourly buckets matching session distribution", 
   });
   const fallbackSlots = getHourlySlots(todayFallback);
   assert.equal(fallbackSlots.length, 24);
-  const totalFallbackSum = fallbackSlots.reduce((a, b) => a + b, 0);
-  assert.equal(totalFallbackSum, 445);
+  assert.deepEqual(fallbackSlots, Array(24).fill(0));
 });
 
 test("getSubjectProportionItems: Computes proportional minutes per subject", () => {
@@ -171,13 +172,17 @@ test("getSubjectProportionItems: Computes proportional minutes per subject", () 
   assert.equal(items[1].minutes, 45);
 });
 
-test("getSubjectSparklineData: Generates 7-day trend array with non-negative values", () => {
-  const today = createMockTodayDto();
-  const mathSubject = today.subjectTimers.subjects[0];
-  const sparkData = getSubjectSparklineData(mathSubject);
-  assert.equal(sparkData.length, 7);
-  assert.equal(sparkData[6], 90); // Last point is today's minutes
-  sparkData.forEach((val) => assert.ok(val >= 0, `Value ${val} must be non-negative`));
+test("getSubjectProportionItems: Does not invent proportions without actual study", () => {
+  const today = createMockTodayDto({
+    subjectTimers: {
+      subjects: createMockTodayDto().subjectTimers.subjects.map((subject) => ({
+        ...subject,
+        todayEffectiveMinutes: 0,
+      })),
+      groups: [],
+    },
+  });
+  assert.deepEqual(getSubjectProportionItems(today), []);
 });
 
 test("TodayLearningSummary: Renders full high-density dashboard with micro-visualizations", () => {

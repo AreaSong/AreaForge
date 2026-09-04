@@ -18,10 +18,13 @@ export type DbStudySessionStatus = "RUNNING" | "PAUSED" | "CLOSING" | "COMPLETED
 export type DbStudySessionActivityKind = "STUDY" | "REVIEW" | "TEST";
 export type DbStudySessionActivityMode = "FREE_STUDY" | "KNOWLEDGE_REVIEW" | "RETEST" | "SIMULATION";
 
-export function toCloseoutUnderstanding(value: string): "NO_PROGRESS" | "SOME_PROGRESS" | "UNDERSTOOD" | "CAN_APPLY" {
+export function toCloseoutUnderstanding(value: string | undefined, qualityScore: number): "NO_PROGRESS" | "SOME_PROGRESS" | "UNDERSTOOD" | "CAN_APPLY" {
   if (value === "清晰") return "CAN_APPLY";
   if (value === "基本理解") return "UNDERSTOOD";
   if (value === "模糊") return "SOME_PROGRESS";
+  if (value) return "NO_PROGRESS";
+  if (qualityScore >= 4) return "UNDERSTOOD";
+  if (qualityScore >= 2) return "SOME_PROGRESS";
   return "NO_PROGRESS";
 }
 

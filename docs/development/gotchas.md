@@ -96,9 +96,9 @@
 
 ### 规则、文案映射、常量的双副本必然漂移
 
-- 触发：反假学习规则曾在 core 与 web 各一份；版本中心 UI 文案两处副本导致弹窗缺失 `AUTO_APPLY_POLICY_UNSUPPORTED` 映射；考试日期常量散落多处。
+- 触发：反假学习规则曾在 core 与 web 各一份；版本中心 UI 文案两处副本导致弹窗缺失 `AUTO_APPLY_POLICY_UNSUPPORTED` 映射；固定考试日期曾散落多处并覆盖用户工作区配置。
 - 根因：双副本没有强制同步机制，改一处忘另一处。
-- 规避：规则进 `packages/core` 单实现（`evaluateAntiFakeStudy`）；序列化与状态映射提取共享模块（`task-serializer.ts`）；UI 文案工具单文件（`update-center-ui.ts`）；日期常量单一事实源（`exam-dates.ts`）。新增跨层规则时先找归属层，不复制。
+- 规避：规则进 `packages/core` 单实现（`evaluateAntiFakeStudy`）；序列化与状态映射提取共享模块（`task-serializer.ts`）；UI 文案工具单文件（`update-center-ui.ts`）；考试日读取 `ExamWorkspace.targetExamDate`，模拟窗口读取当前工作区真实 `SimulationExam.examDate`，缺失时保持未知。新增跨层规则时先找归属层，不复制。
 - 关联：`packages/core/src/anti-fake-study.ts`、优化轮修复记录。
 
 ## 发布与 CI

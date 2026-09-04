@@ -29,6 +29,12 @@ export interface LowConversionResponse {
   error?: string;
 }
 
+export interface AnalyticsRiskInboxResponse {
+  item?: PlanInboxItemDto;
+  latest?: { risks?: unknown[] };
+  error?: string;
+}
+
 export type PlanInboxTransition = "dismiss" | "reopen";
 
 export type PlanInboxCommand =
@@ -88,6 +94,17 @@ export function addLowConversionToInbox(
   return requestApiResult(
     "/api/plan-inbox/low-conversion",
     createJsonRequest("POST", { sessionId, expectedCloseoutVersion }),
+  );
+}
+
+export function addAnalyticsRiskToInbox(input: {
+  riskId: string;
+  riskType: "weak_node" | "note_review" | "mistake_review" | "review_gap" | "low_completion" | "low_effective";
+  windowDays: 7 | 30;
+}): Promise<ApiResult<AnalyticsRiskInboxResponse>> {
+  return requestApiResult(
+    "/api/plan-inbox/analytics-risk",
+    createJsonRequest("POST", input),
   );
 }
 

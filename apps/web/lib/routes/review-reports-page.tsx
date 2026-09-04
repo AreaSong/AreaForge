@@ -89,8 +89,8 @@ export default async function ReviewReportsPage({
             <SectionHeader title="执行事实" description="以下数据来自本周期任务、专注与复盘记录，不是建议。" />
             <dl id="report-facts-heading" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <Card variant="subtle" className="p-3.5"><Metric label="有效学习" value={`${report.metrics.effectiveMinutes} 分`} valueSize="lg" /></Card>
-              <Card variant="subtle" className="p-3.5"><Metric label="任务完成" value={formatPercent(report.metrics.taskCompletionRate)} note={`${report.metrics.completedTaskCount}/${report.metrics.taskCount} 项`} valueSize="lg" /></Card>
-              <Card variant="subtle" className="p-3.5"><Metric label="复盘完成" value={formatPercent(report.metrics.reviewCompletionRate)} note={`${report.metrics.reviewCount} 次`} valueSize="lg" /></Card>
+              <Card variant="subtle" className="p-3.5"><Metric label="任务完成" value={report.metrics.taskCompletionRate == null ? "暂无样本" : formatPercent(report.metrics.taskCompletionRate)} note={`${report.metrics.completedTaskCount}/${report.metrics.taskCount} 项`} valueSize="lg" /></Card>
+              <Card variant="subtle" className="p-3.5"><Metric label="复盘完成" value={report.metrics.reviewCompletionRate == null ? "暂无样本" : formatPercent(report.metrics.reviewCompletionRate)} note={`${report.metrics.reviewCount} 次 / ${report.metrics.reviewSampleDays} 个观察日`} valueSize="lg" /></Card>
               <Card variant="subtle" className="p-3.5"><Metric label="欠账" value={`${report.metrics.debtCount} 项`} valueSize="lg" /></Card>
               <Card variant="subtle" className="p-3.5"><Metric label="低转化" value={`${report.metrics.lowConversionCount} 次`} valueSize="lg" /></Card>
               <Card variant="subtle" className="p-3.5"><Metric label="待复习证据" value={`${report.metrics.dueNoteCount} 项`} note={`${report.metrics.weakNodeCount} 个薄弱节点`} valueSize="lg" /></Card>
@@ -171,4 +171,3 @@ function ReportFilter({ href, active, children }: { href: string; active: boolea
 
 function decisionLabel(status?: "confirmed" | "rejected") { return status === "confirmed" ? "已确认并冻结" : status === "rejected" ? "已驳回" : "等待你的决定"; }
 function decisionTone(status?: "confirmed" | "rejected"): "success" | "neutral" | "warning" { return status === "confirmed" ? "success" : status === "rejected" ? "neutral" : "warning"; }
-

@@ -5,6 +5,7 @@ import {
   hasRemainingAction,
   isSameActionTarget,
 } from "@/components/action-center-today-support";
+import { sendActionCenterRecommendationFeedback } from "@/lib/api/action-center";
 import { createTask } from "@/lib/api/tasks";
 import { restartRecoveryState } from "@/lib/api/recovery";
 import { startStudySession } from "@/lib/api/session";
@@ -15,7 +16,7 @@ import {
   getOrCreateIdempotencyKey,
 } from "@/lib/client/idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-business-drafts";
-import type { ActionCenterTodayDto } from "@/lib/contracts";
+import type { ActionCenterRecommendationFeedbackDto, ActionCenterTodayDto } from "@/lib/contracts";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -37,6 +38,8 @@ export function useActionCenterTodayController(
   const [restartingRecovery, setRestartingRecovery] = useState(false);
   const [startingShortcut, setStartingShortcut] = useState(false);
   const [creatingMinimumTask, setCreatingMinimumTask] = useState(false);
+  const [recommendationFeedbackPending, setRecommendationFeedbackPending] = useState(false);
+  const [recommendationFeedbackNotice, setRecommendationFeedbackNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [mobileQueue, setMobileQueue] = useState<TodayQueueKey>(() => getInitialQueue(today));
 
@@ -186,6 +189,40 @@ export function useActionCenterTodayController(
     }
   }
 
+  async function submitRecommendationFeedback(feedback: ActionCenterRecommendationFeedbackDto) {
+    if (!today.recommendation || recommendationFeedbackPending) return;
+    setError(null);
+    setRecommendationFeedbackNotice(null);
+    setRecommendationFeedbackPending(true);
+    try {
+      const result = await sendActionCenterRecommendationFeedback({
+        studyDate: today.studyDate,
+        recommendationId: today.recommendation.id,
+        recommendationKind: today.recommendation.kind,
+        feedback,
+      });
+      if (!result.ok) {
+        const failure = classifyApiFailure(result);
+        if (failure.kind === "unauthorized") return redirectToLoginWithCurrentLocation();
+        if (failure.kind === "conflict") {
+          setError("推荐已经变化，正在加载最新行动。");
+          startTransition(() => router.refresh());
+          return;
+        }
+        setError("推荐反馈未保存，请显式重试。");
+        return;
+      }
+      setRecommendationFeedbackNotice(
+        feedback === "HELPFUL" ? "已记录为适合当前节奏。" : "已暂时跳过，正在选择下一项。",
+      );
+      if (feedback === "NOT_NOW") startTransition(() => router.refresh());
+    } catch {
+      setError("网络不可用，推荐反馈未保存。");
+    } finally {
+      setRecommendationFeedbackPending(false);
+    }
+  }
+
   function chooseSubject(nextSubjectId: string) {
     setSubjectId(nextSubjectId);
     setShortcutTaskId("");
@@ -209,6 +246,8 @@ export function useActionCenterTodayController(
       restartingRecovery,
       startingShortcut,
       creatingMinimumTask,
+      recommendationFeedbackPending,
+      recommendationFeedbackNotice,
       pending,
       mobileQueue,
       shortcutTasks,
@@ -226,6 +265,7 @@ export function useActionCenterTodayController(
       startShortcut,
       createMinimumTask,
       restartExpiredRecovery,
+      submitRecommendationFeedback,
     },
   };
 }

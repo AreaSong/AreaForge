@@ -65,7 +65,7 @@ test("ActionCenterTodayView Architecture: QueueList uses 2-column responsive tas
   assert.match(supportSource, /当前推荐之外没有待办/);
 });
 
-test("ActionCenterTodayView Architecture: SubjectTimerList uses Master Card and 7-day progress bar", () => {
+test("ActionCenterTodayView Architecture: SubjectTimerList uses real recent totals", () => {
   const supportSource = loadSource("components/action-center-today-support.tsx");
 
   // 1. Master Card disclosure container
@@ -73,13 +73,14 @@ test("ActionCenterTodayView Architecture: SubjectTimerList uses Master Card and 
   assert.match(supportSource, /grid grid-cols-1 gap-2 @\[28rem\]:grid-cols-2 @\[52rem\]:grid-cols-3/);
   assert.match(supportSource, /临时专注计时/);
 
-  // 2. 7-day momentum progress bar
-  assert.match(supportSource, /7日投入热度/);
+  // 2. Recent total and relative progress use service-provided minutes
+  assert.match(supportSource, /近 7 日 \{subject\.last7EffectiveMinutes\}m/);
   assert.match(supportSource, /bg-gradient-to-r from-teal-500\/60 to-teal-300/);
 });
 
 test("ActionCenterTodayView Architecture: Sticky PinnedActionBar docks at viewport bottom with quick actions", () => {
   const viewSource = loadSource("components/action-center-today-view.tsx");
+  const supportSource = loadSource("components/action-center-today-support.tsx");
 
   // 1. Sticky PinnedActionBar
   assert.match(viewSource, /<PinnedActionBar[\s\S]*mode="sticky"/);
@@ -91,11 +92,15 @@ test("ActionCenterTodayView Architecture: Sticky PinnedActionBar docks at viewpo
 
   // 3. Action buttons on right slot
   assert.match(viewSource, /创建最小任务/);
-  assert.match(viewSource, /快速复盘/);
+  assert.match(viewSource, /dailyClosureLabel\(today\)/);
+  assert.match(supportSource, /今日已闭环/);
+  assert.match(supportSource, /结束学习并复盘/);
+  assert.match(supportSource, /完成今日复盘/);
+  assert.match(viewSource, /href="\/roadmap\/reviews\/daily"/);
   assert.match(viewSource, /开始今日推荐/);
 });
 
-test("ActionCenterTodayView High-Density Overhaul: Micro-Charts & Visual Cues Integration", () => {
+test("ActionCenterTodayView High-Density Overhaul: only renders traceable visual data", () => {
   const supportSource = loadSource("components/action-center-today-support.tsx");
   const viewSource = loadSource("components/action-center-today-view.tsx");
 
@@ -107,12 +112,11 @@ test("ActionCenterTodayView High-Density Overhaul: Micro-Charts & Visual Cues In
   assert.match(supportSource, /<SubjectProportionBar[\s\S]*items=\{subjectProportionItems\}/);
   assert.match(supportSource, /学科投入占比/);
 
-  // 3. MiniSparkline 7-day inline trendline in SubjectTimerList
-  assert.match(supportSource, /<MiniSparkline[\s\S]*data=\{sparklineData\}/);
-
-  // 4. CompactBadge in QueueList and Recommendation Hero
+  // 3. CompactBadge in QueueList and Recommendation Hero
   assert.match(supportSource, /<CompactBadge[\s\S]*tone=\{priorityTone\}/);
   assert.match(viewSource, /<CompactBadge variant="glow" size="xs">今日首要<\/CompactBadge>/);
   assert.match(viewSource, /推荐行动/);
-  assert.match(viewSource, /45m · 10pt/);
+  assert.doesNotMatch(viewSource, /45m · 10pt/);
+  assert.doesNotMatch(supportSource, /25m · 5pt|MiniSparkline|charCodeAt/);
+  assert.match(supportSource, /今日尚无有效学习记录/);
 });

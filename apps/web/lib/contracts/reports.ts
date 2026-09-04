@@ -47,12 +47,13 @@ export interface PeriodicReportDto {
   metrics: {
     totalMinutes: number;
     effectiveMinutes: number;
-    taskCompletionRate: number;
+    taskCompletionRate: number | null;
     taskCount: number;
     completedTaskCount: number;
     debtCount: number;
     lowConversionCount: number;
-    reviewCompletionRate: number;
+    reviewCompletionRate: number | null;
+    reviewSampleDays: number;
     reviewCount: number;
     mistakesCreatedCount: number;
     mistakeReviewUpdateCount: number;

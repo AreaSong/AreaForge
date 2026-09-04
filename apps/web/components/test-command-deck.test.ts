@@ -12,6 +12,7 @@ import {
 } from "./test/test-support";
 import type { KnowledgeRetestListItemDto } from "@/lib/contracts/knowledge-retest";
 import type { SimulationExamDto } from "@/lib/contracts/simulation";
+import { mergeSubjectResults, sumNumeric } from "./simulation-workbench-model";
 
 function loadSource(relPath: string): string {
   const normalized = relPath.replace(/^apps\/web\//, "");
@@ -35,8 +36,13 @@ test("M4 Exam Command Deck: calculateTestKpis computes accurate metrics from gen
   assert.equal(emptyKpis.confirmedSimulationsCount, 0);
   assert.equal(emptyKpis.retestPassRate, null);
   assert.equal(emptyKpis.avgActualScore, null);
-  assert.equal(emptyKpis.cumulativeLostScore, 0);
+  assert.equal(emptyKpis.cumulativeLostScore, null);
   assert.deepEqual(emptyKpis.scoreTrajectory, []);
+
+  const kpiSource = loadSource("components/test/test-kpi-strip.tsx");
+  assert.doesNotMatch(kpiSource, /scoreTrajectory\.length > 0 \? kpis\.scoreTrajectory : \[0\]/);
+  assert.match(kpiSource, /暂无成绩样本/);
+  assert.match(kpiSource, /暂无失分样本/);
 
   // Populated mock data
   const mockRetests: KnowledgeRetestListItemDto[] = [
@@ -245,6 +251,60 @@ test("M4 Exam Command Deck: calculateTestKpis computes accurate metrics from gen
   assert.deepEqual(kpis.scoreTrajectory, [360, 375]);
 });
 
+test("legacy simulation editor preserves unknown scores and aggregates only complete samples", () => {
+  const exam = {
+    subjectResults: [{
+      subjectId: "subject-1",
+      revision: 2,
+      paperFullScore: null,
+      targetScore: null,
+      actualScore: null,
+      durationMinutes: null,
+      blankQuestionCount: 0,
+      lossReasons: [],
+      summary: null,
+      lossItems: [],
+    }],
+  } as unknown as SimulationExamDto;
+  const merged = mergeSubjectResults(exam, {
+    subjectId: "subject-1",
+    durationMinutes: 120,
+    blankQuestionCount: 0,
+    lossReasons: [],
+    summary: "待录分",
+  });
+
+  assert.equal(merged[0]?.paperFullScore, null);
+  assert.equal(merged[0]?.targetScore, null);
+  assert.equal(merged[0]?.actualScore, null);
+  assert.equal(sumNumeric([80, null]), undefined);
+  assert.equal(sumNumeric([80, 90]), 170);
+});
+
+test("simulation KPI deltas use paired score samples and never infer a missing result", () => {
+  const simulation = (id: string, actualScore: number, targetScore: number | null, subjectActual: number | null) => ({
+    id,
+    status: "CONFIRMED",
+    examDate: `2026-08-0${id}`,
+    actualScore,
+    targetScore,
+    subjectResults: [{
+      paperFullScore: 150,
+      actualScore: subjectActual,
+      lossItems: [],
+    }],
+  }) as unknown as SimulationExamDto;
+  const kpis = calculateTestKpis([], [
+    simulation("1", 100, null, null),
+    simulation("2", 90, 80, 90),
+  ]);
+
+  assert.equal(kpis.avgActualScore, 95);
+  assert.equal(kpis.avgTargetScore, 80);
+  assert.equal(kpis.avgScoreDelta, 10);
+  assert.equal(kpis.cumulativeLostScore, 60);
+});
+
 test("M4 Exam Command Deck: calculateMockExamTrends creates chronological trajectory with delta and pass-rate", () => {
   const mockSimulations: SimulationExamDto[] = [
     {
@@ -310,6 +370,8 @@ test("M4 Exam Command Deck: calculateMockExamTrends creates chronological trajec
   assert.equal(trend.latestDelta, 15);
   assert.equal(trend.avgDelta, 2.5);
   assert.equal(trend.targetPassRate, 50);
+  assert.equal(trend.points[0].fullScore, null);
+  assert.equal(trend.points[1].fullScore, null);
 });
 
 test("M4 Exam Command Deck: calculateLossReasonDistribution and calculateWeakModuleLossRankings aggregate structured loss data", () => {
@@ -431,6 +493,21 @@ test("M4 Exam Command Deck: buildPendingTestQueue prioritizes overdue retests an
       pointTitles: ["考点B"],
       timerSessionId: null,
     },
+    {
+      id: "r-unscheduled",
+      revision: 1,
+      title: "尚未排期考点",
+      method: "BLIND_PROVE",
+      status: "DRAFT",
+      result: null,
+      scheduledAt: null,
+      testedAt: null,
+      nextDueAt: null,
+      summary: null,
+      pointCount: 1,
+      pointTitles: ["考点C"],
+      timerSessionId: null,
+    },
   ];
 
   const mockSimulations: SimulationExamDto[] = [
@@ -463,13 +540,16 @@ test("M4 Exam Command Deck: buildPendingTestQueue prioritizes overdue retests an
   ];
 
   const queue = buildPendingTestQueue(mockRetests, mockSimulations, now);
-  assert.equal(queue.length, 3);
+  assert.equal(queue.length, 4);
   assert.equal(queue[0].dueStatus, "overdue");
   assert.equal(queue[0].id, "r-overdue");
   assert.equal(queue[1].dueStatus, "due_today");
   assert.equal(queue[1].id, "r-today");
   assert.equal(queue[2].dueStatus, "draft_pending");
   assert.equal(queue[2].id, "sim-draft");
+  assert.equal(queue[3].dueStatus, "unscheduled");
+  assert.equal(queue[3].dueText, "未排期");
+  assert.equal(queue[3].id, "r-unscheduled");
 });
 
 test("M4 Exam Command Deck: Page and Component Architecture assertions", () => {

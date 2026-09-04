@@ -7,7 +7,7 @@
 ## 当前实现（隔离分支）
 
 - Schema：`PlanInboxItem` / `PlanInboxDependencyRef` / `PlanMilestone` / `TaskDependency`。
-- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`；`GET /api/plan/rolling`（仅计数，不泄正文）。
+- API：`/api/plan-inbox/**`（列表、创建、编辑、dismiss、reopen、convert）；`POST /api/plan-inbox/analytics-risk`（当前趋势风险显式入箱）；`/api/plan-milestones/**`；`/api/tasks/:id/dependencies/**`；`GET /api/plan/rolling`（仅计数，不泄正文）。
 - 已开放隔离原子 convert：同事务创建 `StudyTask`、置 `CONVERTED`、写审计；可选绑定 `reviewScheduleId` 桥接。
 - UI：`/roadmap/allocation/drafts`、`/roadmap/allocation/drafts/[itemId]`、`/roadmap/allocation` 投入草稿数量入口。
 
@@ -16,6 +16,7 @@
 - 持久状态为 `OPEN` / `DISMISSED` / `CONVERTED`；`supersededByItemId` 是版本替代引用，不是第四状态。
 - 自动入箱：明日最低行动、已确认报告/阶段中的计划草稿。
 - 显式入箱：低转化补救、恢复建议、模拟补救、用户加入的 AI 计划草稿。
+- 趋势风险入箱前必须由服务端重新计算相同 7/30 天窗口；只接受仍存在的风险，并在来源快照中保留窗口、风险、建议动作、科目和考纲节点。详情页可回到对应趋势窗口。
 - 转换时校验工作区、科目、主考纲节点与依赖环；同批依赖按拓扑顺序展示。
 - 报告确认与阶段确认独立；均可原子入箱，但不互相隐式触发。
 - 计划页入口统计全部未被替代的待处理草稿，包括尚未填写日期的草稿；不能用“已有日期”的子集冒充完整待处理数。

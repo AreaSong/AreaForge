@@ -13,14 +13,14 @@
 - 核心规则包基础。
 - 文档拆分。
 - 单管理员登录、数据库会话、`HttpOnly` Cookie、登录限速。
-- 数据库 seed：初始化管理员和 7 个基础科目。
+- 数据库 seed：只初始化管理员；业务工作区和科目由首次设置及科目 CRUD 创建。
 - 生产/本地 Compose 配置校验。
 - 首页作战台读取真实数据库数据。
 - 每日任务 CRUD。
 - 学习计时开始、暂停、继续、结束持久化。
 - 每晚复盘保存。
 - 考纲树与笔记基础 API/UI 已启动，受限 Markdown 考纲导入已实现；考纲节点已读取已有任务、计时、笔记和错题更新时间派生证据新鲜度，结束计时会同步累加关联考纲节点实际时长；笔记库已支持科目、节点、掌握状态和复习提醒筛选；Package A 已完成 noteId 绑定附件上传、私有落盘和鉴权下载。
-- 任务债务、打卡检查、反假学习和恢复模式已有结构化闭环：本地规则、首页展示、恢复模式任务聚焦、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；Package B Batch 0 已为 `StudySession` 追加结构化收口字段；Package B Batch 1 已新增 `CheckIn` 日快照并接入新写路径；Package B Batch 2 已新增 `TaskDebtEvent` 和 `StudyTask.parentTaskId`；Package B Batch 3 已新增 `RecoveryState`、手动恢复、规则触发记录和完成/取消恢复状态。
+- 任务债务、打卡检查、反假学习和恢复模式已有结构化闭环：本地规则、首页展示、恢复模式任务聚焦、补做/拆小/改复习任务轻量流转、只读债务重排建议和计时收口反假学习判断；`packages/core/src/study-integrity.ts` 已沉淀结构化收口、近窗打卡历史、轻量债务动作和债务重排建议规则；Package B Batch 0 已为 `StudySession` 追加结构化收口字段；Package B Batch 1 已新增 `CheckIn` 日快照并接入新写路径；Package B Batch 2 已新增 `TaskDebtEvent` 和 `StudyTask.parentTaskId`；Package B Batch 3 已新增 `RecoveryState`、手动/显式规则恢复命令、Dashboard/Today 只读恢复读取和完成/取消恢复状态。
 - 错题与掌握证明已完成显式记录闭环，考纲节点可看到任务、计时、笔记、错题证据计数和最近证据时间；Package B Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence` 和 `MasteryRetest`，`/syllabus` 可保存条件、引用证据和写入复测，缺显式证据时保留 `_count` fallback；`packages/core/src/mastery-proof.ts` 已沉淀掌握等级、缺失条件、缺失证据、证据过旧风险和下一步动作的纯规则；`packages/core/src/syllabus-map.ts` 已沉淀作战地图格子状态、标记、原因、下一步动作和聚合摘要纯规则。
 - 动机封存、情绪标签、阶段称号和动机唤醒基础版已完成，且默认不进入 AI 上下文。
 - 基础统计与作战地图完善已完成低风险闭环：统计页、只读统计 API、近 7 天派生指标、`summarizeAnalyticsRisks` 统计风险规则、风险提醒、作战地图状态筛选和行动类型筛选。
@@ -90,7 +90,7 @@
 1. Batch 0：`StudySession` 结构化收口字段：理解程度、最小产出、下一步动作、反假学习原因、是否产生笔记/错题。已完成。
 2. Batch 1：`CheckIn` 每日快照：学习日、最低动作、总/有效时长、任务完成率、复盘完成、连续性辅助字段。已完成。
 3. Batch 2：任务债务事件账本和父子任务关系：补做、延期、放弃、拆小、改复习和完成动作。已完成；重排确认、驳回和所选项应用记录已由 Package D Batch D2 完成。
-4. Batch 3：`RecoveryState` 恢复状态：规则触发、手动触发、退出条件和恢复记录。已完成。
+4. Batch 3：`RecoveryState` 恢复状态：显式规则/手动触发、退出条件和恢复记录；Dashboard/Today 查询不产生写副作用。已完成。
 5. Batch 4：掌握证明：掌握条件、证据引用、复测记录。已完成。
 6. Batch 5：结构化 `SimulationExam`：考试、科目结果、分数、空题、失分类型、心态和总结。已完成。
 7. Batch 6：阶段计划与阶段调整草稿：阶段目标、调整建议、用户确认后的阶段计划更新和审计记录。已完成，且不包含任务重排、批量改任务、真实 AI 或生产 migration deploy。
@@ -132,7 +132,7 @@ Package C 真实 AI Provider 第一版已完成：
 
 ### 5. 第二阶段长期能力
 
-- 完整全真模拟考试和 2026 年 12 月同步自测专题流程。
+- 完整全真模拟考试和由用户配置日期的同步自测流程。
 - 周审判、月复盘从只读派生报告升级为阶段决策入口。
 - 任务债务自动重排建议、知识点遗忘风险、笔记复习提醒。
 - 作战地图高级筛选和风险可视化。

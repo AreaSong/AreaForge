@@ -1,96 +1,24 @@
-import { Activity, ArrowUpRight, CheckCircle2, Clock, Scale, TrendingUp } from "lucide-react";
+import { Scale, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/feedback";
-import type { AnalyticsSubjectShareDto, AnalyticsSummaryDto, SyllabusMapOverviewDto, WorkspaceSubjectDto } from "@/lib/contracts";
+import type { WeeklyBudgetDto } from "@/lib/contracts";
 
 export interface RoadmapBudgetConversionProps {
-  analytics: AnalyticsSummaryDto;
-  syllabusOverview?: SyllabusMapOverviewDto;
-  subjects?: WorkspaceSubjectDto[];
+  weeklyBudget: WeeklyBudgetDto;
 }
 
 export interface SubjectConversionRow {
   subjectId: string;
   subjectName: string;
   subjectColor: string;
-  budgetMinutes: number;
+  budgetMinutes: number | null;
   actualMinutes: number;
   effectiveMinutes: number;
-  conversionRate: number; // effective / actual or effective / budget
-  progressRate: number; // actual / budget
-  deltaMinutes: number;
-  status: "high" | "normal" | "lag" | "low_conversion";
+  conversionRate: number | null; // effective / actual；无实际投入时为空
+  progressRate: number | null; // actual / budget
+  deltaMinutes: number | null;
+  status: "high" | "normal" | "lag" | "low_conversion" | "no_data";
   statusLabel: string;
-}
-
-export function computeSubjectConversionRows(
-  analyticsSubjects: AnalyticsSubjectShareDto[],
-  overview?: SyllabusMapOverviewDto,
-  workspaceSubjects: WorkspaceSubjectDto[] = [],
-): SubjectConversionRow[] {
-  const subjectMap = new Map<string, WorkspaceSubjectDto>();
-  for (const s of workspaceSubjects) {
-    subjectMap.set(s.id, s);
-  }
-
-  // Calculate targetMinutes per subject from syllabus tree if available
-  const targetMinutesBySubject: Record<string, number> = {};
-  if (overview?.nodes) {
-    const accumulateTargets = (nodes: typeof overview.nodes) => {
-      for (const node of nodes) {
-        if (node.targetMinutes && node.targetMinutes > 0) {
-          targetMinutesBySubject[node.subjectId] = (targetMinutesBySubject[node.subjectId] || 0) + node.targetMinutes;
-        }
-        if (node.children?.length) {
-          accumulateTargets(node.children);
-        }
-      }
-    };
-    accumulateTargets(overview.nodes);
-  }
-
-  return analyticsSubjects.map((sub) => {
-    const custom = subjectMap.get(sub.subjectId);
-    const name = custom?.name || sub.subjectName || "未知科目";
-    const color = custom?.color || sub.subjectColor || "#2dd4bf";
-
-    // Planned budget: either from syllabus targetMinutes, or proportional estimate (e.g. 60-120h)
-    const budgetMinutes = targetMinutesBySubject[sub.subjectId] || (sub.totalMinutes > 0 ? Math.round(sub.totalMinutes * 1.25) : 3600);
-    const actualMinutes = sub.totalMinutes || 0;
-    const effectiveMinutes = sub.effectiveMinutes || 0;
-
-    const conversionRate = actualMinutes > 0 ? Math.round((effectiveMinutes / actualMinutes) * 100) : 0;
-    const progressRate = budgetMinutes > 0 ? Math.round((actualMinutes / budgetMinutes) * 100) : 0;
-    const deltaMinutes = actualMinutes - budgetMinutes;
-
-    let status: SubjectConversionRow["status"] = "normal";
-    let statusLabel = "稳步推进";
-
-    if (conversionRate >= 88 && progressRate >= 70) {
-      status = "high";
-      statusLabel = "高效转化";
-    } else if (conversionRate < 65 && actualMinutes >= 120) {
-      status = "low_conversion";
-      statusLabel = "转化偏低";
-    } else if (progressRate < 50) {
-      status = "lag";
-      statusLabel = "需补投入";
-    }
-
-    return {
-      subjectId: sub.subjectId,
-      subjectName: name,
-      subjectColor: color,
-      budgetMinutes,
-      actualMinutes,
-      effectiveMinutes,
-      conversionRate,
-      progressRate,
-      deltaMinutes,
-      status,
-      statusLabel,
-    };
-  });
 }
 
 function formatHours(minutes: number): string {
@@ -108,22 +36,25 @@ function getStatusBadgeTone(status: SubjectConversionRow["status"]): "success" |
       return "warning";
     case "low_conversion":
       return "danger";
+    case "no_data":
+      return "info";
   }
 }
 
 export function RoadmapBudgetConversionTable({
-  analytics,
-  syllabusOverview,
-  subjects = [],
+  weeklyBudget,
 }: RoadmapBudgetConversionProps) {
-  const rows = computeSubjectConversionRows(analytics.subjects, syllabusOverview, subjects);
+  const rows = computeWeeklyBudgetConversionRows(weeklyBudget);
 
-  const totalBudgetMinutes = rows.reduce((sum, r) => sum + r.budgetMinutes, 0);
+  const allBudgetsConfigured = rows.length > 0 && rows.every((row) => row.budgetMinutes != null);
+  const totalBudgetMinutes = allBudgetsConfigured
+    ? rows.reduce((sum, row) => sum + (row.budgetMinutes ?? 0), 0)
+    : null;
   const totalActualMinutes = rows.reduce((sum, r) => sum + r.actualMinutes, 0);
   const totalEffectiveMinutes = rows.reduce((sum, r) => sum + r.effectiveMinutes, 0);
   const totalConversionRate = totalActualMinutes > 0
     ? Math.round((totalEffectiveMinutes / totalActualMinutes) * 100)
-    : 0;
+    : null;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0e1619]/90 p-3.5 sm:p-4 text-zinc-100 shadow-xl backdrop-blur-md space-y-3.5">
@@ -134,9 +65,9 @@ export function RoadmapBudgetConversionTable({
             <Scale size={16} aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white">科目预算 vs 实际投入转化对比</h2>
+            <h2 className="text-sm font-semibold text-white">本周预算 vs 实际投入转化</h2>
             <p className="text-xs text-zinc-400">
-              各科计划时长与专注有效时长转化效率，防止“学了很久却没有学进去”
+              {weeklyBudget.weekStart} 至 {weeklyBudget.weekEnd} · 按真实预算核对时间分配和有效学习
             </p>
           </div>
         </div>
@@ -144,7 +75,7 @@ export function RoadmapBudgetConversionTable({
         <div className="flex items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-1 text-zinc-300">
             <TrendingUp size={13} className="text-teal-400" />
-            <span>全科平均转化率: <strong className="text-white font-mono">{totalConversionRate}%</strong></span>
+            <span>全科平均转化率: <strong className="text-white font-mono">{totalConversionRate == null ? "暂无样本" : `${totalConversionRate}%`}</strong></span>
           </div>
           <Link
             href="/roadmap/allocation"
@@ -183,7 +114,7 @@ export function RoadmapBudgetConversionTable({
                     </div>
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-zinc-400">
-                    {formatHours(row.budgetMinutes)}
+                    {row.budgetMinutes == null ? "未设置" : formatHours(row.budgetMinutes)}
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono font-medium text-zinc-200">
                     {formatHours(row.actualMinutes)}
@@ -195,23 +126,31 @@ export function RoadmapBudgetConversionTable({
                     <div className="flex items-center justify-end gap-1.5 font-mono">
                       <span
                         className={`font-semibold ${
-                          row.conversionRate >= 85
+                          row.conversionRate == null
+                            ? "text-zinc-500"
+                            : row.conversionRate >= 85
                             ? "text-emerald-400"
                             : row.conversionRate >= 70
                             ? "text-teal-300"
                             : "text-amber-400"
                         }`}
                       >
-                        {row.conversionRate}%
+                        {row.conversionRate == null ? "-" : `${row.conversionRate}%`}
                       </span>
                     </div>
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-zinc-400">
                     <div className="flex items-center justify-end gap-1.5">
-                      <span>{row.progressRate}%</span>
-                      <span className="text-[10px] text-zinc-500">
-                        ({row.deltaMinutes >= 0 ? `+${formatHours(row.deltaMinutes)}` : formatHours(row.deltaMinutes)})
-                      </span>
+                      {row.progressRate == null || row.deltaMinutes == null ? (
+                        <span>未设置</span>
+                      ) : (
+                        <>
+                          <span>{row.progressRate}%</span>
+                          <span className="text-[10px] text-zinc-500">
+                            ({row.deltaMinutes >= 0 ? `+${formatHours(row.deltaMinutes)}` : formatHours(row.deltaMinutes)})
+                          </span>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="py-2.5 px-3 text-center">
@@ -232,7 +171,7 @@ export function RoadmapBudgetConversionTable({
               <tr className="border-t border-white/10 bg-white/[0.03] font-semibold text-zinc-200">
                 <td className="py-2.5 px-3 text-white">全科总计</td>
                 <td className="py-2.5 px-3 text-right font-mono text-zinc-400">
-                  {formatHours(totalBudgetMinutes)}
+                  {totalBudgetMinutes == null ? "部分未设置" : formatHours(totalBudgetMinutes)}
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono text-white">
                   {formatHours(totalActualMinutes)}
@@ -241,14 +180,16 @@ export function RoadmapBudgetConversionTable({
                   {formatHours(totalEffectiveMinutes)}
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-bold">
-                  {totalConversionRate}%
+                  {totalConversionRate == null ? "-" : `${totalConversionRate}%`}
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono text-zinc-300">
-                  {totalBudgetMinutes > 0 ? `${Math.round((totalActualMinutes / totalBudgetMinutes) * 100)}%` : "100%"}
+                  {totalBudgetMinutes && totalBudgetMinutes > 0
+                    ? `${Math.round((totalActualMinutes / totalBudgetMinutes) * 100)}%`
+                    : "未设置"}
                 </td>
                 <td className="py-2.5 px-3 text-center">
-                  <Badge tone={totalConversionRate >= 80 ? "success" : "info"}>
-                    {totalConversionRate >= 80 ? "整体高效" : "稳步推进"}
+                  <Badge tone={totalConversionRate != null && totalConversionRate >= 80 ? "success" : "info"}>
+                    {totalConversionRate == null ? "暂无样本" : totalConversionRate >= 80 ? "整体高效" : "稳步推进"}
                   </Badge>
                 </td>
               </tr>
@@ -258,4 +199,45 @@ export function RoadmapBudgetConversionTable({
       </div>
     </div>
   );
+}
+
+export function computeWeeklyBudgetConversionRows(budget: WeeklyBudgetDto): SubjectConversionRow[] {
+  return budget.subjects.map((subject) => {
+    const conversionRate = subject.actualMinutes > 0
+      ? Math.round((subject.effectiveMinutes / subject.actualMinutes) * 100)
+      : null;
+    const progressRate = subject.targetMinutes && subject.targetMinutes > 0
+      ? Math.round((subject.actualMinutes / subject.targetMinutes) * 100)
+      : null;
+    const deltaMinutes = subject.targetMinutes && subject.targetMinutes > 0
+      ? subject.actualMinutes - subject.targetMinutes
+      : null;
+    let status: SubjectConversionRow["status"] = conversionRate == null ? "no_data" : "normal";
+    let statusLabel = conversionRate == null ? "暂无样本" : "稳步推进";
+    if (conversionRate != null && conversionRate < 65 && subject.actualMinutes >= 120) {
+      status = "low_conversion";
+      statusLabel = "转化偏低";
+    } else if (progressRate != null && conversionRate != null && conversionRate >= 88 && progressRate >= 70) {
+      status = "high";
+      statusLabel = "高效转化";
+    } else if (progressRate != null && conversionRate != null && progressRate < 50) {
+      status = "lag";
+      statusLabel = "需补投入";
+    } else if (subject.targetMinutes == null && conversionRate != null) {
+      statusLabel = "未设置预算";
+    }
+    return {
+      subjectId: subject.subjectId,
+      subjectName: subject.subjectName,
+      subjectColor: subject.subjectColor,
+      budgetMinutes: subject.targetMinutes,
+      actualMinutes: subject.actualMinutes,
+      effectiveMinutes: subject.effectiveMinutes,
+      conversionRate,
+      progressRate,
+      deltaMinutes,
+      status,
+      statusLabel,
+    };
+  });
 }

@@ -30,10 +30,10 @@ export interface CreateSimulationExamInput {
 export interface SimulationSubjectResultInput {
   subjectId: string;
   expectedRevision?: number;
-  paperFullScore: number;
-  targetScore: number;
-  actualScore: number;
-  durationMinutes?: number;
+  paperFullScore: number | null;
+  targetScore: number | null;
+  actualScore: number | null;
+  durationMinutes?: number | null;
   blankQuestionCount: number;
   lossReasons: string[];
   summary?: string;

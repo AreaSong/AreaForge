@@ -16,6 +16,7 @@ import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
 import { aggregateActivityBreakdown, emptyActivityBreakdown } from "./activity-metrics";
+import { summarizeReviewCoverage } from "./study-day-metrics";
 import type { SyllabusNodeStatusDto } from "@/lib/contracts";
 
 export type {
@@ -30,6 +31,7 @@ const weekDays = 7;
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
+type DailySnapshotWithTaskSample = ReturnType<typeof buildDailyCheckInSnapshot> & { taskCount: number };
 
 // 同一次服务端渲染内的只读共享副本，供 AI 建议与长期风险等多个消费方复用同一份统计结果。
 export const getAnalyticsSummaryShared = cache(
@@ -178,7 +180,7 @@ export async function getAnalyticsSummary(
       dayKey: snapshot.studyDate,
       totalMinutes: snapshot.totalMinutes,
       effectiveMinutes: snapshot.effectiveMinutes,
-      taskCompletionRate: snapshot.taskCompletionRate,
+      taskCompletionRate: snapshot.taskCount > 0 ? snapshot.taskCompletionRate : null,
       reviewSubmitted: snapshot.reviewSubmitted,
       activity,
     };
@@ -186,15 +188,22 @@ export async function getAnalyticsSummary(
   const todayPoint = daily[daily.length - 1] ?? {
     totalMinutes: 0,
     effectiveMinutes: 0,
-    taskCompletionRate: 0,
+    taskCompletionRate: null,
     activity: emptyActivityBreakdown(),
   };
   const weekMinutes = daily.reduce((total, point) => total + point.totalMinutes, 0);
   const weekEffectiveMinutes = daily.reduce((total, point) => total + point.effectiveMinutes, 0);
   const weeklyTaskCompletionRate = averageDailyTaskCompletion(dailySnapshots);
-  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / windowDays;
+  const reviewCoverage = summarizeReviewCoverage(dailySnapshots, now);
   const streakDays = calculateStreak(daily);
-  const missedDays = daily.filter((point) => point.effectiveMinutes === 0).length;
+  const firstObservedIndex = dailySnapshots.findIndex((snapshot) =>
+    snapshot.totalMinutes > 0 || snapshot.taskCount > 0 || snapshot.reviewSubmitted
+  );
+  const missedDays = firstObservedIndex < 0
+    ? 0
+    : dailySnapshots.slice(firstObservedIndex).filter((snapshot) =>
+      snapshot.studyDate < today.key && snapshot.effectiveMinutes === 0
+    ).length;
   const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
   const weakNodeMap = new Map(weakNodes.map((node) => [node.id, node]));
 
@@ -207,7 +216,7 @@ export async function getAnalyticsSummary(
   const riskSummary = summarizeAnalyticsRisks({
     weekEffectiveMinutes,
     weeklyTaskCompletionRate,
-    reviewCompletionRate,
+    reviewCompletionRate: reviewCoverage.completionRate,
     dueMistakes: dueMistakes.map((mistake) => ({
       id: mistake.id,
       title: mistake.title,
@@ -249,9 +258,12 @@ export async function getAnalyticsSummary(
       weekEffectiveMinutes,
       dailyTaskCompletionRate: todayPoint.taskCompletionRate,
       weeklyTaskCompletionRate,
+      taskCount: tasks.length,
+      taskSampleDays: dailySnapshots.filter((snapshot) => snapshot.taskCount > 0).length,
       streakDays,
       missedDays,
-      reviewCompletionRate,
+      reviewCompletionRate: reviewCoverage.completionRate,
+      reviewSampleDays: reviewCoverage.sampleDays,
       totalMistakes,
       dueMistakes: dueMistakes.length,
       dueNotes: dueNotes.length,
@@ -299,28 +311,30 @@ function buildDailySnapshots(
   }>,
   checkInSnapshots: Map<string, ReturnType<typeof buildDailyCheckInSnapshot>>,
   days = weekDays,
-): ReturnType<typeof buildDailyCheckInSnapshot>[] {
+): DailySnapshotWithTaskSample[] {
   const reviewKeys = new Set(reviews.map((review) => getStudyDayKey(review.reviewDate)));
 
   return Array.from({ length: days }, (_, index) => {
     const day = getStudyDayRange(new Date(start.getTime() + index * dayMs));
-    const snapshot = checkInSnapshots.get(day.key);
-    if (snapshot) {
-      return snapshot;
-    }
-
     const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
     const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
-    return buildDailyCheckInSnapshot({
-      studyDate: day.key,
-      sessions: daySessions.map((session) => ({
-        effectiveMinutes: session.effectiveMinutes,
-        isEffective: session.isEffective,
-        isLowConversion: session.isLowConversion,
-      })),
-      tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
-      reviewSubmitted: reviewKeys.has(day.key),
-    });
+    const snapshot = checkInSnapshots.get(day.key);
+    if (snapshot) {
+      return { ...snapshot, taskCount: dayTasks.length };
+    }
+    return {
+      ...buildDailyCheckInSnapshot({
+        studyDate: day.key,
+        sessions: daySessions.map((session) => ({
+          effectiveMinutes: session.effectiveMinutes,
+          isEffective: session.isEffective,
+          isLowConversion: session.isLowConversion,
+        })),
+        tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
+        reviewSubmitted: reviewKeys.has(day.key),
+      }),
+      taskCount: dayTasks.length,
+    };
   });
 }
 
@@ -360,9 +374,10 @@ function buildSubjectShares(
   });
 }
 
-function averageDailyTaskCompletion(snapshots: Array<{ taskCompletionRate: number }>): number {
-  if (snapshots.length === 0) return 0;
-  return snapshots.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / snapshots.length;
+function averageDailyTaskCompletion(snapshots: DailySnapshotWithTaskSample[]): number | null {
+  const sampled = snapshots.filter((snapshot) => snapshot.taskCount > 0);
+  if (sampled.length === 0) return null;
+  return sampled.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / sampled.length;
 }
 
 function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {

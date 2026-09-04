@@ -17,9 +17,9 @@ export default async function TestSimulationPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const exams = await listSimulationExams(user.id);
-  const drafts = exams.filter((exam) => exam.status === "DRAFT");
+  const unfinished = exams.filter((exam) => exam.status === "DRAFT" || exam.status === "IN_PROGRESS");
   const history = exams.filter((exam) => exam.status === "CONFIRMED");
-  const latestDraft = drafts[0];
+  const latestUnfinished = unfinished[0];
 
   return (
     <PageFrame variant="dashboard-wide">
@@ -28,8 +28,8 @@ export default async function TestSimulationPage() {
         title="模拟考试"
         description="录入考试事实，冻结失分分析，再把明确的补救动作送入投入草稿。"
         action={
-          latestDraft ? (
-            <ButtonLink href={`/test/simulations/${latestDraft.id}`} variant="primary">
+          latestUnfinished ? (
+            <ButtonLink href={`/test/simulations/${latestUnfinished.id}`} variant="primary">
               <ArrowRight size={16} aria-hidden="true" />
               继续未完成模拟
             </ButtonLink>
@@ -42,16 +42,16 @@ export default async function TestSimulationPage() {
         }
       />
 
-      {latestDraft ? (
+      {latestUnfinished ? (
         <section className="space-y-4">
           <SectionHeader
             title="继续分析"
             description="优先完成当前考试的录分、失分核对与事实确认。"
-            meta={<Badge tone="warning">未确认</Badge>}
+            meta={<Badge tone="warning">{latestUnfinished.status === "IN_PROGRESS" ? "进行中" : "未确认"}</Badge>}
           />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <SimulationExamCard exam={latestDraft} primary />
-            {drafts.slice(1).map((exam) => (
+            <SimulationExamCard exam={latestUnfinished} primary />
+            {unfinished.slice(1).map((exam) => (
               <SimulationExamCard key={exam.id} exam={exam} />
             ))}
           </div>

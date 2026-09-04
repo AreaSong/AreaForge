@@ -38,7 +38,9 @@ import type {
 } from "@/lib/contracts";
 import {
   buildFirstUseSubjects,
+  canProceedFromFirstUseGoal,
   canUseTakeoverPreview,
+  hasConfiguredFirstUseSubjects,
   workspaceSetupErrorMessage,
 } from "@/lib/workspace/first-use";
 import {
@@ -75,9 +77,9 @@ export function WorkspaceSettingsClient(props: {
   const [name, setName] = useState("考研工作区");
   const [stableKey, setStableKey] = useState("ws-primary");
   const [targetExamDate, setTargetExamDate] = useState("");
-  const [subjectName, setSubjectName] = useState("高等数学");
-  const [subjectKey, setSubjectKey] = useState("advanced-math");
-  const [include408, setInclude408] = useState(true);
+  const [subjectName, setSubjectName] = useState("");
+  const [subjectKey, setSubjectKey] = useState("subject-1");
+  const [include408, setInclude408] = useState(false);
   const [editName, setEditName] = useState(activeWorkspace?.name ?? "");
   const [editTargetDate, setEditTargetDate] = useState(
     activeWorkspace?.targetExamDate ? isoToShanghaiDateInput(activeWorkspace.targetExamDate) : "",
@@ -92,6 +94,13 @@ export function WorkspaceSettingsClient(props: {
   const [setupDraftReady, setSetupDraftReady] = useState(false);
 
   const activeSubjects = props.subjects.filter((item) => !item.archivedAt);
+  const hasNewSetupSubjects = hasConfiguredFirstUseSubjects({ subjectName, subjectKey, include408 });
+  const canProceedFromSetup = canProceedFromFirstUseGoal({
+    subjectName,
+    subjectKey,
+    include408,
+    eligibleTakeoverCount: props.takeover?.eligibleCount ?? 0,
+  });
 
   useEffect(() => {
     if (!props.setupMode) return;
@@ -164,6 +173,11 @@ export function WorkspaceSettingsClient(props: {
 
   async function completeFirstUseSetup(takeover: boolean) {
     if (pending) return;
+    if (!hasNewSetupSubjects && (!takeover || (props.takeover?.eligibleCount ?? 0) === 0)) {
+      setStep("goal");
+      setError("至少填写一个科目、勾选 408 四科，或沿用一个已有科目。");
+      return;
+    }
     if (takeover && !canUseTakeoverPreview(props.takeover)) {
       setError("旧数据预览暂时不可用，尚未创建工作区。请刷新后重试，或明确选择不沿用旧数据。");
       return;
@@ -419,6 +433,8 @@ export function WorkspaceSettingsClient(props: {
               include408={include408}
               setInclude408={setInclude408}
               takeover={props.takeover}
+              canProceed={canProceedFromSetup}
+              canCreateWithoutTakeover={hasNewSetupSubjects}
               pending={pending}
               onComplete={completeFirstUseSetup}
             />

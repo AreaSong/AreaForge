@@ -26,7 +26,7 @@ import {
 } from "@/lib/navigation/route-helpers";
 
 test("root routes retain the canonical application entry and workbench owners", () => {
-  assert.deepEqual(ROOT_ROUTES, { public: "/", login: "/login", app: "/focus" });
+  assert.deepEqual(ROOT_ROUTES, { public: "/", login: "/login", app: "/today" });
   assert.deepEqual(WORKBENCH_ROOT_ROUTES, {
     focus: "/focus",
     today: "/today",

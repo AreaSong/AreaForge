@@ -27,6 +27,7 @@ function serializeStatus(
     notificationPreference: NotificationPreferenceDto;
     notificationCandidates: AppShellStatusDto["notificationCandidates"];
     motivationReminderCandidate: AppShellStatusDto["motivationReminderCandidate"];
+    activeRecovery: AppShellStatusDto["activeRecovery"];
     activeSession: StudySessionDto | null;
   },
 ): AppShellStatusDto {
@@ -91,6 +92,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       notificationPreference,
       notificationCandidates: { reviewDue: false, planStart: false, eveningReview: false },
       motivationReminderCandidate: { trigger: null, blockedByActiveActivity: false },
+      activeRecovery: null,
       activeSession: null,
     });
   }
@@ -176,7 +178,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
           endedAt: null,
           OR: [{ windowEndDate: null }, { windowEndDate: { gte: day.start } }],
         },
-        select: { id: true },
+        select: { id: true, currentStage: true, targetMinutes: true, reason: true },
       }),
       prisma.planInboxItem.findFirst({
         where: {
@@ -278,6 +280,12 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       trigger: activeRecovery ? "RECOVERY" : lowConversionInbox ? "LOW_CONVERSION" : null,
       blockedByActiveActivity: Boolean(activeSession),
     },
+    activeRecovery: activeRecovery ? {
+      id: activeRecovery.id,
+      currentStage: activeRecovery.currentStage,
+      targetMinutes: activeRecovery.targetMinutes,
+      reason: activeRecovery.reason,
+    } : null,
     activeSession,
   });
 }

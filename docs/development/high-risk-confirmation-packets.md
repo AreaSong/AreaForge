@@ -308,7 +308,7 @@ Batch 3 只新增恢复模式持久化状态，用于记录规则触发、用户
 代码范围：
 
 - `prisma/schema.prisma` 和对应 additive migration。
-- 首页和 dashboard 优先读取 active `RecoveryState`；没有 active 状态时继续使用 `createRecoveryPlan` 实时规则。
+- 首页和 dashboard 优先读取 active `RecoveryState`；没有 active 状态时继续使用 `createRecoveryPlan` 实时规则。Dashboard/Today GET 不产生写副作用；规则触发记录必须通过显式命令幂等创建 `triggerType=rule` 状态。
 - 用户主动“我需要恢复”只创建 active 状态，不删除、不隐藏原任务。
 - 恢复完成、取消或退出只更新 `RecoveryState.status/endedAt/exitCondition`，不自动批量改历史欠账。
 - 文档同步 `docs/architecture/data-model.md`、`docs/architecture/api-surface.md`、`docs/modules/recovery-mode.md`、`docs/development/docs-100-completion-record.md` 和本任务状态。

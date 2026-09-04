@@ -64,6 +64,7 @@ export function SimulationListClient(props: { initialExamDate: string }) {
               className="mt-1 h-11 bg-white/[0.03] text-white"
               value={name}
               onChange={(event) => setName(event.target.value)}
+              required
             />
           </Field>
           <Field label="日期" htmlFor="simulation-exam-date">
@@ -73,6 +74,7 @@ export function SimulationListClient(props: { initialExamDate: string }) {
               className="mt-1 h-11 bg-white/[0.03] text-white"
               value={examDate}
               onChange={(event) => setExamDate(event.target.value)}
+              required
             />
           </Field>
           <div className="flex items-end">

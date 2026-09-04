@@ -15,22 +15,19 @@ import {
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { cache } from "react";
-import { daysUntil, getStudyDayRange } from "./date";
-import { finalExamDate, simulationDate } from "./exam-dates";
+import { getStudyDayRange, optionalDaysUntil } from "./date";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
 import {
   createDashboardRecoveryFromRealtimePlan,
   createDashboardRecoveryFromState,
-  createRuleRecoveryState,
   findActiveRecoveryState,
 } from "./recovery-state-service";
 import { serializeDailyReview } from "./daily-review-serializer";
 import { serializeSession } from "./session-serializer";
-import { getEffectiveStudyStreak } from "./study-day-metrics";
+import { summarizeStudyContinuity } from "./study-day-metrics";
 import { serializeSubject } from "./subject-serializer";
 import { serializeTask } from "./task-serializer";
-import type { GetTodayDashboardOptions } from "./study-service-contracts";
 import type {
   StudySessionDto,
   StudyTaskDto,
@@ -43,7 +40,6 @@ import type {
 export async function getTodayDashboard(
   actorId: string,
   now = new Date(),
-  options: GetTodayDashboardOptions = {},
 ): Promise<TodayDashboardDto> {
   const workspace = await resolveActiveWorkspace(actorId);
   const day = getStudyDayRange(now);
@@ -62,6 +58,7 @@ export async function getTodayDashboard(
     checkInSnapshots,
     motivationVault,
     activeRecoveryState,
+    nextSimulationExam,
   ] = await Promise.all([
     prisma.subject.findMany({
       where: { workspaceId: workspace.id, archivedAt: null },
@@ -180,6 +177,15 @@ export async function getTodayDashboard(
       orderBy: { createdAt: "asc" },
     }),
     findActiveRecoveryState(),
+    prisma.simulationExam.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        status: { not: "CONFIRMED" },
+        examDate: { gte: day.start },
+      },
+      orderBy: [{ examDate: "asc" }, { createdAt: "asc" }],
+      select: { examDate: true },
+    }),
   ]);
 
   const sessionDtos = todaySessions.map((session) => serializeSession(session));
@@ -199,22 +205,21 @@ export async function getTodayDashboard(
   const lowConversionCount = dailySnapshot.lowConversionCount;
   const latestCompletedSession = getLatestCompletedSession(sessionDtos);
   const taskCompletionRate = dailySnapshot.taskCompletionRate;
-  const streakDays = getEffectiveStudyStreak(recentSessions, checkInSnapshots, now);
-  const missedDays = Math.max(0, Math.min(7, 7 - streakDays));
+  const { streakDays, missedDays } = summarizeStudyContinuity(recentSessions, checkInSnapshots, now);
   const recentEffectiveMinutes = sumEffectiveMinutesByStudyDay(weeklyStart, 7, recentSessions, checkInSnapshots);
   const syllabusProgress = getOverallSyllabusProgress(subjects);
 
   const dashboardInput: DashboardInput = {
-    targetExamDate: finalExamDate,
-    simulationDate,
+    targetExamDate: workspace.targetExamDate,
+    simulationDate: nextSimulationExam?.examDate ?? null,
     todayMinutes,
     effectiveMinutes,
     taskCompletionRate,
     streakDays,
     missedDays,
     debtCount,
-    daysToFinal: daysUntil(finalExamDate, now),
-    daysToSimulation: daysUntil(simulationDate, now),
+    daysToFinal: optionalDaysUntil(workspace.targetExamDate, now),
+    daysToSimulation: optionalDaysUntil(nextSimulationExam?.examDate, now),
     tasks: taskDtos.map(toCoreTask),
   };
 
@@ -251,20 +256,7 @@ export async function getTodayDashboard(
     effectiveMinutes,
     topTask: topRecoveryTask ? toCoreTask(topRecoveryTask) : snapshot.topTasks[0],
   });
-  const recoveryState = activeRecoveryState ?? (
-    options.recordRecoveryRule && realtimeRecovery.active
-      ? await createRuleRecoveryState({
-        plan: realtimeRecovery,
-        actorId,
-        topTask: topRecoveryTask,
-        riskState: snapshot.riskState,
-        debtCount,
-        missedDays,
-        effectiveMinutes,
-        studyDayKey: day.key,
-      })
-      : null
-  );
+  const recoveryState = activeRecoveryState;
   const recovery = recoveryState
     ? createDashboardRecoveryFromState(recoveryState, topRecoveryTask)
     : createDashboardRecoveryFromRealtimePlan(realtimeRecovery);
@@ -327,8 +319,7 @@ export async function getTodayDashboard(
 
 /**
  * 同一次服务端渲染内的只读共享副本：AI 建议、长期风险等次级消费方复用同一份
- * 作战台数据，避免每个消费方重复触发整组 Prisma 查询。写路径（recordRecoveryRule）
- * 仍走 getTodayDashboard 原函数。
+ * 作战台数据，避免每个消费方重复触发整组 Prisma 查询。
  */
 export const getTodayDashboardShared = cache(
   async (actorId: string): Promise<TodayDashboardDto> => getTodayDashboard(actorId),

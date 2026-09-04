@@ -17,7 +17,7 @@ interface SegmentWidths {
 
 function calculateSegments(counts: SyllabusMapOverviewDto["summary"]["counts"], total: number): SegmentWidths {
   if (total <= 0) {
-    return { verified: 0, covered: 0, learning: 0, risk: 0, unstarted: 100 };
+    return { verified: 0, covered: 0, learning: 0, risk: 0, unstarted: 0 };
   }
   const verified = Math.round((counts.verified / total) * 100);
   const covered = Math.round((counts.covered / total) * 100);
@@ -81,7 +81,9 @@ export function RoadmapSyllabusMatrix({
             全科总纲进度 ({totalNodes} 节点)
           </span>
           <span className="font-mono text-zinc-400">
-            已验证 {summary.counts.verified} · 已覆盖 {summary.counts.covered} · 学习中 {summary.counts.learning} · 风险 {riskCount}
+            {totalNodes > 0
+              ? `已验证 ${summary.counts.verified} · 已覆盖 ${summary.counts.covered} · 学习中 ${summary.counts.learning} · 风险 ${riskCount}`
+              : "暂无考纲节点"}
           </span>
         </div>
 
@@ -126,6 +128,7 @@ export function RoadmapSyllabusMatrix({
 
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-zinc-400">
+          {totalNodes === 0 ? <span>添加或导入考纲后显示进度分布</span> : null}
           <div className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-emerald-500" />
             <span>已验证 ({overallSegments.verified}%)</span>

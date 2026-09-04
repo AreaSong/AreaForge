@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
+import { ContinueNextAction } from "@/components/continue-next-action";
 import { PinnedActionBar } from "@/components/ui/pinned-action-bar";
 import { Card } from "@/components/ui/card";
 import { Alert, Badge } from "@/components/ui/feedback";
@@ -376,9 +377,15 @@ export function KnowledgeRetestDetailClient({ initial, userId, returnTo = "/test
       ) : null}
 
       {retest.status === "CLOSED" ? (
-        <Alert tone="success">
-          已确认。下一次复测：{retest.nextDueAt ? formatDatePadded(retest.nextDueAt) : "待安排"}。
-        </Alert>
+        <div className="space-y-3">
+          <Alert tone="success">
+            已确认。下一次复测：{retest.nextDueAt ? formatDatePadded(retest.nextDueAt) : "待安排"}。
+            {retest.result === "PASSED" ? "" : " 未通过或部分通过的知识点已生成投入草稿，需确认后才会成为正式任务。"}
+          </Alert>
+          <div className="flex justify-end">
+            <ContinueNextAction fallbackHref={returnTo} fallbackLabel={getReturnContextLabel(returnTo, "返回专项复测")} />
+          </div>
+        </div>
       ) : null}
 
       {retest.status === "IN_PROGRESS" && !retest.timerSessionId ? (

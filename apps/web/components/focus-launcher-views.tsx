@@ -1,7 +1,8 @@
 import { Button, IconButton } from "@/components/ui/button";
 import { Clock, Minus, Plus, Infinity as InfinityIcon } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
+import { formatShortTime } from "@/lib/formatters";
 import {
   FOCUS_DURATION_PRESETS,
   useAnimatedMinutes,
@@ -24,16 +25,24 @@ export function FocusHeroDial({
   durationPreset,
   onPresetChange,
   tasks,
+  initialNow,
 }: {
   selectedSubject: SubjectDto | null;
   summary?: FocusLauncherSummaryDto | null;
   durationPreset: number;
   onPresetChange: (preset: number) => void;
   tasks: StudyTaskDto[];
+  initialNow: string;
 }) {
   const accentColor = selectedSubject?.color || "#2dd4bf";
   const dialRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const [clockNow, setClockNow] = useState(() => new Date(initialNow));
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(new Date()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Animated smooth minutes interpolation
   const animatedMinutes = useAnimatedMinutes(durationPreset);
@@ -51,12 +60,9 @@ export function FocusHeroDial({
   // Calculate dynamic expected completion time string (e.g. 14:35)
   const calculateExpectedTime = useCallback(() => {
     if (durationPreset <= 0) return "正向心流 · 无上限";
-    const now = new Date();
-    const target = new Date(now.getTime() + durationPreset * 60 * 1000);
-    const hh = String(target.getHours()).padStart(2, "0");
-    const mm = String(target.getMinutes()).padStart(2, "0");
-    return `预计将在 ${hh}:${mm} 完成`;
-  }, [durationPreset]);
+    const target = new Date(clockNow.getTime() + durationPreset * 60 * 1000);
+    return `预计将在 ${formatShortTime(target)} 完成`;
+  }, [clockNow, durationPreset]);
 
   const expectedTimeStr = calculateExpectedTime();
 

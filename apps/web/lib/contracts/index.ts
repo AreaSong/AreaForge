@@ -21,6 +21,7 @@ export type * from "@/lib/contracts/recovery";
 export type * from "@/lib/contracts/reports";
 export type * from "@/lib/contracts/review";
 export type * from "@/lib/contracts/workspace";
+export type * from "@/lib/contracts/weekly-budget";
 export type * from "@/lib/contracts/activity";
 export type * from "@/lib/contracts/analytics";
 export type * from "@/lib/contracts/daily-review";

@@ -4,6 +4,7 @@ import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-work
 import { completeConfiguredActivitySessionInTx } from "./session-command-service";
 import { activeTimerSessionId } from "./activity-session-state";
 import { masteryStateForRetest } from "./knowledge-mastery";
+import { createPlanInboxItemWithResult } from "./plan-inbox-service";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -54,7 +55,15 @@ export interface KnowledgeRetestCommandInput {
 }
 
 const pointInclude = {
-  knowledgePoint: { select: { id: true, title: true, masteryState: true } },
+  knowledgePoint: {
+    select: {
+      id: true,
+      title: true,
+      masteryState: true,
+      primarySubjectId: true,
+      primarySubject: { select: { archivedAt: true } },
+    },
+  },
 } satisfies Prisma.KnowledgeRetestPointInclude;
 
 export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRetestListItemDto[]> {
@@ -350,6 +359,7 @@ export async function confirmKnowledgeRetest(
       });
     }
     await tx.knowledgeRetest.update({ where: { id }, data: { status: "CLOSED", nextDueAt, revision: { increment: 1 } } });
+    await syncRetestFollowUpInbox(tx, actorId, workspace.id, existing, nextDueAt);
     await tx.auditEvent.create({ data: { actorId, action: "KNOWLEDGE_RETEST_CONFIRMED", entityType: "KnowledgeRetest", entityId: id } });
     const result = serializeDetail(await findDetail(tx, id, actorId, workspace.id));
     await recordPersistentCreateResult(tx, command, id, { resultSnapshot: result as unknown as Prisma.InputJsonObject });
@@ -463,7 +473,21 @@ function serializeDetail(row: {
   summary: string | null;
   reviewText: string | null;
   revision: number;
-  points: Array<{ id: string; knowledgePointId: string; result: string | null; score: number | null; understanding: number | null; note: string | null; knowledgePoint: { id: string; title: string; masteryState: string } }>;
+  points: Array<{
+    id: string;
+    knowledgePointId: string;
+    result: string | null;
+    score: number | null;
+    understanding: number | null;
+    note: string | null;
+    knowledgePoint: {
+      id: string;
+      title: string;
+      masteryState: string;
+      primarySubjectId: string;
+      primarySubject: { archivedAt: Date | null };
+    };
+  }>;
   studySessions: Array<{ id: string; status: string }>;
   _count: { points: number };
 }): KnowledgeRetestDetailDto {
@@ -492,6 +516,44 @@ function serializeDetail(row: {
       note: point.note,
     })),
   };
+}
+
+async function syncRetestFollowUpInbox(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  retest: Awaited<ReturnType<typeof findDetail>>,
+  nextDueAt: Date,
+): Promise<void> {
+  const originVersion = retest.revision + 1;
+  for (const point of retest.points) {
+    if (point.result === "PASSED") continue;
+    const originKey = `knowledge-retest:${retest.id}:point:${point.knowledgePointId}:follow-up`;
+    await createPlanInboxItemWithResult(tx, workspaceId, actorId, {
+      stableKey: `${originKey}:v${originVersion}`,
+      originKey,
+      originVersion,
+      originType: "RETEST_FOLLOW_UP",
+      originSnapshot: {
+        retestId: retest.id,
+        retestRevision: originVersion,
+        retestTitle: retest.title,
+        knowledgePointId: point.knowledgePointId,
+        knowledgePointTitle: point.knowledgePoint.title,
+        result: point.result,
+        score: point.score,
+        nextDueAt: nextDueAt.toISOString(),
+      },
+      title: `复测补强：${point.knowledgePoint.title}`,
+      subjectId: point.knowledgePoint.primarySubject.archivedAt === null
+        ? point.knowledgePoint.primarySubjectId
+        : null,
+      plannedDate: nextDueAt.toISOString(),
+      estimatedMinutes: point.result === "FAILED" ? 30 : 20,
+      priority: point.result === "FAILED" ? "HIGH" : "MEDIUM",
+      type: "review",
+    });
+  }
 }
 
 function confidenceForResult(result: KnowledgeRetestResultDto | null): number {

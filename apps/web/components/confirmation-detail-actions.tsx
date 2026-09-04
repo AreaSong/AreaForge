@@ -153,7 +153,9 @@ export function ConfirmationDetailActions({ item, sourceHref = item.sourceHref, 
         setError(labelConfirmationError(result.body?.error));
         return;
       }
-      setNotice(isConfirm ? "复测已确认，知识点掌握状态已更新。" : "复测已作废，未更新知识点掌握状态。");
+      setNotice(isConfirm
+        ? "复测已确认，知识点掌握状态已更新；如有薄弱知识点，系统已生成待确认的投入草稿。"
+        : "复测已作废，未更新知识点掌握状态。");
       void onCompleted?.();
       router.refresh();
     } catch {

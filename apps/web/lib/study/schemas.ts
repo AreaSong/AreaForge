@@ -2,6 +2,20 @@ import { z } from "zod";
 
 export const idempotencyKeySchema = z.string().trim().min(8).max(200);
 
+export const actionCenterRecommendationFeedbackSchema = z.object({
+  studyDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  recommendationId: z.string().min(1).max(200),
+  recommendationKind: z.enum(["task", "review", "activity", "recovery"]),
+  feedback: z.enum(["HELPFUL", "NOT_NOW"]),
+}).strict();
+
+export const patchWeeklyBudgetSchema = z.object({
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  subjectId: z.string().min(1).max(200),
+  targetMinutes: z.number().int().min(0).max(7 * 24 * 60),
+  expectedRevision: z.number().int().min(0),
+}).strict();
+
 export const createTaskSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   subjectId: z.string().min(1),
@@ -279,10 +293,10 @@ const stagePlanStatusSchema = z.enum(["draft", "active", "completed", "archived"
 const simulationSubjectResultSchema = z.object({
   subjectId: z.string().min(1),
   expectedRevision: z.number().int().min(1).optional(),
-  paperFullScore: z.number().positive().max(1000).multipleOf(0.5),
-  targetScore: z.number().min(0).max(1000).multipleOf(0.5),
-  actualScore: z.number().min(0).max(1000).multipleOf(0.5),
-  durationMinutes: z.number().int().min(0).max(720).optional(),
+  paperFullScore: z.number().positive().max(1000).multipleOf(0.5).nullable(),
+  targetScore: z.number().min(0).max(1000).multipleOf(0.5).nullable(),
+  actualScore: z.number().min(0).max(1000).multipleOf(0.5).nullable(),
+  durationMinutes: z.number().int().min(0).max(720).nullable().optional(),
   blankQuestionCount: z.number().int().min(0).max(300).default(0),
   lossReasons: simulationLossReasonsSchema,
   summary: z.string().trim().max(2000).optional(),
@@ -293,14 +307,14 @@ const simulationSubjectResultSchema = z.object({
     note: z.string().trim().max(500).nullable().optional(),
   })).max(100).optional(),
 }).superRefine((value, context) => {
-  if (value.targetScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["targetScore"], message: "targetScore must not exceed paperFullScore" });
-  if (value.actualScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["actualScore"], message: "actualScore must not exceed paperFullScore" });
+  if (value.paperFullScore != null && value.targetScore != null && value.targetScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["targetScore"], message: "targetScore must not exceed paperFullScore" });
+  if (value.paperFullScore != null && value.actualScore != null && value.actualScore > value.paperFullScore) context.addIssue({ code: "custom", path: ["actualScore"], message: "actualScore must not exceed paperFullScore" });
 });
 
 const simulationExamSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   name: z.string().trim().min(1).max(160),
-  examDate: z.string().datetime().optional(),
+  examDate: z.string().datetime(),
   isFirstSynchronized: z.boolean().optional(),
   targetDurationMinutes: z.number().int().min(30).max(720).optional(),
   targetScore: z.number().min(0).max(1000).optional(),
@@ -431,7 +445,7 @@ export const createSimulationTaskSchema = z.object({
   subjectId: z.string().min(1),
   syllabusNodeId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(160),
-  plannedDate: z.string().datetime().optional(),
+  plannedDate: z.string().datetime(),
   estimatedMinutes: z.number().int().min(30).max(720).default(180),
 });
 
@@ -566,7 +580,7 @@ export const endSessionSchema = sessionCommandSchema.extend({
   nextDisposition: z.string().trim().max(500).optional(),
 }).superRefine((value, context) => {
   if (value.mode === "complete") {
-    for (const field of ["qualityScore", "isEffective", "understandingLevel", "minimalOutput", "nextAction"] as const) {
+    for (const field of ["qualityScore", "isEffective", "minimalOutput", "nextAction"] as const) {
       if (value[field] === undefined) context.addIssue({ code: "custom", path: [field], message: `${field} is required when completing a closeout` });
     }
     if (value.isEffective === false && value.lowReasons.length === 0) {

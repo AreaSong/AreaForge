@@ -36,9 +36,9 @@ export function mergeSubjectResults(
   const serializeResult = (result: SimulationExamDto["subjectResults"][number]) => ({
     subjectId: result.subjectId,
     expectedRevision: result.revision,
-    paperFullScore: result.paperFullScore ?? Math.max(result.targetScore ?? 0, result.actualScore ?? 0, 100),
-    targetScore: result.targetScore ?? 0,
-    actualScore: result.actualScore ?? 0,
+    paperFullScore: result.paperFullScore,
+    targetScore: result.targetScore,
+    actualScore: result.actualScore,
     durationMinutes: result.durationMinutes ?? undefined,
     blankQuestionCount: result.blankQuestionCount,
     lossReasons: result.lossReasons,
@@ -59,10 +59,9 @@ export function mergeSubjectResults(
     {
       ...current,
       expectedRevision: currentSavedResult?.revision,
-      paperFullScore: currentSavedResult?.paperFullScore
-        ?? Math.max(current.targetScore ?? 0, current.actualScore ?? 0, 100),
-      targetScore: current.targetScore ?? 0,
-      actualScore: current.actualScore ?? 0,
+      paperFullScore: currentSavedResult?.paperFullScore ?? null,
+      targetScore: current.targetScore ?? null,
+      actualScore: current.actualScore ?? null,
       lossItems: currentSavedResult ? serializeResult(currentSavedResult).lossItems : [],
     },
   ];
@@ -86,10 +85,9 @@ export function parseOptionalNumber(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-export function sumNumeric(values: Array<number | undefined>): number | undefined {
-  const present = values.filter((value): value is number => typeof value === "number");
-  if (present.length === 0) return undefined;
-  return present.reduce((total, value) => total + value, 0);
+export function sumNumeric(values: Array<number | null | undefined>): number | undefined {
+  if (values.length === 0 || values.some((value) => typeof value !== "number")) return undefined;
+  return (values as number[]).reduce((total, value) => total + value, 0);
 }
 
 export function toDatetimeLocal(value: string): string {

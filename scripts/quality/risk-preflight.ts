@@ -1860,8 +1860,10 @@ function checkPackageBBatchBoundaries(): void {
   const dashboardRoute = readIfExists("apps/web/app/api/dashboard/today/route.ts");
   const homePage = readIfExists("apps/web/app/page.tsx");
   const todayPage = readIfExists("apps/web/app/(app)/today/page.tsx");
+  const dashboardService = readIfExists("apps/web/lib/study/dashboard-query-service.ts");
   const actionCenterToday = readFiles(actionCenterTodaySurfacePaths);
   const homeRedirectsToToday = homePage.includes('redirect("/today")');
+  const recoveryReadSurfaces = [dashboardRoute, todayPage, actionCenterToday].join("\n");
   const batch3RuntimeSignals = [
     {
       label: "RecoveryState additive migration",
@@ -1880,9 +1882,12 @@ function checkPackageBBatchBoundaries(): void {
       ].every((token) => recoveryService.includes(token)),
     },
     {
-      label: "dashboard records rule trigger explicitly",
-      ok: dashboardRoute.includes("recordRecoveryRule: true")
-        && (homePage.includes("recordRecoveryRule: true") || homeRedirectsToToday || todayPage.includes("recordRecoveryRule: true")),
+      label: "dashboard GET keeps recovery rule read-only",
+      ok: dashboardRoute.includes("getTodayDashboard(user.id)")
+        && !recoveryReadSurfaces.includes("recordRecoveryRule: true")
+        && !recoveryReadSurfaces.includes("createRuleRecoveryState")
+        && !dashboardService.includes("createRuleRecoveryState(")
+        && !dashboardService.includes("recoveryState.create("),
     },
     {
       label: "RecoveryState DTO exposes source and state fields",

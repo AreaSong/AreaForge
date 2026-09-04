@@ -106,6 +106,22 @@ test("local context updates and low-conversion feedback stay in the offline proj
   assert.equal(closed.isLowConversion, true);
 });
 
+test("local focus start preserves recovery goal and task provenance", () => {
+  const session = createLocalFocusSession({
+    userId: "user-1",
+    subjectId: "subject-1",
+    subjectName: "数学",
+    taskId: "task-1",
+    taskTitle: "极限复习",
+    goalMinutes: 30,
+    startSource: "RECOVERY",
+  }, new Date("2026-08-03T00:00:00.000Z"));
+
+  assert.equal(session.taskId, "task-1");
+  assert.equal(session.goalMinutes, 30);
+  assert.equal(session.startSource, "RECOVERY");
+});
+
 test("offline command rebases CAS fields onto the latest server session", () => {
   const body = { expectedStatus: "running", expectedUpdatedAt: "old", idempotencyKey: "command-123" };
   assert.deepEqual(rebaseFocusCommand("pause", body, { status: "paused", updatedAt: "new" }), {

@@ -4,10 +4,6 @@ import type {
   TaskStatusDto,
 } from "@/lib/contracts";
 
-export interface GetTodayDashboardOptions {
-  recordRecoveryRule?: boolean;
-}
-
 export interface CreateTaskInput {
   idempotencyKey: string;
   subjectId: string;

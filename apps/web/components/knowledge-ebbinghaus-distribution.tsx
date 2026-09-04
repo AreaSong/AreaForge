@@ -11,7 +11,7 @@ export interface EbbinghausIntervalStats {
   d15_30: number;
   d30_plus: number;
   total: number;
-  retentionRate7d: number;
+  retentionRate7d: number | null;
   completedReviews: number;
 }
 
@@ -47,12 +47,12 @@ export function KnowledgeEbbinghausDistribution({ stats }: { stats: EbbinghausIn
             <h2 className="text-sm font-semibold uppercase tracking-wider text-teal-300">艾宾浩斯复习留存曲线与周期分布</h2>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
-            基于记忆衰减周期的复习负荷分布 · 活跃复习计划 {total} 项 · 7 日留存率 {retentionRate7d}%
+            基于记忆衰减周期的复习负荷分布 · 活跃复习计划 {total} 项 · 7 日留存率 {retentionRate7d == null ? "暂无样本" : `${retentionRate7d}%`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone={retentionRate7d >= 80 ? "success" : retentionRate7d >= 60 ? "warning" : "danger"}>
-            7日留存 {retentionRate7d}%
+          <Badge tone={retentionRate7d == null ? "info" : retentionRate7d >= 80 ? "success" : retentionRate7d >= 60 ? "warning" : "danger"}>
+            7日留存 {retentionRate7d == null ? "暂无样本" : `${retentionRate7d}%`}
           </Badge>
           <Link
             href="/knowledge/reviews"
@@ -91,7 +91,7 @@ export function KnowledgeEbbinghausDistribution({ stats }: { stats: EbbinghausIn
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {INTERVAL_CONFIGS.map((cfg) => {
           const count = counts[cfg.key] ?? 0;
-          const pct = total > 0 ? ((count / total) * 100).toFixed(0) : "0";
+          const pct = total > 0 ? `${((count / total) * 100).toFixed(0)}%` : "-";
           return (
             <div
               key={cfg.key}
@@ -103,7 +103,7 @@ export function KnowledgeEbbinghausDistribution({ stats }: { stats: EbbinghausIn
               </div>
               <div className="mt-2 flex items-baseline justify-between">
                 <span className="text-base font-semibold text-white">{count}</span>
-                <span className="text-[10px] text-zinc-400">{pct}%</span>
+                <span className="text-[10px] text-zinc-400">{pct}</span>
               </div>
             </div>
           );
@@ -111,7 +111,12 @@ export function KnowledgeEbbinghausDistribution({ stats }: { stats: EbbinghausIn
       </div>
 
       {/* Load Warning / Status Callout */}
-      {overdue > 0 ? (
+      {!hasItems ? (
+        <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-300">
+          <RotateCw size={15} className="shrink-0 text-zinc-500" aria-hidden />
+          <span>尚无活跃复习计划，完成知识沉淀并创建复习排期后再评价节奏。</span>
+        </div>
+      ) : overdue > 0 ? (
         <div className="mt-3.5 flex items-center justify-between gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
           <div className="flex items-center gap-2 min-w-0">
             <AlertCircle size={15} className="shrink-0 text-rose-400" aria-hidden />

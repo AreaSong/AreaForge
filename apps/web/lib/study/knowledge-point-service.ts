@@ -62,7 +62,7 @@ const detailInclude = {
     take: 20,
   },
   sessionLinks: {
-    include: { session: { select: { id: true, status: true, startedAt: true, endedAt: true, effectiveMinutes: true, closeout: { select: { understanding: true } } } } },
+    include: { session: { select: { id: true, status: true, startedAt: true, endedAt: true, effectiveMinutes: true, understandingLevel: true } } },
     orderBy: { createdAt: "desc" },
     take: 20,
   },
@@ -279,7 +279,7 @@ function serializeDetail(row: DetailRow): KnowledgePointDetailDto {
     syllabusLinks: row.syllabusLinks.map((link) => ({ id: link.id, role: link.role, node: link.syllabusNode })),
     stageTargets: row.stageTargets.map((target) => ({ id: target.id, targetState: target.targetState as KnowledgeMasteryStateDto, importance: target.importance, stage: target.stagePlan })),
     arrangements: row.arrangementLinks.map(({ arrangement }) => ({ ...arrangement, startDate: arrangement.startDate.toISOString(), endDate: arrangement.endDate.toISOString() })),
-    recentSessions: row.sessionLinks.map(({ session }) => ({ ...session, startedAt: session.startedAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null, understanding: session.closeout?.understanding ?? null })),
+    recentSessions: row.sessionLinks.map(({ session }) => ({ ...session, startedAt: session.startedAt.toISOString(), endedAt: session.endedAt?.toISOString() ?? null, understanding: session.understandingLevel })),
     evidence: row.evidence.map((item) => ({ ...item, occurredAt: item.occurredAt.toISOString() })),
   };
 }

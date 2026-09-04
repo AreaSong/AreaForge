@@ -13,18 +13,18 @@ export interface SubjectMasteryData {
   learningCount: number;
   weakCount: number;
   untouchedCount: number;
-  masteryRate: number; // 0-100%
+  masteryRate: number | null; // 0-100%，无考点时为空
 }
 
 export interface RadarDimension {
   label: string;
-  value: number; // 0-100%
+  value: number | null; // 0-100%，无真实样本时为空
 }
 
 export interface KnowledgeSubjectMasteryPanelProps {
   subjects: SubjectMasteryData[];
   radarDimensions: RadarDimension[];
-  overallMasteryRate: number;
+  overallMasteryRate: number | null;
 }
 
 export function KnowledgeSubjectMasteryPanel({
@@ -43,11 +43,11 @@ export function KnowledgeSubjectMasteryPanel({
               <h2 className="text-sm font-semibold uppercase tracking-wider text-teal-300">科目掌握度全景分布</h2>
             </div>
             <p className="mt-1 text-xs text-zinc-400">
-              各学科考点稳固、进阶与薄弱多态量化 · 综合掌握率 {overallMasteryRate}%
+              各学科考点稳固、进阶与薄弱多态量化 · 综合掌握率 {overallMasteryRate == null ? "暂无样本" : `${overallMasteryRate}%`}
             </p>
           </div>
-          <Badge tone={overallMasteryRate >= 70 ? "success" : overallMasteryRate >= 45 ? "warning" : "info"}>
-            综合掌握 {overallMasteryRate}%
+          <Badge tone={overallMasteryRate == null ? "info" : overallMasteryRate >= 70 ? "success" : overallMasteryRate >= 45 ? "warning" : "info"}>
+            综合掌握 {overallMasteryRate == null ? "暂无样本" : `${overallMasteryRate}%`}
           </Badge>
         </div>
 
@@ -76,7 +76,7 @@ export function KnowledgeSubjectMasteryPanel({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-semibold text-teal-300">
-                          {subj.masteryRate}%
+                          {subj.masteryRate == null ? "暂无样本" : `${subj.masteryRate}%`}
                         </span>
                       </div>
                     </div>
@@ -182,15 +182,16 @@ function MiniRadar({ dimensions }: { dimensions: RadarDimension[] }) {
   const radius = 62;
   const count = 5;
 
-  const defaultDims = [
-    { label: "覆盖率", value: 75 },
-    { label: "熟练度", value: 68 },
-    { label: "留存率", value: 84 },
-    { label: "复测率", value: 70 },
-    { label: "深度", value: 72 },
+  const emptyDims: RadarDimension[] = [
+    { label: "覆盖率", value: null },
+    { label: "熟练度", value: null },
+    { label: "留存率", value: null },
+    { label: "复测率", value: null },
+    { label: "深度", value: null },
   ];
 
-  const activeDims = dimensions.length === count ? dimensions : defaultDims;
+  const activeDims = dimensions.length === count ? dimensions : emptyDims;
+  const hasCompleteData = activeDims.every((dimension) => dimension.value != null);
 
   // Compute angles: top is -pi/2
   const angles = Array.from({ length: count }, (_, i) => -Math.PI / 2 + (i * 2 * Math.PI) / count);
@@ -206,13 +207,13 @@ function MiniRadar({ dimensions }: { dimensions: RadarDimension[] }) {
   });
 
   // Data polygon points
-  const dataPoints = angles.map((a, i) => {
-    const val = activeDims[i]?.value ?? 50;
+  const dataPoints = hasCompleteData ? angles.map((a, i) => {
+    const val = activeDims[i]?.value ?? 0;
     const r = radius * Math.max(Math.min(val / 100, 1), 0.08);
     const x = center + r * Math.cos(a);
     const y = center + r * Math.sin(a);
     return { x, y, str: `${x.toFixed(1)},${y.toFixed(1)}`, val, label: activeDims[i]?.label ?? "" };
-  });
+  }) : [];
 
   const dataPolygonString = dataPoints.map((p) => p.str).join(" ");
 
@@ -262,17 +263,23 @@ function MiniRadar({ dimensions }: { dimensions: RadarDimension[] }) {
       })}
 
       {/* Data Polygon Fill & Outline */}
-      <polygon
-        points={dataPolygonString}
-        fill="url(#radarGradient)"
-        stroke="#2dd4bf"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-        className="transition-all duration-500"
-      />
+      {hasCompleteData ? (
+        <polygon
+          points={dataPolygonString}
+          fill="url(#radarGradient)"
+          stroke="#2dd4bf"
+          strokeWidth="1.75"
+          strokeLinejoin="round"
+          className="transition-all duration-500"
+        />
+      ) : (
+        <text x={center} y={center + 4} textAnchor="middle" className="fill-zinc-500 text-[10px]">
+          暂无完整样本
+        </text>
+      )}
 
       {/* Data Vertex Dots */}
-      {dataPoints.map((p, idx) => (
+      {hasCompleteData ? dataPoints.map((p, idx) => (
         <circle
           key={idx}
           cx={p.x}
@@ -282,7 +289,7 @@ function MiniRadar({ dimensions }: { dimensions: RadarDimension[] }) {
           stroke="#0e1619"
           strokeWidth="1"
         />
-      ))}
+      )) : null}
 
       {/* Axis Labels */}
       {angles.map((a, idx) => {
@@ -298,7 +305,7 @@ function MiniRadar({ dimensions }: { dimensions: RadarDimension[] }) {
             textAnchor="middle"
             className="fill-zinc-400 text-[9.5px] font-medium"
           >
-            {dim?.label} {dim?.value}%
+            {dim?.label} {dim?.value == null ? "-" : `${dim.value}%`}
           </text>
         );
       })}

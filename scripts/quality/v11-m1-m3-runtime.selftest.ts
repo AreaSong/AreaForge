@@ -19,9 +19,11 @@ import {
 } from "../../apps/web/lib/study/plan-inbox-service";
 import { createPlanMilestone, updatePlanMilestone } from "../../apps/web/lib/study/plan-milestone-service";
 import { startRecoveryV2 } from "../../apps/web/lib/study/recovery-v2-service";
+import { confirmKnowledgeRetest } from "../../apps/web/lib/study/knowledge-retest-service";
 import { createStudyTask } from "../../apps/web/lib/study/task-command-service";
 import { createTaskDependency } from "../../apps/web/lib/study/task-dependency-service";
 import { ApiError } from "../../apps/web/lib/api/responses";
+import { getStudyDayRange } from "../../apps/web/lib/study/date";
 
 const checks: Array<{ id: string; status: "pass"; details: Record<string, string | number | boolean> }> = [];
 
@@ -33,6 +35,7 @@ try {
   await verifyAtomicWorkspaceSetupAndRevisionWrites();
   await verifySubjectArchiveBoundaries();
   await verifyWorkspaceRecoverySwitchRace();
+  await verifyRetestFollowUpInbox();
   await verifySubjectLegacyCodeAndCustom();
   await verifyTakeoverIneligibleNoPartialWrite();
   await verifyTakeoverMidTransactionRollback();
@@ -283,7 +286,7 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
   });
   assert.equal(customGroup.workspace.revision, created.revision + 1);
 
-  const subject = await createWorkspaceSubject("user-b", created.id, {
+  const createdSubject = await createWorkspaceSubject("user-b", created.id, {
     expectedWorkspaceRevision: customGroup.workspace.revision,
     stableKey: "english",
     name: "英语",
@@ -291,8 +294,41 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
     groupId: customGroup.group.id,
     sortOrder: 30,
   });
-  const afterSubjectCreate = await prisma.examWorkspace.findUniqueOrThrow({ where: { id: created.id } });
+  const subject = createdSubject.subject;
+  const afterSubjectCreate = createdSubject.workspace;
   assert.equal(afterSubjectCreate.revision, customGroup.workspace.revision + 1);
+
+  const crossOwnerCommands = [
+    () => createWorkspaceSubject("user-a", created.id, {
+      expectedWorkspaceRevision: afterSubjectCreate.revision,
+      stableKey: "cross-owner-subject",
+      name: "越权科目",
+      color: "#ef4444",
+    }),
+    () => updateWorkspaceSubject("user-a", created.id, subject.id, {
+      expectedWorkspaceRevision: afterSubjectCreate.revision,
+      name: "越权修改科目",
+    }),
+    () => createSubjectGroup("user-a", created.id, {
+      expectedWorkspaceRevision: afterSubjectCreate.revision,
+      stableKey: "cross-owner-group",
+      name: "越权分组",
+    }),
+    () => updateSubjectGroup("user-a", created.id, customGroup.group.id, {
+      expectedWorkspaceRevision: afterSubjectCreate.revision,
+      name: "越权修改分组",
+    }),
+  ];
+  for (const command of crossOwnerCommands) {
+    await assert.rejects(
+      command,
+      (error: unknown) => error instanceof ApiError && error.code === "WORKSPACE_NOT_FOUND",
+    );
+  }
+  assert.equal(
+    (await prisma.examWorkspace.findUniqueOrThrow({ where: { id: created.id } })).revision,
+    afterSubjectCreate.revision,
+  );
 
   await assert.rejects(
     () => createWorkspaceSubject("user-b", created.id, {
@@ -324,6 +360,11 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
     expectedWorkspaceRevision: afterSubjectCreate.revision,
     archived: true,
   });
+  assert.equal(archivedGroupForCreate.lifecycle?.ungroupedSubjectCount, 1);
+  assert.equal(
+    (await prisma.subject.findUniqueOrThrow({ where: { id: subject.id } })).groupId,
+    null,
+  );
   const subjectCountBeforeArchivedGroupWrite = await prisma.subject.count({ where: { workspaceId: created.id } });
   await assert.rejects(
     () => createWorkspaceSubject("user-b", created.id, {
@@ -474,6 +515,7 @@ async function verifyAtomicWorkspaceSetupAndRevisionWrites(): Promise<void> {
     initialSubjectCount: initialRows.length,
     revisionDelta: restoredGroup.workspace.revision - created.revision,
     staleRevisionRejected,
+    crossOwnerCommandsBlocked: crossOwnerCommands.length,
   });
 }
 
@@ -509,17 +551,19 @@ async function verifySubjectArchiveBoundaries(): Promise<void> {
       dueDate: new Date("2026-07-26T00:00:00.000Z"),
     },
   });
-  const activeSession = await prisma.studySession.create({
-    data: { subjectId: primary!.id, status: "RUNNING", startedAt: new Date() },
-  });
-  await assert.rejects(
-    () => updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
-      expectedWorkspaceRevision: workspace.revision,
-      archived: true,
-    }),
-    (error: unknown) => error instanceof ApiError && error.code === "ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE",
-  );
-  await prisma.studySession.delete({ where: { id: activeSession.id } });
+  for (const status of ["RUNNING", "PAUSED", "CLOSING"] as const) {
+    const activeSession = await prisma.studySession.create({
+      data: { subjectId: primary!.id, status, startedAt: new Date() },
+    });
+    await assert.rejects(
+      () => updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
+        expectedWorkspaceRevision: workspace.revision,
+        archived: true,
+      }),
+      (error: unknown) => error instanceof ApiError && error.code === "ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE",
+    );
+    await prisma.studySession.delete({ where: { id: activeSession.id } });
+  }
 
   const archived = await updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
     expectedWorkspaceRevision: workspace.revision,
@@ -529,6 +573,7 @@ async function verifySubjectArchiveBoundaries(): Promise<void> {
   const pausedSchedule = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
   assert.equal(pausedSchedule.status, "PAUSED");
   assert.equal(pausedSchedule.pausedReason, "SUBJECT_ARCHIVED");
+  assert.equal(pausedSchedule.dueDate, null);
   await assert.rejects(
     () => createStudyTask({
       idempotencyKey: "m1m3-archived-subject-task",
@@ -547,6 +592,17 @@ async function verifySubjectArchiveBoundaries(): Promise<void> {
     }),
     (error: unknown) => error instanceof ApiError && error.code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED",
   );
+  const expectedResumeDate = getStudyDayRange().start.toISOString();
+  const restored = await updateWorkspaceSubject("user-subject-archive", workspace.id, primary!.id, {
+    expectedWorkspaceRevision: archived.workspace.revision,
+    archived: false,
+  });
+  assert.equal(restored.lifecycle?.resumedReviewScheduleCount, 1);
+  assert.equal(restored.lifecycle?.remainingPausedReviewScheduleCount, 0);
+  const remainingSchedule = await prisma.reviewSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+  assert.equal(remainingSchedule.status, "ACTIVE");
+  assert.equal(remainingSchedule.pausedReason, null);
+  assert.equal(remainingSchedule.dueDate?.toISOString(), expectedResumeDate);
 
   await prisma.user.create({
     data: { id: "user-subject-race", email: "subject-race@example.com", passwordHash: "x" },
@@ -570,7 +626,10 @@ async function verifySubjectArchiveBoundaries(): Promise<void> {
 
   pass("subject_archive_boundaries", {
     activeSessionBlocked: true,
+    pausedAndClosingSessionsBlocked: true,
     reviewSchedulePaused: true,
+    reviewScheduleRescheduledToCurrentStudyDay: true,
+    restoredSubjectReactivatesSchedule: true,
     archivedWriteRejected: true,
     lastSubjectPreserved: true,
     concurrentArchiveSerialized: true,
@@ -603,16 +662,95 @@ async function verifyWorkspaceRecoverySwitchRace(): Promise<void> {
   const activeRecoveries = await prisma.recoveryState.findMany({
     where: { userId: "user-workspace-race", status: "ACTIVE" },
   });
+  const allRecoveries = await prisma.recoveryState.findMany({
+    where: { userId: "user-workspace-race" },
+    select: { id: true },
+  });
+  const recoveryInboxItems = await prisma.planInboxItem.findMany({
+    where: { originType: "RECOVERY_MINIMUM", workspace: { userId: "user-workspace-race" } },
+    select: { originSnapshot: true },
+  });
   assert.equal(activeWorkspace.id, first.id);
   assert.equal(activeRecoveries.length <= 1, true);
   assert.equal(activeRecoveries.every((recovery) => recovery.workspaceId === activeWorkspace.id), true);
   assert.equal(await prisma.recoveryState.count({
     where: { workspaceId: second.id, status: "ACTIVE" },
   }), 0);
+  assert.equal(recoveryInboxItems.length, allRecoveries.length);
+  assert.equal(recoveryInboxItems.every((item) => {
+    const snapshot = item.originSnapshot as { recoveryId?: unknown };
+    return typeof snapshot.recoveryId === "string" && allRecoveries.some((recovery) => recovery.id === snapshot.recoveryId);
+  }), true);
   pass("workspace_recovery_switch_race", {
     activeWorkspaceId: activeWorkspace.id,
     activeRecoveryCount: activeRecoveries.length,
     archivedWorkspaceRecoveryCount: 0,
+    recoveryInboxCount: recoveryInboxItems.length,
+  });
+}
+
+async function verifyRetestFollowUpInbox(): Promise<void> {
+  const workspace = await prisma.examWorkspace.findFirstOrThrow({
+    where: { userId: "user-a", status: "ACTIVE" },
+  });
+  const subject = await prisma.subject.findFirstOrThrow({
+    where: { workspaceId: workspace.id, archivedAt: null },
+  });
+  const passedPoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: "user-a",
+      workspaceId: workspace.id,
+      primarySubjectId: subject.id,
+      stableKey: "runtime-retest-passed",
+      title: "已通过知识点",
+    },
+  });
+  const partialPoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: "user-a",
+      workspaceId: workspace.id,
+      primarySubjectId: subject.id,
+      stableKey: "runtime-retest-partial",
+      title: "待补强知识点",
+    },
+  });
+  const retest = await prisma.knowledgeRetest.create({
+    data: {
+      userId: "user-a",
+      workspaceId: workspace.id,
+      title: "运行时复测草稿验证",
+      method: "PROBLEM_SOLVE",
+      status: "PENDING_REVIEW",
+      result: "PARTIAL",
+      testedAt: new Date(),
+      summary: "一项通过，一项部分通过。",
+      reviewText: "部分通过的知识点需要继续补强。",
+      points: {
+        create: [
+          { knowledgePointId: passedPoint.id, result: "PASSED", score: 90, note: "已稳定掌握。" },
+          { knowledgePointId: partialPoint.id, result: "PARTIAL", score: 60, note: "边界仍不稳定。" },
+        ],
+      },
+    },
+  });
+  const command = { idempotencyKey: randomUUID(), expectedRevision: retest.revision };
+  const confirmed = await confirmKnowledgeRetest("user-a", retest.id, command);
+  const replayed = await confirmKnowledgeRetest("user-a", retest.id, command);
+  const inboxItems = await prisma.planInboxItem.findMany({
+    where: { workspaceId: workspace.id, originType: "RETEST_FOLLOW_UP" },
+  });
+
+  assert.equal(confirmed.status, "CLOSED");
+  assert.equal(replayed.id, confirmed.id);
+  assert.equal(inboxItems.length, 1);
+  assert.equal(inboxItems[0]?.subjectId, subject.id);
+  assert.equal(inboxItems[0]?.originVersion, confirmed.revision);
+  assert.equal(inboxItems[0]?.title, "复测补强：待补强知识点");
+  assert.ok(inboxItems[0]?.plannedDate);
+  pass("retest_follow_up_inbox", {
+    weakPointDraftCount: inboxItems.length,
+    passedPointDraftCount: 0,
+    idempotentReplay: true,
   });
 }
 
@@ -628,13 +766,13 @@ async function verifySubjectLegacyCodeAndCustom(): Promise<void> {
     color: "#111111",
     expectedWorkspaceRevision: workspace!.revision,
   });
-  assert.equal(custom.legacyCode, null);
-  assert.equal(custom.legacyScope, false);
+  assert.equal(custom.subject.legacyCode, null);
+  assert.equal(custom.subject.legacyScope, false);
 
   const legacy = await prisma.subject.findFirst({ where: { id: "subj-math" } });
   assert.equal(legacy?.legacyCode, "MATH");
   assert.equal(legacy?.workspaceId, null);
-  pass("subject_legacy_and_custom", { workspaceId: workspace!.id, customId: custom.id });
+  pass("subject_legacy_and_custom", { workspaceId: workspace!.id, customId: custom.subject.id });
 }
 
 async function verifyTakeoverIneligibleNoPartialWrite(): Promise<void> {

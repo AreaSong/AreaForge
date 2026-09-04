@@ -36,6 +36,8 @@
 
 - `packages/core` 提供 `summarizeSyllabusMap` 纯规则，把考纲节点状态聚合为覆盖率、验证率、推荐筛选和下一步动作。
 - `packages/core` 提供 `summarizeAnalyticsRisks` 纯规则，把有效学习不足、任务完成率偏低、复盘缺口、薄弱节点、到期错题和到期笔记压缩成风险项与行动建议。
+- `/roadmap/stages/trend` 可把当前 7/30 天窗口中的单条风险显式加入投入草稿。服务端重新计算同一窗口并校验风险 ID/类型仍存在后，保存 `ANALYTICS_RISK` 来源快照；过期页面返回冲突，不直接创建正式任务。
+- `/roadmap` 使用当前工作区每科、每自然周的真实投入预算，对比该周已完成 session 的实际与有效分钟。无预算或无投入时分别保持“未设置”和“暂无样本”，不复用考纲目标或伪造转化率。
 - `summarizeLongTermRisks` 通过 Web 只读服务和 `GET /api/analytics/long-term-risks`，把周期报告、任务债务、作战地图、复习队列、模拟考试、阶段计划和首页状态主题压缩成统一长期风险 DTO，并保持 `canAutoApply=false`、`requiresUserConfirmation=true`。
 - Web 层只负责查库和 DTO 格式转换，不写长期风险状态。
 

@@ -690,7 +690,7 @@ export async function getKnowledgeOverview(actorId: string) {
 
   const completedReviews = recentReviewEvents.length;
   const passedCount = recentReviewEvents.filter((e) => e.result === "PASSED").length;
-  const retentionRate7d = completedReviews > 0 ? Math.round((passedCount / completedReviews) * 100) : 100;
+  const retentionRate7d = completedReviews > 0 ? Math.round((passedCount / completedReviews) * 100) : null;
 
   const ebbinghausStats = {
     overdue,
@@ -753,7 +753,7 @@ export async function getKnowledgeOverview(actorId: string) {
 
     const masteryRate = totalPoints > 0
       ? Math.round(((stableCount * 1.0 + initialCount * 0.7 + learningCount * 0.3) / totalPoints) * 100)
-      : 0;
+      : null;
 
     return {
       subjectId: s.id,
@@ -771,19 +771,19 @@ export async function getKnowledgeOverview(actorId: string) {
 
   const overallMasteryRate = totalAllPoints > 0
     ? Math.round(((stableAll * 1.0 + initialAll * 0.7 + learningAll * 0.3) / totalAllPoints) * 100)
-    : 0;
+    : null;
 
   const coverageRate = totalAllPoints > 0
     ? Math.round(((totalAllPoints - untouchedAll) / totalAllPoints) * 100)
-    : 0;
+    : null;
 
   const retestRate = totalAllPoints > 0
     ? Math.min(100, Math.round((retestedPointsCount / Math.max(weakAll + stableAll, 1)) * 100))
-    : 70;
+    : null;
 
   const avgDepth = totalAllPoints > 0
     ? Math.round(totalConfidence / totalAllPoints)
-    : 65;
+    : null;
 
   const radarDimensions = [
     { label: "覆盖率", value: coverageRate },

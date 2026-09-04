@@ -24,7 +24,6 @@ import {
 import { createStageAdjustmentDraft, type CreateStageAdjustmentDraftInput } from "./stage-service";
 import type { StageAdjustmentDraftRecordDto } from "@/lib/contracts";
 
-const defaultStageGoal = "2026 年 12 月同步全真自测";
 const stageGoalSummaryMaxLength = 120;
 const staleEvidenceDays = 30;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -135,7 +134,7 @@ export async function minimizedLongTermStageContext(
     rangeDays: analytics.range.days,
     workspaceId: workspace.id,
     stagePlanId: stagePlan.id,
-    stageGoalSummary: summarizeStageGoal(stagePlan.goal ?? defaultStageGoal),
+    stageGoalSummary: summarizeStageGoal(stagePlan.goal),
     effectiveMinutes: analytics.totals.weekEffectiveMinutes,
     taskCompletionRate: analytics.totals.weeklyTaskCompletionRate,
     reviewCompletionRate: analytics.totals.reviewCompletionRate,
@@ -410,9 +409,9 @@ function createRiskTags(
   now: Date,
 ): string[] {
   const tags = new Set<string>();
-  if (analytics.totals.weeklyTaskCompletionRate < 0.35) tags.add("low_completion");
+  if (analytics.totals.weeklyTaskCompletionRate != null && analytics.totals.weeklyTaskCompletionRate < 0.35) tags.add("low_completion");
   if (analytics.totals.lowConversionCount > 0) tags.add("low_conversion");
-  if (analytics.totals.reviewCompletionRate < 0.5) tags.add("review_gap");
+  if (analytics.totals.reviewCompletionRate != null && analytics.totals.reviewCompletionRate < 0.5) tags.add("review_gap");
   if ((latestExam?.scoreRate ?? 1) < 0.55) tags.add("simulation_gap");
   if (stagePlan && daysUntil(stagePlan.endDate, now) <= 45) tags.add("sprint");
   if (tags.size === 0) tags.add("steady");

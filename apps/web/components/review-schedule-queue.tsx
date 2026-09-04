@@ -52,7 +52,7 @@ export function ReviewScheduleQueue(props: {
   const subsequentDueItems = filteredDueItems.slice(1);
   const [view, setView] = useState<QueueView>(() => initialQueueView(subsequentDueItems, props));
   const totalToday = props.summary.completedTodayCount + props.dueItems.length;
-  const progress = totalToday > 0 ? Math.round((props.summary.completedTodayCount / totalToday) * 100) : 100;
+  const progress = totalToday > 0 ? Math.round((props.summary.completedTodayCount / totalToday) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -66,7 +66,7 @@ export function ReviewScheduleQueue(props: {
         <Card variant="subtle" className="p-3.5">
           <div className="flex items-end justify-between gap-3 text-xs text-zinc-400">
             <span>今日进度（全部）</span>
-            <span className="text-zinc-200">{props.summary.completedTodayCount} / {totalToday}</span>
+            <span className="text-zinc-200">{totalToday > 0 ? `${props.summary.completedTodayCount} / ${totalToday}` : "暂无安排"}</span>
           </div>
           <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="今日复习进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
             <div className="h-full rounded-full bg-teal-400 transition-all duration-300" style={{ width: `${progress}%` }} />

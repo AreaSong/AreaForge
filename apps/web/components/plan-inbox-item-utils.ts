@@ -18,6 +18,42 @@ export interface PlanInboxFormDraft {
   predecessors: Array<{ taskId: string; dependencyType: DependencyType }>;
 }
 
+export type PlanInboxRequiredFieldKey = "title" | "subjectId" | "plannedDate" | "estimatedMinutes" | "planMilestoneId";
+export type PlanInboxEditorFields = "all" | PlanInboxRequiredFieldKey[] | null;
+
+export interface PlanInboxMissingField {
+  key: PlanInboxRequiredFieldKey;
+  label: string;
+}
+
+export function getPlanInboxMissingFields(
+  draft: PlanInboxFormDraft,
+  requiredMilestoneKey: string | null,
+): PlanInboxMissingField[] {
+  return [
+    !draft.title.trim() ? { key: "title", label: "标题" } : null,
+    !draft.subjectId ? { key: "subjectId", label: "科目" } : null,
+    !draft.plannedDate ? { key: "plannedDate", label: "日期" } : null,
+    !Number(draft.estimatedMinutes) || Number(draft.estimatedMinutes) < 1 ? { key: "estimatedMinutes", label: "预计时长" } : null,
+    requiredMilestoneKey && !draft.planMilestoneId ? { key: "planMilestoneId", label: "里程碑" } : null,
+  ].filter((field): field is PlanInboxMissingField => field !== null);
+}
+
+export function initialPlanInboxEditorFields(
+  draft: PlanInboxFormDraft,
+  requiredMilestoneKey: string | null,
+): PlanInboxEditorFields {
+  const missing = getPlanInboxMissingFields(draft, requiredMilestoneKey);
+  return missing.length > 0 ? missing.map((field) => field.key) : null;
+}
+
+export function isPlanInboxEditorFieldVisible(
+  editorFields: PlanInboxEditorFields,
+  field: PlanInboxRequiredFieldKey,
+): boolean {
+  return editorFields === "all" || Boolean(editorFields?.includes(field));
+}
+
 export interface PlanInboxConflict {
   latest: PlanInboxItemDto;
   conflictFields: string[];
@@ -65,7 +101,7 @@ export function toPlanInboxFormDraft(item: PlanInboxItemDto): PlanInboxFormDraft
 }
 
 export function planInboxStatusLabel(status: PlanInboxItemDto["status"]): string {
-  if (status === "OPEN") return "待补全";
+  if (status === "OPEN") return "待安排";
   if (status === "CONVERTED") return "已转为任务";
   return "已忽略";
 }

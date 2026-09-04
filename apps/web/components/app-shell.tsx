@@ -105,15 +105,15 @@ export function AppShell(props: {
   }, [props.userId]);
 
   const recoveryProps = useMemo(() => {
-    const isRecoveryCandidate = status.motivationReminderCandidate?.trigger === "RECOVERY";
-    const hasActiveRecovery = isRecoveryCandidate || recovery.hasAutomaticReminder;
+    const activeRecovery = status.activeRecovery;
     return {
-      active: hasActiveRecovery,
-      stage: 1,
-      targetMinutes: 30,
+      active: Boolean(activeRecovery),
+      stage: activeRecovery?.currentStage ?? 1,
+      targetMinutes: activeRecovery?.targetMinutes ?? 0,
+      reason: activeRecovery?.reason,
       onOpen: () => void recovery.open(),
     };
-  }, [status.motivationReminderCandidate, recovery]);
+  }, [status.activeRecovery, recovery]);
 
   const eveningReviewProps = useMemo(() => {
     const todayClosureLight = displayStatus.lights.find((light) => light.kind === "todayClosure");

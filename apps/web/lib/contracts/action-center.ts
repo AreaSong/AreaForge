@@ -18,6 +18,19 @@ export interface SubjectShortcutTaskOptionDto {
   disabledReason: string | null;
 }
 
+export type ActionCenterRecommendationFeedbackDto = "HELPFUL" | "NOT_NOW";
+
+export interface ActionCenterContinuationDto {
+  sessionId: string;
+  subjectId: string;
+  subjectName: string;
+  taskId: string | null;
+  taskTitle: string | null;
+  nextAction: string;
+  endedAt: string;
+  href: string;
+}
+
 export interface ActionCenterTodayDto {
   studyDate: string;
   isToday: boolean;
@@ -28,6 +41,7 @@ export interface ActionCenterTodayDto {
   queuesEmpty: boolean;
   subjectTimers: SubjectTimerSummary;
   activity: StudySessionDto | null;
+  continuation: ActionCenterContinuationDto | null;
   recovery: RecoveryV2Dto | null;
   checkIn: CheckInV2Dto | null;
   shortcutOptions: {
@@ -44,6 +58,7 @@ export interface ActionCenterTodayDto {
     effectiveMinutes: number;
     totalMinutes: number;
     effectiveSessionCount: number;
+    evidenceCount: number;
     lowConversionCount: number;
     reviewSubmitted: boolean;
     nextAction: string | null;

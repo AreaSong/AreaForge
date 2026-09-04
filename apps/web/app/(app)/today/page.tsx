@@ -15,6 +15,6 @@ export default async function TodayPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const query = await searchParams;
-  const today = await getActionCenterToday(user.id, query.date, { recordRecoveryRule: true });
+  const today = await getActionCenterToday(user.id, query.date);
   return <ActionCenterToday initial={today} />;
 }

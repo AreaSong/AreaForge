@@ -11,7 +11,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
   color: z.string().trim().min(1).max(32),
   sortOrder: z.number().int().optional(),
-  groupId: z.string().nullable().optional(),
+  groupId: z.string().trim().min(1).nullable().optional(),
   expectedWorkspaceRevision: z.number().int().positive(),
 });
 
@@ -37,10 +37,7 @@ export async function POST(
     const { id } = await context.params;
     const parsed = createSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json(
-      { subject: await createWorkspaceSubject(user.id, id, parsed.data) },
-      { status: 201 },
-    );
+    return NextResponse.json(await createWorkspaceSubject(user.id, id, parsed.data), { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

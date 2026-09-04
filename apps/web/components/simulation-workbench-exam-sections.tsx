@@ -42,7 +42,7 @@ export function SimulationExamSection(props: SimulationExamSectionProps) {
         </div>
         <label className="flex items-center gap-2 rounded-[var(--af-radius-control)] border border-[var(--af-border)] bg-[var(--af-surface-raised)] px-3 py-3 text-sm text-zinc-200">
           <Checkbox checked={props.firstSynchronized} onChange={(event) => props.onFirstSynchronizedChange(event.target.checked)} disabled={props.pending} />
-          2026 年 12 月同步自测
+          标记为首次同步自测
         </label>
         <Button variant="primary" size="lg" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-4 font-medium text-[#071011] disabled:cursor-not-allowed disabled:opacity-50" type="submit" loading={props.pending} loadingLabel="创建中...">
           <Plus className="h-4 w-4" aria-hidden="true" />新建

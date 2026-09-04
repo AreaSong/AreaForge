@@ -155,11 +155,11 @@ export function MistakeTrendSummary({ mistake }: { mistake: MistakeDto }) {
   const recent = mistake.attempts.slice(0, 5);
   const passed = recent.filter((attempt) => attempt.result === "PASSED").length;
   const failed = recent.filter((attempt) => attempt.result === "FAILED").length;
-  const rate = recent.length ? Math.round((passed / recent.length) * 100) : 0;
+  const rate = recent.length ? Math.round((passed / recent.length) * 100) : null;
   const latest = recent[0];
   return (
     <div className="af-metric-grid-four grid gap-2">
-      <TrendMetric label="最近通过率" value={`${rate}%`} />
+      <TrendMetric label="最近通过率" value={rate == null ? "暂无样本" : `${rate}%`} />
       <TrendMetric label="连续通过" value={`${mistake.reviewSchedule?.consecutivePassCount ?? 0} 次`} />
       <TrendMetric label="最近失败" value={`${failed} 次`} />
       <TrendMetric label="最近结果" value={latest ? labelResult(latest.result) : "暂无"} />

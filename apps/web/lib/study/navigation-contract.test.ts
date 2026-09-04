@@ -68,6 +68,7 @@ test("simulation workbench copy stays under the test workbench", () => {
   assert.match(pageSource, /eyebrow="检验"/);
   assert.doesNotMatch(pageSource, /eyebrow="阶段"/);
   assert.match(formSource, /useState\("模拟考试"\)/);
+  assert.match(formSource, /id="simulation-exam-date"[\s\S]*?required/);
 });
 
 test("invalid return paths fall back to the independent focus entry", () => {

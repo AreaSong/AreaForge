@@ -75,20 +75,24 @@ export function TestKpiStrip({ kpis, className = "" }: TestKpiStripProps) {
               </span>
             ) : null}
           </div>
-          <div className="mt-1.5 flex items-center justify-between gap-2">
-            <div className="w-20">
-              <MiniSparkline
-                data={kpis.scoreTrajectory.length > 0 ? kpis.scoreTrajectory : [0]}
-                targetValue={kpis.avgTargetScore ?? undefined}
-                width={80}
-                height={18}
-                color="#2dd4bf"
-                showLastPoint={false}
-                showTarget={false}
-              />
-            </div>
+          <div className="mt-1.5 flex min-h-[18px] items-center justify-between gap-2">
+            {kpis.scoreTrajectory.length > 0 ? (
+              <div className="w-20">
+                <MiniSparkline
+                  data={kpis.scoreTrajectory}
+                  targetValue={kpis.avgTargetScore ?? undefined}
+                  width={80}
+                  height={18}
+                  color="#2dd4bf"
+                  showLastPoint={false}
+                  showTarget={false}
+                />
+              </div>
+            ) : <span className="text-[10px] text-zinc-600">暂无成绩样本</span>}
             <span className="text-[10px] font-mono text-zinc-500">
-              {kpis.scoreTrajectory.length > 1 ? "历次走势" : "首场数据"}
+              {kpis.scoreTrajectory.length > 1
+                ? "历次走势"
+                : kpis.scoreTrajectory.length === 1 ? "首场数据" : "暂无走势"}
             </span>
           </div>
         </Card>
@@ -179,7 +183,7 @@ export function TestKpiStrip({ kpis, className = "" }: TestKpiStripProps) {
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-2">
             <span className="text-2xl font-bold font-mono tracking-tight text-rose-300">
-              -{kpis.cumulativeLostScore}
+              {kpis.cumulativeLostScore == null ? "--" : `-${kpis.cumulativeLostScore}`}
               <span className="ml-1 text-xs font-normal text-zinc-500">分</span>
             </span>
             <span className="text-[11px] font-mono text-zinc-400">
@@ -187,8 +191,10 @@ export function TestKpiStrip({ kpis, className = "" }: TestKpiStripProps) {
             </span>
           </div>
           <div className="mt-2 text-[10px] text-zinc-500 flex items-center justify-between">
-            <span>薄弱点定位</span>
-            <span className="text-teal-400 font-medium">查看排行榜 ↓</span>
+            <span>{kpis.cumulativeLostScore == null ? "暂无失分样本" : "薄弱点定位"}</span>
+            {kpis.cumulativeLostScore == null
+              ? <span className="text-zinc-500">完成模考后生成</span>
+              : <span className="text-teal-400 font-medium">查看排行榜 ↓</span>}
           </div>
         </Card>
       </div>

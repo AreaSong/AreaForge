@@ -1,15 +1,9 @@
 "use client";
 
-import { BookOpen, ListTodo, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Alert } from "@/components/ui/feedback";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/field";
 import { FocusSessionClient } from "@/components/focus-session-client";
-import {
-  FocusHeroDial,
-  SubjectTileGrid,
-} from "@/components/focus-launcher-views";
+import { FocusHeroDial } from "@/components/focus-launcher-views";
+import { FocusLauncherSetupPanel } from "@/components/focus-launcher-setup-panel";
 import {
   createLocalFocusSession,
   createFocusStartIdempotencyKey,
@@ -47,6 +41,10 @@ export function FocusLauncher({
   commandMode,
   commandText,
   launcherSummary,
+  initialSubjectId,
+  initialTaskId,
+  initialGoalMinutes,
+  initialStartSource,
 }: {
   subjects: SubjectDto[];
   userId: string;
@@ -56,10 +54,14 @@ export function FocusLauncher({
   commandText?: string;
   contextOptions: { tasks: StudyTaskDto[]; syllabusNodes: SyllabusOptionNodeDto[]; knowledgePoints: KnowledgePointDto[] };
   launcherSummary?: FocusLauncherSummaryDto | null;
+  initialSubjectId?: string;
+  initialTaskId?: string;
+  initialGoalMinutes?: number;
+  initialStartSource?: "RECOVERY";
 }) {
-  const subjectRef = useRef<HTMLSelectElement>(null);
-  const [subjectId, setSubjectId] = useState("");
-  const [durationPreset, setDurationPreset] = useState(0);
+  const [subjectId, setSubjectId] = useState(initialSubjectId ?? "");
+  const [taskId, setTaskId] = useState(initialTaskId ?? "");
+  const [durationPreset, setDurationPreset] = useState(initialGoalMinutes ?? 0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [offlineSnapshot, setOfflineSnapshot] = useState<FocusOfflineSnapshot | null>(null);
@@ -73,14 +75,20 @@ export function FocusLauncher({
   const selectedSubject = useMemo(() => subjects.find((item) => item.id === subjectId) ?? null, [subjects, subjectId]);
   const relatedSubjectTasks = useMemo(() => {
     if (!selectedSubject) return [];
-    return contextOptions.tasks.filter((task) => task.subjectId === selectedSubject.id && task.status !== "done");
+    return contextOptions.tasks.filter(
+      (task) => task.subjectId === selectedSubject.id && (task.status === "todo" || task.status === "in_progress"),
+    );
   }, [selectedSubject, contextOptions.tasks]);
+  const selectedTask = useMemo(
+    () => relatedSubjectTasks.find((task) => task.id === taskId) ?? null,
+    [relatedSubjectTasks, taskId],
+  );
   useEffect(() => {
     offlineSnapshotRef.current = offlineSnapshot;
   }, [offlineSnapshot]);
   useEffect(() => {
     if (commandMode !== "now") return;
-    const timer = window.setTimeout(() => subjectRef.current?.focus(), 0);
+    const timer = window.setTimeout(() => document.getElementById("focus-subject-select")?.focus(), 0);
     return () => window.clearTimeout(timer);
   }, [commandMode]);
   useEffect(() => {
@@ -184,6 +192,12 @@ export function FocusLauncher({
           userId,
           subjectId: subject.id,
           subjectName: subject.name,
+          taskId: selectedTask?.id ?? null,
+          taskTitle: selectedTask?.title ?? null,
+          syllabusNodeId: selectedTask?.syllabusNodeId ?? null,
+          syllabusNodeTitle: selectedTask?.syllabusNodeTitle ?? null,
+          goalMinutes: durationPreset > 0 ? durationPreset : null,
+          startSource: selectedTask ? "TASK" : initialStartSource ?? "SUBJECT_SHORTCUT",
           clientDeviceId: device.id,
           clientDeviceLabel: device.label,
         });
@@ -191,7 +205,9 @@ export function FocusLauncher({
           idempotencyKey: createFocusStartIdempotencyKey(),
           startedAt: localSession.startedAt,
           subjectId: subject.id,
-          startSource: "SUBJECT_SHORTCUT",
+          taskId: selectedTask?.id,
+          goalMinutes: durationPreset > 0 ? durationPreset : null,
+          startSource: selectedTask ? "TASK" : initialStartSource ?? "SUBJECT_SHORTCUT",
           clientDeviceId: device.id,
           clientDeviceLabel: device.label,
         };
@@ -265,7 +281,7 @@ export function FocusLauncher({
         startOperations.succeed("start", generation);
       }
     });
-  }, [startOperations, subjectId, subjects, userId]);
+  }, [durationPreset, initialStartSource, selectedTask, startOperations, subjectId, subjects, userId]);
   async function adoptStartConflict() {
     if (!startConflict) return;
     if (!startConflict.latest) {
@@ -308,6 +324,7 @@ export function FocusLauncher({
         const index = parseInt(event.key, 10) - 1;
         if (subjects[index]) {
           setSubjectId(subjects[index].id);
+          setTaskId("");
           setError(null);
         }
       } else if (event.key === "ArrowLeft" || event.key === "[") {
@@ -380,119 +397,36 @@ export function FocusLauncher({
           durationPreset={durationPreset}
           onPresetChange={setDurationPreset}
           tasks={contextOptions.tasks}
+          initialNow={initialNow}
         />
-        {/* Action & Configuration Panel */}
-        <aside className="af-focus-config flex min-h-[32rem] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[var(--af-surface-subtle)] p-4 sm:p-5 lg:p-6">
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 focus-scrollbar">
-            <div>
-              <div className="flex items-center gap-2 text-teal-300">
-                <BookOpen className="size-4 sm:size-5" aria-hidden="true" />
-                <span className="text-[11px] sm:text-xs font-medium uppercase tracking-wider">Focus Setup</span>
-              </div>
-              <h1 className="mt-2 text-xl sm:text-2xl font-semibold text-white">今天先学什么？</h1>
-              <p className="mt-1 text-xs sm:text-sm leading-relaxed text-zinc-400">
-                科目是开始学习的唯一必选项。具体学了什么，结束后再按实际情况沉淀。
-              </p>
-              {commandMode === "now" ? (
-                <p className="mt-2 rounded-md bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 text-xs text-teal-200">
-                  已识别“立即开始”命令{commandText ? `：${commandText}` : ""}，选定科目后即刻启动计时。
-                </p>
-              ) : null}
-            </div>
-            {/* Quick Subject Tiles */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="focus-subject-select" className="text-xs sm:text-sm font-medium text-zinc-300">
-                  选择科目 <span className="text-[11px] sm:text-xs text-zinc-500">(按数字键 1-{Math.min(subjects.length, 9)} 快捷选择)</span>
-                </label>
-              </div>
-              <SubjectTileGrid
-                subjects={subjects}
-                subjectId={subjectId}
-                onSelect={(id) => {
-                  setSubjectId(id);
-                  setError(null);
-                }}
-                tasks={contextOptions.tasks}
-              />
-              {/* Accessible Hidden/Native Select fallback */}
-              <Select
-                id="focus-subject-select"
-                ref={subjectRef}
-                value={subjectId}
-                onChange={(event) => {
-                  setSubjectId(event.target.value);
-                  setError(null);
-                }}
-                className="sr-only"
-                disabled={!subjects.length}
-                aria-label="科目"
-              >
-                <option value="">选择科目</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            {/* Contextual Tasks Reference Peek (Optional) */}
-            {selectedSubject && relatedSubjectTasks.length > 0 ? (
-              <div className="rounded-xl border border-white/10 bg-[var(--af-surface)] p-3">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <ListTodo className="size-3.5 text-teal-300" aria-hidden="true" />
-                  <span>今日待办参考 ({relatedSubjectTasks.length})</span>
-                </div>
-                <ul className="mt-2 space-y-1">
-                  {relatedSubjectTasks.slice(0, 3).map((task) => (
-                    <li key={task.id} className="flex items-center justify-between text-xs text-zinc-400">
-                      <span className="truncate pr-2">• {task.title}</span>
-                      {task.estimatedMinutes ? (
-                        <span className="shrink-0 text-zinc-500">{task.estimatedMinutes}m</span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {!subjects.length ? (
-              <Alert tone="warning" title="还没有可用科目">
-                先到设置 → 考试与科目添加至少一个科目。
-              </Alert>
-            ) : null}
-            {error ? <Alert tone="danger">{error}</Alert> : null}
-          </div>
-          <div className="shrink-0 pt-3 space-y-2 border-t border-white/5">
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              className={`w-full h-11 sm:h-12 text-sm sm:text-base font-medium transition-all duration-200 ${
-                selectedSubject
-                  ? "hover:scale-[1.01] active:scale-[0.98] shadow-[0_0_24px_rgba(45,212,191,0.25)] hover:shadow-[0_0_36px_rgba(45,212,191,0.45)] ring-1 ring-teal-400/40"
-                  : "shadow-[0_0_16px_rgba(45,212,191,0.1)]"
-              }`}
-              onClick={start}
-              loading={startBusy}
-              disabled={!subjects.length || !subjectId}
-            >
-              <Play className="size-4 fill-current transition-transform group-hover:scale-110" aria-hidden="true" />
-              {selectedSubject
-                ? `开始【${selectedSubject.name}】专注`
-                : "开始学习"}
-            </Button>
-            <p className="text-center text-[11px] sm:text-xs leading-normal text-zinc-500">
-              多标签页与设备自动单实例互斥 · 离开页面计时后台继续
-            </p>
-          </div>
-          <FocusStartConflictModal
-            conflict={startConflict}
-            open={startConflictOpen}
-            onClose={() => setStartConflictOpen(false)}
-            onAdopt={() => void adoptStartConflict()}
-            onRetry={() => void retryStartConflict()}
-          />
-        </aside>
+        <FocusLauncherSetupPanel
+          subjects={subjects}
+          subjectId={subjectId}
+          selectedSubject={selectedSubject}
+          relatedSubjectTasks={relatedSubjectTasks}
+          taskId={taskId}
+          tasks={contextOptions.tasks}
+          commandMode={commandMode}
+          commandText={commandText}
+          error={error}
+          startBusy={startBusy}
+          conflictDialog={(
+            <FocusStartConflictModal
+              conflict={startConflict}
+              open={startConflictOpen}
+              onClose={() => setStartConflictOpen(false)}
+              onAdopt={() => void adoptStartConflict()}
+              onRetry={() => void retryStartConflict()}
+            />
+          )}
+          onSubjectSelect={(id) => {
+            setSubjectId(id);
+            setTaskId("");
+            setError(null);
+          }}
+          onTaskSelect={setTaskId}
+          onStart={start}
+        />
       </div>
     </div>
   );

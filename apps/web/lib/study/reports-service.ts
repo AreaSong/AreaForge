@@ -15,6 +15,7 @@ import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
 import { resolveActiveWorkspace } from "./exam-workspace-service";
 import { aggregateActivityBreakdown, activityBucket } from "./activity-metrics";
+import { summarizeReviewCoverage } from "./study-day-metrics";
 import type { PlanInboxWriteSummaryDto } from "@/lib/contracts";
 import type {
   PeriodicReportDecisionDto,
@@ -39,6 +40,7 @@ export type {
 } from "@/lib/contracts/reports";
 
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
+type PeriodicSnapshotWithTaskSample = CheckInSnapshotSummary & { taskCount: number };
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 
 export async function getPeriodicReports(now = new Date(), actorId?: string): Promise<PeriodicReportsDto> {
@@ -218,7 +220,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
   const completedTaskCount = tasks.filter((task) => task.status === "DONE").length;
   const taskCompletionRate = averageDailyTaskCompletion(dailySnapshots);
   const lowConversionCount = dailySnapshots.reduce((total, snapshot) => total + snapshot.lowConversionCount, 0);
-  const reviewCompletionRate = dailySnapshots.filter((snapshot) => snapshot.reviewSubmitted).length / range.days;
+  const reviewCoverage = summarizeReviewCoverage(dailySnapshots, now);
   const mistakesCreatedCount = mistakes.filter((mistake) => isWithin(mistake.createdAt, range.start, range.end)).length;
   const mistakeReviewUpdateCount = mistakes.filter((mistake) => isReviewUpdate(mistake, range.start, range.end)).length;
   const subjectShares = buildSubjectShares(subjects, sessions, debtTasks, mistakes);
@@ -278,7 +280,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     lowConversionCount,
     mistakesCreatedCount,
     mistakeReviewUpdateCount,
-    reviewCompletionRate,
+    reviewCompletionRate: reviewCoverage.completionRate,
     weakNodeCount: weakNodes.length,
     dueNoteCount,
     weakness,
@@ -296,7 +298,8 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     completedTaskCount,
     debtCount: debtTasks.length,
     lowConversionCount,
-    reviewCompletionRate,
+    reviewCompletionRate: reviewCoverage.completionRate,
+    reviewSampleDays: reviewCoverage.sampleDays,
     reviewCount: reviews.length,
     activity,
     mistakesCreatedCount,
@@ -482,29 +485,31 @@ function buildPeriodicDailySnapshots(
     reviewDate: Date;
   }>,
   checkInSnapshots: Map<string, CheckInSnapshotSummary>,
-): CheckInSnapshotSummary[] {
+): PeriodicSnapshotWithTaskSample[] {
   const reviewKeys = new Set(reviews.map((review) => getStudyDayRange(review.reviewDate).key));
 
   return Array.from({ length: range.days }, (_, index) => {
     const day = getStudyDayRange(new Date(range.start.getTime() + index * dayMs));
-    const snapshot = checkInSnapshots.get(day.key);
-    if (snapshot) {
-      return snapshot;
-    }
-
     const daySessions = sessions.filter((session) => session.startedAt >= day.start && session.startedAt < day.end);
     const dayTasks = tasks.filter((task) => task.plannedDate >= day.start && task.plannedDate < day.end);
+    const snapshot = checkInSnapshots.get(day.key);
+    if (snapshot) {
+      return { ...snapshot, taskCount: dayTasks.length };
+    }
 
-    return buildDailyCheckInSnapshot({
-      studyDate: day.key,
-      sessions: daySessions.filter((session) => activityBucket(session) === "study").map((session) => ({
-        effectiveMinutes: session.effectiveMinutes,
-        isEffective: session.isEffective,
-        isLowConversion: session.isLowConversion,
-      })),
-      tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
-      reviewSubmitted: reviewKeys.has(day.key),
-    });
+    return {
+      ...buildDailyCheckInSnapshot({
+        studyDate: day.key,
+        sessions: daySessions.filter((session) => activityBucket(session) === "study").map((session) => ({
+          effectiveMinutes: session.effectiveMinutes,
+          isEffective: session.isEffective,
+          isLowConversion: session.isLowConversion,
+        })),
+        tasks: dayTasks.map((task) => ({ status: toCoreTaskStatus(task.status) })),
+        reviewSubmitted: reviewKeys.has(day.key),
+      }),
+      taskCount: dayTasks.length,
+    };
   });
 }
 
@@ -557,12 +562,12 @@ function buildSubjectShares(
 function createStrategy(input: {
   kind: PeriodicReportKind;
   effectiveMinutes: number;
-  taskCompletionRate: number;
+  taskCompletionRate: number | null;
   debtCount: number;
   lowConversionCount: number;
   mistakesCreatedCount: number;
   mistakeReviewUpdateCount: number;
-  reviewCompletionRate: number;
+  reviewCompletionRate: number | null;
   weakNodeCount: number;
   dueNoteCount: number;
   weakness: PeriodicReportDto["weakness"];
@@ -603,9 +608,10 @@ function createLocalReportDraft(strategy: PeriodicReportDto["strategy"]): Period
   };
 }
 
-function averageDailyTaskCompletion(snapshots: Array<{ taskCompletionRate: number }>): number {
-  if (snapshots.length === 0) return 0;
-  return snapshots.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / snapshots.length;
+function averageDailyTaskCompletion(snapshots: PeriodicSnapshotWithTaskSample[]): number | null {
+  const sampled = snapshots.filter((snapshot) => snapshot.taskCount > 0);
+  if (sampled.length === 0) return null;
+  return sampled.reduce((total, snapshot) => total + snapshot.taskCompletionRate, 0) / sampled.length;
 }
 
 function toCoreTaskStatus(status: DbTaskStatus): TaskStatus {

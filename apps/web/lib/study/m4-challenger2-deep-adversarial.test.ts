@@ -245,6 +245,8 @@ test("adversarial m4: plan inbox item equality and conflict comparisons", () => 
   assert.equal(planInboxOriginLabel("DAILY_REVIEW_MINIMUM"), "来自今日复盘");
   assert.equal(planInboxOriginLabel("AI_PLAN"), "来自 AI 计划草稿");
   assert.equal(planInboxOriginLabel("SIMULATION_LOSS"), "来自模拟考试补救");
+  assert.equal(planInboxOriginLabel("RECOVERY_MINIMUM"), "来自恢复最小行动");
+  assert.equal(planInboxOriginLabel("RETEST_FOLLOW_UP"), "来自专项复测补强");
   assert.equal(planInboxOriginLabel("UNKNOWN_ORIGIN"), "投入草稿");
 });
 

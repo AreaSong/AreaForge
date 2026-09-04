@@ -5,7 +5,7 @@ export interface AnalyticsDailyPointDto {
   dayKey: string;
   totalMinutes: number;
   effectiveMinutes: number;
-  taskCompletionRate: number;
+  taskCompletionRate: number | null;
   reviewSubmitted: boolean;
   activity: ActivityBreakdown;
 }
@@ -44,11 +44,14 @@ export interface AnalyticsSummaryDto {
     todayEffectiveMinutes: number;
     weekMinutes: number;
     weekEffectiveMinutes: number;
-    dailyTaskCompletionRate: number;
-    weeklyTaskCompletionRate: number;
+    dailyTaskCompletionRate: number | null;
+    weeklyTaskCompletionRate: number | null;
+    taskCount: number;
+    taskSampleDays: number;
     streakDays: number;
     missedDays: number;
-    reviewCompletionRate: number;
+    reviewCompletionRate: number | null;
+    reviewSampleDays: number;
     totalMistakes: number;
     dueMistakes: number;
     dueNotes: number;

@@ -80,6 +80,18 @@ test("fallback stage adjustment advice validates as confirm-only draft", () => {
   assert.ok(advice.focusSubjects.length > 0);
 });
 
+test("fallback stage adjustment advice accepts missing review evidence", () => {
+  const advice = createFallbackStageAdjustmentAdvice({
+    ...stageAdjustmentContext(),
+    taskCompletionRate: null,
+    reviewCompletionRate: null,
+    lowConversionCount: 0,
+  });
+
+  assert.equal(validateStageAdjustmentAdvice(advice).status, "local_rule_fallback");
+  assert.deepEqual(advice.taskAdjustmentActions, ["retest"]);
+});
+
 test("mock provider success is validated as ai generated output", async () => {
   const result = await generateAdviceWithProvider({
     kind: "discipline",

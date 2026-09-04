@@ -1,7 +1,7 @@
 export interface StudyCloseoutInput {
   minutes: number;
   userMarkedEffective: boolean;
-  understandingLevel: string;
+  understandingLevel?: string;
   minimalOutput: string;
   nextAction: string;
   note?: string;
@@ -15,7 +15,7 @@ export interface StudyCloseoutSummary {
   antiFakeReason: string;
   requiredOutput: string;
   hasOutput: boolean;
-  canExplain: boolean;
+  canExplain: boolean | null;
   practiced: boolean;
   reviewedMistake: boolean;
   closeoutText: string;
@@ -24,7 +24,7 @@ export interface StudyCloseoutSummary {
 export interface AntiFakeStudyInput {
   minutes: number;
   hasOutput: boolean;
-  canExplain: boolean;
+  canExplain: boolean | null;
   practiced: boolean;
   reviewedMistake: boolean;
 }
@@ -381,7 +381,7 @@ export function evaluateAntiFakeStudy(input: AntiFakeStudyInput): AntiFakeStudyR
     };
   }
 
-  if (!input.canExplain && !input.practiced) {
+  if (input.canExplain === false && !input.practiced) {
     return {
       isLowConversion: true,
       reason: "看过不等于会了，还没有讲清或做题验证。",
@@ -410,7 +410,7 @@ function composeCloseoutText(
   isEffective: boolean,
 ): string {
   return [
-    `理解程度：${input.understandingLevel}`,
+    input.understandingLevel ? `理解程度：${input.understandingLevel}` : null,
     `最小产出：${input.minimalOutput}`,
     `下一步动作：${input.nextAction}`,
     `反假学习：${isEffective ? "通过" : "低转化"}`,
@@ -424,10 +424,11 @@ function composeCloseoutText(
     .join("\n");
 }
 
-function canExplainFromText(understandingLevel: string, note: string | undefined): boolean {
-  const text = `${understandingLevel}\n${note ?? ""}`;
+function canExplainFromText(understandingLevel: string | undefined, note: string | undefined): boolean | null {
+  const text = `${understandingLevel ?? ""}\n${note ?? ""}`.trim();
+  if (!text) return null;
   if (/不会|不懂|没懂|说不清|讲不出|糊涂|模糊/.test(text)) return false;
-  return text.trim().length >= 4;
+  return text.length >= 4;
 }
 
 function mentionsPractice(minimalOutput: string, note: string | undefined): boolean {

@@ -178,8 +178,8 @@ export interface StageAdjustmentContext {
   rangeDays: number;
   stageGoalSummary: string;
   effectiveMinutes: number;
-  taskCompletionRate: number;
-  reviewCompletionRate: number;
+  taskCompletionRate: number | null;
+  reviewCompletionRate: number | null;
   lowConversionCount: number;
   subjectShares: Array<{
     subjectName: string;
@@ -381,14 +381,14 @@ export function createFallbackStageAdjustmentAdvice(context: StageAdjustmentCont
   const scoreRate = context.simulationSummary?.scoreRate ?? null;
 
   if (
-    context.taskCompletionRate < 0.35 ||
+    (context.taskCompletionRate != null && context.taskCompletionRate < 0.35) ||
     context.lowConversionCount >= 4 ||
     (scoreRate != null && scoreRate < 0.45)
   ) {
     return {
       status: localFallbackStatus,
       mode: "recovery",
-      risk: context.taskCompletionRate < 0.2 ? "critical" : "high",
+      risk: context.taskCompletionRate != null && context.taskCompletionRate < 0.2 ? "critical" : "high",
       riskConclusion: "长期阶段执行信号偏弱，先缩小任务面，恢复有效学习和复盘连续性。",
       focusSubjects,
       taskIntensity: "reduce",
@@ -414,7 +414,11 @@ export function createFallbackStageAdjustmentAdvice(context: StageAdjustmentCont
     };
   }
 
-  if (context.taskCompletionRate >= 0.72 && context.reviewCompletionRate >= 0.6 && context.lowConversionCount === 0) {
+  if (
+    context.taskCompletionRate != null && context.taskCompletionRate >= 0.72 &&
+    context.reviewCompletionRate != null && context.reviewCompletionRate >= 0.6 &&
+    context.lowConversionCount === 0
+  ) {
     return {
       status: localFallbackStatus,
       mode: "strengthen",
@@ -436,7 +440,9 @@ export function createFallbackStageAdjustmentAdvice(context: StageAdjustmentCont
     riskConclusion: `阶段目标「${context.stageGoalSummary}」可以维持，但需要把薄弱证据补得更厚。`,
     focusSubjects,
     taskIntensity: "keep",
-    taskAdjustmentActions: context.reviewCompletionRate < 0.5 ? ["convert_review", "retest"] : ["retest"],
+    taskAdjustmentActions: context.reviewCompletionRate != null && context.reviewCompletionRate < 0.5
+      ? ["convert_review", "retest"]
+      : ["retest"],
     nextStageEmphasis: `下一阶段维持当前目标，把 ${focusSubjects.join("、")} 的复习、错题和模拟证据串起来。`,
     canAutoApply: false,
     requiresUserConfirmation: true,

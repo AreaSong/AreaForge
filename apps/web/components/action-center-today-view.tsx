@@ -4,6 +4,9 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  RefreshCw,
+  ThumbsUp,
 } from "lucide-react";
 import type { ActionCenterTodayController } from "@/components/action-center-today-controller";
 import {
@@ -11,7 +14,10 @@ import {
   RecoveryDetails,
   ShortcutTimerModal,
   SubjectTimerList,
+  TodayLoopProgress,
+  TodayContinuation,
   TodayLearningSummary,
+  dailyClosureLabel,
   shiftDate,
   withTodayReturnTo,
 } from "@/components/action-center-today-support";
@@ -44,13 +50,19 @@ export function ActionCenterTodayView({
         action={<TodayDatePicker studyDate={today.studyDate} isToday={today.isToday} />}
       />
 
+      <TodayLoopProgress today={today} />
+
       <div className="@container grid grid-cols-1 gap-3.5 @[56rem]:grid-cols-[1fr_360px] @[80rem]:grid-cols-[1fr_380px] items-start">
         <div className="min-w-0 space-y-3">
           <TodayRecommendation
             today={today}
             creatingMinimumTask={state.creatingMinimumTask}
             onCreateMinimumTask={actions.createMinimumTask}
+            feedbackPending={state.recommendationFeedbackPending}
+            feedbackNotice={state.recommendationFeedbackNotice}
+            onFeedback={actions.submitRecommendationFeedback}
           />
+          <TodayContinuation today={today} />
           <SubjectTimerList
             today={today}
             onStart={(subjectId) => {
@@ -125,10 +137,15 @@ export function ActionCenterTodayView({
               {state.creatingMinimumTask ? "创建中..." : "创建最小任务"}
             </Button>
             <Link
-              href={`/roadmap/reviews?date=${today.studyDate}`}
-              className={buttonClassName({ variant: "secondary", size: "sm", className: "!h-7" })}
+              href="/roadmap/reviews/daily"
+              className={buttonClassName({
+                variant: today.learningLoop.reviewSubmitted ? "ghost" : "secondary",
+                size: "sm",
+                className: "!h-7",
+              })}
             >
-              快速复盘
+              <ClipboardCheck className="size-3.5" aria-hidden="true" />
+              {dailyClosureLabel(today)}
             </Link>
             <Link
               href={withTodayReturnTo(today.primaryActionHref)}
@@ -235,10 +252,16 @@ function TodayRecommendation({
   today,
   creatingMinimumTask,
   onCreateMinimumTask,
+  feedbackPending,
+  feedbackNotice,
+  onFeedback,
 }: {
   today: ActionCenterTodayDto;
   creatingMinimumTask: boolean;
   onCreateMinimumTask: () => Promise<void>;
+  feedbackPending: boolean;
+  feedbackNotice: string | null;
+  onFeedback: (feedback: "HELPFUL" | "NOT_NOW") => Promise<void>;
 }) {
   return (
     <Card variant="accent" padding="md" className="relative overflow-hidden">
@@ -247,10 +270,7 @@ function TodayRecommendation({
           <span className="text-xs font-semibold text-teal-300">推荐行动</span>
           <CompactBadge variant="glow" size="xs">今日首要</CompactBadge>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
-          <span>45m · 10pt</span>
-          {today.workspace?.name ? <span>· {today.workspace.name}</span> : null}
-        </div>
+        {today.workspace?.name ? <span className="truncate text-xs text-zinc-400">{today.workspace.name}</span> : null}
       </div>
 
       <div className="mt-2.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -263,6 +283,38 @@ function TodayRecommendation({
               <p className="truncate text-sm leading-relaxed text-zinc-200">
                 {today.recommendation.reason}
               </p>
+              {today.isToday ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <span>这项推荐是否适合现在？</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="!h-7 !px-2"
+                    disabled={feedbackPending}
+                    title="保留这项推荐"
+                    aria-label="这项推荐适合现在"
+                    onClick={() => void onFeedback("HELPFUL")}
+                  >
+                    <ThumbsUp className="size-3.5" aria-hidden="true" />
+                    适合
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="!h-7 !px-2"
+                    disabled={feedbackPending}
+                    title="暂时跳过并查看下一项"
+                    aria-label="暂时跳过这项推荐"
+                    onClick={() => void onFeedback("NOT_NOW")}
+                  >
+                    <RefreshCw className={`size-3.5 ${feedbackPending ? "animate-spin" : ""}`} aria-hidden="true" />
+                    换一项
+                  </Button>
+                  {feedbackNotice ? <span className="text-teal-300" role="status">{feedbackNotice}</span> : null}
+                </div>
+              ) : null}
               {today.recommendation.softDependencyHint ? (
                 <div className="mt-1 flex items-center gap-1.5 rounded border border-amber-400/20 bg-amber-400/5 px-2 py-0.5 text-xs text-amber-200">
                   <AlertCircle className="size-3.5 shrink-0 text-amber-400" aria-hidden="true" />

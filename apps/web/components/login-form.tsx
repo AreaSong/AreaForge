@@ -3,14 +3,12 @@
 import { type FormEvent, useState } from "react";
 import {
   ArrowRight,
-  Check,
   Eye,
   EyeOff,
   Loader2,
   LockKeyhole,
   Mail,
   ShieldAlert,
-  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api/auth-browser";
@@ -23,7 +21,7 @@ export interface LoginFormProps {
   className?: string;
 }
 
-export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProps) {
+export function LoginForm({ returnTo = "/", className = "" }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,20 +29,11 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
   const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isCapsLockOn, setIsCapsLockOn] = useState(false);
-  const [autofillSuccess, setAutofillSuccess] = useState(false);
 
   function handleKeyActivity(event: React.KeyboardEvent<HTMLInputElement>) {
     if (typeof event.getModifierState === "function") {
       setIsCapsLockOn(event.getModifierState("CapsLock"));
     }
-  }
-
-  function handleAutofillDemo() {
-    setEmail("admin@areasong.local");
-    setPassword("admin@areasong.local");
-    setError(null);
-    setAutofillSuccess(true);
-    window.setTimeout(() => setAutofillSuccess(false), 3000);
   }
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
@@ -179,11 +168,6 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
             >
               {error}
             </p>
-          ) : autofillSuccess ? (
-            <p aria-live="polite" className="flex items-center gap-2 px-1 py-2 text-xs text-teal-200" role="status">
-              <Check aria-hidden className="size-3.5" />
-              演示账号已填入，可以直接登录。
-            </p>
           ) : (
             <p className="px-1 py-2 text-xs text-zinc-600">当前仅支持邮箱与密码登录。</p>
           )}
@@ -200,16 +184,6 @@ export function LoginForm({ returnTo = "/today", className = "" }: LoginFormProp
         </Button>
       </form>
 
-      <div className="mt-6 border-t border-white/[0.07] pt-5">
-        <Button
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.1] px-3 py-2.5 text-xs text-zinc-500 transition-colors hover:border-teal-200/25 hover:bg-teal-200/[0.035] hover:text-teal-100 focus-visible:ring-2 focus-visible:ring-teal-300"
-          onClick={handleAutofillDemo}
-          type="button"
-        >
-          <Sparkles aria-hidden className="size-3.5" />
-          {autofillSuccess ? "演示账号已填入" : "填入本地演示账号"}
-        </Button>
-      </div>
     </div>
   );
 }

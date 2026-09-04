@@ -45,9 +45,9 @@ export default async function KnowledgeOverviewPage() {
     },
     {
       label: "综合掌握率",
-      value: `${overview.overallMasteryRate}%`,
+      value: overview.overallMasteryRate == null ? "暂无样本" : `${overview.overallMasteryRate}%`,
       href: "/knowledge/points",
-      note: "加权掌握度",
+      note: overview.overallMasteryRate == null ? "创建并学习知识点后计算" : "加权掌握度",
     },
     {
       label: "薄弱节点",
@@ -57,9 +57,11 @@ export default async function KnowledgeOverviewPage() {
     },
     {
       label: "7日留存率",
-      value: `${overview.ebbinghausStats.retentionRate7d}%`,
+      value: overview.ebbinghausStats.retentionRate7d == null
+        ? "暂无样本"
+        : `${overview.ebbinghausStats.retentionRate7d}%`,
       href: "/knowledge/reviews",
-      note: "艾宾浩斯复习留存",
+      note: overview.ebbinghausStats.retentionRate7d == null ? "完成复习后计算" : "近 7 日复习结果",
     },
   ];
 
