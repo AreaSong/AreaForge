@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Archive,
   ChevronDown,
   Plus,
   RotateCcw,
 } from "lucide-react";
-import { Modal } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
 import { ColorSwatches } from "@/components/ui/color-swatches";
@@ -18,6 +16,7 @@ import { redirectToLoginWithCurrentLocation } from "@/lib/client/private-busines
 import type {
   ExamWorkspaceDto,
   SubjectDuplicateSetDto,
+  SubjectMergeOperationDto,
   SubjectGroupDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts";
@@ -25,14 +24,19 @@ import { nextAvailableGeneratedKey } from "@/lib/workspace/first-use";
 import {
   createSubjectGroup,
   createWorkspaceSubject,
+  confirmSubjectMerge,
+  undoSubjectMerge,
   updateSubjectGroup,
   updateWorkspaceSubject,
   type WorkspaceMutationResponse,
 } from "@/lib/api/workspace";
 import {
   GroupManager,
+  SubjectManagerArchiveModals,
   subjectColors,
   subjectErrorMessage,
+  subjectMergeErrorMessage,
+  subjectMergeUndoErrorMessage,
   SubjectRow,
 } from "@/components/workspace-subject-manager-sections";
 import { SubjectDuplicatePreview } from "@/components/subject-duplicate-preview";
@@ -42,6 +46,7 @@ export function WorkspaceSubjectManager(props: {
   subjects: WorkspaceSubjectDto[];
   groups: SubjectGroupDto[];
   duplicateSets: SubjectDuplicateSetDto[];
+  mergeOperations: SubjectMergeOperationDto[];
 }) {
   const router = useRouter();
   const [localRevision, setLocalRevision] = useState({
@@ -67,6 +72,8 @@ export function WorkspaceSubjectManager(props: {
   const [newSubjectGroupId, setNewSubjectGroupId] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [createdGroupKeys, setCreatedGroupKeys] = useState<string[]>([]);
+  const subjectMergeKeys = useRef(new Map<string, string>());
+  const subjectMergeUndoKeys = useRef(new Map<string, string>());
   const [newGroupKey, setNewGroupKey] = useState(() =>
     nextAvailableGeneratedKey("group", props.groups.map((group) => group.stableKey)),
   );
@@ -228,6 +235,96 @@ export function WorkspaceSubjectManager(props: {
     }
   }
 
+  async function mergeSubjects(set: SubjectDuplicateSetDto): Promise<boolean> {
+    if (pending) return false;
+    setPending(true);
+    clearFeedback();
+    const idempotencyKey = subjectMergeKeys.current.get(set.snapshotHash) ?? crypto.randomUUID();
+    subjectMergeKeys.current.set(set.snapshotHash, idempotencyKey);
+    try {
+      const sourceSubjectIds = set.subjects
+        .map(({ subject }) => subject.id)
+        .filter((subjectId) => subjectId !== set.recommendedTargetId);
+      const result = await confirmSubjectMerge(props.workspace.id, {
+        targetSubjectId: set.recommendedTargetId,
+        sourceSubjectIds,
+        snapshotHash: set.snapshotHash,
+        expectedWorkspaceRevision: set.workspaceRevision,
+        idempotencyKey,
+        confirm: true,
+      });
+      if (!result.ok || !result.body?.merge) {
+        const failure = classifyApiFailure(result);
+        if (failure.kind === "unauthorized") {
+          redirectToLoginWithCurrentLocation();
+          return false;
+        }
+        absorbLatestRevision(result.body, failure);
+        if (
+          failure.code === "SUBJECT_MERGE_SNAPSHOT_CONFLICT"
+          || failure.code === "SUBJECT_MERGE_RETRY_REQUIRED"
+        ) {
+          subjectMergeKeys.current.delete(set.snapshotHash);
+        }
+        setError(subjectMergeErrorMessage(failure.code ?? undefined));
+        return false;
+      }
+      subjectMergeKeys.current.delete(set.snapshotHash);
+      setRevision(result.body.merge.workspace.revision);
+      const migrated = Object.values(result.body.merge.migratedReferenceCounts)
+        .reduce((sum, count) => sum + count, 0);
+      setNotice(`科目已合并并软归档来源科目；已处理 ${migrated} 条引用。`);
+      router.refresh();
+      return true;
+    } catch {
+      setError("网络不可用，合并命令已保留；恢复网络后请再次确认重试。");
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function undoMerge(operation: SubjectMergeOperationDto): Promise<boolean> {
+    if (pending) return false;
+    setPending(true);
+    clearFeedback();
+    const idempotencyKey = subjectMergeUndoKeys.current.get(operation.id) ?? crypto.randomUUID();
+    subjectMergeUndoKeys.current.set(operation.id, idempotencyKey);
+    try {
+      const result = await undoSubjectMerge(props.workspace.id, operation.id, {
+        expectedWorkspaceRevision: operation.workspaceRevision,
+        undoSnapshotHash: operation.undoSnapshotHash,
+        idempotencyKey,
+        confirm: true,
+      });
+      if (!result.ok || !result.body?.undo) {
+        const failure = classifyApiFailure(result);
+        if (failure.kind === "unauthorized") {
+          redirectToLoginWithCurrentLocation();
+          return false;
+        }
+        absorbLatestRevision(result.body, failure);
+        if (failure.code?.includes("SNAPSHOT") || failure.code?.includes("RETRY")) {
+          subjectMergeUndoKeys.current.delete(operation.id);
+        }
+        setError(subjectMergeUndoErrorMessage(failure.code ?? undefined));
+        return false;
+      }
+      subjectMergeUndoKeys.current.delete(operation.id);
+      setRevision(result.body.undo.workspace.revision);
+      const restored = Object.values(result.body.undo.restoredReferenceCounts)
+        .reduce((sum, count) => sum + count, 0);
+      setNotice(`科目合并已撤销；已恢复 ${restored} 条引用。`);
+      router.refresh();
+      return true;
+    } catch {
+      setError("网络不可用，撤销命令未确认完成；恢复网络后请使用同一入口重试。");
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
   function clearFeedback() {
     setError(null);
     setNotice(null);
@@ -282,7 +379,13 @@ export function WorkspaceSubjectManager(props: {
         {activeSubjects.length === 0 ? <p className="p-4 text-sm text-zinc-500">还没有可用科目。</p> : null}
       </div>
 
-      <SubjectDuplicatePreview sets={props.duplicateSets} />
+      <SubjectDuplicatePreview
+        sets={props.duplicateSets}
+        mergeOperations={props.mergeOperations}
+        pending={pending}
+        onConfirm={mergeSubjects}
+        onUndo={undoMerge}
+      />
 
       <Card variant="subtle" className="af-form-action-grid grid gap-3 border-l-2 border-teal-400/40 p-4">
         <label className="text-sm text-zinc-300 font-medium">
@@ -369,51 +472,16 @@ export function WorkspaceSubjectManager(props: {
       {notice ? <p role="status" className="text-sm text-teal-200">{notice}</p> : null}
       {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
 
-      <Modal open={Boolean(archiveSubject)} title="归档科目" onClose={() => setArchiveSubject(null)} allowEscape={!pending}>
-        <div className="space-y-4 text-sm text-zinc-300">
-          <p>归档“{archiveSubject?.name}”后，历史任务和学习记录会保留，但相关复习排期会暂停。</p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => setArchiveSubject(null)}>取消</Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={pending || !archiveSubject}
-              onClick={async () => {
-                if (!archiveSubject) return;
-                const archived = await updateSubject(archiveSubject, { archived: true }, "科目已归档。");
-                if (archived) setArchiveSubject(null);
-              }}
-            >
-              <Archive size={16} aria-hidden="true" />确认归档
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={Boolean(archiveGroup)} title="归档分组" onClose={() => setArchiveGroup(null)} allowEscape={!pending}>
-        <div className="space-y-4 text-sm text-zinc-300">
-          <p>
-            归档“{archiveGroup?.name}”后，分组内的
-            {props.subjects.filter((subject) => subject.groupId === archiveGroup?.id).length} 个科目会移到“不分组”。
-            科目和历史学习记录都会保留；恢复分组后不会自动重新关联。
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => setArchiveGroup(null)}>取消</Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={pending || !archiveGroup}
-              onClick={async () => {
-                if (!archiveGroup) return;
-                const archived = await updateGroup(archiveGroup, { archived: true }, "分组已归档。");
-                if (archived) setArchiveGroup(null);
-              }}
-            >
-              <Archive size={16} aria-hidden="true" />确认归档
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <SubjectManagerArchiveModals
+        subject={archiveSubject}
+        group={archiveGroup}
+        subjectCountInGroup={props.subjects.filter((subject) => subject.groupId === archiveGroup?.id).length}
+        pending={pending}
+        onCloseSubject={() => setArchiveSubject(null)}
+        onCloseGroup={() => setArchiveGroup(null)}
+        onArchiveSubject={(subject) => updateSubject(subject, { archived: true }, "科目已归档。")}
+        onArchiveGroup={(group) => updateGroup(group, { archived: true }, "分组已归档。")}
+      />
     </SectionCard>
   );
 }

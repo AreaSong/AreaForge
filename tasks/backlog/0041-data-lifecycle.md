@@ -4,7 +4,7 @@
 status: backlog
 phase: planning
 blockers:
-  - 0040 ownership and authorization model must complete
+  - 0044 ownership and authorization model must complete
   - EXPORT and DELETE confirmation packets required before implementation
 risk: high
 ownerSkill: areaforge-security-governance
@@ -19,7 +19,7 @@ releaseRequired: true
 
 ## 目标
 
-实现数据清单、Workspace/账户导出、回收站、删除预览、冷静期、物理删除、附件对账和备份删除账本。
+实现数据清单、最小持久后台任务、Workspace/账户导出、数据任务中心、回收站、删除预览、冷静期、物理删除、附件对账和备份删除账本。
 
 ## 独立确认包
 
@@ -29,6 +29,7 @@ releaseRequired: true
 ## 验收与关闭
 
 - 对象、附件、manifest 和 hash 一致；敏感 secret/internal path 不导出。
+- 后台 job 具备租约、幂等、重试、取消、进度、结果和失败恢复；数据任务中心可完成申请、观察、下载/撤销、取消和重试。
 - 删除预览与实际范围一致，kill-point/重试/恢复/备份复活防护通过。
 - 完成证据只能让 `AF-RISK-DATA-001` 进入人工关闭复核，不自动关闭。
 

@@ -43,8 +43,8 @@ import {
 } from "@/lib/system/update-center-ui";
 import { getUpdateCenterHealth } from "@/lib/system/update-center-health";
 import {
-  buildFirstUseSubjects,
   canUseTakeoverPreview,
+  materializeFirstUseTemplateSelection,
   nextAvailableGeneratedKey,
   workspaceSetupErrorMessage,
 } from "@/lib/workspace/first-use";
@@ -141,13 +141,14 @@ test("Adversarial M5: Settings subviews conform to canonical dual-column workben
 
 test("Adversarial M5: WorkspaceSetupDraft schema strictly guards against hostile inputs", () => {
   const valid: WorkspaceSetupDraft = {
+    schemaVersion: 2,
     step: "goal",
     name: "2027 考研",
     stableKey: "ws-2027",
     targetExamDate: "2026-12-26",
-    subjectName: "高等数学",
-    subjectKey: "advanced-math",
-    include408: true,
+    subjects: [{ id: "subject-1", stableKey: "custom-math", name: "数学分析", color: "#35d7c5", groupStableKey: null }],
+    groups: [],
+    templateIds: [],
   };
 
   assert.equal(isWorkspaceSetupDraft(valid), true);
@@ -161,12 +162,12 @@ test("Adversarial M5: WorkspaceSetupDraft schema strictly guards against hostile
   assert.equal(isWorkspaceSetupDraft([]), false);
   assert.equal(isWorkspaceSetupDraft({ ...valid, step: "unknown_step" }), false);
   assert.equal(isWorkspaceSetupDraft({ ...valid, name: null }), false);
-  assert.equal(isWorkspaceSetupDraft({ ...valid, include408: "true" }), false);
+  assert.equal(isWorkspaceSetupDraft({ ...valid, schemaVersion: 1 }), false);
   assert.equal(isWorkspaceSetupDraft({ ...valid, targetExamDate: 20261226 }), false);
-  assert.equal(isWorkspaceSetupDraft({ ...valid, subjectKey: undefined }), false);
+  assert.equal(isWorkspaceSetupDraft({ ...valid, subjects: undefined }), false);
 
   // Missing fields
-  const { include408: _, ...missingField } = valid;
+  const { templateIds: _, ...missingField } = valid;
   assert.equal(isWorkspaceSetupDraft(missingField), false);
 });
 
@@ -219,48 +220,21 @@ test("Adversarial M5: WorkspaceEditDraft & ExamWorkspaceDto CAS validation & dif
   assert.equal(workspaceEditDraftsEqual(draft, { ...draft, baseRevision: 6 }), false);
 });
 
-test("Adversarial M5: first-use subjects generation and takeover preview safety", () => {
-  // 1. Basic first use without 408
-  const subjectsWithout408 = buildFirstUseSubjects({
-    subjectKey: "math-1",
-    subjectName: "高等数学",
-    include408: false,
-    takeoverSubjects: [],
+test("Adversarial M5: first-use template materialization and takeover preview safety", () => {
+  const customRows = {
+    subjects: [{ id: "custom", stableKey: "custom-one", name: "自定义科目", color: "#35d7c5", groupStableKey: null }],
+    groups: [],
+  };
+  const materialized = materializeFirstUseTemplateSelection({
+    ...customRows,
+    templateId: "computer-science-408",
   });
-  assert.equal(subjectsWithout408.length, 1);
-  assert.equal(subjectsWithout408[0].name, "高等数学");
-  assert.equal(subjectsWithout408[0].stableKey, "math-1");
-
-  // 2. First use with 408
-  const subjectsWith408 = buildFirstUseSubjects({
-    subjectKey: "math-1",
-    subjectName: "高等数学",
-    include408: true,
-    takeoverSubjects: [],
-  });
-  assert.equal(subjectsWith408.length, 5); // 1 Math + 4 CS 408 subjects
-  assert.ok(subjectsWith408.some((s) => s.name === "数据结构"));
-  assert.ok(subjectsWith408.some((s) => s.name === "计算机组成原理"));
-  assert.ok(subjectsWith408.some((s) => s.name === "操作系统"));
-  assert.ok(subjectsWith408.some((s) => s.name === "计算机网络"));
-
-  // 3. Takeover deduplication
-  const takeoverSubjects = [
-    { legacyCode: "DATA_STRUCTURE" },
-    { legacyCode: "MATH" },
-  ];
-  const mergedTakeover = buildFirstUseSubjects({
-    subjectKey: "math",
-    subjectName: "高等数学",
-    include408: true,
-    takeoverSubjects,
-  });
-  // Math was reused, so not duplicated. Data structures was reused, so remaining 408 subjects are 3
-  const dsCount = mergedTakeover.filter((s) => s.name === "数据结构").length;
-  assert.equal(dsCount, 0);
-  const mathCount = mergedTakeover.filter((s) => s.name === "高等数学").length;
-  assert.equal(mathCount, 0);
-  assert.equal(mergedTakeover.length, 3); // OS, CO, CN
+  assert.equal(materialized.subjects.length, 5);
+  assert.equal(materialized.groups.length, 1);
+  assert.deepEqual(materializeFirstUseTemplateSelection({
+    ...materialized,
+    templateId: "computer-science-408",
+  }), materialized);
 
   // 4. canUseTakeoverPreview validator
   assert.equal(canUseTakeoverPreview(null), false);

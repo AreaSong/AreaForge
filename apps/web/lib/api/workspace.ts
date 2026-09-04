@@ -1,6 +1,8 @@
 import { createJsonRequest, requestApiResult, type ApiResult } from "@/lib/api/client";
 import type {
   ExamWorkspaceDto,
+  SubjectMergeResultDto,
+  SubjectMergeUndoResultDto,
   SubjectGroupDto,
   WorkspaceSubjectDto,
 } from "@/lib/contracts";
@@ -17,7 +19,25 @@ export interface WorkspaceMutationResponse {
     remainingPausedReviewScheduleCount?: number;
     ungroupedSubjectCount?: number;
   };
+  merge?: SubjectMergeResultDto;
+  undo?: SubjectMergeUndoResultDto;
   error?: string;
+}
+
+export interface ConfirmSubjectMergeInput {
+  targetSubjectId: string;
+  sourceSubjectIds: string[];
+  snapshotHash: string;
+  expectedWorkspaceRevision: number;
+  idempotencyKey: string;
+  confirm: true;
+}
+
+export interface UndoSubjectMergeInput {
+  expectedWorkspaceRevision: number;
+  undoSnapshotHash: string;
+  idempotencyKey: string;
+  confirm: true;
 }
 
 export interface CreateExamWorkspaceInput {
@@ -147,5 +167,26 @@ export function updateSubjectGroup(
   return requestApiResult(
     `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subject-groups/${encodeURIComponent(groupId)}`,
     createJsonRequest("PATCH", input),
+  );
+}
+
+export function confirmSubjectMerge(
+  workspaceId: string,
+  input: ConfirmSubjectMergeInput,
+): Promise<ApiResult<WorkspaceMutationResponse>> {
+  return requestApiResult(
+    `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subject-merges`,
+    createJsonRequest("POST", input),
+  );
+}
+
+export function undoSubjectMerge(
+  workspaceId: string,
+  operationId: string,
+  input: UndoSubjectMergeInput,
+): Promise<ApiResult<WorkspaceMutationResponse>> {
+  return requestApiResult(
+    `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subject-merges/${encodeURIComponent(operationId)}/undo`,
+    createJsonRequest("POST", input),
   );
 }

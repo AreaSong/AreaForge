@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SUPPORTED_TASK_TYPES, TASK_TYPES } from "@areaforge/core";
 
 export const idempotencyKeySchema = z.string().trim().min(8).max(200);
 
@@ -26,7 +27,7 @@ export const createTaskSchema = z.object({
   knowledgePointIds: z.array(z.string().min(1)).max(50).optional(),
   sourceResourceId: z.string().min(1).optional(),
   title: z.string().trim().min(1).max(120),
-  type: z.string().trim().min(1).max(40).default("study"),
+  type: z.enum(TASK_TYPES).default("study"),
   priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
   plannedDate: z.string().datetime().optional(),
   estimatedMinutes: z.number().int().min(5).max(720).default(45),
@@ -469,7 +470,7 @@ export const updateTaskSchema = z.object({
   stagePlanIds: z.array(z.string().min(1)).max(20).optional(),
   knowledgePointIds: z.array(z.string().min(1)).max(50).optional(),
   title: z.string().trim().min(1).max(120).optional(),
-  type: z.string().trim().min(1).max(40).optional(),
+  type: z.enum(SUPPORTED_TASK_TYPES).optional(),
   priority: z.enum(["low", "medium", "high", "critical"]).optional(),
   plannedDate: z.string().datetime().optional(),
   estimatedMinutes: z.number().int().min(5).max(720).optional(),

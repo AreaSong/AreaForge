@@ -76,6 +76,8 @@
 - `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
 - `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。
 - `PATCH /api/exam-workspaces/:id/subjects/:subjectId` 与 `PATCH /api/exam-workspaces/:id/subject-groups/:groupId`：名称、颜色、归属、归档/恢复和 `move=UP|DOWN` 相邻换位；move 不与其他字段混用，边界移动不增加 workspace revision 或审计事件。
+- `GET|POST /api/exam-workspaces/:id/subject-merges`：GET 返回规范化重复集合、完整引用/冲突计数、Workspace revision 与 snapshot hash，并同时返回最近完成的合并记录；POST 只接受严格 confirm 命令，服务端在 Serializable 事务中重验 owner/snapshot/revision/活动 session/唯一冲突，迁移全部引用后软归档来源科目。
+- `POST /api/exam-workspaces/:id/subject-merges/:mergeId/undo`：在 24 小时窗口内以 strict confirm、undo snapshot、Workspace revision 和幂等键精确撤销；后续业务字段保留，引用或模拟来源 identity 漂移、审计损坏、过期和唯一冲突 fail closed，不物理删除数据。
 - `POST /api/study-sessions/start`：支持 `idempotencyKey`、`goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目；请求可携带粗粒度 `x-areaforge-device-id` / `x-areaforge-device-label`，用于跨设备状态。相同用户、工作区、启动参数和幂等键会回放同一个 session；网络响应丢失后可安全显式重试。不同启动参数复用同一键会返回幂等冲突；已有其他活动 session 时返回其最新状态，客户端只跳转到该活动，不创建第二个计时器。
 - `GET /api/study-sessions/active`：返回当前用户唯一的 `RUNNING`、`PAUSED` 或 `CLOSING` session。
 - `POST /api/study-sessions/:id/pause|resume|end|context`：使用 `expectedStatus`、`expectedUpdatedAt` 和幂等键执行 CAS 状态命令；`end` 先进入 `CLOSING` 再提交完整收口。在线请求与 IndexedDB/localStorage 离线队列复用同一命令键，恢复联网后按序重放；冲突不会静默合并。

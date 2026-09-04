@@ -1,6 +1,16 @@
-import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { AlertTriangle, CheckCircle2, History, RotateCcw, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import type { SubjectDuplicateSetDto, SubjectReferenceCountDto } from "@/lib/contracts";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/overlays";
+import { formatDateTime } from "@/lib/formatters";
+import type {
+  SubjectDuplicateSetDto,
+  SubjectMergeOperationDto,
+  SubjectReferenceCountDto,
+} from "@/lib/contracts";
 
 const reasonLabels: Record<SubjectDuplicateSetDto["reasons"][number]["code"], string> = {
   NORMALIZED_NAME: "规范化名称相同",
@@ -24,7 +34,15 @@ const referenceLabels: Array<[keyof SubjectReferenceCountDto, string]> = [
   ["learningArrangements", "学习安排"],
 ];
 
-export function SubjectDuplicatePreview(props: { sets: SubjectDuplicateSetDto[] }) {
+export function SubjectDuplicatePreview(props: {
+  sets: SubjectDuplicateSetDto[];
+  mergeOperations?: SubjectMergeOperationDto[];
+  pending?: boolean;
+  onConfirm?: (set: SubjectDuplicateSetDto) => Promise<boolean>;
+  onUndo?: (operation: SubjectMergeOperationDto) => Promise<boolean>;
+}) {
+  const [selected, setSelected] = useState<SubjectDuplicateSetDto | null>(null);
+  const [selectedUndo, setSelectedUndo] = useState<SubjectMergeOperationDto | null>(null);
   return (
     <section className="space-y-3" aria-labelledby="subject-duplicate-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -49,18 +67,213 @@ export function SubjectDuplicatePreview(props: { sets: SubjectDuplicateSetDto[] 
         </Card>
       ) : (
         <div className="space-y-3">
-          {props.sets.map((set) => <DuplicateSetCard key={set.id} set={set} />)}
+          {props.sets.map((set) => (
+            <DuplicateSetCard
+              key={set.id}
+              set={set}
+              pending={props.pending}
+              onRequestMerge={props.onConfirm ? () => setSelected(set) : undefined}
+            />
+          ))}
         </div>
       )}
+
+      <RecentSubjectMergeOperations
+        operations={props.mergeOperations ?? []}
+        pending={props.pending}
+        onRequestUndo={props.onUndo ? setSelectedUndo : undefined}
+      />
+
+      <Modal
+        open={Boolean(selected)}
+        title="确认合并重复科目"
+        onClose={() => setSelected(null)}
+        allowEscape={!props.pending}
+      >
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>
+            保留“{selected ? subjectName(selected, selected.recommendedTargetId) : "目标科目"}”，并把
+            {selected ? selected.subjects.length - 1 : 0} 个来源科目的全部引用迁移过去。
+          </p>
+          <p className="rounded-lg border border-amber-300/15 bg-amber-400/5 p-3 text-xs leading-5 text-amber-100">
+            服务端会重新核对当前快照、活动计时与唯一冲突。成功后来源科目只会软归档，不会物理删除记录或附件。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={() => setSelected(null)}>
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !selected}
+              loading={props.pending}
+              onClick={() => {
+                if (!selected || !props.onConfirm) return;
+                void props.onConfirm(selected).then((merged) => {
+                  if (merged) setSelected(null);
+                });
+              }}
+            >
+              确认迁移并软归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(selectedUndo)}
+        title="确认撤销科目合并"
+        onClose={() => setSelectedUndo(null)}
+        allowEscape={!props.pending}
+      >
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>
+            将“{selectedUndo?.sourceSubjects.map((subject) => subject.name).join("、") || "来源科目"}”恢复为活动科目，
+            并把本次合并迁移的引用精确恢复到原科目。
+          </p>
+          <p className="rounded-lg border border-amber-300/15 bg-amber-400/5 p-3 text-xs leading-5 text-amber-100">
+            撤销只恢复该次合并记录的引用，不覆盖其他字段。服务端会再次核对引用漂移、活动计时和唯一冲突；任一检查失败都不会写入部分结果。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={() => setSelectedUndo(null)}>
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !selectedUndo}
+              loading={props.pending}
+              onClick={() => {
+                if (!selectedUndo || !props.onUndo) return;
+                void props.onUndo(selectedUndo).then((undone) => {
+                  if (undone) setSelectedUndo(null);
+                });
+              }}
+            >
+              确认撤销合并
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }
 
-function DuplicateSetCard({ set }: { set: SubjectDuplicateSetDto }) {
+function RecentSubjectMergeOperations(props: {
+  operations: SubjectMergeOperationDto[];
+  pending?: boolean;
+  onRequestUndo?: (operation: SubjectMergeOperationDto) => void;
+}) {
+  if (props.operations.length === 0) return null;
+  return (
+    <div className="space-y-2 pt-2" aria-labelledby="subject-merge-history-title">
+      <div className="flex items-center gap-2">
+        <History className="size-4 text-zinc-500" aria-hidden="true" />
+        <h4 id="subject-merge-history-title" className="text-sm font-semibold text-zinc-200">最近合并记录</h4>
+      </div>
+      <div className="space-y-2">
+        {props.operations.map((operation) => (
+          <SubjectMergeOperationCard
+            key={operation.id}
+            operation={operation}
+            pending={props.pending}
+            onRequestUndo={props.onRequestUndo}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SubjectMergeOperationCard(props: {
+  operation: SubjectMergeOperationDto;
+  pending?: boolean;
+  onRequestUndo?: (operation: SubjectMergeOperationDto) => void;
+}) {
+  const { operation } = props;
+  const status = mergeOperationStatus(operation);
+  return (
+    <Card variant="subtle" className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-zinc-200">
+            {operation.sourceSubjects.map((subject) => subject.name).join("、")} → {operation.targetSubjectName}
+          </p>
+          <span className={status.className}>{status.label}</span>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">
+          合并于 {formatDateTime(operation.mergedAt)}；撤销截止 {formatDateTime(operation.undoUntil)}。
+        </p>
+        {status.reason ? <p className="mt-1 text-xs leading-5 text-zinc-400">{status.reason}</p> : null}
+      </div>
+      {operation.status === "AVAILABLE" && props.onRequestUndo ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={props.pending}
+          onClick={() => props.onRequestUndo?.(operation)}
+        >
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+          撤销合并
+        </Button>
+      ) : null}
+    </Card>
+  );
+}
+
+function mergeOperationStatus(operation: SubjectMergeOperationDto): {
+  label: string;
+  reason: string | null;
+  className: string;
+} {
+  const baseClass = "rounded-full border px-2 py-0.5 text-[11px] font-medium";
+  if (operation.status === "AVAILABLE") return {
+    label: "可撤销",
+    reason: "撤销前仍会重新核对最新状态。",
+    className: `${baseClass} border-teal-400/20 bg-teal-400/10 text-teal-200`,
+  };
+  if (operation.status === "EXPIRED") return {
+    label: "已过期",
+    reason: "已超过 24 小时安全撤销窗口。",
+    className: `${baseClass} border-zinc-400/20 bg-zinc-400/10 text-zinc-300`,
+  };
+  if (operation.status === "UNDONE") return {
+    label: "已撤销",
+    reason: "原科目和该次迁移的引用已经恢复。",
+    className: `${baseClass} border-emerald-400/20 bg-emerald-400/10 text-emerald-200`,
+  };
+  return {
+    label: "不可自动撤销",
+    reason: subjectMergeBlockingReason(operation.blockingFields),
+    className: `${baseClass} border-amber-400/20 bg-amber-400/10 text-amber-200`,
+  };
+}
+
+function subjectMergeBlockingReason(fields: string[]): string {
+  if (fields.includes("mergeOperation")) return "合并审计记录不完整，无法安全自动撤销。";
+  if (fields.includes("subjectLifecycle")) return "目标或来源科目的归档状态已经变化。";
+  if (fields.includes("activeSessions")) return "相关科目存在进行中的学习活动。";
+  if (fields.some((field) => field.includes("planInboxItems"))) return "模拟补救或计划收件箱关联已经变化。";
+  if (fields.some((field) => field.includes("relatedKnowledgePointLinks"))) return "知识点关联已经变化。";
+  if (fields.length > 0) return "本次合并涉及的业务引用已经变化。";
+  return "合并记录无法通过完整性校验。";
+}
+
+function DuplicateSetCard(props: {
+  set: SubjectDuplicateSetDto;
+  pending?: boolean;
+  onRequestMerge?: () => void;
+}) {
+  const { set } = props;
   const recommended = set.subjects.find((item) => item.subject.id === set.recommendedTargetId);
-  const conflictTotal = set.conflictCounts.syllabusStableKeys
+  const blockingConflictTotal = set.conflictCounts.syllabusStableKeys
     + set.conflictCounts.simulationExams
-    + set.conflictCounts.relatedKnowledgePoints;
+    + set.conflictCounts.simulationInboxOrigins
+    + set.conflictCounts.invalidSimulationInboxOrigins;
+  const hasActiveSession = set.subjects.some(({ references }) => references.activeSessions > 0);
+  const hasArchivedSubject = set.subjects.some(({ subject }) => Boolean(subject.archivedAt));
+  const mergeBlocked = blockingConflictTotal > 0 || hasActiveSession || hasArchivedSubject;
 
   return (
     <Card variant="subtle" className="space-y-3 border-amber-300/15 p-4">
@@ -93,9 +306,14 @@ function DuplicateSetCard({ set }: { set: SubjectDuplicateSetDto }) {
       </div>
 
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs leading-5 text-zinc-400">
-        <p>合并前必须处理：考纲键冲突 {set.conflictCounts.syllabusStableKeys} 处、模拟成绩冲突 {set.conflictCounts.simulationExams} 处、知识点关联冲突 {set.conflictCounts.relatedKnowledgePoints} 处。</p>
+        <p>
+          阻断冲突：考纲键 {set.conflictCounts.syllabusStableKeys} 处、同场模拟成绩 {set.conflictCounts.simulationExams} 处、
+          模拟补救来源键 {set.conflictCounts.simulationInboxOrigins} 处、无效来源快照 {set.conflictCounts.invalidSimulationInboxOrigins} 项。
+        </p>
+        <p className="mt-1">可安全处理：知识点重复关联 {set.conflictCounts.relatedKnowledgePoints} 处会确定性去重。</p>
         <p className="mt-1">来源科目作为主科目的知识点 {set.requiredReassignments.primaryKnowledgePoints} 个，需要显式迁移到保留科目。</p>
-        {conflictTotal === 0 && set.requiredReassignments.primaryKnowledgePoints === 0 ? (
+        <p className="mt-1">模拟补救来源 {set.requiredReassignments.simulationOriginInboxItems} 项会同步重建来源键和快照。</p>
+        {blockingConflictTotal === 0 && set.requiredReassignments.primaryKnowledgePoints === 0 ? (
           <p className="mt-1 text-emerald-300">未发现结构冲突，但引用迁移仍需确认并在单一事务中执行。</p>
         ) : null}
       </div>
@@ -104,8 +322,29 @@ function DuplicateSetCard({ set }: { set: SubjectDuplicateSetDto }) {
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-teal-300" aria-hidden="true" />
         <p>自动应用已关闭。真实转换会迁移全部引用并软归档来源科目，不做物理删除。</p>
       </div>
+
+      {props.onRequestMerge ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <p className="text-xs text-zinc-500">
+            {mergeBlocked ? "请先处理上方阻断项，再刷新预览。" : "当前预览可进入显式确认。"}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={props.pending || mergeBlocked}
+            onClick={props.onRequestMerge}
+          >
+            合并到“{recommended?.subject.name ?? "保留科目"}”
+          </Button>
+        </div>
+      ) : null}
     </Card>
   );
+}
+
+function subjectName(set: SubjectDuplicateSetDto, subjectId: string): string {
+  return set.subjects.find(({ subject }) => subject.id === subjectId)?.subject.name ?? "目标科目";
 }
 
 function formatReferenceSummary(references: SubjectReferenceCountDto): string {

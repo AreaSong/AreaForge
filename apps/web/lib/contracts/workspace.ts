@@ -54,6 +54,7 @@ export interface SubjectReferenceCountDto {
 
 export interface SubjectDuplicateSetDto {
   id: string;
+  workspaceRevision: number;
   /** 绑定只读预览；后续经确认的合并写入必须先重新校验该快照。 */
   snapshotHash: string;
   reasons: Array<{
@@ -69,14 +70,52 @@ export interface SubjectDuplicateSetDto {
   conflictCounts: {
     syllabusStableKeys: number;
     simulationExams: number;
+    simulationInboxOrigins: number;
+    invalidSimulationInboxOrigins: number;
     relatedKnowledgePoints: number;
   };
   requiredReassignments: {
     primaryKnowledgePoints: number;
+    simulationOriginInboxItems: number;
   };
   totalReferenceCount: number;
   canAutoApply: false;
   requiresUserConfirmation: true;
+}
+
+export interface SubjectMergeResultDto {
+  operationId: string;
+  undoUntil: string;
+  workspace: ExamWorkspaceDto;
+  targetSubject: WorkspaceSubjectDto;
+  archivedSubjectIds: string[];
+  migratedReferenceCounts: Record<string, number>;
+  deduplicatedRelatedKnowledgePointLinks: number;
+  scopeHash: string;
+  snapshotHash: string;
+}
+
+export interface SubjectMergeOperationDto {
+  id: string;
+  targetSubjectId: string;
+  targetSubjectName: string;
+  sourceSubjects: Array<{ id: string; name: string }>;
+  mergedAt: string;
+  undoUntil: string;
+  status: "AVAILABLE" | "EXPIRED" | "UNDONE" | "BLOCKED";
+  workspaceRevision: number;
+  undoSnapshotHash: string;
+  blockingFields: string[];
+}
+
+export interface SubjectMergeUndoResultDto {
+  operationId: string;
+  workspace: ExamWorkspaceDto;
+  restoredSubjectIds: string[];
+  restoredReferenceCounts: Record<string, number>;
+  recreatedRelatedKnowledgePointLinks: number;
+  scopeHash: string;
+  undoneAt: string;
 }
 
 export interface TakeoverPreviewDto {

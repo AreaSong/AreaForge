@@ -67,10 +67,10 @@ schema V2 为每个 item 增加：
 - `AF-RISK-OPS-008` -> `tasks/active/0022-updater-phase-journal-hold.md`
 - `AF-RISK-SC-004` -> `tasks/backlog/0023-github-main-protection.md`、`tasks/active/0035-v11-batch11-minor-release.md`（仅重采 v1.1 Release admission 证据，不改变 residual 状态）
 - `AF-RISK-UX-001` -> `tasks/active/0024-ux-residual-closure-review.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/done/0037-v12-release-preparation.md`（仅重采 v1.2 current-bound 体验证据，不改变 residual 状态）
-- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/active/0035-v11-batch11-minor-release.md`、`tasks/backlog/0041-data-lifecycle.md`（新 backlog 承接完整导出/删除路线，不表示已授权执行）
-- `AF-RISK-DATA-002` -> `tasks/backlog/0040-multi-user-rbac.md`
-- `AF-RISK-DATA-003` -> `tasks/backlog/0043-ranking-platform-hardening.md`
-- `AF-RISK-OPS-009` -> `tasks/backlog/0042-controlled-operations-center.md`
+- `AF-RISK-DATA-001` -> `tasks/done/0029-v11-batch5-resources-import-confirm.md`、`tasks/done/0034-v11-batch10-stage-simulation-loop.md`、`tasks/active/0035-v11-batch11-minor-release.md`、`tasks/backlog/0041-data-lifecycle.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md`（新 backlog 承接完整导出/删除和平台门禁，不表示已授权执行）
+- `AF-RISK-DATA-002` -> `tasks/backlog/0040-multi-user-rbac.md`、`tasks/backlog/0044-rbac-privacy-collaboration.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md`
+- `AF-RISK-DATA-003` -> `tasks/backlog/0043-ranking-platform-hardening.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md`
+- `AF-RISK-OPS-009` -> `tasks/backlog/0042-controlled-operations-center.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md`
 - `AF-RISK-SC-002` -> `tasks/active/0035-v11-batch11-minor-release.md`、`tasks/done/0037-v12-release-preparation.md`（v1.2 第一阶段已按 main commit 重采 CI/供应链证据；后续 Release 仍须绑定最终 tag，当前状态不因任务引用改变）
 - 其余 item 的 `taskRefs=[]`；当前没有 task promotion waiver。
 

@@ -45,31 +45,11 @@ export function canUseTakeoverPreview(preview: unknown): boolean {
   return preview !== null && preview !== undefined;
 }
 
-export function hasConfiguredFirstUseSubjects(input: {
-  subjectKey: string;
-  subjectName: string;
-  include408: boolean;
-}): boolean {
-  return Boolean(
-    (input.subjectKey.trim() && input.subjectName.trim())
-    || input.include408,
-  );
-}
-
 export function hasConfiguredFirstUseRows(input: {
   subjects: Array<Pick<FirstUseSubjectDraft, "stableKey" | "name">>;
   templateIds?: string[];
 }): boolean {
   return input.subjects.some((subject) => Boolean(subject.stableKey.trim() && subject.name.trim()));
-}
-
-export function canProceedFromFirstUseGoal(input: {
-  subjectKey: string;
-  subjectName: string;
-  include408: boolean;
-  eligibleTakeoverCount: number;
-}): boolean {
-  return hasConfiguredFirstUseSubjects(input) || input.eligibleTakeoverCount > 0;
 }
 
 export function canProceedFromFirstUseRows(input: {
@@ -239,35 +219,6 @@ export function buildFirstUseSubjectsFromDraft(input: {
   return rows;
 }
 
-export function buildFirstUseSubjects(input: {
-  subjectKey: string;
-  subjectName: string;
-  include408: boolean;
-  takeoverSubjects: FirstUseTakeoverSubject[];
-}): FirstUseSubjectInput[] {
-  const reusedCodes = new Set(input.takeoverSubjects.map((subject) => subject.legacyCode));
-  const reusedKeys = new Set(input.takeoverSubjects.map((subject) => subject.stableKey).filter(Boolean));
-  const reusedNames = new Set(input.takeoverSubjects.map((subject) => subject.name?.trim()).filter(Boolean));
-  const subjects: FirstUseSubjectInput[] = [];
-  const subjectKey = input.subjectKey.trim();
-  const subjectName = input.subjectName.trim();
-  const configuredSubjectIsDefaultMath = ["math", "advanced-math"].includes(subjectKey) && subjectName === "高等数学";
-  const configuredSubjectAlreadyReused = reusedKeys.has(subjectKey)
-    || reusedNames.has(subjectName)
-    || (configuredSubjectIsDefaultMath && reusedCodes.has("MATH"));
-
-  if (subjectKey && subjectName && !configuredSubjectAlreadyReused) {
-    subjects.push({ stableKey: subjectKey, name: subjectName, color: "#35d7c5", sortOrder: 10 });
-  }
-  if (input.include408) {
-    const materialized = materializeExamTemplate("computer-science-408");
-    subjects.push(...(materialized?.subjects ?? [])
-      .filter((subject) => !reusedCodes.has(subject.legacyCode ?? null))
-      .map((subject) => ({ ...subject, legacyCode: subject.legacyCode ?? null })));
-  }
-  return subjects;
-}
-
 export function workspaceSetupErrorMessage(code: string | undefined): string {
   if (code === "SUBJECT_STABLE_KEY_CONFLICT_WITH_TAKEOVER") {
     return "新科目与已有科目的内部标识重复。请返回修改，或选择沿用已有科目。";
@@ -276,7 +227,7 @@ export function workspaceSetupErrorMessage(code: string | undefined): string {
     return "旧数据状态已经变化，请刷新预览后重新确认。";
   }
   if (code === "SUBJECT_STABLE_KEY_DUPLICATE") return "新科目的内部标识重复，请返回修改。";
-  if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少填写一个科目、勾选 408 四科，或沿用一个已有科目。";
+  if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少添加一个科目、选择一个模板，或沿用一个已有科目。";
   if (code === "INTERNAL_ERROR") return "设置未完成，请刷新后重试；草稿仍保留。";
   return code ?? "创建工作区失败，首次设置草稿已保留";
 }

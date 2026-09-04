@@ -1,11 +1,11 @@
-# 0040 v1.4-v1.5 多用户、Membership、RBAC 与隐私授权
+# 0040 v1.4 身份、Workspace 与 Membership
 
 ```yaml
 status: backlog
 phase: planning
 blockers:
   - 0039 personal dynamic foundation must complete
-  - AUTH and RBAC confirmation packets required before implementation
+  - AUTH confirmation packet required before implementation
 risk: high
 ownerSkill: areaforge-security-governance
 validation:
@@ -19,17 +19,18 @@ releaseRequired: true
 
 ## 目标
 
-实现邀请制用户、Workspace Membership、成员生命周期、预设角色、统一服务端授权、敏感内容显式共享和跨租户隔离。
+实现邀请制用户、账户安全、Workspace 完整生命周期、Membership、成员生命周期和跨租户隔离，为 v1.5 RBAC 提供可信身份与归属底座。
 
 ## 必须先冻结
 
-- 数据 owner、现有单管理员迁移、会话/邀请策略、角色权限矩阵、敏感数据矩阵和 IDOR 响应策略。
-- AUTH 与 RBAC 分成两个独立确认包；迁移、回填和生产部署再独立确认。
+- 数据 owner、现有单管理员迁移、会话/邀请策略、Workspace 创建/切换/归档语义和 IDOR 响应策略。
+- AUTH、migration/回填和生产部署分别确认；RBAC 与隐私授权由 0044 单独承接。
 
 ## 验收
 
 - 两用户同 Workspace 协作、两 Workspace 隔离、最后 Owner 保护、成员移除和权限变化即时生效。
-- 所有私有 API、service 和数据库查询通过统一授权；跨租户/越权负向矩阵通过。
+- Workspace 创建、重命名、归档、恢复和切换形成完整流程；关闭/物理删除不在本版本。
+- 全链路 Workspace scope 和跨租户/IDOR 负向矩阵通过。
 - 旧个人数据无损，个人路径不要求成员或角色配置。
 
 ## 回滚

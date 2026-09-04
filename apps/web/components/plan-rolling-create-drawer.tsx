@@ -8,6 +8,7 @@ import type {
   SyllabusOptionNodeDto,
   TaskPriorityDto,
 } from "@/lib/contracts";
+import { TASK_TYPE_DEFINITIONS, type TaskType } from "@areaforge/core";
 
 export function PlanRollingCreateDrawer(props: {
   open: boolean;
@@ -20,7 +21,7 @@ export function PlanRollingCreateDrawer(props: {
   syllabusNodeId: string;
   availableNodes: Array<SyllabusOptionNodeDto & { depth: number }>;
   estimatedMinutes: number;
-  taskType: string;
+  taskType: TaskType;
   priority: TaskPriorityDto;
   relatedSyllabusNodeIds: string[];
   knowledgePointIds: string[];
@@ -37,7 +38,7 @@ export function PlanRollingCreateDrawer(props: {
   onPlanMilestoneChange: (value: string) => void;
   onSyllabusNodeChange: (value: string) => void;
   onEstimatedMinutesChange: (value: number) => void;
-  onTaskTypeChange: (value: string) => void;
+  onTaskTypeChange: (value: TaskType) => void;
   onPriorityChange: (value: TaskPriorityDto) => void;
   onRelatedSyllabusNodeToggle: (nodeId: string) => void;
   onKnowledgePointToggle: (pointId: string) => void;
@@ -98,8 +99,8 @@ export function PlanRollingCreateDrawer(props: {
         </label>
         <label className="text-sm">
           <span className="text-zinc-400">任务类型</span>
-          <Select className="mt-1" value={props.taskType} onChange={(event) => props.onTaskTypeChange(event.target.value)}>
-            <option value="study">学习</option><option value="review">复习</option><option value="practice">刷题</option><option value="mistake">错题</option><option value="simulation_exam">模拟</option>
+          <Select className="mt-1" value={props.taskType} onChange={(event) => props.onTaskTypeChange(event.target.value as TaskType)}>
+            {TASK_TYPE_DEFINITIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </Select>
         </label>
         <label className="text-sm">

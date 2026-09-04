@@ -2,8 +2,8 @@ import { ArrowRight, FileText, Globe } from "lucide-react";
 import { ListDetailLink } from "@/components/list-return-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
-import { resourceCategories } from "@/components/study-resource-workbench-support";
 import type { StudyResourceDto } from "@/lib/contracts";
+import { getStudyResourceCategoryLabel } from "@areaforge/core";
 
 export function StudyResourceCard({
   resource,
@@ -67,5 +67,5 @@ function organizeStatusLabel(value: StudyResourceDto["organizeStatus"]) {
 }
 
 function categoryLabel(value: string) {
-  return resourceCategories.find(([key]) => key === value)?.[1] ?? value;
+  return getStudyResourceCategoryLabel(value);
 }

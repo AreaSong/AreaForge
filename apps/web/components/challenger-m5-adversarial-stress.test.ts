@@ -10,8 +10,8 @@ import {
   workspaceEditDraftsEqual,
 } from "./workspace-settings-support";
 import {
-  buildFirstUseSubjects,
   canUseTakeoverPreview,
+  materializeFirstUseTemplateSelection,
   workspaceSetupErrorMessage,
 } from "@/lib/workspace/first-use";
 import {
@@ -95,33 +95,20 @@ test("Challenger 2 - Dual-Column Layout Contract & AST Verification across all S
 });
 
 test("Challenger 2 - Workspace Setup vs Normal Edit Mode State Machine & Edge Cases", () => {
-  // Test buildFirstUseSubjects with empty, 408-enabled, and takeover subjects
-  const subjects408 = buildFirstUseSubjects({
-    subjectKey: "math-advanced",
-    subjectName: "高等数学",
-    include408: true,
-    takeoverSubjects: [],
+  const initial = {
+    subjects: [{ id: "custom", stableKey: "custom-one", name: "自定义科目", color: "#35d7c5", groupStableKey: null }],
+    groups: [],
+  };
+  const templated = materializeFirstUseTemplateSelection({
+    ...initial,
+    templateId: "computer-science-408",
   });
-
-  assert.equal(subjects408.length, 5);
-  assert.equal(subjects408[0].name, "高等数学");
-  assert.equal(subjects408[1].name, "数据结构");
-  assert.equal(subjects408[2].name, "计算机组成原理");
-  assert.equal(subjects408[3].name, "操作系统");
-  assert.equal(subjects408[4].name, "计算机网络");
-
-  // Test deduplication when takeover subjects already contain some 408 subjects
-  const takeoverWithDS = buildFirstUseSubjects({
-    subjectKey: "math-advanced",
-    subjectName: "高等数学",
-    include408: true,
-    takeoverSubjects: [
-      { legacyCode: "DATA_STRUCTURE" },
-    ],
-  });
-  // Data structures should not be duplicated
-  assert.equal(takeoverWithDS.filter((s) => s.name === "数据结构").length, 0); // Not created as new since taken over
-  assert.equal(takeoverWithDS.length, 4); // math + comp org + os + net
+  assert.equal(templated.subjects.length, 5);
+  assert.equal(templated.groups.length, 1);
+  assert.deepEqual(materializeFirstUseTemplateSelection({
+    ...templated,
+    templateId: "computer-science-408",
+  }), templated);
 
   // Test takeover eligibility checks under adversarial conditions
   assert.equal(canUseTakeoverPreview(null), false);

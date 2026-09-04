@@ -474,6 +474,14 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - `pnpm check`、`pnpm smoke:local-ux`（知识入口可见；动机/通知/阶段 href 仍禁止；canvas API）
 - 覆盖：分层派生、布局 CAS、等价列表、桌面可拖/移动只读、`/knowledge/*`、legacy 重定向；动机/通知/AI API 不开放；不跑生产 migration；不关闭 residual
 
+#### v1.3 科目合并与限定撤销专项
+
+- `pnpm ops:v13:subject-merge:typecheck`、`pnpm --filter @areaforge/web test`、`pnpm --filter @areaforge/web typecheck`、`pnpm check`、`git diff --check`。
+- 全新临时 PostgreSQL 应先执行 `DATABASE_URL=<临时库> pnpm db:migrate:deploy`；数据库名必须含 `v13subjectmerge`，再执行 `DATABASE_URL=<临时库> AREAFORGE_V13_SUBJECT_MERGE_ISOLATED_DB=1 pnpm ops:v13:subject-merge:runtime:selftest`。脚本拒绝缺少 guard 或名称标记的数据库。
+- runtime fixture 覆盖全部 13 类引用、知识点关系确定性去重、模拟补救来源重建、来源软归档、24 小时精确撤销、其他字段保留、幂等 replay/fingerprint conflict、跨 Workspace、活动 session、stale snapshot/revision、四类 preview 阻断、故障注入 rollback、撤销映射漂移/过期/唯一冲突 rollback 和损坏审计显式阻断。
+- UI 变更必须复用 `pnpm dev:test:latest -- --json` 返回的共享测试池地址，验证桌面/移动 preview、确认、成功反馈、最近操作四种状态和撤销二次确认；既有旧截图不能证明当前源码。
+- 该专项不新增 Prisma migration，不接触生产或真实用户数据，也不证明受保护 PR/CI、Release 或 production apply。
+
 #### Batch 11（完整 Migration Gate / compatibility floor）专项
 
 - 先运行 `pnpm ops:v11:browser-evidence:selftest`、`pnpm experience:review:selftest`、`pnpm release:v11:admission:selftest` 和 `pnpm release:closeout:binding:selftest`，证明旅程/无障碍 schema、嵌套 hash、source binding、篡改拒绝与 evidence-only 精确白名单本身有效；selftest 不产生真实浏览器证据。

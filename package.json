@@ -124,6 +124,8 @@
     "ops:v11:m8:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-m8-runtime.selftest.ts",
     "ops:v11:owner-isolation:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-owner-isolation-runtime.selftest.ts",
     "ops:v11:ai-draft:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-ai-draft-runtime.selftest.ts",
+    "ops:v13:subject-merge:typecheck": "tsc -p scripts/quality/tsconfig.v13-subject-merge.json",
+    "ops:v13:subject-merge:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v13-subject-merge-runtime.selftest.ts",
     "ops:v11:ai-provider-preference:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-ai-provider-preference.selftest.ts",
     "ops:v11:quick-review-client:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v11-quick-review-client.selftest.ts",
     "ops:v11:workspace-first-use:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/workspace-first-use.selftest.ts",

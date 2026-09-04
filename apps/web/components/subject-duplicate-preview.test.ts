@@ -3,7 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SubjectDuplicatePreview } from "./subject-duplicate-preview";
-import type { SubjectDuplicateSetDto } from "@/lib/contracts";
+import type { SubjectDuplicateSetDto, SubjectMergeOperationDto } from "@/lib/contracts";
 
 function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDuplicateSetDto {
   const subject = {
@@ -37,6 +37,7 @@ function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDup
   };
   return {
     id: "duplicate-set-1-subject-a-subject-b",
+    workspaceRevision: 3,
     snapshotHash: "sha256:" + "a".repeat(64),
     reasons: [{
       code: "NORMALIZED_NAME",
@@ -71,12 +72,30 @@ function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDup
     conflictCounts: {
       syllabusStableKeys: 2,
       simulationExams: 1,
+      simulationInboxOrigins: 1,
+      invalidSimulationInboxOrigins: 0,
       relatedKnowledgePoints: 3,
     },
-    requiredReassignments: { primaryKnowledgePoints: 4 },
+    requiredReassignments: { primaryKnowledgePoints: 4, simulationOriginInboxItems: 2 },
     totalReferenceCount: 54,
     canAutoApply: false,
     requiresUserConfirmation: true,
+    ...overrides,
+  };
+}
+
+function mergeOperation(overrides: Partial<SubjectMergeOperationDto> = {}): SubjectMergeOperationDto {
+  return {
+    id: "merge-operation-1",
+    targetSubjectId: "subject-a",
+    targetSubjectName: "数学",
+    sourceSubjects: [{ id: "subject-b", name: "高等数学" }],
+    mergedAt: "2026-09-04T01:02:03.000Z",
+    undoUntil: "2026-09-05T01:02:03.000Z",
+    status: "AVAILABLE",
+    workspaceRevision: 4,
+    undoSnapshotHash: "sha256:" + "b".repeat(64),
+    blockingFields: [],
     ...overrides,
   };
 }
@@ -99,9 +118,33 @@ test("SubjectDuplicatePreview renders dense references and keeps conversion conf
   assert.match(html, /建议保留“数学”/);
   assert.match(html, /任务 12/);
   assert.match(html, /有 1 个进行中活动/);
-  assert.match(html, /考纲键冲突 2 处、模拟成绩冲突 1 处、知识点关联冲突 3 处/);
+  assert.match(html, /阻断冲突：考纲键 2 处、同场模拟成绩 1 处、\s*模拟补救来源键 1 处、无效来源快照 0 项/);
+  assert.match(html, /知识点重复关联 3 处会确定性去重/);
   assert.match(html, /来源科目作为主科目的知识点 4 个/);
+  assert.match(html, /模拟补救来源 2 项会同步重建来源键和快照/);
   assert.match(html, /自动应用已关闭/);
   assert.match(html, /迁移全部引用并软归档来源科目/);
   assert.match(html, /不做物理删除/);
+});
+
+test("SubjectDuplicatePreview renders recent merge operations and only offers available undo", () => {
+  const html = renderToStaticMarkup(React.createElement(SubjectDuplicatePreview, {
+    sets: [],
+    mergeOperations: [
+      mergeOperation(),
+      mergeOperation({ id: "expired", status: "EXPIRED" }),
+      mergeOperation({ id: "undone", status: "UNDONE" }),
+      mergeOperation({ id: "blocked", status: "BLOCKED", blockingFields: ["planInboxItems"] }),
+    ],
+    onUndo: async () => true,
+  }));
+
+  assert.match(html, /最近合并记录/);
+  assert.match(html, /高等数学 → 数学/);
+  assert.match(html, /可撤销/);
+  assert.match(html, /已过期/);
+  assert.match(html, /已撤销/);
+  assert.match(html, /不可自动撤销/);
+  assert.match(html, /模拟补救或计划收件箱关联已经变化/);
+  assert.equal((html.match(/撤销合并/g) ?? []).length, 1);
 });

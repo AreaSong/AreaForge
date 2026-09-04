@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSubjectDuplicateSnapshotHash, countCrossSubjectKeys } from "./subject-duplicate-query-service";
+import {
+  buildSubjectDuplicateSnapshotHash,
+  countCrossSubjectKeys,
+  summarizeSimulationInboxMergeConflicts,
+} from "./subject-duplicate-query-service";
 
 test("countCrossSubjectKeys counts a key once when it appears across subjects", () => {
   assert.equal(countCrossSubjectKeys([
@@ -22,11 +26,19 @@ test("countCrossSubjectKeys ignores repeats inside one subject and empty keys", 
 test("buildSubjectDuplicateSnapshotHash is stable and binds the workspace and merge scope", () => {
   const base = {
     workspaceId: "workspace-a",
+    workspaceRevision: 4,
     targetId: "subject-a",
     sourceIds: ["subject-b", "subject-c"],
     reasons: [{ code: "NORMALIZED_NAME" as const, normalizedValue: "数学", subjectIds: ["subject-a", "subject-b"] }],
     subjects: [],
-    conflictCounts: { syllabusStableKeys: 0, simulationExams: 1, relatedKnowledgePoints: 0 },
+    conflictCounts: {
+      syllabusStableKeys: 0,
+      simulationExams: 1,
+      simulationInboxOrigins: 0,
+      invalidSimulationInboxOrigins: 0,
+      relatedKnowledgePoints: 0,
+    },
+    simulationOriginInboxItems: 0,
     primaryKnowledgePoints: 2,
   };
   const first = buildSubjectDuplicateSnapshotHash(base);
@@ -51,4 +63,29 @@ test("buildSubjectDuplicateSnapshotHash is stable and binds the workspace and me
   assert.match(first, /^sha256:[0-9a-f]{64}$/);
   assert.notEqual(first, otherWorkspace);
   assert.notEqual(first, changedReferenceState);
+});
+
+test("summarizeSimulationInboxMergeConflicts detects remapped unique collisions and invalid snapshots", () => {
+  const result = summarizeSimulationInboxMergeConflicts([
+    {
+      subjectId: "target",
+      originKey: "simulation-loss:exam-1:target:METHOD_ERROR:none",
+      originVersion: 1,
+      originSnapshot: {},
+    },
+    {
+      subjectId: "source",
+      originKey: "old-key",
+      originVersion: 1,
+      originSnapshot: { examId: "exam-1", reason: "METHOD_ERROR", syllabusNodeId: null },
+    },
+    {
+      subjectId: "source",
+      originKey: "invalid-key",
+      originVersion: 1,
+      originSnapshot: { examId: "exam-2", reason: "NOT_A_REASON" },
+    },
+  ], "target");
+
+  assert.deepEqual(result, { collisions: 1, invalid: 1 });
 });

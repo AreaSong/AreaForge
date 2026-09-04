@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { STUDY_RESOURCE_CATEGORIES } from "@areaforge/core";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { createStudyResourceFromAttachment } from "@/lib/study/study-resource-service";
 
 export const dynamic = "force-dynamic";
 
-const categorySchema = z.enum(["TEXTBOOK", "COURSE", "EXERCISE", "PAST_PAPER", "SOLUTION", "SUMMARY", "IMAGE", "OTHER"]);
+const categorySchema = z.enum(STUDY_RESOURCE_CATEGORIES);
 
 const schema = z.object({
   attachmentId: z.string().min(1),

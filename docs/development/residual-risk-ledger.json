@@ -278,7 +278,9 @@
         "tasks/done/0029-v11-batch5-resources-import-confirm.md",
         "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
         "tasks/active/0035-v11-batch11-minor-release.md",
-        "tasks/backlog/0041-data-lifecycle.md"
+        "tasks/backlog/0041-data-lifecycle.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -296,7 +298,10 @@
         "areaforge-validation-driver"
       ],
       "taskRefs": [
-        "tasks/backlog/0040-multi-user-rbac.md"
+        "tasks/backlog/0040-multi-user-rbac.md",
+        "tasks/backlog/0044-rbac-privacy-collaboration.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -315,7 +320,9 @@
         "areaforge-validation-driver"
       ],
       "taskRefs": [
-        "tasks/backlog/0043-ranking-platform-hardening.md"
+        "tasks/backlog/0043-ranking-platform-hardening.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
@@ -334,7 +341,9 @@
         "areaforge-supply-chain"
       ],
       "taskRefs": [
-        "tasks/backlog/0042-controlled-operations-center.md"
+        "tasks/backlog/0042-controlled-operations-center.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
       ],
       "taskPromotionWaiver": null,
       "acceptedException": null
