@@ -93,7 +93,7 @@
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
 | 个人版完全动态化 | 隔离已实现 | 多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo 已实现；全新临时 PostgreSQL 17 的 10 组专项 runtime、空库闭环、桌面/移动、Core 109/109、Web 914/914、`pnpm check` 和文档/风险/治理/任务门禁通过。PR #56 的 push/pull_request `ci/verify` 均成功并 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，main push CI run `33906942919` 成功 | `tasks/active/0039-personal-dynamic-foundation.md`；尚缺独立签名 Release 和 production apply |
-| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期和 owner-only 学习正文边界；目标测试、Web 925/925、typecheck/ESLint 与隔离 PostgreSQL 11 组 runtime 通过。默认多人开关关闭，最终浏览器/总门禁、PR/CI、Release 和生产尚缺 | `tasks/active/0040-multi-user-rbac.md` |
+| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期、same-origin/CSRF 边界、actor/workspace fail-closed、StagePlan 当前计划唯一约束和 owner-only 学习正文边界；目标测试、Web 927/927、`CI=true pnpm check` 和隔离 PostgreSQL runtime 已通过。默认多人开关关闭，最终浏览器/总门禁、PR/CI、Release 和生产尚缺 | `tasks/active/0040-multi-user-rbac.md` |
 | 预设角色、分享授权与 Coach 协作 | 未实现 | v1.4 本地候选只有 OWNER/MEMBER 归属底座，尚无 Admin/Coach/Viewer、统一 policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
 | 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
 | 数据任务中心、回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留，没有持久数据任务状态机；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |

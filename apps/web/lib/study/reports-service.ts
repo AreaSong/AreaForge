@@ -10,6 +10,7 @@ import {
   type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { ApiError } from "@/lib/api/responses";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
@@ -44,6 +45,7 @@ type PeriodicSnapshotWithTaskSample = CheckInSnapshotSummary & { taskCount: numb
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 
 export async function getPeriodicReports(now = new Date(), actorId?: string): Promise<PeriodicReportsDto> {
+  if (!actorId) throw new ApiError("AUTH_REQUIRED", 401);
   const [week, month] = await Promise.all([
     getPeriodicReport("week", now, actorId),
     getPeriodicReport("month", now, actorId),
@@ -53,9 +55,10 @@ export async function getPeriodicReports(now = new Date(), actorId?: string): Pr
 }
 
 export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date(), actorId?: string): Promise<PeriodicReportDto> {
+  if (!actorId) throw new ApiError("AUTH_REQUIRED", 401);
   const range = kind === "week" ? getWeekRange(now) : getMonthRange(now);
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
-  const subjectScope = workspace ? { subject: { workspaceId: workspace.id } } : {};
+  const workspace = await resolveActiveWorkspace(actorId);
+  const subjectScope = { subject: { workspaceId: workspace.id } };
   const [
     subjects,
     sessions,

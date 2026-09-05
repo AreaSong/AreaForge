@@ -317,6 +317,10 @@ type MembershipClient = Pick<Prisma.TransactionClient, "workspaceMembership">;
 
 async function requireFreshActorSession(tx: Prisma.TransactionClient, actor: CurrentUser): Promise<void> {
   const now = new Date();
+  // 与账户安全写路径保持相同锁顺序，使冻结、改密或会话撤销不能在
+  // “已检查”与成员/所有权提交之间穿透。
+  await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actor.id} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM "AuthSession" WHERE id = ${actor.sessionId} FOR UPDATE`;
   const session = await tx.authSession.findFirst({
     where: { id: actor.sessionId, userId: actor.id },
     select: {

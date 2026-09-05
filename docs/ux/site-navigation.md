@@ -73,12 +73,16 @@ flowchart TB
 
 ## 页面清单
 
-以下 49 条记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
+以下 55 条记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
 
 | 路由 | 名称 | 职责 |
 |---|---|---|
 | `/` | 根入口 | 未登录进入 `/login`；已登录时按工作区和活动事实解析目标 |
 | `/login` | 登录 | 未登录用户进入应用的唯一认证页面；已登录且没有显式安全返回地址时复用统一入口解析 |
+| `/forgot-password` | 找回密码 | 提交邮箱找回请求；无论邮箱是否存在都返回统一结果 |
+| `/reset-password` | 重置密码 | 使用一次性凭证设置新密码并撤销旧会话 |
+| `/verify-email` | 验证邮箱 | 使用一次性凭证完成邮箱验证并回到安全入口 |
+| `/invitations/accept` | 接受邀请 | 预览并接受 Workspace 邀请；未登录时先回到登录流程 |
 | `/focus` | 开始学习 | 只选择科目后直接进行自由学习、暂停/继续、收口和证据接力 |
 | `/today` | 今日 | 今日事实、下一行动、计划和完成闭环；日期可切换，默认今天 |
 | `/knowledge` | 知识概览 | 知识对象、最近证据和下一行动入口 |
@@ -120,6 +124,8 @@ flowchart TB
 | `/confirmations/[confirmationId]` | 确认事项窗口深链 | 唤起来源快照、版本和最终确认内容后返回业务页 |
 | `/confirmations/history` | 确认历史窗口入口 | 唤起已确认/驳回只读回放后返回业务页 |
 | `/settings` | 设置总览 | 汇总配置状态，并进入各设置业务视图 |
+| `/settings/account` | 账户安全 | 邮箱验证、密码、会话和敏感操作重新验证 |
+| `/settings/workspaces` | 工作区与成员 | Workspace 切换、成员、邀请、角色和所有权操作 |
 | `/settings/exams` | 考试与科目 | 考试目标、工作区、科目、专业课/408 分组 CRUD |
 | `/settings/profile` | 个人与恢复 | 个人信息、动机和恢复相关设置 |
 | `/settings/learning` | 学习与提醒 | 通知、提醒窗口和界面偏好 |
@@ -144,7 +150,7 @@ flowchart TB
 
 - `(app)/layout.tsx` 统一校验会话，未登录回 `/login`。
 - `/login` 已登录且没有显式安全 `returnTo` 时复用 `resolveAuthenticatedAppEntry`；显式安全返回地址优先。
-- `apps/web/lib/navigation/canonical-routes.ts` 是 49 个 canonical 页面的声明式契约，记录工作台、导航层级、PageFrame、工具栏、返回兜底和安全查询参数；`apps/web/lib/navigation/app-navigation.ts` 只负责把该契约投影成导航、标题、面包屑和 `returnTo` 行为。
+- `apps/web/lib/navigation/canonical-routes.ts` 是 55 个 canonical 页面的声明式契约，记录工作台、导航层级、PageFrame、工具栏、返回兜底和安全查询参数；`apps/web/lib/navigation/app-navigation.ts` 只负责把该契约投影成导航、标题、面包屑和 `returnTo` 行为。
 - 非法来源、外部来源和已移除旧路径统一回 `/focus`。
 
 新增、删除页面或调整主导航时，必须同步本文档、`docs/development/feature-traceability.md` 和对应验证脚本。

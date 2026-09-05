@@ -33,6 +33,10 @@ import {
   updateExamWorkspace,
 } from "../../apps/web/lib/study/exam-workspace-service";
 import {
+  createStagePlan,
+  updateStagePlan,
+} from "../../apps/web/lib/study/stage-service";
+import {
   acceptWorkspaceInvitation,
   createWorkspaceInvitation,
   leaveWorkspace,
@@ -55,6 +59,7 @@ try {
   await verifyFeatureFlagTransitionKeepsWorkspaceVisible(fixture.owner.id);
   await verifyActiveSessionBlocksWorkspaceSwitchAndCreate(fixture);
   await verifyWorkspaceLifecycle(fixture.owner, fixture.sharedWorkspaceId);
+  await verifyStagePlanCurrentInvariant(fixture.owner);
   await verifyPersistentRateLimit();
   await verifyInvitationLifecycle(fixture);
   await verifyAccountSecurity(fixture.owner);
@@ -231,6 +236,70 @@ async function verifyWorkspaceLifecycle(actor: CurrentUser, fallbackWorkspaceId:
   });
   assert.equal(restored.status, "ACTIVE");
   checks.push("workspace_rename_archive_restore");
+}
+
+async function verifyStagePlanCurrentInvariant(actor: CurrentUser) {
+  const baseInput = {
+    baseRevision: null,
+    name: "v1.4 阶段计划并发夹具",
+    startDate: "2026-09-01T00:00:00.000Z",
+    endDate: "2026-12-31T00:00:00.000Z",
+    goal: "验证同一 Workspace 只能保留一个当前阶段计划",
+    status: "draft" as const,
+  };
+  const concurrent = await Promise.allSettled([
+    createStagePlan({ ...baseInput, idempotencyKey: `stage-a-${randomUUID()}` }, actor.id),
+    createStagePlan({ ...baseInput, idempotencyKey: `stage-b-${randomUUID()}` }, actor.id),
+  ]);
+  assert.equal(concurrent.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(concurrent.filter((result) => result.status === "rejected").length, 1);
+  const rejected = concurrent.find((result) => result.status === "rejected");
+  assert.ok(
+    rejected?.status === "rejected"
+      && rejected.reason instanceof ApiError
+      && rejected.reason.code === "STAGE_PLAN_BASE_REVISION_CONFLICT",
+  );
+  const created = concurrent.find((result) => result.status === "fulfilled");
+  assert.ok(created?.status === "fulfilled");
+
+  const currentIndex = await prisma.$queryRaw<Array<{ indexname: string }>>`
+    SELECT indexname
+    FROM pg_indexes
+    WHERE schemaname = 'public' AND indexname = 'StagePlan_one_current_per_workspace_idx'
+  `;
+  assert.deepEqual(currentIndex.map((row) => row.indexname), ["StagePlan_one_current_per_workspace_idx"]);
+
+  const workspace = await prisma.workspaceSelection.findUniqueOrThrow({ where: { userId: actor.id } });
+  const archived = await prisma.stagePlan.create({
+    data: {
+      workspaceId: workspace.workspaceId,
+      name: "待激活阶段",
+      startDate: new Date("2027-01-01T00:00:00.000Z"),
+      endDate: new Date("2027-06-30T00:00:00.000Z"),
+      goal: "验证更新路径同样执行单当前计划约束",
+      mode: "maintain",
+      status: "archived",
+    },
+  });
+  await expectApiError(
+    () => updateStagePlan(archived.id, { expectedRevision: archived.revision, status: "active" }, actor.id),
+    "STAGE_PLAN_BASE_REVISION_CONFLICT",
+  );
+  await updateStagePlan(
+    created.value.id,
+    { expectedRevision: created.value.revision, status: "completed" },
+    actor.id,
+  );
+  const activated = await updateStagePlan(
+    archived.id,
+    { expectedRevision: archived.revision, status: "active" },
+    actor.id,
+  );
+  assert.equal(activated.status, "active");
+  assert.equal(await prisma.stagePlan.count({
+    where: { workspaceId: workspace.workspaceId, status: { in: ["active", "draft"] } },
+  }), 1);
+  checks.push("stage_plan_single_current_on_create_and_update");
 }
 
 async function verifyPersistentRateLimit() {

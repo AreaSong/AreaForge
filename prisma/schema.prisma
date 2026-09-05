@@ -1138,6 +1138,8 @@ model StagePlan {
   @@index([startDate])
   @@index([endDate])
   @@index([workspaceId])
+  // The one-current-per-workspace partial unique index is maintained in the
+  // migration because Prisma schema indexes cannot express this predicate.
 }
 
 model StageAdjustmentDraft {

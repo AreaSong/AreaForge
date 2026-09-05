@@ -13,7 +13,7 @@ export interface AuthMailInput {
 export async function sendAuthMail(input: AuthMailInput): Promise<{ messageId: string }> {
   const env = getAuthEnv();
   const to = normalizeEmail(input.to);
-  const actionUrl = validateActionUrl(input.actionUrl, env.APP_URL);
+  const actionUrl = validateAuthActionUrl(input.actionUrl, env.APP_URL);
   const content = buildAuthMailContent(input.purpose, actionUrl);
   const transport = createAuthMailTransport();
   const result = await transport.sendMail({
@@ -61,7 +61,7 @@ function createAuthMailTransport(): Transporter {
   throw new Error("SMTP configuration is incomplete for auth mail delivery.");
 }
 
-function validateActionUrl(value: string, appUrl: string): string {
+export function validateAuthActionUrl(value: string, appUrl: string): string {
   const actionUrl = new URL(value);
   const expected = new URL(appUrl);
   const fragment = new URLSearchParams(actionUrl.hash.slice(1));

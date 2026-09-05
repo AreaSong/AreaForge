@@ -17,18 +17,14 @@ export async function POST(request: NextRequest) {
     const parsed = schema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
     const email = normalizeEmail(parsed.data.email);
-    const keyHashes = createPasswordResetRateLimitKeys(getClientIp(request), email);
-    const rateLimit = await reserveAuthAttempts("PASSWORD_RESET", keyHashes);
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { accepted: true, retryAfterSeconds: rateLimit.retryAfterSeconds },
-        { status: 429 },
-      );
-    }
     const startedAtMs = Date.now();
     try {
-      const delivery = await preparePasswordReset(email);
-      if (delivery) after(() => deliverPasswordReset(delivery));
+      const keyHashes = createPasswordResetRateLimitKeys(getClientIp(request), email);
+      const rateLimit = await reserveAuthAttempts("PASSWORD_RESET", keyHashes);
+      if (rateLimit.allowed) {
+        const delivery = await preparePasswordReset(email);
+        if (delivery) after(() => deliverPasswordReset(delivery));
+      }
     } finally {
       await enforcePasswordResetResponseTiming(startedAtMs);
     }

@@ -90,12 +90,17 @@ export async function verifyEmailWithToken(token: string): Promise<void> {
   }
   await prisma.$transaction(async (tx) => {
     const now = new Date();
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${record.userId} FOR UPDATE`;
     const consumed = await tx.authActionToken.updateMany({
       where: { id: record.id, consumedAt: null, revokedAt: null, expiresAt: { gt: now } },
       data: { consumedAt: now },
     });
     if (consumed.count !== 1) throw new ApiError("AUTH_ACTION_TOKEN_INVALID", 400);
-    await tx.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: now } });
+    const changed = await tx.user.updateMany({
+      where: { id: record.userId, status: "ACTIVE" },
+      data: { emailVerifiedAt: now },
+    });
+    if (changed.count !== 1) throw new ApiError("AUTH_ACTION_TOKEN_INVALID", 400);
     await tx.auditEvent.create({
       data: {
         actorId: record.userId,
@@ -135,6 +140,7 @@ async function consumePasswordReset(
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const now = new Date();
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${record.userId} FOR UPDATE`;
     const consumed = await tx.authActionToken.updateMany({
       where: { id: record.id, consumedAt: null, revokedAt: null, expiresAt: { gt: now } },
       data: { consumedAt: now },

@@ -4,7 +4,6 @@
 status: in-progress
 phase: implementation
 blockers:
-  - nodemailer minimum release age policy must clear before standard pnpm gates can pass
   - shared test-pool desktop/mobile browser evidence and final docs/Git checkpoint remain
   - v1.3 Release and production disposition must be frozen before v1.4 Release
 risk: high
@@ -42,7 +41,8 @@ releaseRequired: true
 - 已在威胁模型中补齐邀请/重置重放、IDOR、成员移除/冻结即时失效、最后 Owner、当前 Workspace 选择误授权、多实例限流和 rollback floor。
 - v1.4 本地实施精确确认包已于 2026-09-05 确认，覆盖 schema、owner/selection 回填、SMTP dependency admission、API/UI、验证和回滚；不包含 Release、生产 migration/apply、RBAC、完整导出或物理删除。
 - 已实现账户状态/authRevision、设备 session、邮箱验证/密码重置、重新验证、持久认证限流、server-only SMTP、WorkspaceMembership/Invitation/Selection、Workspace 生命周期和成员生命周期；多人开关默认关闭，学习正文保持 owner-only。
-- Auth/API/Config 目标测试、Web 全量 925/925、Web/v1.4 typecheck、目标 ESLint 和隔离 PostgreSQL 11 组 runtime 已通过；仍待依赖发布时间门禁解除后的标准 pnpm 门禁、共享测试池浏览器验收、文档同步和 Git 检查点。
+- 已补充所有已认证 mutation 的 same-origin/CSRF 边界、报告和阶段查询的 actor/workspace fail-closed、StagePlan 当前计划数据库级 partial unique index 与重复 preimage 阻断；多人路径仍默认关闭。
+- Auth/API/Config 目标测试、Web 全量 927/927、Web/v1.4 typecheck、目标 ESLint、`CI=true pnpm check` 和隔离 PostgreSQL 12 组 runtime（含唯一索引读回）已通过；仍待共享测试池桌面/移动浏览器验收、文档同步和 Git 检查点。
 
 ## 验收
 

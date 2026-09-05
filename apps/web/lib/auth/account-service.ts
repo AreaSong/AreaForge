@@ -23,27 +23,31 @@ export interface AuthSessionDto {
 }
 
 export async function listDeviceSessions(actor: CurrentUser): Promise<AuthSessionDto[]> {
-  const sessions = await prisma.authSession.findMany({
-    where: { userId: actor.id, revokedAt: null, expiresAt: { gt: new Date() } },
-    select: {
-      id: true,
-      deviceLabel: true,
-      createdAt: true,
-      lastSeenAt: true,
-      expiresAt: true,
-      reauthenticatedAt: true,
-    },
-    orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await requireUsableAccountSession(tx, actor, now);
+    const sessions = await tx.authSession.findMany({
+      where: { userId: actor.id, revokedAt: null, expiresAt: { gt: now } },
+      select: {
+        id: true,
+        deviceLabel: true,
+        createdAt: true,
+        lastSeenAt: true,
+        expiresAt: true,
+        reauthenticatedAt: true,
+      },
+      orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
+    });
+    return sessions.map((session) => ({
+      id: session.id,
+      deviceLabel: session.deviceLabel ?? "未知设备",
+      createdAt: session.createdAt.toISOString(),
+      lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
+      expiresAt: session.expiresAt.toISOString(),
+      reauthenticatedAt: session.reauthenticatedAt?.toISOString() ?? null,
+      current: session.id === actor.sessionId,
+    }));
   });
-  return sessions.map((session) => ({
-    id: session.id,
-    deviceLabel: session.deviceLabel ?? "未知设备",
-    createdAt: session.createdAt.toISOString(),
-    lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
-    expiresAt: session.expiresAt.toISOString(),
-    reauthenticatedAt: session.reauthenticatedAt?.toISOString() ?? null,
-    current: session.id === actor.sessionId,
-  }));
 }
 
 export async function reauthenticateSession(actor: CurrentUser, password: string): Promise<Date> {
@@ -57,20 +61,24 @@ export async function reauthenticateSession(actor: CurrentUser, password: string
     throw new ApiError("CURRENT_PASSWORD_INVALID", 401);
   }
 
-  const now = new Date();
-  const changed = await prisma.authSession.updateMany({
-    where: {
-      id: actor.sessionId,
-      userId: actor.id,
-      authRevision: account.authRevision,
-      revokedAt: null,
-      expiresAt: { gt: now },
-    },
-    data: { reauthenticatedAt: now },
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await requireUsableAccountSession(tx, actor, now);
+    const currentAccount = await tx.user.findUnique({
+      where: { id: actor.id },
+      select: { passwordHash: true, authRevision: true },
+    });
+    if (
+      !currentAccount
+      || currentAccount.authRevision !== account.authRevision
+      || currentAccount.passwordHash !== account.passwordHash
+    ) {
+      throw new ApiError("UNAUTHORIZED", 401);
+    }
+    await tx.authSession.update({ where: { id: actor.sessionId }, data: { reauthenticatedAt: now } });
+    await recordReauthenticationAudit(actor.id, actor.sessionId, "AUTH_REAUTHENTICATED", tx);
+    return now;
   });
-  if (changed.count !== 1) throw new ApiError("UNAUTHORIZED", 401);
-  await recordReauthenticationAudit(actor.id, actor.sessionId, "AUTH_REAUTHENTICATED");
-  return now;
 }
 
 export async function revokeDeviceSession(actor: CurrentUser, sessionId: string): Promise<void> {
@@ -138,26 +146,33 @@ export async function changeAccountPassword(
   }
 
   const nextPasswordHash = await hashPassword(nextPassword);
-  return applyPasswordChange(actor, account.authRevision, nextPasswordHash);
+  return applyPasswordChange(actor, account.authRevision, account.passwordHash, nextPasswordHash);
 }
 
 async function applyPasswordChange(
   actor: CurrentUser,
   expectedAuthRevision: number,
+  expectedPasswordHash: string,
   nextPasswordHash: string,
 ): Promise<string> {
   const nextToken = createSessionToken();
   const nextTokenHash = hashSessionToken(nextToken, getAuthEnv().AUTH_SESSION_SECRET);
   await prisma.$transaction(async (tx) => {
     const now = new Date();
-    const currentSession = await tx.authSession.findFirst({
-      where: {
-        id: actor.sessionId,
-        userId: actor.id,
-        authRevision: expectedAuthRevision,
-        revokedAt: null,
-        expiresAt: { gt: now },
-      },
+    await requireUsableAccountSession(tx, actor, now);
+    const account = await tx.user.findUnique({
+      where: { id: actor.id },
+      select: { passwordHash: true, authRevision: true },
+    });
+    if (
+      !account
+      || account.authRevision !== expectedAuthRevision
+      || account.passwordHash !== expectedPasswordHash
+    ) {
+      throw new ApiError("AUTH_REVISION_CONFLICT", 409);
+    }
+    const currentSession = await tx.authSession.findUnique({
+      where: { id: actor.sessionId },
       select: {
         deviceLabel: true,
         ipHash: true,
@@ -211,15 +226,35 @@ function recordReauthenticationAudit(
   actorId: string,
   sessionId: string,
   action: "AUTH_REAUTHENTICATED" | "AUTH_REAUTHENTICATION_FAILED",
+  client: Pick<Prisma.TransactionClient, "auditEvent"> = prisma,
 ): Promise<unknown> {
-  return prisma.auditEvent.create({
+  return client.auditEvent.create({
     data: { actorId, action, entityType: "AuthSession", entityId: sessionId },
   });
 }
 
 async function requireFreshAccountSession(tx: Prisma.TransactionClient, actor: CurrentUser): Promise<void> {
-  await tx.$queryRaw`SELECT id FROM "AuthSession" WHERE id = ${actor.sessionId} FOR UPDATE`;
   const now = new Date();
+  const session = await requireUsableAccountSession(tx, actor, now, "REAUTHENTICATION_REQUIRED", 403);
+  if (!isReauthenticationFresh(
+    session.reauthenticatedAt,
+    now,
+    getAuthEnv().AUTH_REAUTH_MAX_AGE_SECONDS * 1000,
+  )) {
+    throw new ApiError("REAUTHENTICATION_REQUIRED", 403);
+  }
+}
+
+async function requireUsableAccountSession(
+  tx: Prisma.TransactionClient,
+  actor: CurrentUser,
+  now: Date,
+  errorCode = "UNAUTHORIZED",
+  errorStatus = 401,
+) {
+  // 账户与当前会话按统一顺序加锁，避免改密/撤销/重新验证在检查后竞争提交。
+  await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actor.id} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM "AuthSession" WHERE id = ${actor.sessionId} FOR UPDATE`;
   const session = await tx.authSession.findFirst({
     where: { id: actor.sessionId, userId: actor.id },
     select: {
@@ -237,11 +272,6 @@ async function requireFreshAccountSession(tx: Prisma.TransactionClient, actor: C
     expiresAt: session.expiresAt,
     revokedAt: session.revokedAt,
     now,
-  }) || !isReauthenticationFresh(
-    session.reauthenticatedAt,
-    now,
-    getAuthEnv().AUTH_REAUTH_MAX_AGE_SECONDS * 1000,
-  )) {
-    throw new ApiError("REAUTHENTICATION_REQUIRED", 403);
-  }
+  })) throw new ApiError(errorCode, errorStatus);
+  return session;
 }

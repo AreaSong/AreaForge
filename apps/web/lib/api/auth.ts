@@ -6,12 +6,21 @@ import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "./responses";
 
 export async function requireApiUser(request: NextRequest): Promise<CurrentUser> {
+  // Every authenticated mutation is browser-bound. Keeping this check at the
+  // shared authentication boundary prevents a newly added route from
+  // accidentally omitting CSRF protection; explicit route checks may remain
+  // for sensitive endpoints and are idempotent.
+  if (!isSafeReadMethod(request.method)) requireSameOrigin(request);
   const user = await getCurrentUserFromRequest(request);
   if (!user) {
     throw new ApiError("UNAUTHORIZED", 401);
   }
 
   return user;
+}
+
+function isSafeReadMethod(method: string): boolean {
+  return method === "GET" || method === "HEAD" || method === "OPTIONS";
 }
 
 export async function readJson(request: NextRequest): Promise<unknown> {

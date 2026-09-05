@@ -2,6 +2,7 @@ import { createSessionToken, deriveDeviceLabel, hashIdentifier, hashSessionToken
 import { prisma } from "@areaforge/db";
 import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
+import { ApiError } from "@/lib/api/responses";
 import { getSessionCookieOptions, sessionMaxAgeSeconds } from "./cookies";
 import { getAuthEnv } from "./env";
 
@@ -138,17 +139,27 @@ export async function createUserSession(
   const env = getAuthEnv();
   const token = createSessionToken();
   const ip = getClientIp(request);
-  await prisma.authSession.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashSessionToken(token, env.AUTH_SESSION_SECRET),
-      authRevision: user.authRevision,
-      deviceLabel: getRequestDeviceLabel(request),
-      ipHash: hashIdentifier(ip),
-      userAgentHash: getUserAgentHash(request),
-      reauthenticatedAt: new Date(),
-      expiresAt: getSessionExpiresAt(),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+    const account = await tx.user.findUnique({
+      where: { id: user.id },
+      select: { status: true, authRevision: true },
+    });
+    if (!account || account.status !== "ACTIVE" || account.authRevision !== user.authRevision) {
+      throw new ApiError("UNAUTHORIZED", 401);
+    }
+    await tx.authSession.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashSessionToken(token, env.AUTH_SESSION_SECRET),
+        authRevision: account.authRevision,
+        deviceLabel: getRequestDeviceLabel(request),
+        ipHash: hashIdentifier(ip),
+        userAgentHash: getUserAgentHash(request),
+        reauthenticatedAt: new Date(),
+        expiresAt: getSessionExpiresAt(),
+      },
+    });
   });
   return token;
 }
@@ -193,8 +204,13 @@ export async function findUserBySessionToken(token: string, secret: string): Pro
   const lastSeenStale = !session.lastSeenAt
     || now.getTime() - session.lastSeenAt.getTime() >= sessionLastSeenWriteIntervalMs;
   if (lastSeenStale) {
-    await prisma.authSession.update({
-      where: { id: session.id },
+    await prisma.authSession.updateMany({
+      where: {
+        id: session.id,
+        authRevision: session.authRevision,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
       data: { lastSeenAt: now },
     });
   }

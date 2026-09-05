@@ -129,8 +129,12 @@ export async function clearAuthFailures(
   purpose: AuthThrottlePurpose,
   keyHash: string | string[],
 ): Promise<void> {
-  const keys = Array.isArray(keyHash) ? keyHash : [keyHash];
-  await prisma.authThrottleBucket.deleteMany({ where: { purpose, keyHash: { in: keys } } });
+  const keys = Array.from(new Set(Array.isArray(keyHash) ? keyHash : [keyHash])).sort();
+  if (keys.length === 0) return;
+  await prisma.$transaction(async (tx) => {
+    for (const key of keys) await lockThrottleBucket(tx, purpose, key);
+    await tx.authThrottleBucket.deleteMany({ where: { purpose, keyHash: { in: keys } } });
+  });
 }
 
 export function checkLoginRateLimit(keyHash: string, now = new Date()): Promise<AuthRateLimitResult> {

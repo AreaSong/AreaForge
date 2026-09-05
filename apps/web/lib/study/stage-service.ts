@@ -54,10 +54,10 @@ export interface CreateStageAdjustmentDraftInput {
   stagePlanId?: string | null;
 }
 
-export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> {
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+export async function listStagePlans(actorId: string): Promise<StagePlanDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const plans = await prisma.stagePlan.findMany({
-    where: workspace ? { workspaceId: workspace.id } : undefined,
+    where: { workspaceId: workspace.id },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
     take: 50,
   });
@@ -153,14 +153,33 @@ export async function updateStagePlan(
   input: Partial<SaveStagePlanInput> & { expectedRevision: number },
   actorId: string,
 ): Promise<StagePlanDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
   const plan = await prisma.$transaction(async (tx) => {
+    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.stagePlan.findFirst({ where: { id, workspaceId: workspace.id } });
     if (!existing) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
 
     const nextStartDate = input.startDate ? new Date(input.startDate) : existing.startDate;
     const nextEndDate = input.endDate ? new Date(input.endDate) : existing.endDate;
     if (nextEndDate.getTime() < nextStartDate.getTime()) throw new ApiError("STAGE_PLAN_DATE_RANGE_INVALID", 400);
+
+    const nextStatus = input.status ?? existing.status;
+    if (nextStatus === "active" || nextStatus === "draft") {
+      const competingPlan = await tx.stagePlan.findFirst({
+        where: {
+          id: { not: id },
+          workspaceId: workspace.id,
+          status: { in: ["active", "draft"] },
+        },
+        orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
+      });
+      if (competingPlan) {
+        throw new ApiError("STAGE_PLAN_BASE_REVISION_CONFLICT", 409, {
+          latest: stagePlanConflictLatest(serializeStagePlan(competingPlan)),
+          conflictFields: ["status", "plan.revision"],
+          workbench: stageWorkbench,
+        });
+      }
+    }
 
     const changed = await tx.stagePlan.updateMany({
       where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
@@ -191,10 +210,10 @@ export async function updateStagePlan(
   return serializeStagePlan(plan);
 }
 
-export async function listStageAdjustmentDrafts(actorId?: string): Promise<StageAdjustmentDraftRecordDto[]> {
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+export async function listStageAdjustmentDrafts(actorId: string): Promise<StageAdjustmentDraftRecordDto[]> {
+  const workspace = await resolveActiveWorkspace(actorId);
   const drafts = await prisma.stageAdjustmentDraft.findMany({
-    where: workspace ? { workspaceId: workspace.id } : undefined,
+    where: { workspaceId: workspace.id },
     orderBy: [{ createdAt: "desc" }],
     take: 50,
   });
