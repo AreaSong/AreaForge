@@ -43,9 +43,9 @@
 
 学习行动中心已把考试工作区归属、学习树规范化 Markdown 长期留存与导出、资料 HTTPS 外链、浏览器通知 payload、四类 AI 草稿 HMAC（基于哈希的消息认证码）token 纳入生产威胁面。导入 confirm 的生命周期边界已确认，但 `AF-RISK-DATA-001` 继续保持 `deferred-work`；AI 草稿仍禁止附件与未选择正文，物理删除与完整账户导出不在当前范围。发布后产品化修复尚未形成新的 Release 或 production apply，不改变这些安全边界。规格见 `workflow/versions/v1.1-learning-action-center.md`。
 
-## v1.4 多用户威胁模型增量（规划，未授权实施）
+## v1.4 多用户威胁模型增量（本地已确认，未发布/未生产）
 
-当前生产与 v1.3 仍按单管理员 owner 语义运行。以下威胁与防线是 v1.4 `AUTH` 包的实施目标，不表示当前 runtime 已具备多人安全性。
+当前生产仍按单管理员 owner 语义运行。v1.4 `AUTH` 本地实施已于 2026-09-05 获得确认，当前工作树已形成身份、Workspace 与 Membership 主体代码及隔离 PostgreSQL 验证；默认功能开关仍关闭，最终浏览器/总门禁、Release、生产 migration/apply 和生产 SMTP smoke 尚未完成，因此不能把本地候选写成线上多人安全性已成立。
 
 ### 新增资产与信任边界
 

@@ -18,7 +18,7 @@ AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把直�
 
 - 产品重点：服务一个人的长期备考闭环，不做通用团队项目管理。
 - 功能状态：任务、计时、考纲、笔记附件、错题、复盘、AI 建议、模拟考试、周期报告、阶段草稿和发布/备份/恢复/回滚链路都有实现与验证记录。
-- 当前边界：单管理员私有 Web 应用；AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
+- 当前边界：稳定 Release/生产仍是单管理员私有 Web 应用；v1.4 身份、Workspace 与 Membership 已进入默认关闭的本地候选。AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
 - README 只突出内容重点、当前状态和常用入口；功能追踪、发布证据、验证矩阵和残余风险以 `docs/**` 为准。
 
 ## 核心闭环
@@ -40,7 +40,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 | 知识证据 | 独立知识点、考纲范围视图、掌握条件与证据、复测记录、笔记、私有附件、错题与复习提醒 |
 | 检验与复盘 | 专项复测、模拟考试、完整复盘、周报/月报和阶段调整；所有建议进入统一确认中心 |
 | AI 协助 | OpenAI-compatible Provider、Web 全局开关与当前浏览器默认关闭 opt-in、结构化输出校验、本地规则回退、最小化上下文和显式触发 |
-| 私有交付 | 单管理员登录、PostgreSQL 持久化、备份恢复、签名 Release、服务器侧受控更新与回滚 |
+| 私有交付 | 稳定单管理员登录；v1.4 本地候选含邀请制账户、账户安全、Workspace/Membership；PostgreSQL 持久化、备份恢复、签名 Release、服务器侧受控更新与回滚 |
 
 第一版与第二阶段文档范围的当前实现状态，统一以 [功能追踪矩阵](docs/development/feature-traceability.md) 为准。
 
@@ -50,6 +50,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 |---|---|
 | 仓库状态 | 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfa`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
 | 当前候选 | 当前 checkout 的 package version 为 `1.2.0`，对应高密度工作台、Dynamic Island、错题 v2 与 Web 治理门禁的稳定 Release；未执行 production apply |
+| A -> B 本地进度 | v1.3 动态个人版已合并 `main` 但未独立 Release；v1.4 身份、Workspace 与 Membership 主体代码已在当前分支进入最终验证，默认 `AUTH_MULTI_USER_ENABLED=false`，不等于已发布或已上线多人能力 |
 | 线上基线 | `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 与 verified production runtime identity 已验证 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
 | 当前收口 | `v1.2.0` 已完成全量检查、桌面/移动验收、受保护 PR、annotated tag、稳定 Release 与严格资产校验；本次未执行 production apply，生产和回滚目标仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变 |
@@ -59,12 +60,12 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 
 ## 产品边界
 
-- 当前是单管理员、电脑优先、移动端响应式适配的私有 Web 应用。
+- 稳定 Release 和当前生产仍是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；v1.4 本地候选正在增加邀请制账户与 Workspace/Membership。
 - PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
 - AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题；外部 Provider 还需当前浏览器在 `/settings/ai` 显式开启，Provider key 不进入客户端。
 - 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
 - Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
-- 多用户、排名、小程序、原生 App、复杂权限、AI 自动完整计划和复杂 PDF 自动解析仍不在当前范围。
+- v1.4 本地候选只提供邀请制身份与 OWNER/MEMBER 归属底座；复杂权限、数据生命周期、排名、小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
 
 ## 技术架构
 
@@ -103,6 +104,7 @@ pnpm db:migrate:dev
 首次启动前，从 `.env.example` 准备本地 `.env`，并至少完成以下配置：
 
 - 将 `AUTH_SESSION_SECRET` 替换为不少于 32 个字符的本地随机值。
+- 将 `AUTH_ACTION_TOKEN_SECRET` 替换为另一份不少于 32 个字符的服务端随机值；v1.4 邀请、验证和重置链接使用该密钥。
 - 设置 `AUTH_ADMIN_EMAIL`，并将密码哈希写入 `AUTH_ADMIN_PASSWORD_HASH`。
 - 将 `UPLOAD_DIR` 改为本机可写、位于 `apps/web/public` 之外的绝对路径。
 - 将 `APP_VERSION` 与根 `package.json` 的当前版本保持一致。
@@ -113,7 +115,7 @@ pnpm db:migrate:dev
 pnpm auth:hash '<local-password>'
 ```
 
-把输出写回 `.env` 后，再初始化管理员并启动应用。普通 seed 不创建业务科目；首次登录后在考试与科目设置中建立工作区和科目：
+把输出写回 `.env` 后，再初始化管理员并启动应用。普通 seed 不创建业务科目；首次登录后在考试与科目设置中建立工作区和科目。v1.4 多人功能默认关闭，只有隔离 migration/验证和目标环境 SMTP 配置完成后才显式设置 `AUTH_MULTI_USER_ENABLED=true`：
 
 ```bash
 pnpm db:seed

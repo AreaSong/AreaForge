@@ -212,18 +212,25 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
   const local = parseEnvFile(readFileSync(source, "utf8"));
   const databaseUrl = local.DATABASE_URL;
   if (!databaseUrl) throw new Error("apps/web/.env.local must define DATABASE_URL");
+  const multiUserEnabled = (process.env.AUTH_MULTI_USER_ENABLED ?? local.AUTH_MULTI_USER_ENABLED ?? "false").trim();
+  const actionTokenSecret = (process.env.AUTH_ACTION_TOKEN_SECRET ?? local.AUTH_ACTION_TOKEN_SECRET ?? "").trim();
+  if (multiUserEnabled === "true" && actionTokenSecret.length < 32) {
+    throw new Error("AUTH_ACTION_TOKEN_SECRET with at least 32 characters is required for a multi-user test-pool runtime");
+  }
   const environment: Record<string, string> = {
     DATABASE_URL: localContainerDatabaseUrl(databaseUrl),
     APP_URL: `http://127.0.0.1:${port}`,
     APP_VERSION: appVersion,
     AUTH_SESSION_COOKIE_NAME: `af_dev_test_${slot}`,
     AUTH_SESSION_SECRET: requiredLocal(local, "AUTH_SESSION_SECRET"),
+    AUTH_MULTI_USER_ENABLED: multiUserEnabled,
     AI_ENABLED: "false",
     AI_LOG_PROMPTS: "false",
     AI_ALLOW_SENSITIVE_CONTEXT: "false",
     UPLOAD_DIR: "/app/uploads",
     TRUST_PROXY: "false",
   };
+  if (actionTokenSecret) environment.AUTH_ACTION_TOKEN_SECRET = actionTokenSecret;
   for (const key of ["AUTH_ADMIN_EMAIL", "AUTH_ADMIN_PASSWORD_HASH", "AI_CREDENTIALS_ENCRYPTION_KEY", "AI_PAYLOAD_BINDING_SECRET"] as const) {
     if (local[key]) environment[key] = local[key];
   }

@@ -1797,11 +1797,11 @@ pnpm ops:ops-001:preflight
 
 **确认状态（2026-09-04）**：用户已确认上述本地实施范围。2026-09-05 当前工作树已实现严格 preview/confirm/undo、单事务全引用迁移、知识点确定性去重、模拟补救来源重建、来源软归档、4 MiB 精确 preimage 和 24 小时撤销；全新临时 PostgreSQL 17 应用当前 36 个 migration 后，10 组专项 runtime 检查通过。该状态不授权或证明生产 migration、production apply、Release/tag、物理删除、账户导出、AUTH/RBAC 或服务器命令；共享测试池现有 latest 可用，但仍待以最终源码刷新并完成桌面/移动验收。
 
-## v1.4 AUTH 身份、Workspace 与 Membership 本地实施确认包（未确认）
+## v1.4 AUTH 身份、Workspace 与 Membership 本地实施确认包（已确认）
 
 本确认包覆盖 v1.4 `AUTH-0` 至 `AUTH-5` 的本地代码、一条或多条按顺序执行的 additive/constraint-relaxing migration、全新隔离 PostgreSQL 验证和本地浏览器验收。它不授权 v1.5 RBAC/对象分享、完整账户导出、物理删除、Release/tag、生产 migration/apply 或服务器命令。
 
-### 当前 preimage
+### 实施前 preimage（历史快照）
 
 - `User` 当前只有 `id/email/passwordHash/createdAt/updatedAt`；普通 seed 明确拒绝多个用户。
 - `AuthSession` 当前只有 token hash、7 天绝对过期、lastSeen/revoked 时间和 user 关联；没有账户状态、设备会话管理、重新验证或全局 session revision。
@@ -1875,9 +1875,11 @@ pnpm ops:ops-001:preflight
 - token、Membership、owner 或 Selection 任一回填不一致，跨租户测试失败，或 SMTP/日志暴露 secret 时立即停止，不开放功能。
 - 不执行生产 migration、生产 SMTP key smoke、Release/tag、production apply、backup/restore、账户导出、物理删除、RBAC/grant/Coach、公开注册、SSO/SCIM、服务器命令或 residual 关闭。
 
-明确确认句（未确认）：
+明确确认句（已确认）：
 
 > 确认执行 v1.4 AUTH 身份、Workspace 与 Membership 本地实施：按上述 preimage 新增 User 状态/authRevision、设备 AuthSession、purpose-separated AuthActionToken、WorkspaceMembership/Invitation/Selection、PostgreSQL 持久限流和 nodemailer 10 server-only SMTP adapter；精确回填现有 owner Membership 与当前 Workspace Selection，在隔离验证后放宽单 ACTIVE Workspace 索引；实现邀请制开户、邮箱验证/密码重置、会话撤销/重新验证、Workspace CRUD/切换、邀请/成员/离开/移除/所有权转移及双用户双 Workspace IDOR 验收；默认不开启多人功能，不扩大现有学习正文可见性，不执行 RBAC/对象分享、账户导出、物理删除、生产 migration/SMTP key smoke、Release/tag、production apply、备份恢复、服务器命令或 residual 关闭。
+
+**确认状态（2026-09-05）**：用户已明确同意按上述边界完成 v1.4 本地实现。当前工作树已形成 schema/migration、账户安全、邀请制身份、Workspace/Membership 生命周期、默认关闭开关、最小成员可见性和隔离 PostgreSQL runtime；最终标准 pnpm 门禁、共享测试池浏览器验收、文档/Git 检查点仍在收口。本确认不授权或证明 v1.5 RBAC、完整账户导出、物理删除、Release/tag、生产 migration/apply、生产 SMTP smoke、备份恢复、服务器命令或 residual 关闭。
 
 ## A -> B 后续高风险确认包登记（未确认）
 
@@ -1885,7 +1887,7 @@ pnpm ops:ops-001:preflight
 
 | 确认包 | 进入版本 | 实施前必须冻结 | 最低验证 | 失败/回滚边界 | 当前状态 |
 |---|---|---|---|---|---|
-| `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 未确认 |
+| `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 本地实施已确认；Release/生产未确认 |
 | `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 未确认 |
 | `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 未确认 |
 | `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 未确认 |

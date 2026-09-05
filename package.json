@@ -293,6 +293,8 @@
     "db:migrate:dev": "DATABASE_URL=${DATABASE_URL:-postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge} prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx scripts/db/seed.ts",
+    "ops:v14:auth:typecheck": "tsc -p scripts/quality/tsconfig.v14-auth.json",
+    "ops:v14:auth:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v14-auth-runtime.selftest.ts",
     "db:seed:complete-test": "tsx scripts/db/seed-complete-test.ts"
   },
   "devDependencies": {

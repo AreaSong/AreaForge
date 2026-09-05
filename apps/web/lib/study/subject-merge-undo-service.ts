@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { stableStringify } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   SubjectMergeOperationDto,
   SubjectMergeUndoResultDto,
@@ -342,7 +343,7 @@ async function assertNoActiveSessions(tx: MergeTx, subjectIds: string[]) {
 
 async function findOwnedWorkspace(tx: MergeTx, actorId: string, workspaceId: string) {
   const workspace = await tx.examWorkspace.findFirst({
-    where: { id: workspaceId, userId: actorId, status: "ACTIVE" },
+    where: { id: workspaceId, ...workspaceOwnerWhere(actorId), status: "ACTIVE" },
   });
   if (!workspace) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
   return workspace;

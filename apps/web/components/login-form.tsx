@@ -15,6 +15,7 @@ import { login } from "@/lib/api/auth-browser";
 import { isUnauthorized } from "@/lib/client/api-errors";
 import { Button, IconButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
+import Link from "next/link";
 
 export interface LoginFormProps {
   returnTo?: string;
@@ -169,7 +170,7 @@ export function LoginForm({ returnTo = "/", className = "" }: LoginFormProps) {
               {error}
             </p>
           ) : (
-            <p className="px-1 py-2 text-xs text-zinc-600">当前仅支持邮箱与密码登录。</p>
+            <div className="flex items-center justify-between px-1 py-2 text-xs"><span className="text-zinc-600">当前仅支持邮箱与密码登录。</span><Link className="text-teal-300 hover:text-teal-200" href="/forgot-password">忘记密码？</Link></div>
           )}
         </div>
 

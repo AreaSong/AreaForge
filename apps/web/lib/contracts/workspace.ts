@@ -10,6 +10,9 @@ export interface ExamWorkspaceDto {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  current?: boolean;
+  membershipRole?: "OWNER" | "MEMBER";
+  selectionRevision?: number;
 }
 
 export interface SubjectGroupDto {

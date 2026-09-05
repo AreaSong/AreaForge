@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test 'app/login/**/*.test.ts' 'components/**/*.test.ts' 'lib/api/**/*.test.ts' 'lib/client/**/*.test.ts' 'lib/knowledge/**/*.test.ts' 'lib/navigation/**/*.test.ts' 'lib/study/**/*.test.ts'",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test 'app/login/**/*.test.ts' 'components/**/*.test.ts' 'lib/api/**/*.test.ts' 'lib/auth/**/*.test.ts' 'lib/client/**/*.test.ts' 'lib/knowledge/**/*.test.ts' 'lib/navigation/**/*.test.ts' 'lib/study/**/*.test.ts'",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
@@ -21,6 +21,7 @@
     "@xyflow/react": "12.11.2",
     "lucide-react": "^0.561.0",
     "next": "16.3.0",
+    "nodemailer": "10.0.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.2.1"

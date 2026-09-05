@@ -24,6 +24,7 @@ import {
 } from "@areaforge/auth";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { requireWorkspaceOwner, workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import { getAuthEnv } from "@/lib/auth/env";
 import type {
   LearningTreeConfirmResultDto,
@@ -950,7 +951,7 @@ export async function confirmLearningTreeImport(
   }
 
   const claimedWorkspace = await prisma.examWorkspace.findFirst({
-    where: { id: claims.workspaceId, userId: actorId },
+    where: { id: claims.workspaceId, ...workspaceOwnerWhere(actorId) },
     select: { id: true, stableKey: true, status: true, revision: true },
   });
   if (!claimedWorkspace) {
@@ -1065,9 +1066,10 @@ export async function confirmLearningTreeImport(
     return await prisma.$transaction(async (tx) => {
       const lockedRows = await tx.$queryRaw<Array<{ revision: number }>>`
         SELECT revision FROM "ExamWorkspace"
-        WHERE id = ${workspace.id} AND "userId" = ${actorId} AND status = 'ACTIVE'
+        WHERE id = ${workspace.id} AND status = 'ACTIVE'
         FOR UPDATE
       `;
+      await requireWorkspaceOwner(tx, actorId, workspace.id, { active: true });
       const prior = await tx.learningTreeImportBatch.findUnique({
         where: {
           workspaceId_idempotencyKey: {
@@ -1316,7 +1318,7 @@ export async function confirmLearningTreeImport(
       }
 
       const revisionChanged = await tx.examWorkspace.updateMany({
-        where: { id: workspace.id, userId: actorId, status: "ACTIVE", revision: claims.rootRevision },
+        where: { id: workspace.id, ...workspaceOwnerWhere(actorId), status: "ACTIVE", revision: claims.rootRevision },
         data: { revision: { increment: 1 } },
       });
       if (revisionChanged.count !== 1) {
@@ -1384,7 +1386,7 @@ export async function confirmLearningTreeImport(
     if (error instanceof ApiError) {
       if (error.status !== 409) throw error;
       const latestWorkspace = await prisma.examWorkspace.findFirst({
-        where: { id: workspace.id, userId: actorId },
+        where: { id: workspace.id, ...workspaceOwnerWhere(actorId) },
         select: { id: true, status: true, revision: true },
       });
       throw completeLearningTreeConfirmConflict(error, {
@@ -1672,7 +1674,7 @@ export async function listLearningTreeImports(
 ): Promise<LearningTreeImportBatchSummaryDto[]> {
   const rows = await prisma.learningTreeImportBatch.findMany({
     where: {
-      workspace: { userId: actorId },
+      workspace: workspaceOwnerWhere(actorId),
       archivedAt: options?.includeArchived ? undefined : null,
     },
     orderBy: [{ confirmedAt: "desc" }],
@@ -1705,7 +1707,7 @@ export async function getLearningTreeImport(
   batchId: string,
 ): Promise<LearningTreeImportBatchDetailDto> {
   const row = await prisma.learningTreeImportBatch.findFirst({
-    where: { id: batchId, workspace: { userId: actorId } },
+    where: { id: batchId, workspace: workspaceOwnerWhere(actorId) },
     include: {
       workspace: { select: { status: true, revision: true } },
       items: { orderBy: [{ createdAt: "asc" }] },
@@ -1788,7 +1790,7 @@ export async function exportLearningTreeImportCanonical(
   batchId: string,
 ): Promise<{ markdown: string; filename: string; workspaceId: string }> {
   const row = await prisma.learningTreeImportBatch.findFirst({
-    where: { id: batchId, workspace: { userId: actorId } },
+    where: { id: batchId, workspace: workspaceOwnerWhere(actorId) },
     select: {
       id: true,
       workspaceId: true,

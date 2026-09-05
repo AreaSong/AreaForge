@@ -258,7 +258,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `AF-RISK-OPS-008`：`v0.1.9` hold、barrier、CAS clear、timer restore 和 production journal 已进入 `closed-evidence`；Web runtime 仍不得获得 hold/drain 或服务器命令控制权。
 - `AF-RISK-UX-001`：`v0.1.9` current-bound 本地 UX review、desktop/mobile 截图和 runtime probe 已通过人工复核并进入 `closed-evidence`；`v1.1.1` 体验源已按冻结目标 commit 完成 Release admission，不改变历史关账状态。
 - `AF-RISK-DATA-001`：学习树导入生命周期边界已人工接受，当前保持 `deferred-work`；已确认导入的规范化 Markdown 长期留存并随数据库备份扩散。后续物理删除、备份副本同步删除、完整账户导出、AI history/provider trace 或跨用户可见性变化必须按台账关闭/重开条件独立确认，本地 Release 候选与生产 apply 均不自动关闭该项。
-- `AF-RISK-DATA-002`：邀请制多用户、Workspace Membership、RBAC 和敏感数据授权属于 A -> B 后续路线，当前保持 `deferred-work` 且不可执行；AUTH/RBAC 确认包、additive migration、旧 owner 回填、统一授权层、跨租户负向验证和生产证据齐全后才能进入人工关闭复核。
+- `AF-RISK-DATA-002`：v1.4 AUTH 本地实施已确认并由 active 任务承接，身份、Workspace Membership 和 owner-only 边界正在最终验证；该 residual 保持 `deferred-work` 但本地确认范围可执行。v1.5 RBAC、敏感数据授权、Release 和生产证据仍缺，全部齐全后才能进入人工关闭复核。
 - `AF-RISK-DATA-003`：个人成长指标与私有挑战排名属于 v1.8 后续路线，当前保持 `deferred-work` 且不可执行；指标版本、opt-in、隐私字段禁区、反作弊、申诉以及退出/删除重建证据齐全后才能进入人工关闭复核，默认公开排名不在当前版本范围。
 - `AF-RISK-OPS-009`：受控运维中心属于 v1.7 后续路线，当前保持 `deferred-work` 且不可执行；未来仍只允许 Web 提交白名单 operation intent，由 root-only agent 执行，任意 shell、自由路径、Docker socket、root 权限和服务器密钥继续永久禁止。
 

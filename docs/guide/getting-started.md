@@ -9,11 +9,13 @@
 
 ## 第一次登录
 
-AreaForge 是单管理员私有应用，没有注册入口。管理员账号在初始化时由环境变量写入数据库：
+AreaForge 的稳定 Release/生产仍是单管理员私有应用，没有公开注册入口。管理员账号在初始化时由环境变量写入数据库：
 
 1. 在 `.env` 中设置 `AUTH_ADMIN_EMAIL`，并用 `pnpm auth:hash '<你的密码>'` 生成密码哈希写入 `AUTH_ADMIN_PASSWORD_HASH`。
 2. 运行 `pnpm db:seed` 初始化管理员。普通 seed 不创建任何业务科目。
 3. 打开应用地址，进入 `/login`，用上面的邮箱和密码登录。
+
+v1.4 本地候选继续禁止公开注册，但在 `AUTH_MULTI_USER_ENABLED=true` 且服务端 SMTP 配置完整时，Owner 可以从 `/settings/workspaces` 发送邀请。受邀者通过一次性 fragment 链接接受：已有账户先登录受邀邮箱，新账户在邀请页设置密码；系统同时创建其个人 Workspace，加入共享 Workspace 不会自动开放成员的私密学习正文。
 
 首次登录会进入 `/settings/exams?setup=1`，由你填写考试目标和首个科目；408 四科只在显式勾选模板时创建。以后登录时，有未结束活动就先恢复活动，否则进入今日作战台。
 

@@ -15,23 +15,12 @@ async function main() {
 }
 
 async function seedAdmin(adminEmail: string, adminPasswordHash: string): Promise<void> {
-  const existingUsers = await prisma.user.findMany({
-    select: { id: true, email: true },
-    take: 2,
-    orderBy: { createdAt: "asc" },
-  });
+  const [userCount, existingAdmin] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.findUnique({ where: { email: adminEmail }, select: { id: true } }),
+  ]);
 
-  if (existingUsers.length > 1) {
-    throw new Error("Multiple admin users already exist. Resolve this manually before running seed.");
-  }
-
-  if (existingUsers.length > 0 && existingUsers[0]?.email !== adminEmail) {
-    throw new Error("Admin already exists with a different email. Use an explicit password reset or admin migration.");
-  }
-
-  const existingAdmin = existingUsers[0];
-
-  if (!existingAdmin) {
+  if (userCount === 0) {
     const admin = await createAdminIfMissing(adminEmail, adminPasswordHash);
 
     if (admin.created) {
@@ -47,6 +36,10 @@ async function seedAdmin(adminEmail: string, adminPasswordHash: string): Promise
     }
 
     return;
+  }
+
+  if (!existingAdmin) {
+    throw new Error("Users already exist and the configured bootstrap admin is absent. Use the invitation or recovery flow.");
   }
 
   await prisma.auditEvent.create({
@@ -76,6 +69,7 @@ async function createAdminIfMissing(email: string, passwordHash: string): Promis
       data: {
         email,
         passwordHash,
+        emailVerifiedAt: new Date(),
       },
       select: { id: true },
     });

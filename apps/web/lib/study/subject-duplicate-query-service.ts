@@ -8,6 +8,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   SubjectDuplicateSetDto,
   SubjectReferenceCountDto,
@@ -352,7 +353,7 @@ async function assertOwnedWorkspace(
   client: SubjectPreviewClient,
 ): Promise<{ id: string; revision: number }> {
   const workspace = await client.examWorkspace.findFirst({
-    where: { id: workspaceId, userId: actorId },
+    where: { id: workspaceId, ...workspaceOwnerWhere(actorId) },
     select: { id: true, revision: true },
   });
   if (!workspace) throw new ApiError("WORKSPACE_NOT_FOUND", 404);

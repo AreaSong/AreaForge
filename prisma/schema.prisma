@@ -22,6 +22,42 @@ enum ExamWorkspaceStatus {
   ARCHIVED
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AuthActionTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum WorkspaceMembershipRole {
+  OWNER
+  MEMBER
+}
+
+enum WorkspaceMembershipStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum WorkspaceInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+enum AuthThrottlePurpose {
+  LOGIN
+  INVITATION
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  REAUTHENTICATION
+  PASSWORD_CHANGE
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -206,6 +242,10 @@ model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
   passwordHash            String
+  status                   UserStatus               @default(ACTIVE)
+  emailVerifiedAt         DateTime?
+  passwordChangedAt       DateTime                 @default(now())
+  authRevision            Int                      @default(1)
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   auditEvents             AuditEvent[]
@@ -242,17 +282,29 @@ model User {
   knowledgeEvidence       KnowledgeEvidence[]
   studySessions           StudySession[]
   studySessionDevicePresences StudySessionDevicePresence[]
+  authActionTokens        AuthActionToken[]
+  workspaceMemberships    WorkspaceMembership[]    @relation("WorkspaceMembershipUser")
+  invitedMemberships      WorkspaceMembership[]    @relation("WorkspaceMembershipInviter")
+  workspaceInvitationsSent WorkspaceInvitation[]   @relation("WorkspaceInvitationInviter")
+  workspaceInvitationsAccepted WorkspaceInvitation[] @relation("WorkspaceInvitationAcceptor")
+  workspaceSelection      WorkspaceSelection?
 }
 
 model AuthSession {
-  id         String    @id @default(cuid())
-  userId     String
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  lastSeenAt DateTime?
-  createdAt  DateTime  @default(now())
-  revokedAt  DateTime?
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  userId            String
+  tokenHash         String    @unique
+  authRevision      Int       @default(1)
+  deviceLabel       String?
+  ipHash            String?
+  userAgentHash     String?
+  expiresAt         DateTime
+  lastSeenAt        DateTime?
+  reauthenticatedAt DateTime?
+  createdAt         DateTime  @default(now())
+  revokedAt         DateTime?
+  revokedReason     String?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -297,10 +349,107 @@ model ExamWorkspace {
   studySessionDevicePresences StudySessionDevicePresence[]
   knowledgeRetests  KnowledgeRetest[]
   knowledgeEvidence KnowledgeEvidence[]
+  memberships       WorkspaceMembership[]
+  invitations       WorkspaceInvitation[]
+  selections        WorkspaceSelection[]
 
   @@unique([userId, stableKey])
   @@index([userId])
   @@index([status])
+}
+
+model AuthActionToken {
+  id         String                 @id @default(cuid())
+  userId     String
+  purpose    AuthActionTokenPurpose
+  tokenHash  String                 @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@index([expiresAt])
+}
+
+model WorkspaceMembership {
+  id              String                    @id @default(cuid())
+  workspaceId     String
+  userId          String
+  role            WorkspaceMembershipRole
+  status          WorkspaceMembershipStatus @default(ACTIVE)
+  revision        Int                       @default(1)
+  invitedByUserId String?
+  joinedAt        DateTime                  @default(now())
+  leftAt          DateTime?
+  removedAt       DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  workspace       ExamWorkspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user            User                      @relation("WorkspaceMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy       User?                     @relation("WorkspaceMembershipInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@index([workspaceId, status, role])
+  @@index([invitedByUserId])
+}
+
+model WorkspaceInvitation {
+  id               String                    @id @default(cuid())
+  workspaceId      String
+  emailNormalized  String
+  role             WorkspaceMembershipRole   @default(MEMBER)
+  tokenHash        String                    @unique
+  status           WorkspaceInvitationStatus @default(PENDING)
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  revision         Int                       @default(1)
+  acceptedAt       DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  workspace        ExamWorkspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy        User                      @relation("WorkspaceInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?                     @relation("WorkspaceInvitationAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, emailNormalized, status])
+  @@index([invitedByUserId])
+  @@index([acceptedByUserId])
+  @@index([expiresAt, status])
+}
+
+model WorkspaceSelection {
+  userId      String        @id
+  workspaceId String
+  revision    Int           @default(1)
+  selectedAt  DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   ExamWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model AuthThrottleBucket {
+  id              String              @id @default(cuid())
+  purpose         AuthThrottlePurpose
+  keyHash         String
+  windowStartedAt DateTime
+  windowExpiresAt DateTime
+  failureCount    Int                 @default(0)
+  lockedUntil     DateTime?
+  lastFailedAt    DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([purpose, keyHash])
+  @@index([lockedUntil])
+  @@index([windowExpiresAt])
 }
 
 model SubjectGroup {

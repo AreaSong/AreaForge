@@ -6,6 +6,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type { TaskDependencyDto } from "@/lib/contracts/task";
 import { fromDbTaskStatus, type DbTaskStatus } from "./task-serializer";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
@@ -75,7 +76,7 @@ export async function listTaskDependencies(actorId: string, taskId: string): Pro
 
 export async function listOwnedTaskDependencies(actorId: string, taskId: string): Promise<TaskDependencyDto[]> {
   const task = await prisma.studyTask.findFirst({
-    where: { id: taskId, subject: { workspace: { userId: actorId } } },
+    where: { id: taskId, subject: { workspace: workspaceOwnerWhere(actorId) } },
     select: { subject: { select: { workspaceId: true } } },
   });
   const workspaceId = task?.subject.workspaceId;

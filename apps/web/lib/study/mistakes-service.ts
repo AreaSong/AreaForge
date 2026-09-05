@@ -1,5 +1,6 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   MistakeCreatePrefillDto,
   OwnedMistakeDetailDto,
@@ -187,7 +188,7 @@ export async function getMistakeById(id: string, actorId: string): Promise<Mista
 
 export async function getOwnedMistakeDetail(id: string, actorId: string): Promise<OwnedMistakeDetailDto | null> {
   const mistake = await prisma.mistake.findFirst({
-    where: { id, subject: { workspace: { userId: actorId } } },
+    where: { id, subject: { workspace: workspaceOwnerWhere(actorId) } },
     include: ownedMistakeDetailInclude,
   });
   if (!mistake?.subject.workspace) return null;

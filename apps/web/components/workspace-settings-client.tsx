@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Save } from "lucide-react";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/field";
 import { Alert, Badge } from "@/components/ui/feedback";
@@ -318,7 +318,7 @@ export function WorkspaceSettingsClient(props: {
     setPending(true);
     setError(null);
     try {
-      const result = await activateExamWorkspace(workspace.id, workspace.revision);
+      const result = await activateExamWorkspace(workspace.id, workspace.revision, workspace.selectionRevision);
       if (isUnauthorized(result)) return redirectToLoginWithCurrentLocation();
       if (!result.ok) {
         setError(mutationFeedback(result, "切换工作区失败").message);
@@ -341,6 +341,9 @@ export function WorkspaceSettingsClient(props: {
         description={props.setupMode || !props.activeId
           ? "确认考试目标和首批科目，再决定是否沿用已有学习数据。"
           : "管理当前考试目标、科目归属和可切换的工作区。"}
+        action={!props.setupMode && props.activeId ? (
+          <ButtonLink href="/settings/exams?setup=1" variant="secondary">新建工作区</ButtonLink>
+        ) : undefined}
         status={activeWorkspace && !props.setupMode ? (
           <div className="flex flex-wrap gap-2">
             <Badge tone="success">当前：{activeWorkspace.name}</Badge>

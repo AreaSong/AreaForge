@@ -2,10 +2,10 @@
 
 第一版核心实体：
 
-- `User`：单管理员账号。
-- `AuthSession`：登录会话，只保存 session token 哈希、过期时间和用户关联。
+- `User`：账户源事实；v1.4 本地候选增加状态、邮箱验证、密码修改时间和 `authRevision`，稳定生产仍为单管理员基线。
+- `AuthSession`：登录会话，只保存 session token 哈希；v1.4 本地候选增加创建时 revision、粗粒度设备名、脱敏 IP/User-Agent hash、重新验证和撤销原因。
 - `Subject`：数学、英语、政治、408 各子科目。`legacyCode`（可空，原 `code`）保留默认科目兼容；`stableKey` 必填；可空 `workspaceId`/`groupId`；未接管行以 `workspaceId IS NULL` 作为 legacy 只读范围。自定义科目不伪造 enum code。
-- `ExamWorkspace` / `SubjectGroup`：考试工作区与 408 分组；同一用户最多一个 ACTIVE 工作区（partial unique）。工作区、科目与分组通过 `/settings/exams` 管理。
+- `ExamWorkspace` / `SubjectGroup`：考试工作区与科目分组；v1.4 本地 migration 已用 `WorkspaceSelection` 将“当前选择”与 ACTIVE/ARCHIVED 生命周期分离，并移除单 ACTIVE partial unique。工作区、科目与分组通过 `/settings/exams` 管理。
 - `SyllabusNode`：考纲进度树节点，包含当前掌握状态和掌握等级；掌握证明优先读取显式条件、证据引用和复测记录，缺失显式证据时继续 fallback 到现有任务、计时、笔记和错题 `_count`。
 - `KnowledgePoint`：独立知识点核心对象，拥有自己的掌握状态、版本和复测时间；通过 `KnowledgeSyllabusLink`、`StageKnowledgeTarget`、学习安排和多次复测关联考纲与阶段，因此同一知识点可以跨阶段、跨考纲和跨检验重复出现。
 - `StudyTask`：每日任务；`parentTaskId` 自关联记录拆小任务的父子关系。旧任务没有父子关系时保持 `null`，不做猜测回填。当前已支持可空 `planMilestoneId`、相关考纲关联表、`StudyTaskStageLink` 多阶段关联和 `StudyTaskKnowledgePoint` 多知识点关联，以及可空 `reviewScheduleId`（复习任务桥接；同一 Schedule 最多一个未完成桥接任务）。拆小任务继承父任务的里程碑、主/相关考纲、阶段和知识点关系；创建与更新会校验工作区、科目、归档状态和重复 ID。
@@ -59,9 +59,9 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `AuthSession` 过期或注销后应删除或标记失效。
 - Cookie 中的明文 session token 不落库、不入日志。
 
-## v1.4 身份与 Workspace 归属目标（规划，未授权实施）
+## v1.4 身份与 Workspace 归属（本地实施与验证中）
 
-v1.4 采用 additive-first，不把现有 `ExamWorkspace.userId` 直接重命名或删除。该字段继续作为兼容 owner 指针；新增 Membership 在功能开关开启后成为成员身份源，二者必须由事务和约束保持一致。进入 v1.5 前，成员关系本身不会自动授予动机、情绪、完整复盘、私有笔记/附件、AI 输入或导出文件的读取权。
+v1.4 本地候选采用 additive-first，没有把现有 `ExamWorkspace.userId` 直接重命名或删除。该字段继续作为兼容 owner 指针；新增 Membership 在功能开关开启后成为成员身份源，二者由事务和约束保持一致。进入 v1.5 前，成员关系本身不会自动授予动机、情绪、完整复盘、私有笔记/附件、AI 输入或导出文件的读取权。该状态不证明 Release 或生产 migration 已完成。
 
 ### 目标实体
 

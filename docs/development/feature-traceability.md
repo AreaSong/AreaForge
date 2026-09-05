@@ -20,7 +20,7 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 单管理员登录 | 已完成 | `tasks/done/0002-mvp-auth-and-seed.md`；`/api/auth/*` | 仅认证策略变化时重新确认 |
+| 单管理员登录与 v1.4 身份底座 | 已完成 | 稳定登录见 `tasks/done/0002-mvp-auth-and-seed.md`；v1.4 本地候选增加账户状态/authRevision、设备会话、邮箱验证/密码重置、重新验证和持久限流，见 `tasks/active/0040-multi-user-rbac.md` | v1.4 候选仍缺最终浏览器/总门禁、Release 和生产证据 |
 | 今日作战台 | 已完成 | `GET /api/dashboard/today`、`apps/web/app/page.tsx` | `workflow/versions/v0.3-structured-learning-state.md` |
 | 当前工作区目标考试与下一场模拟倒计时 | 已完成 | `dashboard-query-service.ts` 读取当前 `ExamWorkspace.targetExamDate` 和下一场未完成 `SimulationExam.examDate`；Core 窗口规则接受空日期，缺失时不触发冲刺、模拟或动机提醒 | 新增更多考试节点时必须来自工作区配置或真实模拟记录 |
 | 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
@@ -88,13 +88,13 @@
 
 ## 下一产品版本：A -> B 平台演进
 
-本节记录已经进入版本计划、但尚未完成 runtime 的能力；不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
+本节记录 A -> B 后续版本能力；v1.4 已进入本地 runtime，但仍不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
 | 个人版完全动态化 | 隔离已实现 | 多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo 已实现；全新临时 PostgreSQL 17 的 10 组专项 runtime、空库闭环、桌面/移动、Core 109/109、Web 914/914、`pnpm check` 和文档/风险/治理/任务门禁通过。PR #56 的 push/pull_request `ci/verify` 均成功并 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，main push CI run `33906942919` 成功 | `tasks/active/0039-personal-dynamic-foundation.md`；尚缺独立签名 Release 和 production apply |
-| 邀请制多用户、Workspace 与 Membership | 未实现 | `User`、`AuthSession`、`ExamWorkspace` 和大量 `workspaceId` 已存在，但当前仍是单管理员/owner 查询语义，没有 Workspace/成员完整生命周期 | `tasks/backlog/0040-multi-user-rbac.md` |
-| 预设角色、分享授权与 Coach 协作 | 未实现 | 当前有鉴权和 owner isolation，没有 Membership/RBAC/policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
+| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期和 owner-only 学习正文边界；目标测试、Web 925/925、typecheck/ESLint 与隔离 PostgreSQL 11 组 runtime 通过。默认多人开关关闭，最终浏览器/总门禁、PR/CI、Release 和生产尚缺 | `tasks/active/0040-multi-user-rbac.md` |
+| 预设角色、分享授权与 Coach 协作 | 未实现 | v1.4 本地候选只有 OWNER/MEMBER 归属底座，尚无 Admin/Coach/Viewer、统一 policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
 | 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
 | 数据任务中心、回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留，没有持久数据任务状态机；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
 | 受控运维中心 | 未实现 | 当前版本中心已有受控 updater request；尚无通用请求生命周期和 operation catalog；Web runtime 不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |

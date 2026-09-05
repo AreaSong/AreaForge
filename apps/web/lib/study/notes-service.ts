@@ -1,6 +1,7 @@
 import { isNoteKind, normalizeRelatedNodeIds } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   NoteEditorOptionsDto,
   OwnedNoteDetailDto,
@@ -123,7 +124,7 @@ export async function getNoteById(noteId: string, actorId: string): Promise<Note
 
 export async function getOwnedNoteDetail(noteId: string, actorId: string): Promise<OwnedNoteDetailDto | null> {
   const note = await prisma.note.findFirst({
-    where: { id: noteId, subject: { workspace: { userId: actorId } } },
+    where: { id: noteId, subject: { workspace: workspaceOwnerWhere(actorId) } },
     include: ownedNoteDetailInclude,
   });
   if (!note?.subject.workspace) return null;

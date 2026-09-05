@@ -61,13 +61,22 @@ export async function requestApiResult<T = unknown>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<ApiResult<T>> {
-  const result = await requestApiJson<T>(input, init);
-  return {
-    ok: result.response.ok,
-    status: result.response.status,
-    headers: result.response.headers,
-    body: result.body,
-  };
+  try {
+    const result = await requestApiJson<T>(input, init);
+    return {
+      ok: result.response.ok,
+      status: result.response.status,
+      headers: result.response.headers,
+      body: result.body,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      headers: new Headers(),
+      body: null,
+    };
+  }
 }
 
 /**

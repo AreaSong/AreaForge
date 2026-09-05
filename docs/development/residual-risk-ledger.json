@@ -289,8 +289,8 @@
       "id": "AF-RISK-DATA-002",
       "type": "deferred-work",
       "reviewAt": "2026-11-15",
-      "currentImpact": "A -> B 已规划邀请制多用户、Membership 和 RBAC，但当前仍是单管理员 owner 语义；若未完成全链路 workspace scope、敏感数据矩阵和 IDOR 负向验证，开放成员能力会产生跨租户读写与隐私泄露风险",
-      "executableNow": false,
+      "currentImpact": "v1.4 AUTH 本地实施已确认，身份、Membership、Workspace 生命周期、默认关闭开关和 owner-only 学习正文边界已形成并通过隔离 runtime；最终浏览器/总门禁、v1.5 RBAC、签名 Release 和生产迁移证据仍缺，当前不能开放生产多人协作",
+      "executableNow": true,
       "closeCondition": "AUTH/RBAC 独立确认包、additive migration、旧 owner 回填、统一授权层、角色/敏感资源矩阵、跨租户负向测试、会话撤销和生产迁移证据齐全后进入人工关闭复核",
       "requiredEvidence": "威胁模型、migration preimage、权限矩阵、敏感数据矩阵、IDOR/API/service/query 测试、浏览器验收、审计记录、Release/production evidence",
       "ownerSkills": [
@@ -298,7 +298,7 @@
         "areaforge-validation-driver"
       ],
       "taskRefs": [
-        "tasks/backlog/0040-multi-user-rbac.md",
+        "tasks/active/0040-multi-user-rbac.md",
         "tasks/backlog/0044-rbac-privacy-collaboration.md",
         "tasks/backlog/0045-platform-hardening.md",
         "tasks/backlog/0046-v2-platform-gate.md"

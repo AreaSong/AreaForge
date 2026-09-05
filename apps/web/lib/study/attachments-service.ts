@@ -20,6 +20,7 @@ import {
 import { getAuthEnv } from "@/lib/auth/env";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { requireWorkspaceOwner } from "@/lib/workspace/access-service";
 import type { AttachmentDto } from "@/lib/contracts";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
@@ -518,12 +519,12 @@ export async function getAttachmentDownload(
       studyResource: {
         select: {
           id: true,
-          workspace: { select: { userId: true } },
+          workspace: { select: { id: true } },
         },
       },
       note: {
         select: {
-          subject: { select: { workspace: { select: { userId: true } } } },
+          subject: { select: { workspace: { select: { id: true } } } },
         },
       },
     },
@@ -540,12 +541,14 @@ export async function getAttachmentDownload(
   }
 
   if (actorId) {
-    const ownerId =
-      attachment.studyResource?.workspace.userId ??
-      attachment.note?.subject.workspace?.userId ??
+    const workspaceId =
+      attachment.studyResource?.workspace.id ??
+      attachment.note?.subject.workspace?.id ??
       null;
     // Legacy notes may lack workspace; noteId presence alone was historically enough.
-    if (ownerId && ownerId !== actorId) {
+    if (workspaceId) {
+      await requireWorkspaceOwner(prisma, actorId, workspaceId);
+    } else if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
       throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
     }
   }

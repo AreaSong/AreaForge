@@ -6,6 +6,8 @@
 
 当前 checkout 的 package version 为 `1.2.0`，对应已发布的 `v1.2.0` 稳定 Release；生产仍未更新，生产证据与 Release 工件证据保持分离。
 
+当前分支还包含 v1.4 身份、Workspace 与 Membership 本地候选：账户安全、邀请制开户、设备会话、Workspace 生命周期和成员生命周期已进入最终验证，默认 `AUTH_MULTI_USER_ENABLED=false`。它尚未形成新 Release 或 production apply，现有学习正文继续保持 owner-only。
+
 ## Getting Started
 
 在仓库根目录启动本地开发：
@@ -99,6 +101,9 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 
 - 首页作战台：`app/page.tsx`
 - 登录：`app/login/page.tsx`
+- 账户安全：`app/(app)/settings/account/page.tsx`
+- Workspace 与成员：`app/(app)/settings/workspaces/page.tsx`
+- 忘记/重置密码与邀请：`app/forgot-password/page.tsx`、`app/reset-password/page.tsx`、`app/invitations/accept/page.tsx`
 - 开始学习：`app/(app)/focus/page.tsx`
 - 今日与投入安排：`app/(app)/today/page.tsx`、`app/(app)/roadmap/allocation/page.tsx`
 - 知识与考纲：`app/(app)/knowledge/page.tsx`、`app/(app)/knowledge/syllabi/page.tsx`
@@ -106,6 +111,7 @@ pnpm experience:review:validate <product-experience-review-record.md|txt>
 - 报告与确认中心：`app/(app)/roadmap/reviews/page.tsx`、`app/(app)/confirmations/page.tsx`、`components/global-confirmation-center.tsx`
 - 设置和版本中心：`app/settings/page.tsx`
 - 系统更新 API：`app/api/system/**`
+- 身份与成员 API：`app/api/auth/**`、`app/api/workspace-invitations/**`、`app/api/exam-workspaces/**/members/**`
 
 更完整的源事实见根目录 `README.md`、`docs/README.md` 和 `docs/development/docs-100-completion-record.md`。
 

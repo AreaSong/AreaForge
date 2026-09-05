@@ -34,8 +34,16 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `AUTH_SESSION_SECRET` | 必填 | 会话签名密钥，至少 32 字符随机值；泄露等于会话可伪造 |
 | `AUTH_ADMIN_EMAIL` | 可选 | 管理员邮箱，`pnpm db:seed` 时写入 |
 | `AUTH_ADMIN_PASSWORD_HASH` | 可选 | 管理员密码的 scrypt 哈希，用 `pnpm auth:hash '<密码>'` 生成；不要填明文密码 |
+| `AUTH_MULTI_USER_ENABLED` | `false` | v1.4 邀请、成员和多 Workspace 选择闸门；只有 migration、隔离验证和 SMTP 配置完成后才在目标环境开启 |
+| `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
+| `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
+| `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |
+| `AUTH_EMAIL_VERIFICATION_TTL_SECONDS` | `86400` | 邮箱验证链接有效期，默认 24 小时 |
+| `AUTH_PASSWORD_RESET_TTL_SECONDS` | `1800` | 密码重置链接有效期，默认 30 分钟 |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | 空 / `587` / `false` | server-only 身份邮件传输；`SMTP_SECURE=false` 时强制 STARTTLS，生产配置不完整时 fail closed |
+| `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | 空 | SMTP 服务端凭据和发件人；不得由浏览器输入、回显或写入日志 |
 
-两个 `AUTH_ADMIN_*` 都存在时 seed 会创建或更新管理员；否则 seed 要求库里已有管理员。修改密码：重新生成哈希、更新环境文件、重启应用后再跑一次 `pnpm db:seed`。
+两个 `AUTH_ADMIN_*` 都存在且数据库没有账户时，seed 会创建 bootstrap 管理员；数据库已有一个或多个账户时不会静默创建第二个管理员或覆盖现有密码。v1.4 本地候选可在 `/settings/account` 修改密码、管理设备会话并发起验证邮件，在 `/settings/workspaces` 管理邀请和成员；稳定 Release/生产启用前仍以当前线上能力为准。
 
 ## AI
 

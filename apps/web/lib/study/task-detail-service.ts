@@ -1,5 +1,6 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   StudyTaskDetailDto,
   TaskDependencyCandidateDto,
@@ -40,7 +41,7 @@ interface TaskUpdateSnapshotRow {
 export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDetailDto> {
   const [task, auditEvents] = await Promise.all([
     prisma.studyTask.findFirst({
-      where: { id: taskId, subject: { workspace: { userId: actorId } } },
+      where: { id: taskId, subject: { workspace: workspaceOwnerWhere(actorId) } },
       include: {
         subject: {
           include: {

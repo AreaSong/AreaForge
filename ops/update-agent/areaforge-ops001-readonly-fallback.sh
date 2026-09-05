@@ -309,11 +309,11 @@ request_json() {
   body_file="$(mktemp)"
   if [[ -n "$data_file" ]]; then
     status="$(curl -sS -m 10 -w '%{http_code}' -o "$body_file" -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
-      -H 'Accept: application/json' -H 'Content-Type: application/json' \
+      -H 'Accept: application/json' -H 'Content-Type: application/json' -H "Origin: $BASE_URL" \
       -X "$method" --data-binary "@$data_file" "$BASE_URL$path" || true)"
   else
     status="$(curl -sS -m 10 -w '%{http_code}' -o "$body_file" -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
-      -H 'Accept: application/json' -X "$method" "$BASE_URL$path" || true)"
+      -H 'Accept: application/json' -H "Origin: $BASE_URL" -X "$method" "$BASE_URL$path" || true)"
   fi
   if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
     rm -f "$body_file"

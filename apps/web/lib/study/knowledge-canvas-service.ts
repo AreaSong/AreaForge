@@ -9,6 +9,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import { lockActorWorkspaceScope, resolveActiveWorkspace } from "./exam-workspace-service";
 import type { KnowledgeCanvasLayoutConflictSnapshot } from "./knowledge-canvas-contract";
 import {
@@ -78,7 +79,7 @@ async function assertActiveWorkspaceOwner(
   workspaceId: string,
 ) {
   const workspace = await client.examWorkspace.findFirst({
-    where: { id: workspaceId, userId: actorId },
+    where: { id: workspaceId, ...workspaceOwnerWhere(actorId) },
     select: { id: true, status: true, revision: true },
   });
   if (!workspace) {
@@ -120,7 +121,7 @@ export async function getKnowledgeCanvas(
     throw new ApiError("INVALID_CANVAS_STATUS", 400);
   }
   const workspace = input.workspaceId
-    ? await prisma.examWorkspace.findFirst({ where: { id: input.workspaceId, userId: actorId } })
+    ? await prisma.examWorkspace.findFirst({ where: { id: input.workspaceId, ...workspaceOwnerWhere(actorId) } })
     : await resolveActiveWorkspace(actorId);
   if (!workspace) {
     throw new ApiError("WORKSPACE_NOT_FOUND", 404);

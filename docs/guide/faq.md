@@ -7,13 +7,13 @@
 ## 登录与账号
 
 **忘记管理员密码怎么办？**
-用 `pnpm auth:hash '<新密码>'` 生成新哈希，更新环境文件里的 `AUTH_ADMIN_PASSWORD_HASH`，重启应用后运行 `pnpm db:seed`（seed 会按 `AUTH_ADMIN_EMAIL` 更新该账号的密码哈希）。
+稳定生产仍可按现有运维流程恢复。v1.4 本地候选提供 `/forgot-password` 和一次性重置链接；生产启用前必须先配置独立的 `AUTH_ACTION_TOKEN_SECRET` 与安全 SMTP。seed 在数据库已有账户时不会静默覆盖密码。
 
 **登录提示尝试次数过多？**
 登录按 IP + 邮箱限速，返回 `TOO_MANY_ATTEMPTS` 时等待响应中的 `retryAfterSeconds` 后再试。失败尝试会写入审计事件。
 
 **能注册第二个账号吗？**
-不能。AreaForge 是单管理员私有应用，没有注册入口，多用户不在产品范围内。
+没有公开注册。v1.4 本地候选采用邀请制：多人开关、migration 和 SMTP 均就绪后，由 Workspace Owner 发送一次性邀请；稳定 Release/生产尚未开放该能力。
 
 ## 日常使用
 

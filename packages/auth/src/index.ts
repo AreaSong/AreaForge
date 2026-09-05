@@ -8,6 +8,10 @@ const scryptOptions = {
   p: 1,
 } as const;
 
+// 固定格式、非账户专属的 dummy hash，仅用于让未知账户登录走同等级 scrypt 成本。
+// 它不对应任何可登录账户，也不是密码或生产 secret。
+const dummyPasswordHash = "scrypt$16384$8$1$YXJlYWZvcmdlLWR1bW15LXNsdA$G9rRjKF04hIdua2FBWwy7FNosYIqdL3ZuZvEnc6ss1N64xNtvFoapCgPSDWIGn0TNp7z1Mii9dhP2n-lXeZwZw";
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const key = await scryptAsync(password, salt, passwordKeyLength, scryptOptions);
@@ -34,6 +38,10 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
   });
 
   return expectedKey.length === actualKey.length && timingSafeEqual(expectedKey, actualKey);
+}
+
+export function getDummyPasswordHash(): string {
+  return dummyPasswordHash;
 }
 
 export function createSessionToken(): string {
@@ -74,6 +82,24 @@ export {
   type AiDraftResultProofInput,
   type AiDraftResultProofVerification,
 } from "./ai-payload-binding";
+
+export {
+  authActionTokenBytes,
+  authActionTokenHashMatches,
+  createAuthActionToken,
+  createWorkspaceInvitationToken,
+  deriveDeviceLabel,
+  hashAuthActionToken,
+  hashWorkspaceInvitationToken,
+  isAuthActionTokenUsable,
+  isPasswordPolicySatisfied,
+  isReauthenticationFresh,
+  isSessionUsable,
+  isWorkspaceInvitationUsable,
+  reauthenticationMaxAgeMs,
+  type AuthActionPurpose,
+  type AuthenticatedAccountStatus,
+} from "./auth-security";
 
 function scryptAsync(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {

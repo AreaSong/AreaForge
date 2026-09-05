@@ -38,6 +38,10 @@ export type CanonicalRouteDefinition = PublicRouteDefinition | AppRouteDefinitio
 export const CANONICAL_ROUTES = [
   { path: ROOT_ROUTES.public, title: "AreaForge", shell: "public" },
   { path: ROOT_ROUTES.login, title: "登录", shell: "public", returnQueryKeys: ["returnTo"] },
+  { path: "/forgot-password", title: "找回密码", shell: "public" },
+  { path: "/reset-password", title: "重置密码", shell: "public" },
+  { path: "/verify-email", title: "验证邮箱", shell: "public" },
+  { path: "/invitations/accept", title: "接受邀请", shell: "public", returnQueryKeys: ["resume"] },
 
   appRoute(WORKBENCH_ROOT_ROUTES.today, "今日行动中心", "today", "primary", "dashboard-wide", WORKBENCH_ROOT_ROUTES.today, {
     toolbar: "none",
@@ -174,6 +178,8 @@ export const CANONICAL_ROUTES = [
   }),
 
   appRoute(WORKBENCH_ROOT_ROUTES.settings, "设置总览", "settings", "secondary", "dashboard-wide", WORKBENCH_ROOT_ROUTES.settings, { secondary: "overview" }),
+  appRoute("/settings/account", "账户安全", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "account" }),
+  appRoute("/settings/workspaces", "工作区与成员", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "workspaces" }),
   appRoute("/settings/exams", "考试与科目", "settings", "secondary", "dashboard-wide", "/settings", {
     secondary: "exams",
     returnQueryKeys: ["setup"],
