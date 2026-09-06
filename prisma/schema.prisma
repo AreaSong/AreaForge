@@ -127,6 +127,14 @@ enum RankingParticipantStatus {
   REMOVED
 }
 
+enum RankingAppealStatus {
+  OPEN
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
 enum ControlledOperationRequestRisk {
   READ_ONLY
   HIGH_RISK
@@ -411,6 +419,8 @@ model User {
   ownedRankingChallenges       PrivateChallenge[]            @relation("PrivateChallengeOwner")
   rankingParticipations        PrivateChallengeParticipant[] @relation("RankingParticipantUser")
   rankingInvitationsSent       PrivateChallengeParticipant[] @relation("RankingParticipantInviter")
+  rankingAppealsSubmitted      RankingAppeal[]                @relation("RankingAppealSubmitter")
+  rankingAppealsReviewed       RankingAppeal[]                @relation("RankingAppealReviewer")
 }
 
 model AuthSession {
@@ -2434,6 +2444,7 @@ model PrivateChallenge {
   owner                        User                          @relation("PrivateChallengeOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   participants                 PrivateChallengeParticipant[]
   projections                  RankingProjection[]
+  appeals                      RankingAppeal[]
 
   @@index([workspaceId, status, createdAt])
   @@index([ownerUserId, status])
@@ -2457,6 +2468,7 @@ model PrivateChallengeParticipant {
   user             User                     @relation("RankingParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
   invitedBy        User?                    @relation("RankingParticipantInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
   projection       RankingProjection?
+  appeals          RankingAppeal[]
 
   @@unique([challengeId, userId])
   @@index([challengeId, status])
@@ -2488,4 +2500,32 @@ model RankingProjection {
   @@unique([challengeId, participantId])
   @@index([challengeId, score])
   @@index([participantId, generatedAt])
+}
+
+/**
+ * Durable appeal source. AuditEvent remains a redacted activity trail and is
+ * not used to rebuild the current appeal state.
+ */
+model RankingAppeal {
+  id                    String                      @id @default(cuid())
+  challengeId           String
+  participantId         String
+  submittedByUserId     String
+  reviewedByUserId      String?
+  status                RankingAppealStatus         @default(OPEN)
+  reason                String
+  projectionFingerprint String
+  revision              Int                         @default(1)
+  reviewedAt            DateTime?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  challenge             PrivateChallenge            @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant           PrivateChallengeParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  submittedBy           User                        @relation("RankingAppealSubmitter", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  reviewedBy            User?                       @relation("RankingAppealReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([challengeId, status, createdAt])
+  @@index([participantId, status])
+  @@index([submittedByUserId, createdAt])
+  @@index([reviewedByUserId, reviewedAt])
 }

@@ -7,6 +7,7 @@ const requiredMigrations = [
   "20260906110000_v16_data_export_jobs",
   "20260906120000_v17_controlled_operations",
   "20260906130000_v18_private_ranking",
+  "20260906140000_v18_ranking_appeals",
 ] as const;
 
 const requiredTables = [
@@ -18,6 +19,7 @@ const requiredTables = [
   "PrivateChallenge",
   "PrivateChallengeParticipant",
   "RankingProjection",
+  "RankingAppeal",
 ] as const;
 
 try {

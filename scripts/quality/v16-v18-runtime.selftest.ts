@@ -15,6 +15,11 @@ import {
 } from "../../apps/web/lib/system/controlled-operation-request-service";
 import { updateRankingPreference } from "../../apps/web/lib/ranking/preference-service";
 import {
+  listRankingAppeals,
+  submitRankingAppeal,
+  transitionRankingAppeal,
+} from "../../apps/web/lib/ranking/appeal-service";
+import {
   createPrivateChallenge,
   invitePrivateChallengeParticipant,
   transitionPrivateChallenge,
@@ -40,7 +45,8 @@ try {
   await resetRbacRuntimeFixture();
   const fixture = await seedRbacRuntimeFixture("ab-candidate");
   process.env.AUTH_ADMIN_EMAIL = fixture.users.operator.email;
-  const now = new Date("2026-09-06T08:00:00.000Z");
+  const now = new Date();
+  const afterMinutes = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
 
   const exportJob = await requestDataLifecycleJob(fixture.users.owner.actor, {
     kind: "EXPORT",
@@ -52,23 +58,23 @@ try {
   const lease = await claimDataLifecycleJob({
     jobId: exportJob.id,
     workerId: "ab-worker",
-    leaseExpiresAt: new Date("2026-09-06T08:05:00.000Z"),
+    leaseExpiresAt: afterMinutes(5),
     now,
   });
   const heartbeat = await heartbeatDataLifecycleJob({
     jobId: exportJob.id,
     workerId: "ab-worker",
     expectedRevision: lease.job.revision,
-    leaseExpiresAt: new Date("2026-09-06T08:06:00.000Z"),
+    leaseExpiresAt: afterMinutes(6),
     progress: 0.5,
-    now: new Date("2026-09-06T08:01:00.000Z"),
+    now: afterMinutes(1),
   });
   const completed = await completeDataLifecycleJob({
     jobId: exportJob.id,
     workerId: "ab-worker",
     expectedRevision: heartbeat.revision,
     outcome: "SUCCEEDED",
-    now: new Date("2026-09-06T08:02:00.000Z"),
+    now: afterMinutes(2),
   });
   assert.equal(completed.status, "SUCCEEDED");
   assert.equal(completed.preview && "packageStatus" in completed.preview ? completed.preview.packageStatus : null, "NOT_CREATED");
@@ -88,8 +94,8 @@ try {
     requestId: operation.id,
     workerId: "ab-root-agent",
     expectedBeforeHash: HASH,
-    leaseExpiresAt: new Date("2026-09-06T08:05:00.000Z"),
-    now: new Date("2026-09-06T08:01:00.000Z"),
+    leaseExpiresAt: afterMinutes(5),
+    now: afterMinutes(1),
   });
   const operationDone = await completeControlledOperationRequest({
     requestId: operation.id,
@@ -97,7 +103,7 @@ try {
     leaseToken: opLease.leaseToken,
     outcome: "SUCCEEDED",
     resultCode: "DIAGNOSTIC_OK",
-    now: new Date("2026-09-06T08:02:00.000Z"),
+    now: afterMinutes(2),
   });
   assert.equal(confirmed.status, "QUEUED");
   assert.equal(operationDone.status, "SUCCEEDED");
@@ -133,6 +139,79 @@ try {
   assert.equal(invited.status, "INVITED");
   assert.equal(projection.stale, false);
   assert.equal(projection.entries.length, 2);
+  const appealReason = "隔离候选排名需要复核";
+  const appeal = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
+    participantId: invited.id,
+    reason: appealReason,
+  });
+  assert.equal(appeal.status, "OPEN");
+  await assert.rejects(
+    submitRankingAppeal(fixture.users.member.actor, challenge.id, {
+      participantId: invited.id,
+      reason: "重复未决申诉应被拒绝",
+    }),
+    /RANKING_APPEAL_ALREADY_OPEN/,
+  );
+  await assert.rejects(
+    transitionRankingAppeal(fixture.users.member.actor, challenge.id, appeal.appealId, {
+      action: "review",
+      expectedRevision: appeal.revision,
+    }),
+    /RANKING_APPEAL_NOT_FOUND/,
+  );
+  const reviewed = await transitionRankingAppeal(fixture.users.owner.actor, challenge.id, appeal.appealId, {
+    action: "review",
+    expectedRevision: appeal.revision,
+  });
+  await assert.rejects(
+    transitionRankingAppeal(fixture.users.owner.actor, challenge.id, appeal.appealId, {
+      action: "accept",
+      expectedRevision: appeal.revision,
+    }),
+    /RANKING_APPEAL_CONFLICT/,
+  );
+  const accepted = await transitionRankingAppeal(fixture.users.owner.actor, challenge.id, appeal.appealId, {
+    action: "accept",
+    expectedRevision: reviewed.revision,
+  });
+  assert.equal(accepted.status, "ACCEPTED");
+  assert.equal((await listRankingAppeals(fixture.users.member.actor.id, challenge.id)).length, 1);
+  const appealAuditRows = await prisma.auditEvent.findMany({
+    where: { entityType: "RankingAppeal", entityId: appeal.appealId },
+    select: { metadata: true },
+  });
+  assert.ok(appealAuditRows.length >= 3);
+  assert.equal(JSON.stringify(appealAuditRows).includes(appealReason), false);
+  const secondChallenge = await createPrivateChallenge(fixture.users.owner.actor, {
+    workspaceId: fixture.workspaceIds.primary,
+    name: "隔离候选第二挑战",
+    description: null,
+    timezone: "Asia/Shanghai",
+    startDate: "2026-09-01",
+    endDate: "2026-09-30",
+    targetEffectiveMinutesPerDay: 30,
+    publishedFields: ["score"],
+  });
+  const foreignKeyRejected = (error: unknown) => Boolean(error && typeof error === "object" && "code" in error
+    && (error as { code?: unknown }).code === "P2003");
+  await assert.rejects(prisma.rankingAppeal.create({
+    data: {
+      challengeId: secondChallenge.id,
+      participantId: invited.id,
+      submittedByUserId: fixture.users.member.userId,
+      reason: "跨挑战参与者必须被数据库拒绝",
+      projectionFingerprint: "b".repeat(64),
+    },
+  }), foreignKeyRejected);
+  await assert.rejects(prisma.rankingAppeal.create({
+    data: {
+      challengeId: challenge.id,
+      participantId: invited.id,
+      submittedByUserId: fixture.users.owner.userId,
+      reason: "伪造提交者必须被数据库拒绝",
+      projectionFingerprint: "c".repeat(64),
+    },
+  }), foreignKeyRejected);
 
   console.log(JSON.stringify({
     schemaVersion: "v16-v18-runtime-selftest-v1",
@@ -144,6 +223,7 @@ try {
       controlledOperation: operationDone.status,
       rankingProjectionEntries: projection.entries.length,
       rankingProjectionStale: projection.stale,
+      rankingAppealStatus: accepted.status,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

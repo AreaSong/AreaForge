@@ -98,7 +98,7 @@
 | 完整账户/Workspace 导出 | 基础版 | `packages/core` 已有 redaction/manifest/hash 和确定性内存 ZIP/真实字节 SHA-256；v1.6 本地候选增加 feature-gated 数据任务、脱敏预览/一次性 grant descriptor 和 worker claim/heartbeat/complete/expire 生命周期，但未接真实临时存储、附件本体、保留/清理或下载流，不暴露 objectKey；仍不等于账户全量导出 | `tasks/backlog/0041-data-lifecycle.md` |
 | 数据任务中心、回收站、物理删除与账户关闭 | 基础版 | 数据任务中心已支持 preview/排队/取消/重试、worker lease/CAS 和删除 preview；纯 Core 回收站协议覆盖影响预览、恢复期/恢复/到期与 fail-closed purge eligibility，删除状态机覆盖重新验证、冷静期、冻结、scope fingerprint、kill-point、补偿后重试，deletion ledger 覆盖哈希链与历史备份 replay plan。所有执行开关固定关闭；尚无数据库回收站、物理删除、附件清理、账本持久化或真实重放 | `tasks/backlog/0041-data-lifecycle.md` |
 | 受控运维中心 | 基础版 | 已增加只读 catalog、strict intent、持久候选请求/确认/审批/hold/retry/lease API、Operator UI，以及 report-only 的 hash-chain journal/reconciliation 契约；尚无 root-agent 实际执行、跨进程锁、真实 updater/生产动作；Web runtime 仍不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
-| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊分级、申诉状态机、opt-in、挑战/参与者 CRUD、成员邀请/接受/退出 UI、可重建 projection 和删除 preview hook/API 已形成本地候选；默认 `RANKING_ENABLED=false`，尚缺持久申诉存储以外的完整通知/故障开关/退出删除导出联动、migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊分级、opt-in、挑战/参与者 CRUD、成员邀请/接受/退出 UI、可重建 projection、独立 projection 开关、专用持久申诉与删除 preview hook/API 已形成本地候选；默认 `RANKING_ENABLED=false`，尚缺申诉 UI、通知、退出/删除/导出全链路联动、共享/生产 migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
 | 平台化加固 | 基础版 | Core 已有队列退避/死信、Workspace 配额、固定窗口限流、容量状态、审计查询和跨租户搜索可见性纯规则；尚无持久队列、通知/搜索索引 runtime、配额写入、MFA/Passkey、多租户指标/告警和灾备体验 | `tasks/backlog/0045-platform-hardening.md` |
 | v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE/OPS/RANKING、Release、生产和运营证据均未形成 | `tasks/backlog/0046-v2-platform-gate.md` |
 

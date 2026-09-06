@@ -1,37 +1,30 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
-import { replayRankingAppealEvents } from "./appeal-service";
 
-function metadata(status: "OPEN" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN", revision: number) {
-  return {
-    contractVersion: "ranking-appeal-v1",
-    appealId: "appeal-1",
-    challengeId: "challenge-1",
-    participantId: "participant-1",
-    status,
-    revision,
-    submittedByUserId: "user-1",
-    reason: "重复时长需要复核",
-    projectionFingerprint: "a".repeat(64),
-  };
-}
-
-test("申诉读侧重放按 revision 保留单一最新状态", () => {
-  const appeals = replayRankingAppealEvents([
-    { id: "1", metadata: metadata("OPEN", 1), createdAt: new Date("2026-09-06T00:00:00Z") },
-    { id: "2", metadata: metadata("UNDER_REVIEW", 2), createdAt: new Date("2026-09-06T00:01:00Z") },
-    { id: "stale", metadata: metadata("REJECTED", 1), createdAt: new Date("2026-09-06T00:02:00Z") },
-    { id: "3", metadata: metadata("ACCEPTED", 3), createdAt: new Date("2026-09-06T00:03:00Z") },
-  ]);
-  assert.equal(appeals.length, 1);
-  assert.equal(appeals[0]?.status, "ACCEPTED");
-  assert.equal(appeals[0]?.revision, 3);
-  assert.equal(appeals[0]?.reason, "重复时长需要复核");
+test("ranking appeals use a dedicated durable source with revision fencing", async () => {
+  const source = await readFile(path.join(process.cwd(), "lib/ranking/appeal-service.ts"), "utf8");
+  assert.match(source, /rankingAppeal\.create/);
+  assert.match(source, /rankingAppeal\.findMany/);
+  assert.match(source, /rankingAppeal\.updateMany/);
+  assert.match(source, /revision:\s*input\.expectedRevision/);
+  assert.match(source, /RANKING_APPEAL_ALREADY_OPEN/);
+  assert.doesNotMatch(source, /readAppealEvents|reduceAppeals/);
 });
 
-test("申诉读侧对损坏审计 metadata fail closed", () => {
-  const appeals = replayRankingAppealEvents([
-    { id: "bad", metadata: { contractVersion: "other", status: "ACCEPTED" }, createdAt: new Date() },
+test("ranking appeal audit stays redacted and the database enforces one open appeal", async () => {
+  const root = path.resolve(process.cwd(), "../../");
+  const [source, migration] = await Promise.all([
+    readFile(path.join(process.cwd(), "lib/ranking/appeal-service.ts"), "utf8"),
+    readFile(path.join(root, "prisma/migrations/20260906140000_v18_ranking_appeals/migration.sql"), "utf8"),
   ]);
-  assert.deepEqual(appeals, []);
+  assert.match(source, /writeAppealAudit/);
+  assert.doesNotMatch(source, /reason:\s*appeal\.reason/);
+  assert.match(migration, /RankingAppeal_participantId_active_uidx/);
+  assert.match(migration, /WHERE "status" IN \('OPEN', 'UNDER_REVIEW'\)/);
+  assert.match(migration, /RankingAppeal_reason_check/);
+  assert.match(migration, /RankingAppeal_review_check/);
+  assert.match(migration, /RankingAppeal_challengeId_participantId_fkey/);
+  assert.match(migration, /RankingAppeal_participantId_submittedByUserId_fkey/);
 });

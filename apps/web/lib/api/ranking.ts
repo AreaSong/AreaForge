@@ -92,7 +92,7 @@ export function transitionRankingAppeal(
   challengeId: string,
   appealId: string,
   action: "review" | "accept" | "reject" | "withdraw",
-  expectedRevision?: number,
+  expectedRevision: number,
 ): Promise<ApiResult<AppealResponse>> {
   return requestApiResult(
     `/api/ranking/challenges/${encodeURIComponent(challengeId)}/appeals/${encodeURIComponent(appealId)}`,

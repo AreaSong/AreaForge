@@ -69,7 +69,7 @@ export const rankingAppealSubmitInputSchema = z.object({
 
 export const rankingAppealActionInputSchema = z.object({
   action: z.enum(["review", "accept", "reject", "withdraw"]),
-  expectedRevision: z.number().int().positive().optional(),
+  expectedRevision: z.number().int().positive(),
 }).strict();
 
 export interface RankingPreferenceDto {
