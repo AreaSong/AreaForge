@@ -111,7 +111,7 @@ const runId = process.env.AREAFORGE_RESPONSIVE_RUN_ID ?? `responsive-g8-${new Da
 const outputDirectory = resolveOutputDirectory(process.env.AREAFORGE_RESPONSIVE_OUTPUT_DIR ?? `output/playwright/${runId}`);
 
 async function main(): Promise<void> {
-  if (CANONICAL_ROUTES.length !== 49) throw new Error(`expected 49 canonical routes, found ${CANONICAL_ROUTES.length}`);
+  if (CANONICAL_ROUTES.length !== 55) throw new Error(`expected 55 canonical routes, found ${CANONICAL_ROUTES.length}`);
   assertDynamicFixturesComplete();
   if (existsSync(outputDirectory)) throw new Error(`refusing to overwrite existing output directory: ${outputDirectory}`);
   await mkdir(path.join(outputDirectory, "screenshots"), { recursive: true });
