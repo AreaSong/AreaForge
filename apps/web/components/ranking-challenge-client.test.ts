@@ -14,4 +14,5 @@ test("ranking UI keeps opt-in and private-field boundaries visible", async () =>
   assert.match(source, /joinOrLeaveChallenge/);
   assert.match(source, /currentUserId/);
   assert.match(source, /canManage/);
+  assert.match(source, /RankingAppealPanel/);
 });

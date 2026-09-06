@@ -63,7 +63,7 @@
 | `module.analytics` | 基础统计 | done | `packages/core/analytics-summary.ts`、`/api/analytics/summary` | CheckIn 快照 + 长期风险 DTO 已接入 |
 | `module.persistence` | 数据持久化 | done | `prisma/schema.prisma`（以当前 Prisma schema 为准） | PostgreSQL 主状态源；生产备份/恢复/回滚证据以对应 Release/ops 记录为准 |
 | `scope.multi-user` | 多用户系统 | partial | `workflow/versions/v1.3-v2.0-platform-evolution.md`、`tasks/active/0040-multi-user-rbac.md` | A→B 路线中的邀请制多人能力已进入 v1.4 本地实现；Release/生产证据仍缺，不能按稳定能力开放 |
-| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊规则、可重建投影、专用持久申诉和删除预览已进入默认关闭的本地候选；申诉 UI、通知、完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
+| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊规则、可重建投影、专用持久申诉、成员提交/Owner 复核 UI 和删除预览已进入默认关闭的本地候选；通知、完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
 | `scope.rbac` | 复杂权限系统 | partial | `tasks/active/0044-rbac-privacy-collaboration.md` | v1.5 预设角色、对象分享、Coach 协作和成员 PlanInbox 转 actor-owned 任务已进入本地候选；旧 nullable owner 清理/收紧与 Release/生产证据仍缺 |
 
 ## 3. 第二阶段长期闭环
