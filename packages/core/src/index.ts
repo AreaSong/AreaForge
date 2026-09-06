@@ -41,6 +41,7 @@ export * from "./data-export-archive";
 export * from "./data-deletion";
 export * from "./data-deletion-ledger";
 export * from "./data-trash";
+export * from "./platform-hardening";
 export * from "./data-jobs";
 export * from "./ranking-metrics";
 export * from "./ranking-policy";

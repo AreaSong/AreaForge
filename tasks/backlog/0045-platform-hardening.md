@@ -33,6 +33,12 @@ releaseRequired: true
 - 增加限流、配额、MFA/Passkey 候选、会话风险提醒、举报申诉和审计检索。
 - 建立多租户指标/告警、容量阈值、支持包脱敏和灾备演练。
 
+## 当前低风险基础
+
+- `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
+- 审计查询只接受规范化 Workspace/actor/action/time/limit；全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
+- 当前只有纯规则与测试，没有新增 schema/migration、持久队列、实际通知/搜索索引、配额写入、MFA/Passkey、监控外呼或生产状态变化；不改变 `status: backlog` 和前置 blocker。
+
 ## 验收
 
 - 大数据量、并发、队列故障、恢复和灾备测试通过；故障不阻断个人学习主链。
