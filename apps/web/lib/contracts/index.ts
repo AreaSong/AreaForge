@@ -16,6 +16,7 @@ export type * from "@/lib/contracts/knowledge";
 export type * from "@/lib/contracts/knowledge-canvas";
 export type * from "@/lib/contracts/knowledge-retest";
 export type * from "@/lib/contracts/notification";
+export type * from "@/lib/contracts/operator-account";
 export type * from "@/lib/contracts/plan-inbox";
 export type * from "@/lib/contracts/recovery";
 export type * from "@/lib/contracts/reports";

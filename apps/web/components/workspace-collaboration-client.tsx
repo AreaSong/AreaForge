@@ -48,23 +48,25 @@ export function WorkspaceCollaborationClient(props: {
   const [sharedDetails, setSharedDetails] = useState<Record<string, SharedResourceDetailView>>({});
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const canManageShares = props.capabilities.includes("share:manage-self");
+  const canCoach = props.capabilities.includes("coach:suggest");
 
   const load = useCallback(async () => {
     setPending(true);
     const [grantResult, sharedResult, suggestionResult, noteResult, mistakeResult] = await Promise.all([
-      listWorkspaceShareGrants(props.workspaceId),
+      canManageShares ? listWorkspaceShareGrants(props.workspaceId) : Promise.resolve(null),
       listSharedWithMe(),
       listCoachSuggestions(props.workspaceId),
-      listOwnedNotes(),
-      listOwnedMistakes(),
+      canManageShares ? listOwnedNotes() : Promise.resolve(null),
+      canManageShares ? listOwnedMistakes() : Promise.resolve(null),
     ]);
     setPending(false);
-    setGrants(grantResult.ok ? grantResult.body?.grants ?? [] : []);
+    setGrants(grantResult?.ok ? grantResult.body?.grants ?? [] : []);
     setShared(sharedResult.ok ? sharedResult.body?.sharedResources ?? [] : []);
     setSuggestions(suggestionResult.ok ? suggestionResult.body?.suggestions ?? [] : []);
-    setResources(buildResourceOptions(noteResult.ok ? noteResult.body?.notes ?? [] : [], mistakeResult.ok ? mistakeResult.body?.mistakes ?? [] : []));
-    if (!grantResult.ok && grantResult.status !== 404) setNotice(errorText(grantResult.status, grantResult.body?.error));
-  }, [props.workspaceId]);
+    setResources(buildResourceOptions(noteResult?.ok ? noteResult.body?.notes ?? [] : [], mistakeResult?.ok ? mistakeResult.body?.mistakes ?? [] : []));
+    if (grantResult && !grantResult.ok && grantResult.status !== 404) setNotice(errorText(grantResult.status, grantResult.body?.error));
+  }, [canManageShares, props.workspaceId]);
 
   useEffect(() => {
     if (!props.enabled) return;
@@ -75,15 +77,13 @@ export function WorkspaceCollaborationClient(props: {
   }, [load, props.enabled]);
 
   if (!props.enabled) return null;
-  const canManageShares = props.capabilities.includes("share:manage-self");
-  const canCoach = props.capabilities.includes("coach:suggest");
   return (
     <div className="space-y-5 border-t border-white/10 pt-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><h3 className="text-sm font-semibold text-white">分享与协作</h3><p className="mt-1 text-xs text-zinc-500">分享是对象级授权，不会因为成员角色自动开放私密正文。</p></div>
         <Button disabled={pending} onClick={() => void load()} size="sm" type="button" variant="secondary"><RefreshCw className="size-3.5" />刷新</Button>
       </div>
-      {canManageShares ? <GrantComposer workspaceId={props.workspaceId} members={props.members} resources={resources} pending={pending} onCreated={load} onError={setNotice} /> : null}
+      {canManageShares ? <GrantComposer workspaceId={props.workspaceId} currentUserId={props.currentUserId} members={props.members} resources={resources} pending={pending} onCreated={load} onError={setNotice} /> : null}
       {canManageShares ? <GrantList grants={grants} pending={pending} onUpdate={async (grant, input) => { setPending(true); const result = await updateWorkspaceShareGrant(props.workspaceId, grant.id, input); setPending(false); if (!result.ok) return setNotice(errorText(result.status, result.body?.error)); await load(); }} onRevoke={async (grant) => { setPending(true); const result = await revokeWorkspaceShareGrant(props.workspaceId, grant.id, grant.revision); setPending(false); if (!result.ok) return setNotice(errorText(result.status, result.body?.error)); await load(); }} /> : null}
       <SharedResourceList items={shared} details={sharedDetails} onOpen={async (item) => { const result = await getSharedResourceDetail(item.resourceType, item.resourceId); if (!result.ok || !result.body?.resource) return setNotice(errorText(result.status, result.body?.error)); setSharedDetails((current) => ({ ...current, [`${item.resourceType}:${item.resourceId}`]: result.body!.resource! })); }} />
       {canCoach ? <CoachSuggestionComposer workspaceId={props.workspaceId} shared={shared} pending={pending} onCreated={load} onError={setNotice} /> : null}
@@ -95,6 +95,7 @@ export function WorkspaceCollaborationClient(props: {
 
 function GrantComposer(props: {
   workspaceId: string;
+  currentUserId: string;
   members: WorkspaceMemberView[];
   resources: ResourceOption[];
   pending: boolean;
@@ -107,7 +108,8 @@ function GrantComposer(props: {
   const [access, setAccess] = useState<WorkspaceShareGrantAccess>("VIEW");
   const [expiresAt, setExpiresAt] = useState("");
   const selectedResource = props.resources.find((item) => item.key === resourceKey);
-  const eligibleMembers = props.members.filter((member) => member.status === "ACTIVE" && member.role !== "OWNER");
+  const eligibleMembers = props.members.filter((member) =>
+    member.status === "ACTIVE" && member.role !== "OWNER" && member.userId !== props.currentUserId);
   const normalizedAccess = scope === "WORKSPACE" ? "VIEW" : access;
 
   async function submit() {

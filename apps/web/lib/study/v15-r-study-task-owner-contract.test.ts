@@ -62,6 +62,7 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
   assert.match(simulation, /ownerUserId: actorId/);
   assert.match(review, /ownerUserId: actorId/);
   assert.match(debt, /ownerUserId: task\.ownerUserId/);
+  assert.match(notes, /listNotes[\s\S]*?resolveSelectedMemberWorkspace\(actorId\)/);
   assert.match(notes, /assertTaskBelongsToSubject\([\s\S]*?ownerUserId: string,[\s\S]*?where: \{ id: taskId, ownerUserId,/);
   assert.match(syllabus, /syllabusNodeEvidenceInclude\(ownerUserId: string\)/);
   assert.match(syllabus, /tasks: \{ where: taskWhere \}/);

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "v15-role-browser-matrix-v1",
+  "status": "pass",
+  "generatedAt": "2026-09-07T00:54:53+08:00",
+  "contentClassification": "synthetic-only",
+  "runtimeIdentity": {
+    "status": "verified",
+    "appVersion": "1.2.0",
+    "sourceGitCommit": "eb12e2e1bb93f396477a316faa1ff91216a77651",
+    "productExperienceSourceHash": "sha256:912ba6a620d9ce979b3f4934ff678e15a24d3112afde45faecfedfe6cf55882d",
+    "buildId": "sha256:8a8ad6a75e95ace87e6edb53331b5fb3281b7b1d145729a6b0c82e24801a51a5",
+    "runtimeMode": "production-build"
+  },
+  "viewports": [
+    "1280x900",
+    "390x844"
+  ],
+  "roles": {
+    "OWNER": {
+      "status": "pass",
+      "checks": [
+        "member role controls visible",
+        "ownership transfer and removal controls visible",
+        "share grant management visible",
+        "received Coach suggestion decision visible",
+        "no horizontal overflow",
+        "console errors 0"
+      ],
+      "screenshots": [
+        "owner-workspaces-desktop.png",
+        "owner-workspaces-mobile.png"
+      ]
+    },
+    "ADMIN": {
+      "status": "pass",
+      "checks": [
+        "workspace and subject structure management visible",
+        "duplicate subject preview visible",
+        "no horizontal overflow",
+        "console errors 0"
+      ],
+      "screenshots": [
+        "admin-subjects-desktop.png",
+        "admin-subjects-mobile.png"
+      ]
+    },
+    "COACH": {
+      "status": "pass",
+      "checks": [
+        "ROLE and WORKSPACE shared resources visible",
+        "Coach suggestion composer visible after capabilities load",
+        "actor-owned resource candidate request returns without owner-only 404",
+        "current actor excluded from share target candidates",
+        "no horizontal overflow",
+        "console errors 0"
+      ],
+      "screenshots": [
+        "coach-collaboration-desktop.png",
+        "coach-collaboration-mobile.png"
+      ]
+    },
+    "MEMBER": {
+      "status": "pass",
+      "checks": [
+        "root entry resolves to workspace collaboration",
+        "member directory is self-scoped with leave control",
+        "USER and WORKSPACE shared resources visible",
+        "current actor excluded from share target candidates",
+        "subject structure is read-only",
+        "cross-workspace capability request returns 404 WORKSPACE_RESOURCE_NOT_FOUND",
+        "no horizontal overflow",
+        "console errors 0 on product pages"
+      ],
+      "screenshots": [
+        "member-workspaces-desktop.png",
+        "member-workspaces-mobile.png"
+      ]
+    },
+    "VIEWER": {
+      "status": "pass",
+      "checks": [
+        "member directory is self-scoped with leave control",
+        "WORKSPACE shared resource visible",
+        "subject structure is read-only",
+        "management controls absent",
+        "no horizontal overflow",
+        "console errors 0"
+      ],
+      "screenshots": [
+        "viewer-subjects-desktop.png",
+        "viewer-subjects-mobile.png"
+      ]
+    },
+    "PLATFORM_OPERATOR": {
+      "status": "pass",
+      "checks": [
+        "account directory displays masked emails and counts only",
+        "current Operator self-actions absent",
+        "status and session actions require password reauthentication and two-step confirmation in UI contract",
+        "global confirmation center suppressed without a learning workspace",
+        "typed operation catalog visible and server command boundary explicit",
+        "no horizontal overflow",
+        "console errors 0"
+      ],
+      "screenshots": [
+        "operator-system-desktop.png",
+        "operator-system-mobile.png"
+      ]
+    }
+  },
+  "safetyFacts": {
+    "isolatedDatabaseUsed": true,
+    "isolatedDatabaseCleaned": true,
+    "browserSessionsCleaned": true,
+    "oneShotRuntimeCleaned": true,
+    "productionWriteAttempted": false,
+    "sharedDatabaseMigrationAttempted": false,
+    "physicalDeleteAttempted": false,
+    "serverCommandExecutionAttempted": false
+  },
+  "doesNotProve": [
+    "role, invitation, grant, Coach, account status or session revoke write mutations through the browser",
+    "shared test database migration status",
+    "protected pull request or signed Release readiness",
+    "production migration, production feature enablement or production health"
+  ]
+}

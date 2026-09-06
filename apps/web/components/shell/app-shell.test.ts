@@ -126,6 +126,7 @@ test("GlobalTopBar: 3-column responsive grid layout prevents content collision",
 
 test("GlobalTopBar: controls and tool actions are correctly distributed", () => {
   const topbarSource = loadSource("components/global-top-bar.tsx");
+  const shellSource = loadSource("components/app-shell.tsx");
 
   // Left segment: menu trigger, brand mark, today status button
   assert.match(topbarSource, /af-tablet-navigation-trigger/);
@@ -137,6 +138,8 @@ test("GlobalTopBar: controls and tool actions are correctly distributed", () => 
 
   // Right segment: Confirmation center, Global AI, motivation help, quick create
   assert.match(topbarSource, /<GlobalConfirmationCenter/);
+  assert.match(topbarSource, /props\.hasWorkspace \? <GlobalConfirmationCenter/);
+  assert.match(shellSource, /hasWorkspace=\{Boolean\(status\.workspaceId\)\}/);
   assert.match(topbarSource, /<GlobalAiAssistant/);
   assert.match(topbarSource, /我学不下去了/);
   assert.match(topbarSource, /<GlobalQuickCreate/);

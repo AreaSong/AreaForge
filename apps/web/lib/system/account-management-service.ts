@@ -4,6 +4,7 @@ import { requireRbacFeature } from "@/lib/auth/feature-gates";
 import { getAuthEnv } from "@/lib/auth/env";
 import type { CurrentUser } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/responses";
+import type { OperatorAccountDto, OperatorAccountReasonCode } from "@/lib/contracts/operator-account";
 import { isPlatformOperatorEmail, requirePlatformOperator } from "./operator-policy";
 
 export const OPERATOR_ACCOUNT_REASON_CODES = [
@@ -12,19 +13,7 @@ export const OPERATOR_ACCOUNT_REASON_CODES = [
   "ABUSE_PREVENTION",
   "INCIDENT_RESPONSE",
 ] as const;
-export type OperatorAccountReasonCode = (typeof OPERATOR_ACCOUNT_REASON_CODES)[number];
-
-export interface OperatorAccountDto {
-  id: string;
-  maskedEmail: string;
-  status: "ACTIVE" | "SUSPENDED";
-  emailVerified: boolean;
-  authRevision: number;
-  activeMembershipCount: number;
-  activeSessionCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { OperatorAccountDto, OperatorAccountReasonCode } from "@/lib/contracts/operator-account";
 
 export async function listOperatorAccounts(actor: CurrentUser): Promise<OperatorAccountDto[]> {
   requireRbacFeature();

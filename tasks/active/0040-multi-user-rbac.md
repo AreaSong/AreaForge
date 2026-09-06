@@ -44,7 +44,7 @@ releaseRequired: true
 - 已补充所有已认证 mutation 的 same-origin/CSRF 边界、报告和阶段查询的 actor/workspace fail-closed、StagePlan 当前计划数据库级 partial unique index 与重复 preimage 阻断；多人路径仍默认关闭。
 - 成员工作区 UI 已允许所有 active membership 切换，显示真实角色，非 Owner 可主动离开；在 RBAC 开启的本地候选中，Workspace/科目结构读取允许 active membership，结构写入和科目合并允许 `workspace:manage`（Owner/Admin），生命周期归档/恢复仍保持 Owner-only。
 - Auth/API/Config 目标测试、Web 全量、Web/v1.4 typecheck、目标 ESLint、`CI=true pnpm check`、隔离 PostgreSQL runtime 和共享测试池桌面 spot check 已通过；Git 检查点 `5816338` 已推送且 branch CI run `34021752169` 成功，仍待完整桌面/移动浏览器验收、受保护 PR/合并、Release 和生产证据。
-- 隔离浏览器矩阵发现并修复 member-only 账户登录后误进首次设置，以及成员只读 `/settings/exams` 仍调用 Owner/Admin 合并管理查询的问题；根入口现在把仅成员账户送到 `/settings/workspaces`，成员考试页只加载可读科目/分组。Owner 与 Member 的 desktop/390×844 spot check 无横向溢出，干净标签 console 0 error；Admin/Coach/Viewer、邀请/角色/grant/Coach 写交互的完整矩阵仍待补齐。
+- 隔离浏览器矩阵发现并修复 member-only 账户登录后误进首次设置，以及成员只读 `/settings/exams` 仍调用 Owner/Admin 合并管理查询的问题；根入口现在把仅成员账户送到 `/settings/workspaces`，成员考试页只加载可读科目/分组。Owner/Admin/Coach/Member/Viewer 与 Platform Operator 的 1280×900/390×844 可见性、入口、只读/管理控件、跨 Workspace 404、无横向溢出和 console 0 error 已通过，证据见 `output/playwright/v15-role-matrix/evidence.json` 与同目录截图；邀请、角色、grant、Coach 和账户状态等浏览器写交互仍待补齐。
 
 ## 验收
 

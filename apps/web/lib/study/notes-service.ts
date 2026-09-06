@@ -8,7 +8,11 @@ import type {
 } from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { serializeAttachment } from "./attachments-service";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  lockActiveWorkspaceForWrite,
+  resolveActiveWorkspace,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
 import { fromDbTaskStatus } from "./task-serializer";
 import {
@@ -103,7 +107,7 @@ type NoteDetailRow = Prisma.NoteGetPayload<{ include: typeof noteDetailInclude }
 type NoteDbClient = typeof prisma | Prisma.TransactionClient;
 
 export async function listNotes(actorId: string, options?: { q?: string }): Promise<NoteDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const query = options?.q?.trim().slice(0, 120) || undefined;
   const notes = await prisma.note.findMany({
     where: {
