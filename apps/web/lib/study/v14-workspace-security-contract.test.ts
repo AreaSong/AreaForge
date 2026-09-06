@@ -45,9 +45,12 @@ test("v1.4 migration 对零个或多个活动 Workspace 的用户均 fail closed
 test("v1.4 UI 允许所有 active membership 切换，仍隐藏结构管理", () => {
   const sidebar = loadSource("components/workspace-settings-sidebar.tsx");
   const membership = loadSource("components/workspace-membership-client.tsx");
+  const examsPage = loadSource("app/(app)/settings/exams/page.tsx");
 
   assert.match(sidebar, /workspace\.id !== props\.activeId && workspace\.status === "ACTIVE"/);
   assert.match(membership, /workspace\.status === "ACTIVE" && !workspace\.current && workspace\.membershipRole/);
+  assert.match(examsPage, /canManageStructure \? listSubjectDuplicatePreviews/);
+  assert.match(examsPage, /canManageStructure \? listRecentSubjectMergeOperations/);
 });
 
 test("v1.4 Workspace 生命周期 PATCH 不混入内容字段", () => {
