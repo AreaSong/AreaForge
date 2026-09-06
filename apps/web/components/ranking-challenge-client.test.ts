@@ -9,4 +9,6 @@ test("ranking UI keeps opt-in and private-field boundaries visible", async () =>
   assert.match(source, /props\.enabled/);
   assert.match(source, /不包含动机、复盘正文、笔记、错题、附件/);
   assert.match(source, /重建排名/);
+  assert.match(source, /邀请成员/);
+  assert.match(source, /inviteChallengeParticipant/);
 });

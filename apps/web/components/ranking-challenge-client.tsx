@@ -9,6 +9,7 @@ import { Alert, Badge, EmptyState } from "@/components/ui/feedback";
 import {
   createPrivateChallenge,
   getRankingPreference,
+  inviteChallengeParticipant,
   listPrivateChallenges,
   rebuildChallengeProjection,
   transitionPrivateChallenge,
@@ -94,5 +95,32 @@ export function RankingChallengeClient(props: { enabled: boolean; workspaces: Ra
 
 function ChallengeRow(props: { challenge: PrivateChallengeDto; projection?: RankingProjectionViewDto; pending: boolean; onTransition: (challenge: PrivateChallengeDto, action: "start" | "end" | "close" | "dissolve") => Promise<void>; onRebuild: (challenge: PrivateChallengeDto) => Promise<void> }) {
   const challenge = props.challenge;
-  return <Card variant="subtle"><CardContent className="space-y-3 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-white">{challenge.name}</p><p className="mt-1 text-xs text-zinc-500">{challenge.startDate} → {challenge.endDate} · 每日 {challenge.targetEffectiveMinutesPerDay} 分钟</p></div><Badge>{challenge.status}</Badge></div><div className="flex flex-wrap gap-2">{challenge.status === "DRAFT" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "start")} size="sm" type="button">开始</Button> : null}{challenge.status === "ACTIVE" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "end")} size="sm" type="button" variant="secondary">结束</Button> : null}{challenge.status === "ENDED" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "close")} size="sm" type="button" variant="secondary">关闭</Button> : null}{challenge.status !== "DISSOLVED" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "dissolve")} size="sm" type="button" variant="secondary">解散</Button> : null}{challenge.status === "ACTIVE" || challenge.status === "ENDED" || challenge.status === "CLOSED" ? <Button disabled={props.pending} onClick={() => void props.onRebuild(challenge)} size="sm" type="button" variant="secondary"><BarChart3 className="size-3.5" aria-hidden="true" />重建排名</Button> : null}</div>{props.projection ? <p className="text-xs text-zinc-400">投影 {props.projection.entries.length} 人 · {props.projection.stale ? "需要重建" : "当前版本"}</p> : null}</CardContent></Card>;
+  const [inviteUserId, setInviteUserId] = useState("");
+  const [inviteNickname, setInviteNickname] = useState("");
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+
+  async function inviteParticipant() {
+    const userId = inviteUserId.trim();
+    if (!userId) {
+      setInviteNotice("请输入成员 ID；不会向排名发送学习正文。");
+      return;
+    }
+    setInvitePending(true);
+    const result = await inviteChallengeParticipant(challenge.id, {
+      userId,
+      nickname: inviteNickname.trim() || null,
+      authorizedFields: ["score"],
+    });
+    setInvitePending(false);
+    if (!result.ok || !result.body?.participant) {
+      setInviteNotice("邀请失败，请确认成员仍在当前工作区且已主动加入排名。");
+      return;
+    }
+    setInviteUserId("");
+    setInviteNickname("");
+    setInviteNotice("邀请已创建；成员接受后才会进入投影。");
+  }
+
+  return <Card variant="subtle"><CardContent className="space-y-3 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-white">{challenge.name}</p><p className="mt-1 text-xs text-zinc-500">{challenge.startDate} → {challenge.endDate} · 每日 {challenge.targetEffectiveMinutesPerDay} 分钟</p></div><Badge>{challenge.status}</Badge></div><div className="flex flex-wrap gap-2">{challenge.status === "DRAFT" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "start")} size="sm" type="button">开始</Button> : null}{challenge.status === "ACTIVE" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "end")} size="sm" type="button" variant="secondary">结束</Button> : null}{challenge.status === "ENDED" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "close")} size="sm" type="button" variant="secondary">关闭</Button> : null}{challenge.status !== "DISSOLVED" ? <Button disabled={props.pending} onClick={() => void props.onTransition(challenge, "dissolve")} size="sm" type="button" variant="secondary">解散</Button> : null}{challenge.status === "ACTIVE" || challenge.status === "ENDED" || challenge.status === "CLOSED" ? <Button disabled={props.pending} onClick={() => void props.onRebuild(challenge)} size="sm" type="button" variant="secondary"><BarChart3 className="size-3.5" aria-hidden="true" />重建排名</Button> : null}</div>{challenge.status !== "DISSOLVED" ? <div className="grid gap-2 border-t border-white/10 pt-3 md:grid-cols-[1fr_1fr_auto]"><Input aria-label="被邀请成员 ID" placeholder="成员 ID" value={inviteUserId} onChange={(event) => setInviteUserId(event.target.value)} disabled={invitePending || props.pending} /><Input aria-label="排名昵称（可选）" placeholder="昵称（可选）" value={inviteNickname} onChange={(event) => setInviteNickname(event.target.value)} disabled={invitePending || props.pending} /><Button disabled={invitePending || props.pending} onClick={() => void inviteParticipant()} size="sm" type="button" variant="secondary">邀请成员</Button></div> : null}{inviteNotice ? <p className="text-xs text-zinc-400" role="status">{inviteNotice}</p> : null}{props.projection ? <p className="text-xs text-zinc-400">投影 {props.projection.entries.length} 人 · {props.projection.stale ? "需要重建" : "当前版本"}</p> : null}</CardContent></Card>;
 }
