@@ -4,6 +4,7 @@ import {
   canonicalizeDataExportValue,
   createDataExportManifest,
   hashDataExportManifest,
+  hashDataExportBytes,
   hashDataExportValue,
   isRestrictedDataExportKey,
   normalizeDataInventory,
@@ -103,4 +104,9 @@ test("Prisma-shaped temporal and numeric values become portable JSON", () => {
     amount: "12.3400",
   });
   assert.throws(() => redactDataExportValue(new Date("invalid")), /Invalid date/);
+});
+
+test("binary hash binds exact archive bytes", () => {
+  assert.equal(hashDataExportBytes(Uint8Array.from([97, 98, 99])), "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  assert.notEqual(hashDataExportBytes(Uint8Array.from([97, 98, 99])), hashDataExportBytes(Uint8Array.from([97, 98, 100])));
 });

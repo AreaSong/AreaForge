@@ -153,6 +153,11 @@ export function hashDataExportValue(value: unknown): string {
   return `sha256:${sha256Hex(canonicalizeDataExportValue(value))}`;
 }
 
+/** Compute SHA-256 over exact binary bytes, for archive/checksum binding. */
+export function hashDataExportBytes(value: Uint8Array): string {
+  return `sha256:${sha256HexBytes(value)}`;
+}
+
 /**
  * Normalize and validate a DATA-0 inventory list. The result is sorted by
  * object kind and duplicate kinds are rejected to keep policy unambiguous.
@@ -339,7 +344,11 @@ const SHA256_K = [
 ] as const;
 
 function sha256Hex(value: string): string {
-  const bytes = utf8Bytes(value);
+  return sha256HexBytes(utf8Bytes(value));
+}
+
+function sha256HexBytes(value: ArrayLike<number>): string {
+  const bytes = Array.from(value);
   const bitLength = bytes.length * 8;
   bytes.push(0x80);
   while ((bytes.length + 8) % 64 !== 0) bytes.push(0);

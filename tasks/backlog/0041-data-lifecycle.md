@@ -25,7 +25,7 @@ releaseRequired: true
 
 `packages/core` 仅提供可审计的纯规则：数据清单策略的规范化、导出值的递归脱敏、版本化 manifest 排序、每条记录 hash 和 manifest hash，以及后台 Job 的租约/进度/暂停/取消/重试状态转换。规则只处理调用方传入的内存值，不访问 Prisma、文件系统、上传目录、备份或下载凭证，也不执行删除、保留期、授权、持久幂等或持久后台 job；状态规则不等价于 DATA-1 worker。
 
-基础规则会省略密码/密码 hash、session/access/refresh token、Provider/API secret、数据库连接串、`Attachment.uri`/`storedName` 以及绝对或内部路径；`stableKey`、`workspaceKey` 等业务引用不因名称含 `Key` 被误删。manifest 记录省略字段计数，记录 hash 和 manifest hash 均使用稳定排序与 `sha256:` canonical hash。它不等价于完整账户导出，也不能作为删除授权或生产证据。
+基础规则会省略密码/密码 hash、session/access/refresh token、Provider/API secret、数据库连接串、`Attachment.uri`/`storedName` 以及绝对或内部路径；`stableKey`、`workspaceKey` 等业务引用不因名称含 `Key` 被误删。manifest 记录省略字段计数，记录 hash 和 manifest hash 均使用稳定排序与 `sha256:` canonical hash。纯 Core 候选还可在内存中构造确定性、无压缩 ZIP，使用真实 archive bytes 的 SHA-256 绑定 `manifest.json` 和排序后的 `entries/**.json`；写出只能经显式注入 sink，不读取 `UPLOAD_DIR`、数据库或网络。它仍不等价于完整账户导出、临时包保留/清理或可下载归档服务。
 
 当前工作树已增加 v1.6 本地候选 Web 层：数据任务列表/创建、范围预览、幂等、取消/重试、下载 grant 撤销/兑换 descriptor，以及仅限平台 Operator 的 worker claim/heartbeat/complete/expire、行锁和 `updatedAt` CAS；导出不落盘，删除任务固定为 `PAUSED` preview-only，默认 flag 关闭。候选 schema/migration 仅在一次性隔离 PostgreSQL fixture 中验证过，未 apply 到共享测试库或生产，不提供物理删除或真实归档文件。隔离库结构回放入口为 `pnpm ops:ab:candidate-schema:selftest`，必须显式设置 `AREAFORGE_AB_CANDIDATE_ISOLATED_DB=1`。
 
@@ -40,7 +40,7 @@ releaseRequired: true
 
 ### DATA-DELETE 确认说明
 
-本基础任务只允许本地候选的删除影响预览；不执行软删除、回收站状态变更、冷静期推进、物理删除、附件清理、备份删除账本或恢复后重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
+本基础任务只允许本地候选的删除影响预览和纯状态机：默认不可执行，只有显式隔离 fixture 可演练重新验证、冷静期、冻结、范围 fingerprint、kill-point、失败补偿和重试；不执行软删除、回收站状态变更、物理删除、附件清理、备份删除账本或恢复后重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
 
 > 当前工作树中 `DataJob` / `DataExportPackage` / `DataExportDownloadGrant` schema 或 migration 仍属于候选变更；允许在一次性隔离数据库中做可回收的验证，但在 DATA-EXPORT 与 DATA-DELETE 确认前不得 apply 到共享/生产数据库、归档落盘、发放真实下载包、删除或生产 apply，也不能据此更新本任务为完成。
 

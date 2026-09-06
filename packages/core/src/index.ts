@@ -37,6 +37,8 @@ export * from "./ai-draft";
 export * from "./foreground-notification";
 export * from "./rbac";
 export * from "./data-lifecycle";
+export * from "./data-export-archive";
+export * from "./data-deletion";
 export * from "./data-jobs";
 export * from "./ranking-metrics";
 export * from "./ranking-policy";
