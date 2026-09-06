@@ -17,7 +17,8 @@ export default async function SettingsDataPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const dataLifecycleEnabled = process.env.DATA_LIFECYCLE_ENABLED === "true";
-  const workspaces = dataLifecycleEnabled ? await listExamWorkspaces(user.id) : [];
+  const rankingEnabled = process.env.RANKING_ENABLED === "true";
+  const workspaces = dataLifecycleEnabled || rankingEnabled ? await listExamWorkspaces(user.id) : [];
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
@@ -175,7 +176,8 @@ export default async function SettingsDataPage() {
               <p className="mt-0.5 text-xs text-zinc-400">排名候选默认关闭；仅主动加入的成员参与，且不读取学习正文。</p>
             </div>
             <RankingChallengeClient
-              enabled={process.env.RANKING_ENABLED === "true"}
+              enabled={rankingEnabled}
+              currentUserId={user.id}
               workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({ id: workspace.id, name: workspace.name }))}
             />
           </section>
