@@ -42,5 +42,5 @@ releaseRequired: true
 - 纯规则会拒绝敏感或未知字段，去除重复 session，排除无效/超长/窗口外时长，并将单日有效时长限制为 16 小时；返回组件权重、基线/当前值、异常代码和解释文本，挑战排名使用稳定的竞赛并列名次。
 - core 计算、反作弊分级与 appeal 状态机 policy 已完成并保持无副作用；不代表 RANKING 确认包已批准，也不改变 `status: backlog` 或前置阻塞项。
 - 本地候选已补充排名 opt-in/字段授权、挑战 CRUD 与参与者状态、跨租户授权、可重建数据库投影和删除预览；候选 migration 只在一次性隔离 PostgreSQL fixture 中验证，未 apply 到共享测试库或生产。
-- 本地候选已增加基于 AuditEvent 的申诉提交/查看/复核 API；尚未实现或收口：参与者邀请 UI、通知、故障总开关、退出/删除/导出全链路联动、申诉专用持久表、公开榜和生产动作。这些边界仍需 RANKING、AUTH/RBAC、DELETE/EXPORT 与 OPS 确认及运行证据。
-- 当前工作树已形成本地候选 schema/migration、偏好 opt-in、私有挑战/参与者状态服务、可重建投影和删除预览 hook，以及 authenticated API routes；`RANKING_ENABLED` 默认关闭，migration 未 apply。全量 core/Web 门禁与隔离 PostgreSQL v1.8 runtime 已通过，尚缺浏览器矩阵、反作弊完整实现、通知/故障开关、参与者邀请 UI 和 Release/生产证据。
+- 本地候选已增加基于 AuditEvent 的申诉提交/查看/复核 API，以及成员邀请/接受/退出 UI；尚未实现或收口：通知、故障总开关、退出/删除/导出全链路联动、申诉专用持久表、公开榜和生产动作。这些边界仍需 RANKING、AUTH/RBAC、DELETE/EXPORT 与 OPS 确认及运行证据。
+- 当前工作树已形成本地候选 schema/migration、偏好 opt-in、私有挑战/参与者状态服务、可重建投影和删除预览 hook，以及 authenticated API routes；`RANKING_ENABLED` 默认关闭，migration 未 apply。全量 core/Web 门禁与隔离 PostgreSQL v1.8 runtime 已通过，尚缺完整浏览器矩阵、通知/故障开关和 Release/生产证据。
