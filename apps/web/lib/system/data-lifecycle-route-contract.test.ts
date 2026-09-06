@@ -60,6 +60,14 @@ test("data lifecycle service has no physical deletion or archive filesystem path
   assert.doesNotMatch(service, /return\s+\{[^}]*objectKey/);
 });
 
+test("data inventory includes recipient-scoped notifications without internal event keys", async () => {
+  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  assert.match(service, /"userNotification", "userNotification"/);
+  assert.match(service, /recipientUserId: actorId/);
+  assert.doesNotMatch(service, /userNotification[\s\S]{0,500}sourceEntityId: true/);
+  assert.doesNotMatch(service, /userNotification[\s\S]{0,500}eventKey: true/);
+});
+
 test("download grant route never accepts a raw path or token hash", async () => {
   const source = await routeSource("app/api/system/data-jobs/[jobId]/download-grants/route.ts");
   assert.doesNotMatch(source, /objectKey|tokenHash|storedName|uri/i);

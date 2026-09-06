@@ -135,6 +135,17 @@ enum RankingAppealStatus {
   WITHDRAWN
 }
 
+enum UserNotificationKind {
+  RANKING_INVITATION
+  RANKING_CHALLENGE_STATUS
+  RANKING_APPEAL_SUBMITTED
+  RANKING_APPEAL_STATUS
+  RANKING_APPEAL_WITHDRAWN
+  RANKING_OWNERSHIP_TRANSFERRED
+  RANKING_PARTICIPANT_REMOVED
+  RANKING_PARTICIPANT_STATUS
+}
+
 enum ControlledOperationRequestRisk {
   READ_ONLY
   HIGH_RISK
@@ -368,6 +379,7 @@ model User {
   motivationVault              MotivationVault?
   motivationReminderState      MotivationReminderState?
   notificationPreference       NotificationPreference?
+  userNotifications            UserNotification[]            @relation("UserNotificationRecipient")
   aiDraftOperations            AiDraftOperation[]
   aiProviderCredential         AiProviderCredential?
   terminalGoals                TerminalGoal[]
@@ -490,6 +502,7 @@ model ExamWorkspace {
   dataJobs                     DataJob[]
   rankingPreferences           RankingPreference[]
   privateChallenges            PrivateChallenge[]
+  userNotifications            UserNotification[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -2528,4 +2541,31 @@ model RankingAppeal {
   @@index([participantId, status])
   @@index([submittedByUserId, createdAt])
   @@index([reviewedByUserId, reviewedAt])
+}
+
+/**
+ * v1.8/v1.9 local candidate. Content is rendered from the controlled kind;
+ * private challenge names, appeal bodies and learning text are never stored.
+ */
+model UserNotification {
+  id               String               @id @default(cuid())
+  recipientUserId  String
+  workspaceId      String
+  workspaceLabel   String
+  kind             UserNotificationKind
+  sourceEntityType String
+  sourceEntityId   String
+  eventKey         String
+  readAt           DateTime?
+  dismissedAt      DateTime?
+  revision         Int                  @default(1)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  recipient        User                 @relation("UserNotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  workspace        ExamWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientUserId, eventKey])
+  @@index([recipientUserId, dismissedAt, readAt, createdAt])
+  @@index([workspaceId, recipientUserId, createdAt])
+  @@index([kind, createdAt])
 }

@@ -2027,7 +2027,7 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 任一跨 Workspace 读取、附件 actor 旁路、旧 grant 复活、Operator 读取正文、Coach 直接改正式记录、关闭 feature flag 后 API 仍写入、迁移 ledger/hash 不一致或 secret/路径泄露时立即中止。
 - 不包含账户/Workspace 导出、回收站、物理删除、备份 deletion ledger、任意 shell、root agent、挑战/排名、公开注册、SSO/SCIM、计费、生产 migration/apply、Release/tag、真实生产账户暂停或 residual 关闭。
 
-明确确认句（待确认）：
+明确确认句（已确认）：
 
 > 确认执行 v1.5 RBAC、隐私授权与 Coach 协作本地实施：以 `fd41920a0131b8d54284cf404cd8487aeb0e69f7` 的 v1.4 身份/Workspace/Membership 为 preimage，additive 增加 Admin/Coach/Viewer、固定 capability 矩阵、稳定资源 owner、USER/ROLE/WORKSPACE 对象 grant、NOTE/MISTAKE/ATTACHMENT 完整共享闭环、其余资源按同等 redaction/消费者门禁开放、脱敏 Platform Operator 账户管理和 `授权证据 → Coach 草稿 → 成员确认/驳回 → PlanInbox → 显式应用`；修复关闭多人开关仍可写、成员重入复活 grant、附件可选 actor、Owner 双重语义、TOCTOU/CAS 和默认测试未覆盖问题；只在全新隔离 PostgreSQL 与本地测试池验证，不执行 DATA-EXPORT、DATA-DELETE、生产 migration/apply、Release/tag、备份恢复、服务器命令、排名或 residual 关闭。
 

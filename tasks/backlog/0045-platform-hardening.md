@@ -37,7 +37,8 @@ releaseRequired: true
 
 - `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
-- 当前只有纯规则与测试，没有新增 schema/migration、持久队列、实际通知/搜索索引、配额写入、MFA/Passkey、监控外呼或生产状态变化；不改变 `status: backlog` 和前置 blocker。
+- 平台加固主体仍只有纯规则与测试；除下述 `UserNotification` 候选外，尚无通用持久队列、搜索索引、配额写入、MFA/Passkey、监控外呼或生产状态变化；不改变 `status: backlog` 和前置 blocker。
+- `UserNotification` 已作为默认关闭的通用持久通知基础进入本地候选：排名事件幂等写入，鉴权列表/状态 API 和未读/全部/已隐藏 UI 支持跨设备已读、隐藏、恢复；用户导出预览包含脱敏通知记录。它尚不包含通用通知 worker、外部投递、全局导航入口或其他业务域事件，不改变前置 blocker。
 
 ## 验收
 

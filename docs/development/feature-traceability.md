@@ -20,7 +20,7 @@
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
-| 单管理员登录与 v1.4 身份底座 | 已完成 | 稳定登录见 `tasks/done/0002-mvp-auth-and-seed.md`；v1.4 本地候选增加账户状态/authRevision、设备会话、邮箱验证/密码重置、重新验证和持久限流，见 `tasks/active/0040-multi-user-rbac.md` | v1.4 候选仍缺最终浏览器/总门禁、Release 和生产证据 |
+| 单管理员登录与 v1.4 身份底座 | 已完成 | 稳定登录见 `tasks/done/0002-mvp-auth-and-seed.md`；v1.4 本地候选增加账户状态/authRevision、设备会话、邮箱验证/密码重置、重新验证和持久限流，见 `tasks/active/0040-multi-user-rbac.md` | v1.4 候选本地总门禁和 branch push CI 已通过，仍缺完整 desktop/mobile 浏览器矩阵、受保护 PR/合并、Release 和生产证据 |
 | 今日作战台 | 已完成 | `GET /api/dashboard/today`、`apps/web/app/page.tsx` | `workflow/versions/v0.3-structured-learning-state.md` |
 | 当前工作区目标考试与下一场模拟倒计时 | 已完成 | `dashboard-query-service.ts` 读取当前 `ExamWorkspace.targetExamDate` 和下一场未完成 `SimulationExam.examDate`；Core 窗口规则接受空日期，缺失时不触发冲刺、模拟或动机提醒 | 新增更多考试节点时必须来自工作区配置或真实模拟记录 |
 | 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
@@ -88,7 +88,7 @@
 
 ## 下一产品版本：A -> B 平台演进
 
-本节记录 A -> B 后续版本能力；v1.4 已进入本地 runtime，但仍不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
+本节记录 A -> B 后续版本能力；v1.4-v1.8 已进入不同深度的默认关闭本地 runtime，v1.9 已形成纯规则与持久通知基础，但这些仍不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
@@ -98,8 +98,8 @@
 | 完整账户/Workspace 导出 | 基础版 | `packages/core` 已有 redaction/manifest/hash 和确定性内存 ZIP/真实字节 SHA-256；v1.6 本地候选增加 feature-gated 数据任务、脱敏预览/一次性 grant descriptor 和 worker claim/heartbeat/complete/expire 生命周期，但未接真实临时存储、附件本体、保留/清理或下载流，不暴露 objectKey；仍不等于账户全量导出 | `tasks/backlog/0041-data-lifecycle.md` |
 | 数据任务中心、回收站、物理删除与账户关闭 | 基础版 | 数据任务中心已支持 preview/排队/取消/重试、worker lease/CAS 和删除 preview；纯 Core 回收站协议覆盖影响预览、恢复期/恢复/到期与 fail-closed purge eligibility，删除状态机覆盖重新验证、冷静期、冻结、scope fingerprint、kill-point、补偿后重试，deletion ledger 覆盖哈希链与历史备份 replay plan。所有执行开关固定关闭；尚无数据库回收站、物理删除、附件清理、账本持久化或真实重放 | `tasks/backlog/0041-data-lifecycle.md` |
 | 受控运维中心 | 基础版 | 已增加只读 catalog、strict intent、持久候选请求/确认/审批/hold/retry/lease API、Operator UI，以及 report-only 的 hash-chain journal/reconciliation 契约；尚无 root-agent 实际执行、跨进程锁、真实 updater/生产动作；Web runtime 仍不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
-| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊分级、opt-in、挑战/参与者 CRUD、成员邀请/接受/退出 UI、可重建 projection、独立 projection 开关、专用持久申诉、成员提交/撤回与 Owner 复核 UI、删除 preview hook/API 已形成本地候选；成员确认中心的 selected Membership scope 已修复，390×844/1440×900 隔离浏览器旅程通过。默认 `RANKING_ENABLED=false`，尚缺通知、退出/删除/导出全链路联动、共享/生产 migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
-| 平台化加固 | 基础版 | Core 已有队列退避/死信、Workspace 配额、固定窗口限流、容量状态、审计查询和跨租户搜索可见性纯规则；尚无持久队列、通知/搜索索引 runtime、配额写入、MFA/Passkey、多租户指标/告警和灾备体验 | `tasks/backlog/0045-platform-hardening.md` |
+| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊、opt-in、挑战/参与者 CRUD、可重建 projection、独立 projection 开关、持久申诉与成员/Owner UI、持久排名通知和删除 preview 已形成本地候选；通知只保存受控种类/Workspace 标签，不保存挑战名称或申诉正文，并进入用户导出预览。成员确认中心 scope 已修复；申诉与通知均有 390×844/1440×900 隔离浏览器证据。默认相关开关关闭，尚缺退出/删除/导出完整联动、共享/生产 migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 平台化加固 | 基础版 | Core 已有队列退避/死信、Workspace 配额、固定窗口限流、容量状态、审计查询和跨租户搜索可见性规则；`UserNotification` 已提供默认关闭的幂等排名事件、鉴权 API、跨设备已读/未读/隐藏/恢复 UI 和导出预览联动。尚无通用持久队列/通知 worker、全局通知入口、搜索索引 runtime、配额写入、MFA/Passkey、多租户指标/告警和灾备体验 | `tasks/backlog/0045-platform-hardening.md` |
 | v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE/OPS/RANKING、Release、生产和运营证据均未形成 | `tasks/backlog/0046-v2-platform-gate.md` |
 
 ## 暂缓项

@@ -20,11 +20,16 @@ import {
   transitionRankingAppeal,
 } from "../../apps/web/lib/ranking/appeal-service";
 import {
+  listUserNotifications,
+  updateUserNotification,
+} from "../../apps/web/lib/notifications/inbox-service";
+import {
   createPrivateChallenge,
   invitePrivateChallengeParticipant,
   transitionPrivateChallenge,
   transitionPrivateChallengeParticipantForActor,
 } from "../../apps/web/lib/ranking/challenge-service";
+import { enqueueRankingNotification } from "../../apps/web/lib/ranking/notification-service";
 import { rebuildChallengeProjection } from "../../apps/web/lib/ranking/projection-service";
 import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "./v15-rbac-runtime-fixture";
 
@@ -39,6 +44,7 @@ try {
   process.env.DATA_LIFECYCLE_ENABLED = "true";
   process.env.RANKING_ENABLED = "true";
   process.env.RANKING_PROJECTION_ENABLED = "true";
+  process.env.PLATFORM_NOTIFICATIONS_ENABLED = "true";
   process.env.AUTH_SESSION_SECRET = process.env.AUTH_SESSION_SECRET ?? "ab-candidate-session-secret-20260906";
   process.env.AUTH_ACTION_TOKEN_SECRET = process.env.AUTH_ACTION_TOKEN_SECRET ?? "ab-candidate-action-secret-20260906";
 
@@ -176,12 +182,74 @@ try {
   });
   assert.equal(accepted.status, "ACCEPTED");
   assert.equal((await listRankingAppeals(fixture.users.member.actor.id, challenge.id)).length, 1);
+  const appealToWithdraw = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
+    participantId: invited.id,
+    reason: "该申诉已自行核对，无需继续处理",
+  });
+  const withdrawnAppeal = await transitionRankingAppeal(fixture.users.member.actor, challenge.id, appealToWithdraw.appealId, {
+    action: "withdraw",
+    expectedRevision: appealToWithdraw.revision,
+  });
+  assert.equal(withdrawnAppeal.status, "WITHDRAWN");
   const appealAuditRows = await prisma.auditEvent.findMany({
     where: { entityType: "RankingAppeal", entityId: appeal.appealId },
     select: { metadata: true },
   });
   assert.ok(appealAuditRows.length >= 3);
   assert.equal(JSON.stringify(appealAuditRows).includes(appealReason), false);
+  const [ownerNotifications, memberNotifications] = await Promise.all([
+    listUserNotifications(fixture.users.owner.userId, "all"),
+    listUserNotifications(fixture.users.member.userId, "all"),
+  ]);
+  assert.ok(ownerNotifications.some((item) => item.kind === "RANKING_APPEAL_SUBMITTED"));
+  assert.ok(ownerNotifications.some((item) => item.kind === "RANKING_PARTICIPANT_STATUS"));
+  assert.ok(ownerNotifications.some((item) => item.kind === "RANKING_APPEAL_WITHDRAWN"));
+  assert.ok(memberNotifications.some((item) => item.kind === "RANKING_INVITATION"));
+  assert.ok(memberNotifications.some((item) => item.kind === "RANKING_CHALLENGE_STATUS"));
+  assert.ok(memberNotifications.some((item) => item.kind === "RANKING_APPEAL_STATUS"));
+  assert.equal(JSON.stringify([...ownerNotifications, ...memberNotifications]).includes(appealReason), false);
+  const notification = memberNotifications[0]!;
+  await assert.rejects(
+    updateUserNotification(fixture.users.owner.userId, notification.id, "read", notification.revision),
+    /USER_NOTIFICATION_NOT_FOUND/,
+  );
+  const readNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "read", notification.revision);
+  const dismissedNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "dismiss", readNotification.revision);
+  const restoredNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "restore", dismissedNotification.revision);
+  const unreadNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "unread", restoredNotification.revision);
+  assert.equal(unreadNotification.readAt, null);
+  const notificationExport = await requestDataLifecycleJob(fixture.users.member.actor, {
+    kind: "EXPORT",
+    scope: "ACCOUNT",
+    idempotencyKey: "ab-notification-export-20260906",
+  });
+  assert.equal(notificationExport.preview && "entries" in notificationExport.preview
+    ? notificationExport.preview.entries.some((entry) => entry.kind === "userNotification")
+    : false, true);
+  const [firstIdempotentNotification, replayedIdempotentNotification] = await prisma.$transaction(async (tx) => {
+    const input = {
+      actorUserId: fixture.users.owner.userId,
+      recipientUserId: fixture.users.member.userId,
+      workspaceId: fixture.workspaceIds.primary,
+      kind: "RANKING_CHALLENGE_STATUS" as const,
+      sourceEntityType: "PRIVATE_CHALLENGE" as const,
+      sourceEntityId: challenge.id,
+      eventVersion: 999,
+    };
+    const first = await enqueueRankingNotification(tx, input);
+    const replayed = await enqueueRankingNotification(tx, input);
+    return [first, replayed] as const;
+  });
+  assert.equal(firstIdempotentNotification?.id, replayedIdempotentNotification?.id);
+  await assert.rejects(prisma.$transaction((tx) => enqueueRankingNotification(tx, {
+    actorUserId: fixture.users.owner.userId,
+    recipientUserId: fixture.users.operator.userId,
+    workspaceId: fixture.workspaceIds.primary,
+    kind: "RANKING_CHALLENGE_STATUS",
+    sourceEntityType: "PRIVATE_CHALLENGE",
+    sourceEntityId: challenge.id,
+    eventVersion: 1000,
+  })), /USER_NOTIFICATION_TARGET_INVALID/);
   const secondChallenge = await createPrivateChallenge(fixture.users.owner.actor, {
     workspaceId: fixture.workspaceIds.primary,
     name: "隔离候选第二挑战",
@@ -224,6 +292,9 @@ try {
       rankingProjectionEntries: projection.entries.length,
       rankingProjectionStale: projection.stale,
       rankingAppealStatus: accepted.status,
+      ownerNotificationCount: ownerNotifications.length,
+      memberNotificationCount: memberNotifications.length,
+      notificationExportIncluded: true,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

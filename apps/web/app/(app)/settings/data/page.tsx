@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataJobCenterClient } from "@/components/data-job-center-client";
 import { RankingChallengeClient } from "@/components/ranking-challenge-client";
+import { UserNotificationInboxClient } from "@/components/user-notification-inbox-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
@@ -18,6 +19,7 @@ export default async function SettingsDataPage() {
   if (!user) redirect("/login");
   const dataLifecycleEnabled = process.env.DATA_LIFECYCLE_ENABLED === "true";
   const rankingEnabled = process.env.RANKING_ENABLED === "true";
+  const platformNotificationsEnabled = process.env.PLATFORM_NOTIFICATIONS_ENABLED === "true";
   const workspaces = dataLifecycleEnabled || rankingEnabled ? await listExamWorkspaces(user.id) : [];
 
   return (
@@ -180,6 +182,13 @@ export default async function SettingsDataPage() {
               currentUserId={user.id}
               workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({ id: workspace.id, name: workspace.name }))}
             />
+          </section>
+          <section aria-labelledby="notification-inbox-title" className="space-y-3">
+            <div className="border-b border-white/10 pb-3">
+              <h2 id="notification-inbox-title" className="text-base font-semibold text-white">成员与排名通知</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">通知按账户和 Workspace 隔离，支持跨设备已读、隐藏和恢复。</p>
+            </div>
+            <UserNotificationInboxClient enabled={platformNotificationsEnabled} />
           </section>
         </main>
       </div>

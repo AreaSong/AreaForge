@@ -310,7 +310,7 @@
       "id": "AF-RISK-DATA-003",
       "type": "deferred-work",
       "reviewAt": "2026-12-15",
-      "currentImpact": "v1.8 本地候选已形成 scoreVersion、opt-in、私有挑战/参与者 CRUD、反作弊规则、可重建投影、专用持久申诉、成员/Owner 申诉 UI、独立投影开关和删除预览，并通过隔离 fixture 与 390×844/1440×900 申诉浏览器旅程；仍缺通知、退出/删除/导出全链路联动、完整跨租户浏览器矩阵和生产证据；直接排行仍可能泄露个人学习信息并激励刷时长",
+      "currentImpact": "v1.8 本地候选已形成 scoreVersion、opt-in、挑战/参与者 CRUD、反作弊、投影、持久申诉、成员/Owner UI、持久排名通知、独立故障开关和删除预览；申诉/通知均通过隔离 fixture 与桌面/移动旅程，通知另验证跨会话状态和用户导出预览。仍缺退出/删除/导出完整联动、完整跨租户浏览器矩阵和生产证据；直接排行仍可能泄露个人学习信息并激励刷时长",
       "executableNow": false,
       "closeCondition": "RANKING 独立确认包、个人基准、可重建投影、隐私字段禁区、反作弊、退出/删除重建和申诉证据齐全后进入人工关闭复核",
       "requiredEvidence": "指标/隐私规范、scoreVersion fixture、重复 session/异常/删除重建测试、挑战 opt-in/退出浏览器验收、跨租户负向测试",

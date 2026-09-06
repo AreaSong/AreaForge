@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api/responses";
 import type { CurrentUser } from "@/lib/auth/session";
 import type { RankingAppealDto } from "./contracts";
 import { requireRankingFeature } from "./feature-gate";
+import { enqueueRankingNotification } from "./notification-service";
 import { requireChallengeMember, writeRankingAudit } from "./service-support";
 
 export interface SubmitRankingAppealInput {
@@ -91,6 +92,15 @@ export async function submitRankingAppeal(
         },
       });
       await writeAppealAudit(tx, actor.id, "RANKING_APPEAL_SUBMITTED", appeal);
+      if (challenge.ownerUserId) await enqueueRankingNotification(tx, {
+        actorUserId: actor.id,
+        recipientUserId: challenge.ownerUserId,
+        workspaceId: challenge.workspaceId,
+        kind: "RANKING_APPEAL_SUBMITTED",
+        sourceEntityType: "RANKING_APPEAL",
+        sourceEntityId: appeal.id,
+        eventVersion: appeal.revision,
+      });
       return serializeAppeal(appeal);
     }, { isolationLevel: "Serializable" });
   } catch (error) {
@@ -138,6 +148,18 @@ export async function transitionRankingAppeal(
     if (changed.count !== 1) throw new ApiError("RANKING_APPEAL_CONFLICT", 409);
     const updated = await tx.rankingAppeal.findUniqueOrThrow({ where: { id: appealId } });
     await writeAppealAudit(tx, actor.id, `RANKING_APPEAL_${input.action.toUpperCase()}`, updated);
+    const notificationRecipientId = input.action === "withdraw"
+      ? challenge.ownerUserId
+      : updated.submittedByUserId;
+    if (notificationRecipientId) await enqueueRankingNotification(tx, {
+      actorUserId: actor.id,
+      recipientUserId: notificationRecipientId,
+      workspaceId: challenge.workspaceId,
+      kind: input.action === "withdraw" ? "RANKING_APPEAL_WITHDRAWN" : "RANKING_APPEAL_STATUS",
+      sourceEntityType: "RANKING_APPEAL",
+      sourceEntityId: updated.id,
+      eventVersion: updated.revision,
+    });
     return serializeAppeal(updated);
   }, { isolationLevel: "Serializable" });
 }

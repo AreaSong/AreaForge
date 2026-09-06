@@ -63,7 +63,7 @@
 | `module.analytics` | 基础统计 | done | `packages/core/analytics-summary.ts`、`/api/analytics/summary` | CheckIn 快照 + 长期风险 DTO 已接入 |
 | `module.persistence` | 数据持久化 | done | `prisma/schema.prisma`（以当前 Prisma schema 为准） | PostgreSQL 主状态源；生产备份/恢复/回滚证据以对应 Release/ops 记录为准 |
 | `scope.multi-user` | 多用户系统 | partial | `workflow/versions/v1.3-v2.0-platform-evolution.md`、`tasks/active/0040-multi-user-rbac.md` | A→B 路线中的邀请制多人能力已进入 v1.4 本地实现；Release/生产证据仍缺，不能按稳定能力开放 |
-| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊规则、可重建投影、专用持久申诉、成员提交/Owner 复核 UI 和删除预览已进入默认关闭的本地候选；通知、完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
+| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`apps/web/lib/notifications/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊、投影、持久申诉、成员/Owner 申诉 UI、持久排名通知和删除预览已进入默认关闭的本地候选；完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
 | `scope.rbac` | 复杂权限系统 | partial | `tasks/active/0044-rbac-privacy-collaboration.md` | v1.5 预设角色、对象分享、Coach 协作和成员 PlanInbox 转 actor-owned 任务已进入本地候选；旧 nullable owner 清理/收紧与 Release/生产证据仍缺 |
 
 ## 3. 第二阶段长期闭环
@@ -155,7 +155,7 @@
 | `ops.alerting` | 告警策略与演练 | partial | `pnpm ops:alert:preview`、`AF-RISK-OPS-004` | 演练记录达 ready；外部告警接收人与 dashboard 未产品化 |
 | `ops.evidence-chain` | 运营证据链工具族 | done | `ops:status/handoff/evidence:bundle/long-term:gate\|snapshot` | 只读聚合与校验，不等于执行 |
 | `ops.post-release-obs` | 发布后 D14/D30 观察 | done | `post-release-observation-*` | UTC 日历日精确计算；不自动关闭 residual |
-| `ops.v018-release` | v0.1.8 发布候选 | planned | `workflow/versions/v0.1.8-long-term-operability.md` | 维护者决定搁置；生产仍运行 v0.1.7 |
+| `ops.v018-release` | v0.1.8 发布候选 | historical | `workflow/versions/v0.1.8-long-term-operability.md` | 历史上由维护者决定搁置；当前生产身份以本文件顶部与 `operational-readiness.md` 为准，不沿用当时的 v0.1.7 叙述 |
 | `scope.web-exec` | Web runtime 直接执行服务器命令 | wont | AGENTS.md 高风险边界 | 永久禁区；受控请求 + 服务器侧 updater 是替代方案 |
 
 ## 8. 仓库治理约定

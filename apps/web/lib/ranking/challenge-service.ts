@@ -11,6 +11,7 @@ import { requireFreshAccountSession } from "@/lib/auth/account-service";
 import { ApiError } from "@/lib/api/responses";
 import type { CurrentUser } from "@/lib/auth/session";
 import { requireRankingFeature } from "./feature-gate";
+import { enqueueRankingNotification } from "./notification-service";
 import type {
   PrivateChallengeDto,
   RankingParticipantDto,
@@ -238,6 +239,17 @@ export async function transitionPrivateChallenge(
       toStatus: updated.status,
       revision: updated.revision,
     });
+    await Promise.all(existing.participants
+      .filter((participant) => participant.userId !== actor.id && (participant.status === "ACTIVE" || participant.status === "INVITED"))
+      .map((participant) => enqueueRankingNotification(tx, {
+        actorUserId: actor.id,
+        recipientUserId: participant.userId,
+        workspaceId: existing.workspaceId,
+        kind: "RANKING_CHALLENGE_STATUS",
+        sourceEntityType: "PRIVATE_CHALLENGE",
+        sourceEntityId: challengeId,
+        eventVersion: updated.revision,
+      })));
     return serializeChallenge({ ...updated, participants: visibleParticipants(updated.participants, actor.id, updated.ownerUserId) });
   }, { isolationLevel: "Serializable" });
 }
@@ -267,6 +279,15 @@ export async function invitePrivateChallengeParticipant(
       if (changed.count !== 1) throw new ApiError("RANKING_PARTICIPANT_CONFLICT", 409);
       const invited = await tx.privateChallengeParticipant.findUniqueOrThrow({ where: { id: existing.id } });
       await writeRankingAudit(tx, actor.id, "RANKING_PARTICIPANT_INVITED", "PrivateChallengeParticipant", invited.id, { challengeId });
+      await enqueueRankingNotification(tx, {
+        actorUserId: actor.id,
+        recipientUserId: invited.userId,
+        workspaceId: challenge.workspaceId,
+        kind: "RANKING_INVITATION",
+        sourceEntityType: "PRIVATE_CHALLENGE_PARTICIPANT",
+        sourceEntityId: invited.id,
+        eventVersion: invited.revision,
+      });
       return serializeParticipant(invited);
     }
     const participant = await tx.privateChallengeParticipant.create({
@@ -280,6 +301,15 @@ export async function invitePrivateChallengeParticipant(
       },
     });
     await writeRankingAudit(tx, actor.id, "RANKING_PARTICIPANT_INVITED", "PrivateChallengeParticipant", participant.id, { challengeId });
+    await enqueueRankingNotification(tx, {
+      actorUserId: actor.id,
+      recipientUserId: participant.userId,
+      workspaceId: challenge.workspaceId,
+      kind: "RANKING_INVITATION",
+      sourceEntityType: "PRIVATE_CHALLENGE_PARTICIPANT",
+      sourceEntityId: participant.id,
+      eventVersion: participant.revision,
+    });
     return serializeParticipant(participant);
   }, { isolationLevel: "Serializable" });
 }
@@ -371,6 +401,15 @@ export async function transitionPrivateChallengeParticipantForActor(
     }
     const updated = await tx.privateChallengeParticipant.findUniqueOrThrow({ where: { id: participant.id } });
     await writeRankingAudit(tx, actor.id, `RANKING_PARTICIPANT_${action.toUpperCase()}`, "PrivateChallengeParticipant", participant.id, { challengeId });
+    if (challenge.ownerUserId) await enqueueRankingNotification(tx, {
+      actorUserId: actor.id,
+      recipientUserId: challenge.ownerUserId,
+      workspaceId: challenge.workspaceId,
+      kind: "RANKING_PARTICIPANT_STATUS",
+      sourceEntityType: "PRIVATE_CHALLENGE_PARTICIPANT",
+      sourceEntityId: participant.id,
+      eventVersion: updated.revision,
+    });
     return serializeParticipant(updated);
   }, { isolationLevel: "Serializable" });
 }
@@ -400,6 +439,15 @@ export async function removePrivateChallengeParticipant(
     await tx.rankingProjection.deleteMany({ where: { participantId } });
     const updated = await tx.privateChallengeParticipant.findUniqueOrThrow({ where: { id: participantId } });
     await writeRankingAudit(tx, actor.id, "RANKING_PARTICIPANT_REMOVED", "PrivateChallengeParticipant", participantId, { challengeId, ownerUserId: challenge.ownerUserId });
+    await enqueueRankingNotification(tx, {
+      actorUserId: actor.id,
+      recipientUserId: participant.userId,
+      workspaceId: challenge.workspaceId,
+      kind: "RANKING_PARTICIPANT_REMOVED",
+      sourceEntityType: "PRIVATE_CHALLENGE_PARTICIPANT",
+      sourceEntityId: participant.id,
+      eventVersion: updated.revision,
+    });
     return serializeParticipant(updated);
   }, { isolationLevel: "Serializable" });
 }
@@ -429,6 +477,15 @@ export async function transferPrivateChallengeOwnership(
       nextOwnerUserId: target.userId,
       targetParticipantId,
       revision: updated.revision,
+    });
+    await enqueueRankingNotification(tx, {
+      actorUserId: actor.id,
+      recipientUserId: target.userId,
+      workspaceId: challenge.workspaceId,
+      kind: "RANKING_OWNERSHIP_TRANSFERRED",
+      sourceEntityType: "PRIVATE_CHALLENGE",
+      sourceEntityId: challengeId,
+      eventVersion: updated.revision,
     });
     return serializeChallenge({ ...updated, participants: visibleParticipants(updated.participants, actor.id, updated.ownerUserId) });
   }, { isolationLevel: "Serializable" });

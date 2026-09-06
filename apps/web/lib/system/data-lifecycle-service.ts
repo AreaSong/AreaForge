@@ -797,6 +797,12 @@ async function collectExportRecords(
     reviewDueWindowEnd: true, planStartWindowStart: true, planStartWindowEnd: true, eveningReviewWindowStart: true,
     eveningReviewWindowEnd: true, quietHoursStart: true, quietHoursEnd: true, revision: true, createdAt: true, updatedAt: true,
   });
+  await appendRows(db, records, "userNotification", "userNotification", scope === "WORKSPACE"
+    ? { recipientUserId: actorId, workspaceId: { in: [...workspaceIds] } }
+    : { recipientUserId: actorId }, {
+    id: true, recipientUserId: true, workspaceId: true, workspaceLabel: true, kind: true,
+    readAt: true, dismissedAt: true, revision: true, createdAt: true, updatedAt: true,
+  });
   await appendRows(db, records, "auditEvent", "auditEvent", { actorId: actorId }, {
     id: true, actorId: true, action: true, entityType: true, entityId: true, createdAt: true,
   });

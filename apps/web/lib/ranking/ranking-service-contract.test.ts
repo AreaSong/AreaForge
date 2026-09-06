@@ -17,6 +17,24 @@ test("ranking feature gate is fail-closed unless explicitly enabled", () => {
   assert.equal(isRankingProjectionEnabled({ RANKING_PROJECTION_ENABLED: "true" }), true);
 });
 
+test("ranking writes enqueue only typed durable notifications", async () => {
+  const [challenge, appeal, notification] = await Promise.all([
+    readFile(path.join(rankingRoot, "challenge-service.ts"), "utf8"),
+    readFile(path.join(rankingRoot, "appeal-service.ts"), "utf8"),
+    readFile(path.join(rankingRoot, "notification-service.ts"), "utf8"),
+  ]);
+  assert.match(challenge, /RANKING_INVITATION/);
+  assert.match(challenge, /RANKING_CHALLENGE_STATUS/);
+  assert.match(challenge, /RANKING_PARTICIPANT_REMOVED/);
+  assert.match(challenge, /RANKING_PARTICIPANT_STATUS/);
+  assert.match(challenge, /RANKING_OWNERSHIP_TRANSFERRED/);
+  assert.match(appeal, /RANKING_APPEAL_SUBMITTED/);
+  assert.match(appeal, /RANKING_APPEAL_STATUS/);
+  assert.match(appeal, /RANKING_APPEAL_WITHDRAWN/);
+  assert.match(notification, /actorUserId === input\.recipientUserId/);
+  assert.doesNotMatch(notification, /challenge\.name|appeal\.reason|task\.title/);
+});
+
 test("projection loader has a narrow source-field allowlist and workspace fence", async () => {
   const source = await readFile(path.join(rankingRoot, "projection-service.ts"), "utf8");
   assert.match(source, /workspaceId,\s*userId/);
