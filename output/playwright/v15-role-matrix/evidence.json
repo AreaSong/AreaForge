@@ -6,7 +6,7 @@
   "runtimeIdentity": {
     "status": "verified",
     "appVersion": "1.2.0",
-    "sourceGitCommit": "eb12e2e1bb93f396477a316faa1ff91216a77651",
+    "sourceGitCommit": "511ca34e9cb6e26b3e4b13098977e8cbdc87559c",
     "productExperienceSourceHash": "sha256:912ba6a620d9ce979b3f4934ff678e15a24d3112afde45faecfedfe6cf55882d",
     "buildId": "sha256:8a8ad6a75e95ace87e6edb53331b5fb3281b7b1d145729a6b0c82e24801a51a5",
     "runtimeMode": "production-build"
