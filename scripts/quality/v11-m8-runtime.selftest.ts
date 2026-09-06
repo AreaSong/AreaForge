@@ -111,8 +111,8 @@ try {
   assert.equal(selectStageDecisionBaseline(stageBaselineFixture, supersedingStageFixture).id, supersedingStageFixture.id);
   assert.equal(selectStageDecisionBaseline(supersedingStageFixture, stageBaselineFixture).id, supersedingStageFixture.id);
 
-  await prisma.studyTask.create({ data: { subjectId: foreignSubject.id, title: "foreign task", type: "focus", plannedDate: now, status: "DONE" } });
-  const baselineTask = await prisma.studyTask.create({ data: { subjectId: subject.id, syllabusNodeId: node.id, title: "M8 baseline task", type: "focus", plannedDate: now } });
+  await prisma.studyTask.create({ data: { ownerUserId: foreignUser.id, subjectId: foreignSubject.id, title: "foreign task", type: "focus", plannedDate: now, status: "DONE" } });
+  const baselineTask = await prisma.studyTask.create({ data: { ownerUserId: user.id, subjectId: subject.id, syllabusNodeId: node.id, title: "M8 baseline task", type: "focus", plannedDate: now } });
   const stagePlan = await prisma.stagePlan.create({
     data: {
       workspaceId: workspace.id,

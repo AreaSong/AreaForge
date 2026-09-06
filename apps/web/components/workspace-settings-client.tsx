@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Save } from "lucide-react";
+import { EXAM_WORKSPACE_DEFAULTS } from "@areaforge/core";
 import { useQuickReviewActivityGuard } from "@/components/quick-review-activity-guard";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -45,6 +46,7 @@ import {
   canProceedFromFirstUseRows,
   canUseTakeoverPreview,
   hasConfiguredFirstUseRows,
+  nextAvailableGeneratedKey,
   type FirstUseGroupDraft,
   type FirstUseSubjectDraft,
   validateFirstUseRows,
@@ -76,6 +78,9 @@ export function WorkspaceSettingsClient(props: {
   const { withActivityBarrier } = useQuickReviewActivityGuard();
   const setupDraftKey = `areaforge.workspace-setup.draft.${props.userId}`;
   const activeWorkspace = props.workspaces.find((workspace) => workspace.id === props.activeId) ?? null;
+  const canManageStructure = !activeWorkspace?.membershipRole
+    || activeWorkspace.membershipRole === "OWNER"
+    || activeWorkspace.membershipRole === "ADMIN";
   const workspaceEditDraftKey = activeWorkspace
     ? `areaforge.workspace-edit.draft.${props.userId}.${activeWorkspace.id}`
     : null;
@@ -83,8 +88,11 @@ export function WorkspaceSettingsClient(props: {
     activeWorkspace ? toWorkspaceEditDraft(activeWorkspace) : null,
   );
   const [step, setStep] = useState<"goal" | "takeover">("goal");
-  const [name, setName] = useState("考研工作区");
-  const [stableKey, setStableKey] = useState("ws-primary");
+  const [name, setName] = useState<string>(EXAM_WORKSPACE_DEFAULTS.name);
+  const [stableKey, setStableKey] = useState<string>(() => nextAvailableGeneratedKey(
+    "workspace",
+    props.workspaces.map((workspace) => workspace.stableKey),
+  ));
   const [targetExamDate, setTargetExamDate] = useState("");
   const [setupSubjects, setSetupSubjects] = useState<FirstUseSubjectDraft[]>([]);
   const [setupGroups, setSetupGroups] = useState<FirstUseGroupDraft[]>([]);
@@ -194,7 +202,7 @@ export function WorkspaceSettingsClient(props: {
     }
     if (!hasNewSetupSubjects && (!takeover || (props.takeover?.eligibleCount ?? 0) === 0)) {
       setStep("goal");
-      setError("至少填写一个科目、勾选 408 四科，或沿用一个已有科目。");
+      setError("至少填写一个科目、选择一个模板，或沿用一个已有科目。");
       return;
     }
     if (takeover && !canUseTakeoverPreview(props.takeover)) {
@@ -389,7 +397,7 @@ export function WorkspaceSettingsClient(props: {
             />
           ) : null}
 
-          {!props.setupMode && activeWorkspace ? (
+          {!props.setupMode && activeWorkspace && canManageStructure ? (
             <>
               <SectionCard variant="master" className="space-y-5">
                 <SectionHeader title="当前考试目标" description="调整名称、目标日期和当前阶段摘要。" />
@@ -433,6 +441,20 @@ export function WorkspaceSettingsClient(props: {
                 mergeOperations={props.mergeOperations}
               />
             </>
+          ) : null}
+
+          {!props.setupMode && activeWorkspace && !canManageStructure ? (
+            <SectionCard variant="master" className="space-y-4">
+              <SectionHeader title="当前工作区结构" description="你可以查看科目结构；修改权限仅授予 Owner 与 Admin。" />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {props.subjects.filter((subject) => !subject.archivedAt).map((subject) => (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3" key={subject.id}>
+                    <p className="font-medium text-white">{subject.name}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{subject.stableKey}</p>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           ) : null}
 
           {error ? <Alert tone="danger">{error}</Alert> : null}

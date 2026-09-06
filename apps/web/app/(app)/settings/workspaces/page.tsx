@@ -30,6 +30,7 @@ export default async function WorkspaceSettingsPage() {
       <WorkspaceMembershipClient
         currentUserId={user.id}
         multiUserEnabled={getAuthEnv().AUTH_MULTI_USER_ENABLED}
+        rbacEnabled={getAuthEnv().AUTH_RBAC_ENABLED}
         workspaces={workspaces}
       />
     </PageFrame>

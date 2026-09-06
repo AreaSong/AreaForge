@@ -123,6 +123,7 @@ function canonicalEdgeFor(node: KnowledgeCanvasIndexNode): KnowledgeCanvasEdgeIn
  */
 export async function queryKnowledgeCanvasIndexPage(input: {
   workspaceId: string;
+  ownerUserId: string;
   focusId: string;
   depth?: number | null;
   cursor?: string | null;
@@ -192,7 +193,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         n."title", n."subjectId", n."archivedAt" IS NULL
       FROM "Note" n
       JOIN "Subject" s ON s."id" = n."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND n."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'MISTAKE', m."id", CONCAT('MISTAKE:', m."id"),
@@ -203,7 +204,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         m."title", m."subjectId", m."archivedAt" IS NULL
       FROM "Mistake" m
       JOIN "Subject" s ON s."id" = m."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND m."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'STUDY_RESOURCE', r."id", CONCAT('STUDY_RESOURCE:', r."id"),
@@ -213,7 +214,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         END,
         r."title", r."subjectId", r."archivedAt" IS NULL
       FROM "StudyResource" r
-      WHERE r."workspaceId" = ${input.workspaceId}
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'TASK', t."id", CONCAT('TASK:', t."id"),
@@ -226,7 +227,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         (${input.includeAllStatuses} OR t."status"::text IN ('TODO', 'IN_PROGRESS', 'DEFERRED'))
       FROM "StudyTask" t
       JOIN "Subject" s ON s."id" = t."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'MILESTONE', m."id", CONCAT('MILESTONE:', m."id"),
@@ -236,7 +237,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         END,
         m."title", m."subjectId", m."archivedAt" IS NULL
       FROM "PlanMilestone" m
-      WHERE m."workspaceId" = ${input.workspaceId}
+      WHERE m."workspaceId" = ${input.workspaceId} AND m."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'STUDY_SESSION', ss."id", CONCAT('STUDY_SESSION:', ss."id"),
@@ -249,7 +250,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         (${input.includeAllStatuses} OR ss."status"::text IN ('RUNNING', 'PAUSED', 'CLOSING'))
       FROM "StudySession" ss
       JOIN "Subject" s ON s."id" = ss."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND ss."userId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT 'REVIEW_SCHEDULE', rs."id", CONCAT('REVIEW_SCHEDULE:', rs."id"),
@@ -267,7 +268,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       LEFT JOIN "Mistake" m ON m."id" = rs."mistakeId"
       LEFT JOIN "StudyResource" r ON r."id" = rs."studyResourceId"
       LEFT JOIN "SyllabusNode" sn ON sn."id" = rs."syllabusNodeId"
-      WHERE rs."workspaceId" = ${input.workspaceId}
+      WHERE rs."workspaceId" = ${input.workspaceId} AND rs."ownerUserId" = ${input.ownerUserId}
     ),
     indexed_nodes AS (
       SELECT all_nodes.*,
@@ -305,7 +306,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       SELECT CONCAT('evidence:TASK:', n."taskId", ':NOTE:', n."id"),
         CONCAT('TASK:', n."taskId"), CONCAT('NOTE:', n."id"), 'evidence'
       FROM "Note" n JOIN "Subject" s ON s."id" = n."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId} AND n."taskId" IS NOT NULL
+      WHERE s."workspaceId" = ${input.workspaceId} AND n."ownerUserId" = ${input.ownerUserId} AND n."taskId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('related:SYLLABUS_NODE:', rel."syllabusNodeId", ':NOTE:', rel."noteId"),
@@ -313,26 +314,26 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       FROM "NoteRelatedSyllabusNode" rel
       JOIN "Note" n ON n."id" = rel."noteId"
       JOIN "Subject" s ON s."id" = n."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND n."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('contains:MILESTONE:', t."planMilestoneId", ':TASK:', t."id"),
         CONCAT('MILESTONE:', t."planMilestoneId"), CONCAT('TASK:', t."id"), 'contains'
       FROM "StudyTask" t JOIN "Subject" s ON s."id" = t."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId} AND t."planMilestoneId" IS NOT NULL
+      WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId} AND t."planMilestoneId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('related:SYLLABUS_NODE:', t."syllabusNodeId", ':TASK:', t."id"),
         CONCAT('SYLLABUS_NODE:', t."syllabusNodeId"), CONCAT('TASK:', t."id"), 'related'
       FROM "StudyTask" t JOIN "Subject" s ON s."id" = t."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId}
         AND t."syllabusNodeId" IS NOT NULL AND t."parentTaskId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('schedules:REVIEW_SCHEDULE:', t."reviewScheduleId", ':TASK:', t."id"),
         CONCAT('REVIEW_SCHEDULE:', t."reviewScheduleId"), CONCAT('TASK:', t."id"), 'schedules'
       FROM "StudyTask" t JOIN "Subject" s ON s."id" = t."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId} AND t."reviewScheduleId" IS NOT NULL
+      WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId} AND t."reviewScheduleId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('related:SYLLABUS_NODE:', rel."syllabusNodeId", ':TASK:', rel."taskId"),
@@ -340,41 +341,44 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       FROM "StudyTaskRelatedSyllabusNode" rel
       JOIN "StudyTask" t ON t."id" = rel."taskId"
       JOIN "Subject" s ON s."id" = t."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId}
+      WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('related:STUDY_RESOURCE:', r."duplicateOfResourceId", ':STUDY_RESOURCE:', r."id"),
         CONCAT('STUDY_RESOURCE:', r."duplicateOfResourceId"), CONCAT('STUDY_RESOURCE:', r."id"), 'related'
       FROM "StudyResource" r
-      WHERE r."workspaceId" = ${input.workspaceId} AND r."duplicateOfResourceId" IS NOT NULL
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId} AND r."duplicateOfResourceId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('related:TASK:', rel."taskId", ':STUDY_RESOURCE:', rel."resourceId"),
         CONCAT('TASK:', rel."taskId"), CONCAT('STUDY_RESOURCE:', rel."resourceId"), 'related'
       FROM "StudyResourceTaskLink" rel
       JOIN "StudyResource" r ON r."id" = rel."resourceId"
-      WHERE r."workspaceId" = ${input.workspaceId}
+      JOIN "StudyTask" t ON t."id" = rel."taskId"
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId} AND t."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('related:NOTE:', rel."noteId", ':STUDY_RESOURCE:', rel."resourceId"),
         CONCAT('NOTE:', rel."noteId"), CONCAT('STUDY_RESOURCE:', rel."resourceId"), 'related'
       FROM "StudyResourceNoteLink" rel
       JOIN "StudyResource" r ON r."id" = rel."resourceId"
-      WHERE r."workspaceId" = ${input.workspaceId}
+      JOIN "Note" n ON n."id" = rel."noteId"
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId} AND n."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('related:MISTAKE:', rel."mistakeId", ':STUDY_RESOURCE:', rel."resourceId"),
         CONCAT('MISTAKE:', rel."mistakeId"), CONCAT('STUDY_RESOURCE:', rel."resourceId"), 'related'
       FROM "StudyResourceMistakeLink" rel
       JOIN "StudyResource" r ON r."id" = rel."resourceId"
-      WHERE r."workspaceId" = ${input.workspaceId}
+      JOIN "Mistake" m ON m."id" = rel."mistakeId"
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId} AND m."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('related:SYLLABUS_NODE:', rel."syllabusNodeId", ':STUDY_RESOURCE:', rel."resourceId"),
         CONCAT('SYLLABUS_NODE:', rel."syllabusNodeId"), CONCAT('STUDY_RESOURCE:', rel."resourceId"), 'related'
       FROM "StudyResourceSyllabusNodeLink" rel
       JOIN "StudyResource" r ON r."id" = rel."resourceId"
-      WHERE r."workspaceId" = ${input.workspaceId}
+      WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('depends:', d."id"), CONCAT('TASK:', d."predecessorId"),
@@ -385,18 +389,19 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       JOIN "Subject" ps ON ps."id" = predecessor."subjectId"
       JOIN "Subject" ss ON ss."id" = successor."subjectId"
       WHERE ps."workspaceId" = ${input.workspaceId} AND ss."workspaceId" = ${input.workspaceId}
+        AND predecessor."ownerUserId" = ${input.ownerUserId} AND successor."ownerUserId" = ${input.ownerUserId}
 
       UNION ALL
       SELECT CONCAT('evidence:TASK:', ss."taskId", ':STUDY_SESSION:', ss."id"),
         CONCAT('TASK:', ss."taskId"), CONCAT('STUDY_SESSION:', ss."id"), 'evidence'
       FROM "StudySession" ss JOIN "Subject" s ON s."id" = ss."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId} AND ss."taskId" IS NOT NULL
+      WHERE s."workspaceId" = ${input.workspaceId} AND ss."userId" = ${input.ownerUserId} AND ss."taskId" IS NOT NULL
 
       UNION ALL
       SELECT CONCAT('evidence:SYLLABUS_NODE:', ss."syllabusNodeId", ':STUDY_SESSION:', ss."id"),
         CONCAT('SYLLABUS_NODE:', ss."syllabusNodeId"), CONCAT('STUDY_SESSION:', ss."id"), 'evidence'
       FROM "StudySession" ss JOIN "Subject" s ON s."id" = ss."subjectId"
-      WHERE s."workspaceId" = ${input.workspaceId} AND ss."syllabusNodeId" IS NOT NULL
+      WHERE s."workspaceId" = ${input.workspaceId} AND ss."userId" = ${input.ownerUserId} AND ss."syllabusNodeId" IS NOT NULL
     ),
     all_edges AS (
       SELECT DISTINCT ON (raw.edge_id COLLATE "C")
@@ -623,6 +628,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
 export async function queryKnowledgeCanvasStaleLayoutCandidates(input: {
   workspaceId: string;
   layoutId: string;
+  ownerUserId: string;
 }): Promise<Array<{ entityType: KnowledgeCanvasEntityType; entityId: string }>> {
   const rows = await prisma.$queryRaw<Array<{ entity_type: KnowledgeCanvasEntityType; entity_id: string }>>`
     WITH all_entity_keys AS (
@@ -633,16 +639,16 @@ export async function queryKnowledgeCanvasStaleLayoutCandidates(input: {
       UNION ALL SELECT 'SYLLABUS_NODE', n."id" FROM "SyllabusNode" n
         JOIN "Subject" s ON s."id" = n."subjectId" WHERE s."workspaceId" = ${input.workspaceId}
       UNION ALL SELECT 'NOTE', n."id" FROM "Note" n
-        JOIN "Subject" s ON s."id" = n."subjectId" WHERE s."workspaceId" = ${input.workspaceId}
+        JOIN "Subject" s ON s."id" = n."subjectId" WHERE s."workspaceId" = ${input.workspaceId} AND n."ownerUserId" = ${input.ownerUserId}
       UNION ALL SELECT 'MISTAKE', m."id" FROM "Mistake" m
-        JOIN "Subject" s ON s."id" = m."subjectId" WHERE s."workspaceId" = ${input.workspaceId}
-      UNION ALL SELECT 'STUDY_RESOURCE', r."id" FROM "StudyResource" r WHERE r."workspaceId" = ${input.workspaceId}
+        JOIN "Subject" s ON s."id" = m."subjectId" WHERE s."workspaceId" = ${input.workspaceId} AND m."ownerUserId" = ${input.ownerUserId}
+      UNION ALL SELECT 'STUDY_RESOURCE', r."id" FROM "StudyResource" r WHERE r."workspaceId" = ${input.workspaceId} AND r."ownerUserId" = ${input.ownerUserId}
       UNION ALL SELECT 'TASK', t."id" FROM "StudyTask" t
-        JOIN "Subject" s ON s."id" = t."subjectId" WHERE s."workspaceId" = ${input.workspaceId}
-      UNION ALL SELECT 'MILESTONE', m."id" FROM "PlanMilestone" m WHERE m."workspaceId" = ${input.workspaceId}
+        JOIN "Subject" s ON s."id" = t."subjectId" WHERE s."workspaceId" = ${input.workspaceId} AND t."ownerUserId" = ${input.ownerUserId}
+      UNION ALL SELECT 'MILESTONE', m."id" FROM "PlanMilestone" m WHERE m."workspaceId" = ${input.workspaceId} AND m."ownerUserId" = ${input.ownerUserId}
       UNION ALL SELECT 'STUDY_SESSION', ss."id" FROM "StudySession" ss
-        JOIN "Subject" s ON s."id" = ss."subjectId" WHERE s."workspaceId" = ${input.workspaceId}
-      UNION ALL SELECT 'REVIEW_SCHEDULE', rs."id" FROM "ReviewSchedule" rs WHERE rs."workspaceId" = ${input.workspaceId}
+        JOIN "Subject" s ON s."id" = ss."subjectId" WHERE s."workspaceId" = ${input.workspaceId} AND ss."userId" = ${input.ownerUserId}
+      UNION ALL SELECT 'REVIEW_SCHEDULE', rs."id" FROM "ReviewSchedule" rs WHERE rs."workspaceId" = ${input.workspaceId} AND rs."ownerUserId" = ${input.ownerUserId}
     )
     SELECT layout_node."entityType"::text AS entity_type, layout_node."entityId" AS entity_id
     FROM "KnowledgeCanvasNodeLayout" layout_node

@@ -125,6 +125,7 @@ function testSourceGuardrails(): void {
     "the pool must not run global prune or delete volumes");
   assert(cliSource.includes('path.join(root, "apps/web/.env.local")'), "only the local Web env file may configure the pool");
   assert(cliSource.includes('AI_ENABLED: "false"'), "test-pool AI external calls must stay disabled");
+  assert(cliSource.includes("AUTH_RBAC_ENABLED"), "test-pool must explicitly propagate the RBAC feature gate");
   assert(cliSource.includes('command === "latest"'), "the pool must expose one machine-readable latest instance");
   assert(cliSource.includes("computeProductExperienceSourceHash"),
     "runtime identity must bind to the shipped product experience source, not the whole dirty worktree");

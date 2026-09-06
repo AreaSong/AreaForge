@@ -38,6 +38,27 @@ test("multi-user and SMTP secrets fail closed when configuration is incomplete",
     AUTH_MULTI_USER_ENABLED: "true",
     AUTH_ACTION_TOKEN_SECRET: "synthetic-action-token-secret-at-least-32-characters",
   }));
+  assert.throws(() => parseServerEnv({ ...baseEnv, AUTH_RBAC_ENABLED: "true" }));
+  assert.doesNotThrow(() => parseServerEnv({
+    ...baseEnv,
+    AUTH_MULTI_USER_ENABLED: "true",
+    AUTH_RBAC_ENABLED: "true",
+    AUTH_ACTION_TOKEN_SECRET: "synthetic-action-token-secret-at-least-32-characters",
+  }));
   assert.throws(() => parseServerEnv({ ...baseEnv, SMTP_USER: "mailer" }));
   assert.throws(() => parseServerEnv({ ...baseEnv, SMTP_PASSWORD: "synthetic-password" }));
+});
+
+test("local candidate feature gates are parsed centrally and default closed", () => {
+  const defaults = parseServerEnv(baseEnv);
+  assert.equal(defaults.DATA_LIFECYCLE_ENABLED, false);
+  assert.equal(defaults.RANKING_ENABLED, false);
+
+  const enabled = parseServerEnv({
+    ...baseEnv,
+    DATA_LIFECYCLE_ENABLED: "true",
+    RANKING_ENABLED: "true",
+  });
+  assert.equal(enabled.DATA_LIFECYCLE_ENABLED, true);
+  assert.equal(enabled.RANKING_ENABLED, true);
 });

@@ -81,7 +81,7 @@ async function verifyPartialIndexes(): Promise<void> {
         'Subject_workspace_stableKey_uidx',
         'DailyReview_workspace_reviewDate_uidx',
         'CheckIn_workspace_studyDate_uidx',
-        'PlanInboxItem_workspaceId_originKey_originVersion_key'
+        'PlanInboxItem_workspaceId_ownerUserId_originKey_originVersion_key'
       )
   `;
   assert.equal(indexes.length, 6);
@@ -160,6 +160,7 @@ async function resetAndSeedLegacy(): Promise<void> {
     ],
   });
 
+  // 这里故意保留 ownerUserId=NULL，用于验证旧数据接管与迁移兼容路径。
   await prisma.studyTask.create({
     data: {
       id: "task-1",
@@ -541,7 +542,7 @@ async function verifySubjectArchiveBoundaries(): Promise<void> {
   assert.ok(secondary);
 
   const note = await prisma.note.create({
-    data: { subjectId: primary!.id, title: "归档复习", content: "x", kind: "CONCEPT" },
+    data: { ownerUserId: "user-subject-archive", subjectId: primary!.id, title: "归档复习", content: "x", kind: "CONCEPT" },
   });
   const schedule = await prisma.reviewSchedule.create({
     data: {
@@ -991,10 +992,10 @@ async function verifyDependencyCycle(): Promise<void> {
   });
   const [left, right] = await Promise.all([
     prisma.studyTask.create({
-      data: { subjectId: subject.id, title: "并发环左", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
+      data: { ownerUserId: "user-a", subjectId: subject.id, title: "并发环左", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
     }),
     prisma.studyTask.create({
-      data: { subjectId: subject.id, title: "并发环右", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
+      data: { ownerUserId: "user-a", subjectId: subject.id, title: "并发环右", type: "focus", plannedDate: new Date("2026-07-24T00:00:00.000Z") },
     }),
   ]);
   const concurrentCycle = await Promise.allSettled([

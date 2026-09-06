@@ -1,4 +1,10 @@
-import { getExamTemplate, materializeExamTemplate } from "@areaforge/core";
+import {
+  EXAM_WORKSPACE_LIMITS,
+  getExamTemplate,
+  materializeExamTemplate,
+} from "@areaforge/core";
+
+export { EXAM_WORKSPACE_LIMITS };
 
 export interface FirstUseTakeoverSubject {
   legacyCode: string | null;
@@ -61,7 +67,7 @@ export function canProceedFromFirstUseRows(input: {
 }
 
 export function nextAvailableGeneratedKey(
-  prefix: "subject" | "group",
+  prefix: "subject" | "group" | "workspace",
   stableKeys: Iterable<string>,
 ): string {
   const used = new Set(stableKeys);
@@ -131,8 +137,12 @@ export function validateFirstUseRows(input: {
     configuredGroupCount: configuredGroups.length,
   });
 
-  if (input.subjects.length > 12) return result("首次最多添加 12 个科目。");
-  if (input.groups.length > 20) return result("首次最多添加 20 个分组。");
+  if (input.subjects.length > EXAM_WORKSPACE_LIMITS.maxInitialSubjects) {
+    return result(`首次最多添加 ${EXAM_WORKSPACE_LIMITS.maxInitialSubjects} 个科目。`);
+  }
+  if (input.groups.length > EXAM_WORKSPACE_LIMITS.maxInitialGroups) {
+    return result(`首次最多添加 ${EXAM_WORKSPACE_LIMITS.maxInitialGroups} 个分组。`);
+  }
   if (configuredSubjects.some((subject) => !subject.name.trim() || !subject.stableKey.trim())) {
     return result("每个科目都需要名称和内部标识；不需要的空行可以删除。");
   }

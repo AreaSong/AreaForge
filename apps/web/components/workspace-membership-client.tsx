@@ -5,31 +5,36 @@ import { Archive, ArrowRightLeft, MailPlus, RefreshCw, RotateCcw, UserMinus, Use
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/field";
 import { Badge } from "@/components/ui/feedback";
 import { reauthenticate } from "@/lib/api/account";
 import { activateExamWorkspace, updateExamWorkspace } from "@/lib/api/workspace";
 import {
   getWorkspaceInvitations,
   getWorkspaceMembers,
+  getWorkspaceCapabilities,
   inviteWorkspaceMember,
   leaveWorkspace,
   removeWorkspaceMember,
   revokeWorkspaceInvitation,
   transferWorkspaceOwnership,
+  updateWorkspaceMemberRole,
   type WorkspaceInvitationView,
   type WorkspaceMemberView,
 } from "@/lib/api/workspace-membership";
 import type { ExamWorkspaceDto } from "@/lib/contracts/workspace";
 import { formatDateTime } from "@/lib/formatters";
+import { WorkspaceCollaborationClient } from "@/components/workspace-collaboration-client";
 
 export function WorkspaceMembershipClient({
   workspaces,
   multiUserEnabled,
+  rbacEnabled,
   currentUserId,
 }: {
   workspaces: ExamWorkspaceDto[];
   multiUserEnabled: boolean;
+  rbacEnabled: boolean;
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -42,9 +47,14 @@ export function WorkspaceMembershipClient({
     workspaceId: string;
     members: WorkspaceMemberView[];
     invitations: WorkspaceInvitationView[];
+    capabilities: string[];
   } | null>(null);
   const members = details?.workspaceId === managed?.id ? details.members : [];
   const invitations = details?.workspaceId === managed?.id ? details.invitations : [];
+  const capabilities = details?.workspaceId === managed?.id ? details.capabilities : [];
+  const canManageMembers = capabilities.includes("member:read-all");
+  const canInvite = capabilities.includes("member:invite");
+  const canManageRoles = capabilities.includes("member:role");
   const [inviteEmail, setInviteEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,19 +65,26 @@ export function WorkspaceMembershipClient({
     setPending(true);
     const [memberResult, invitationResult] = await Promise.all([
       getWorkspaceMembers(workspace.id),
-      workspace.membershipRole === "OWNER" ? getWorkspaceInvitations(workspace.id) : Promise.resolve(null),
+      (workspace.membershipRole === "OWNER" || workspace.membershipRole === "ADMIN") ? getWorkspaceInvitations(workspace.id) : Promise.resolve(null),
     ]);
     setPending(false);
     setDetails({
       workspaceId: workspace.id,
       members: memberResult.ok ? memberResult.body?.members ?? [] : [],
       invitations: invitationResult?.ok ? invitationResult.body?.invitations ?? [] : [],
+      capabilities: [],
     });
+    const capabilityResult = await getWorkspaceCapabilities(workspace.id);
+    if (capabilityResult.ok && capabilityResult.body?.capability) {
+      setDetails((current) => current?.workspaceId === workspace.id
+        ? { ...current, capabilities: capabilityResult.body?.capability?.capabilities ?? [] }
+        : current);
+    }
     if (!memberResult.ok) {
       setNotice(memberResult.status === 0
         ? "网络连接不可用，请恢复后重试。"
         : memberResult.body?.error === "MULTI_USER_DISABLED" ? "多人功能当前保持关闭。" : "成员信息暂时无法读取。");
-    } else if (workspace.membershipRole === "OWNER" && invitationResult && !invitationResult.ok) {
+    } else if ((workspace.membershipRole === "OWNER" || workspace.membershipRole === "ADMIN") && invitationResult && !invitationResult.ok) {
       setNotice(invitationResult.status === 0 ? "网络连接不可用，请恢复后重试。" : "邀请记录暂时无法读取。");
     }
   }
@@ -147,6 +164,15 @@ export function WorkspaceMembershipClient({
     if (result.ok) router.refresh();
   }
 
+  async function changeRole(member: WorkspaceMemberView, role: "ADMIN" | "COACH" | "MEMBER" | "VIEWER") {
+    if (!managed || member.role === "OWNER" || !await verifyForSensitiveAction()) return;
+    setPending(true);
+    const result = await updateWorkspaceMemberRole(managed.id, member.id, { role, expectedRevision: member.revision });
+    setPending(false);
+    setNotice(result.ok ? "成员角色已更新。" : labelMembershipError(result.body?.error));
+    if (result.ok) await loadDetails(managed);
+  }
+
   async function leave(workspace: ExamWorkspaceDto, membership: WorkspaceMemberView) {
     if (!await verifyForSensitiveAction()) return;
     setPending(true);
@@ -168,11 +194,11 @@ export function WorkspaceMembershipClient({
             <CardContent className="space-y-3 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0"><p className="break-words font-medium text-white">{workspace.name}</p><p className="mt-1 break-all text-xs text-zinc-500">{workspace.stableKey}</p></div>
-                <div className="flex gap-2"><Badge>{workspace.membershipRole === "OWNER" ? "Owner" : "Member"}</Badge>{workspace.current ? <Badge tone="success">当前</Badge> : null}</div>
+                <div className="flex gap-2"><Badge>{workspaceRoleLabel(workspace.membershipRole)}</Badge>{workspace.current ? <Badge tone="success">当前</Badge> : null}</div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button disabled={pending} onClick={() => loadDetails(workspace)} size="sm" type="button" variant="secondary"><Users className="size-3.5" />成员</Button>
-                {workspace.membershipRole === "OWNER" && workspace.status === "ACTIVE" && !workspace.current ? <Button disabled={pending} onClick={() => selectWorkspace(workspace)} size="sm" type="button" variant="secondary"><ArrowRightLeft className="size-3.5" />切换</Button> : null}
+                {workspace.status === "ACTIVE" && !workspace.current && workspace.membershipRole ? <Button disabled={pending} onClick={() => selectWorkspace(workspace)} size="sm" type="button" variant="secondary"><ArrowRightLeft className="size-3.5" />切换</Button> : null}
                 {workspace.membershipRole === "OWNER" ? <Button disabled={pending} onClick={() => setArchived(workspace, workspace.status === "ACTIVE")} size="sm" type="button" variant="secondary">{workspace.status === "ACTIVE" ? <Archive className="size-3.5" /> : <RotateCcw className="size-3.5" />}{workspace.status === "ACTIVE" ? "归档" : "恢复"}</Button> : null}
               </div>
             </CardContent>
@@ -188,15 +214,29 @@ export function WorkspaceMembershipClient({
           {members.map((member) => (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-3" key={member.id}>
               <div className="min-w-0"><p className="break-all text-sm text-white">{member.email}</p><p className="mt-1 text-xs text-zinc-500">{member.role} · {member.status}</p></div>
-              {managed?.membershipRole === "OWNER" && member.role === "MEMBER" && member.status === "ACTIVE" ? <div className="flex gap-2"><Button disabled={pending} onClick={() => transferOwner(member)} size="sm" type="button" variant="secondary">转移所有权</Button><Button disabled={pending} onClick={() => removeMember(member)} size="sm" type="button" variant="secondary"><UserMinus className="size-3.5" />移除</Button></div> : null}
-              {managed?.membershipRole === "MEMBER" && member.userId === currentUserId ? <Button disabled={pending} onClick={() => leave(managed, member)} size="sm" type="button" variant="secondary">离开</Button> : null}
+              {canManageMembers && member.status === "ACTIVE" && member.role !== "OWNER" ? <div className="flex flex-wrap gap-2">
+                <label className="sr-only" htmlFor={`role-${member.id}`}>成员角色</label>
+                {canManageRoles ? <Select aria-label="成员角色" className="h-9 rounded-lg px-2 text-xs" disabled={pending} id={`role-${member.id}`} onChange={(event) => changeRole(member, event.target.value as "ADMIN" | "COACH" | "MEMBER" | "VIEWER")} value={member.role}>
+                  <option value="ADMIN">Admin</option><option value="COACH">Coach</option><option value="MEMBER">Member</option><option value="VIEWER">Viewer</option>
+                </Select> : null}
+                {managed?.membershipRole === "OWNER" ? <Button disabled={pending} onClick={() => transferOwner(member)} size="sm" type="button" variant="secondary">转移所有权</Button> : null}
+                {capabilities.includes("member:remove") ? <Button disabled={pending} onClick={() => removeMember(member)} size="sm" type="button" variant="secondary"><UserMinus className="size-3.5" />移除</Button> : null}
+              </div> : null}
+              {managed?.membershipRole && managed.membershipRole !== "OWNER" && member.userId === currentUserId ? <Button disabled={pending} onClick={() => leave(managed, member)} size="sm" type="button" variant="secondary">离开</Button> : null}
             </div>
           ))}
-          {managed?.membershipRole === "OWNER" && managed.status === "ACTIVE" ? <div className="space-y-3 border-t border-white/10 pt-5">
+          {canInvite && managed?.status === "ACTIVE" ? <div className="space-y-3 border-t border-white/10 pt-5">
             <label className="block text-sm text-zinc-300">邀请邮箱<Input className="mt-2" onChange={(event) => setInviteEmail(event.target.value)} type="email" value={inviteEmail} /></label>
             <Button disabled={pending} onClick={inviteMember} type="button"><MailPlus className="size-4" />重新验证并邀请</Button>
             {invitations.map((invitation) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-3" key={invitation.id}><div className="min-w-0"><p className="break-all text-sm text-white">{invitation.email}</p><p className="text-xs text-zinc-500">{invitation.status} · 至 {formatDateTime(invitation.expiresAt)}</p></div>{invitation.status === "PENDING" ? <Button disabled={pending} onClick={() => revokeInvitation(invitation)} size="sm" type="button" variant="secondary">撤销</Button> : null}</div>)}
-          </div> : null}
+            </div> : null}
+          {managed ? <WorkspaceCollaborationClient
+            capabilities={capabilities}
+            currentUserId={currentUserId}
+            enabled={multiUserEnabled && rbacEnabled}
+            members={members}
+            workspaceId={managed.id}
+          /> : null}
           {notice ? <p aria-live="polite" className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-300">{notice}</p> : null}
         </CardContent>
       </Card>
@@ -218,4 +258,15 @@ function workspaceRequestError(status: number, error: string | undefined, fallba
   return labelMembershipError(error) === "操作失败，数据可能已变化，请刷新后重试。"
     ? fallback
     : labelMembershipError(error);
+}
+
+function workspaceRoleLabel(role: ExamWorkspaceDto["membershipRole"]): string {
+  switch (role) {
+    case "OWNER": return "Owner";
+    case "ADMIN": return "Admin";
+    case "COACH": return "Coach";
+    case "VIEWER": return "Viewer";
+    case "MEMBER": return "Member";
+    default: return "未知角色";
+  }
 }

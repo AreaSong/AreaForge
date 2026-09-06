@@ -2,7 +2,7 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { getStudyDayRange } from "./date";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { type TaskCasPreimage } from "./concurrency";
 import { loadTaskUpdateSnapshotForWorkspace } from "./task-detail-service";
 import type { UpdateTaskInput } from "./study-service-contracts";
@@ -30,6 +30,7 @@ export async function assertSubjectExists(
 }
 
 export interface TaskCommandPreimage extends TaskCasPreimage {
+  ownerUserId: string | null;
   subjectId: string;
   syllabusNodeId: string | null;
   relatedSyllabusNodeIds: string[];
@@ -50,11 +51,12 @@ export async function getTaskCommandPreimage(
   id: string,
   actorId: string,
 ): Promise<TaskCommandPreimage> {
-  const workspace = await resolveActiveWorkspace(actorId, tx);
+  const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
   const task = await tx.studyTask.findFirst({
-    where: { id, subject: { workspaceId: workspace.id } },
+    where: { id, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
     select: {
       id: true,
+      ownerUserId: true,
       subjectId: true,
       syllabusNodeId: true,
       planMilestoneId: true,
@@ -100,7 +102,7 @@ export async function getTaskCommandPreimage(
   // Read the task preimage before serializing workspace mutations so concurrent
   // commands still race against the same CAS predicate. Revalidate scope after
   // taking the lock to reject a workspace switch or subject archive in between.
-  const lockedWorkspace = await lockActiveWorkspaceForWrite(tx, actorId);
+  const lockedWorkspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
   if (lockedWorkspace.id !== workspace.id) {
     throw new ApiError("TASK_STATE_CONFLICT", 409, { conflictFields: ["workspaceId"] });
   }
@@ -129,7 +131,7 @@ export async function assertTaskUpdateExpectation(
     conflictFields.push("updatedAt");
   }
   if (conflictFields.length > 0) {
-    throw await taskUpdateConflict(tx, workspaceId, existing.id, conflictFields);
+    throw await taskUpdateConflict(tx, workspaceId, existing.id, conflictFields, existing.ownerUserId ?? undefined);
   }
 }
 
@@ -138,8 +140,9 @@ export async function taskUpdateConflict(
   workspaceId: string,
   taskId: string,
   conflictFields: string[],
+  ownerUserId?: string,
 ): Promise<ApiError> {
-  const latest = await loadTaskUpdateSnapshotForWorkspace(tx, workspaceId, taskId);
+  const latest = await loadTaskUpdateSnapshotForWorkspace(tx, workspaceId, taskId, ownerUserId);
   return new ApiError("TASK_STATE_CONFLICT", 409, {
     latest,
     conflictFields: Array.from(new Set(conflictFields)),
@@ -180,6 +183,7 @@ export async function assertActiveTaskRelations(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   subjectId: string,
+  ownerUserId: string,
   input: { syllabusNodeIds: string[]; planMilestoneId: string | null; stagePlanIds: string[] },
 ): Promise<void> {
   const syllabusNodeIds = Array.from(new Set(input.syllabusNodeIds));
@@ -196,7 +200,7 @@ export async function assertActiveTaskRelations(
   }
   if (input.planMilestoneId) {
     const milestone = await tx.planMilestone.findFirst({
-      where: { id: input.planMilestoneId, workspaceId },
+      where: { id: input.planMilestoneId, workspaceId, ownerUserId },
       select: { subjectId: true, archivedAt: true },
     });
     if (!milestone || milestone.archivedAt || (milestone.subjectId && milestone.subjectId !== subjectId)) {
@@ -206,7 +210,7 @@ export async function assertActiveTaskRelations(
   const stagePlanIds = Array.from(new Set(input.stagePlanIds));
   if (stagePlanIds.length > 0) {
     const stagePlans = await tx.stagePlan.findMany({
-      where: { id: { in: stagePlanIds }, workspaceId },
+      where: { id: { in: stagePlanIds }, workspaceId, ownerUserId },
       select: { id: true, status: true },
     });
     if (
@@ -224,6 +228,7 @@ export async function assertActiveTaskKnowledgePoints(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   subjectId: string,
+  ownerUserId: string,
   knowledgePointIds: string[],
 ): Promise<void> {
   if (knowledgePointIds.length === 0) return;
@@ -231,6 +236,7 @@ export async function assertActiveTaskKnowledgePoints(
     where: {
       id: { in: knowledgePointIds },
       workspaceId,
+      userId: ownerUserId,
       archivedAt: null,
       OR: [
         { primarySubjectId: subjectId },
@@ -253,9 +259,9 @@ export function sameStringSet(left: string[], right: string[]): boolean {
 }
 
 
-export async function getUpdatedTaskForResponse(tx: Prisma.TransactionClient, id: string) {
-  const task = await tx.studyTask.findUnique({
-    where: { id },
+export async function getUpdatedTaskForResponse(tx: Prisma.TransactionClient, id: string, ownerUserId?: string) {
+  const task = await tx.studyTask.findFirst({
+    where: { id, ...(ownerUserId ? { ownerUserId } : {}) },
     include: {
       subject: true,
       syllabusNode: true,
@@ -280,7 +286,7 @@ export async function refreshWorkspaceCheckInsForDates(
   targetDates: Array<Date | null | undefined>,
   tx: Prisma.TransactionClient,
 ): Promise<Map<number, CheckInV2Dto>> {
-  const workspace = await resolveActiveWorkspace(actorId, tx);
+  const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
   const uniqueDays = new Map<number, Date>();
   const refreshed = new Map<number, CheckInV2Dto>();
   for (const targetDate of targetDates) {
@@ -291,7 +297,7 @@ export async function refreshWorkspaceCheckInsForDates(
   for (const targetDate of Array.from(uniqueDays.values()).sort((left, right) => left.getTime() - right.getTime())) {
     refreshed.set(
       targetDate.getTime(),
-      await refreshWorkspaceCheckInSnapshotForDate(workspace.id, targetDate, tx),
+      await refreshWorkspaceCheckInSnapshotForDate(actorId, workspace.id, targetDate, tx),
     );
   }
   return refreshed;

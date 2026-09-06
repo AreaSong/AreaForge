@@ -56,7 +56,7 @@ packages/ai -> Sub2API / OpenAI compatible API
 
 ## A -> B 后续状态
 
-邀请制多用户与 Workspace Membership 已进入 v1.4 本地候选，仍缺最终浏览器/总门禁、Release 和生产证据。预设角色权限、对象级分享、完整账户导出、物理删除、受控运维中心和主动加入的私有挑战排名继续按 v1.5-v2.0 逐版交付；未形成对应代码、专项验证、Release 和生产证据前都不是当前线上能力。
+邀请制多用户与 Workspace Membership 已进入 v1.4 本地候选，预设角色权限/对象级分享/Coach 协作已进入 v1.5 本地候选；v1.6 数据任务/删除预览、v1.7 受控运维请求和 v1.8 私有挑战/排名投影也已在一次性隔离 fixture 形成默认关闭的候选 runtime。候选 migration 尚未 apply 到共享测试库或生产，完整账户导出、物理删除、root-agent 执行、反作弊/申诉和各版本 Release/生产证据仍缺；未形成对应完整证据前都不是当前线上能力。
 
 ## 暂缓或永久禁止
 

@@ -14,10 +14,11 @@ import type {
 } from "@/lib/contracts/analytics";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayKey, getStudyDayRange } from "./date";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { aggregateActivityBreakdown, emptyActivityBreakdown } from "./activity-metrics";
 import { summarizeReviewCoverage } from "./study-day-metrics";
 import type { SyllabusNodeStatusDto } from "@/lib/contracts";
+import { resolveMemberSyllabusProgress } from "./syllabus-progress";
 
 export type {
   AnalyticsDailyPointDto,
@@ -46,7 +47,7 @@ export async function getAnalyticsSummary(
   const today = getStudyDayRange(now);
   const start = new Date(today.start.getTime() - (windowDays - 1) * dayMs);
   const reviewLookaheadEnd = new Date(today.end.getTime() + 3 * dayMs);
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const subjectScope = { subject: { workspaceId: workspace.id } };
 
   const [
@@ -67,6 +68,7 @@ export async function getAnalyticsSummary(
     }),
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         startedAt: {
           gte: start,
           lt: today.end,
@@ -80,6 +82,7 @@ export async function getAnalyticsSummary(
     }),
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         plannedDate: {
           gte: start,
           lt: today.end,
@@ -92,6 +95,7 @@ export async function getAnalyticsSummary(
     }),
     prisma.dailyReview.findMany({
       where: {
+        ownerUserId: actorId,
         reviewDate: {
           gte: start,
           lt: today.end,
@@ -100,9 +104,10 @@ export async function getAnalyticsSummary(
       },
       orderBy: { reviewDate: "asc" },
     }),
-    prisma.mistake.count({ where: subjectScope }),
+    prisma.mistake.count({ where: { ownerUserId: actorId, ...subjectScope } }),
     prisma.mistake.findMany({
       where: {
+        ownerUserId: actorId,
         nextReviewAt: {
           lte: reviewLookaheadEnd,
         },
@@ -117,6 +122,7 @@ export async function getAnalyticsSummary(
     }),
     prisma.note.findMany({
       where: {
+        ownerUserId: actorId,
         nextReviewAt: {
           lte: reviewLookaheadEnd,
         },
@@ -131,45 +137,37 @@ export async function getAnalyticsSummary(
     }),
     prisma.syllabusNode.findMany({
       where: {
-        OR: [{ status: "WEAK" }, { status: "NEEDS_REVIEW" }],
-        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
+        OR: [{ progresses: { some: { ownerUserId: actorId, status: { in: ["WEAK", "NEEDS_REVIEW"] } } } }, { mistakes: { some: { ownerUserId: actorId } } }],
+        subject: { workspaceId: workspace.id, archivedAt: null },
       },
       include: {
         subject: true,
-        _count: {
-          select: {
-            tasks: true,
-            sessions: true,
-            notes: true,
-            mistakes: true,
-          },
-        },
+        progresses: { where: { ownerUserId: actorId }, take: 1 },
+        tasks: { where: { ownerUserId: actorId }, select: { id: true } },
+        sessions: { where: { userId: actorId }, select: { id: true } },
+        notes: { where: { ownerUserId: actorId }, select: { id: true } },
+        mistakes: { where: { ownerUserId: actorId }, select: { id: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
       take: 8,
     }),
     prisma.syllabusNode.findMany({
       where: {
-        mistakes: {
-          some: {},
-        },
-        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
+        mistakes: { some: { ownerUserId: actorId } },
+        subject: { workspaceId: workspace.id, archivedAt: null },
       },
       include: {
         subject: true,
-        _count: {
-          select: {
-            tasks: true,
-            sessions: true,
-            notes: true,
-            mistakes: true,
-          },
-        },
+        progresses: { where: { ownerUserId: actorId }, take: 1 },
+        tasks: { where: { ownerUserId: actorId }, select: { id: true } },
+        sessions: { where: { userId: actorId }, select: { id: true } },
+        notes: { where: { ownerUserId: actorId }, select: { id: true } },
+        mistakes: { where: { ownerUserId: actorId }, select: { id: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
       take: 8,
     }),
-    listCheckInSnapshotsInRange(start, today.end, prisma, workspace?.id ?? null),
+    listCheckInSnapshotsInRange(actorId, start, today.end, prisma, workspace?.id ?? null),
   ]);
 
   const dailySnapshots = buildDailySnapshots(start, sessions, tasks, reviews, checkInSnapshots, windowDays);
@@ -208,7 +206,7 @@ export async function getAnalyticsSummary(
   const weakNodeMap = new Map(weakNodes.map((node) => [node.id, node]));
 
   for (const node of reviewRiskNodes) {
-    if (node._count.mistakes >= 2 && !weakNodeMap.has(node.id)) {
+    if (node.mistakes.length >= 2 && !weakNodeMap.has(node.id)) {
       weakNodeMap.set(node.id, node);
     }
   }
@@ -236,10 +234,17 @@ export async function getAnalyticsSummary(
     weakNodes: [...weakNodeMap.values()].map((node) => ({
       id: node.id,
       title: node.title,
-      status: fromDbSyllabusNodeStatus(node.status),
+      status: fromDbSyllabusNodeStatus(resolveMemberSyllabusProgress({
+        status: node.status,
+        masteryLevel: node.masteryLevel,
+        targetMinutes: node.targetMinutes,
+        actualMinutes: node.actualMinutes,
+        revision: node.revision,
+        progresses: node.progresses,
+      }).status),
       subjectName: node.subject.name,
-      mistakeCount: node._count.mistakes,
-      noteCount: node._count.notes,
+      mistakeCount: node.mistakes.length,
+      noteCount: node.notes.length,
     })),
     now,
   });

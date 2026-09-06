@@ -202,7 +202,7 @@ async function verifyHappyPathUpload(): Promise<void> {
   ) {
     throw new Error("OPS-007 happy-path upload did not finish READY with a clean staging directory");
   }
-  const download = await getAttachmentDownload(dto.id);
+  const download = await getAttachmentDownload(dto.id, "attachment", actorId);
   if (download.bytes.length !== scan.sizeBytes) throw new Error("OPS-007 happy-path download bytes mismatch");
   checks.push({
     id: "upload.write_intent_happy_path",
@@ -463,7 +463,7 @@ async function verifyReadyCasConflictPreservesFinal(): Promise<void> {
 }
 
 async function verifyKillPointMatrix(): Promise<void> {
-  const { noteId } = await createNoteFixture();
+  const { noteId, actorId } = await createNoteFixture();
   const old = new Date(Date.now() - 60 * 60_000);
 
   // kill A：intent 先于文件（无 staging/final）→ FAILED/MISSING_FILE_AFTER_INTENT。
@@ -516,7 +516,7 @@ async function verifyKillPointMatrix(): Promise<void> {
   if (repeat.counts.blockedDualFileCount !== 1 || repeat.counts.finalizedFromStagingCount !== 0 || repeat.counts.readyFromFinalCount !== 0) {
     throw new Error("OPS-007 repeated reconciliation run must be idempotent");
   }
-  const stagedDownload = await getAttachmentDownload(staged.id);
+  const stagedDownload = await getAttachmentDownload(staged.id, "attachment", actorId);
   if (stagedDownload.bytes.length === 0) throw new Error("OPS-007 reconciled staging attachment must be downloadable");
   checks.push({
     id: "reconciliation.kill_point_matrix",
@@ -599,9 +599,9 @@ async function verifyDownloadGate(): Promise<void> {
 
   // PENDING / FAILED 拒绝。
   const pendingRow = await createPendingRow(noteId, "gatepending123456", pngFile(64), { writeFinal: true });
-  const pendingRejected = await expectApiError(() => getAttachmentDownload(pendingRow.id), "ATTACHMENT_NOT_READY");
+  const pendingRejected = await expectApiError(() => getAttachmentDownload(pendingRow.id, "attachment", actorId), "ATTACHMENT_NOT_READY");
   await prisma.attachment.update({ where: { id: pendingRow.id }, data: { status: "FAILED", failureCode: "X", failurePhase: "x" } });
-  const failedRejected = await expectApiError(() => getAttachmentDownload(pendingRow.id), "ATTACHMENT_NOT_READY");
+  const failedRejected = await expectApiError(() => getAttachmentDownload(pendingRow.id, "attachment", actorId), "ATTACHMENT_NOT_READY");
 
   // symlink 替换 final 文件：O_NOFOLLOW 拒绝。
   const symlinkTarget = path.join(uploadRoot, "outside-secret.txt");
@@ -609,12 +609,12 @@ async function verifyDownloadGate(): Promise<void> {
   const finalPath = path.join(uploadRoot, readyRow.storedName);
   rmSync(finalPath);
   await symlink(symlinkTarget, finalPath);
-  const symlinkRejected = await expectApiError(() => getAttachmentDownload(ready.id), "ATTACHMENT_FILE_MISMATCH");
+  const symlinkRejected = await expectApiError(() => getAttachmentDownload(ready.id, "attachment", actorId), "ATTACHMENT_FILE_MISMATCH");
 
   // hash mismatch 拒绝（report-only：不改 row）。
   rmSync(finalPath);
   await writeFile(finalPath, pngFile(2048).map((byte, index) => (index === 100 ? byte ^ 0xff : byte)));
-  const hashMismatchRejected = await expectApiError(() => getAttachmentDownload(ready.id), "ATTACHMENT_FILE_MISMATCH");
+  const hashMismatchRejected = await expectApiError(() => getAttachmentDownload(ready.id, "attachment", actorId), "ATTACHMENT_FILE_MISMATCH");
   const readyRowAfter = await prisma.attachment.findUniqueOrThrow({ where: { id: ready.id } });
 
   // legacy READY/protocolVersion=0 行仍可通过 same-handle 校验读取。
@@ -623,6 +623,7 @@ async function verifyDownloadGate(): Promise<void> {
   await writeFile(path.join(uploadRoot, legacyStored), legacyBytes);
   const legacy = await prisma.attachment.create({
     data: {
+      ownerUserId: actorId,
       noteId,
       originalName: "legacy.png",
       storedName: legacyStored,
@@ -635,7 +636,7 @@ async function verifyDownloadGate(): Promise<void> {
     },
     select: { id: true },
   });
-  const legacyDownload = await getAttachmentDownload(legacy.id);
+  const legacyDownload = await getAttachmentDownload(legacy.id, "attachment", actorId);
 
   if (!pendingRejected || !failedRejected || !symlinkRejected || !hashMismatchRejected || readyRowAfter.status !== "READY" || legacyDownload.bytes.length !== legacyBytes.length) {
     throw new Error("OPS-007 download gate did not enforce READY + O_NOFOLLOW + same-handle verification");
@@ -674,6 +675,7 @@ async function createPendingRow(
   const hash = createHash("sha256").update(bytes).digest("hex");
   const row = await prisma.attachment.create({
     data: {
+      ownerUserId: (await prisma.note.findUniqueOrThrow({ where: { id: noteId }, select: { ownerUserId: true } })).ownerUserId,
       noteId,
       originalName: "kill.png",
       storedName,
@@ -726,7 +728,7 @@ async function createNoteFixture(
     },
   });
   const note = await prisma.note.create({
-    data: { subjectId: subject.id, title: "ops007", content: "fixture" },
+    data: { ownerUserId: user.id, subjectId: subject.id, title: "ops007", content: "fixture" },
     select: { id: true },
   });
   return { noteId: note.id, actorId: user.id };

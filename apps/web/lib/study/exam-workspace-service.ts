@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api/responses";
 import { getAuthEnv } from "@/lib/auth/env";
 import type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSubjectDto } from "@/lib/contracts/workspace";
 import { requireWorkspaceOwner, workspaceOwnerWhere } from "@/lib/workspace/access-service";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import { getStudyDayRange } from "./date";
 
 export const workspaceLockNamespace = 2026072112;
@@ -32,7 +33,7 @@ function serializeWorkspace(row: {
   createdAt: Date;
   updatedAt: Date;
   current?: boolean;
-  membershipRole?: "OWNER" | "MEMBER";
+  membershipRole?: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
   selectionRevision?: number;
 }): ExamWorkspaceDto {
   return {
@@ -53,6 +54,7 @@ function serializeWorkspace(row: {
 }
 
 type WorkspaceDbClient = Pick<Prisma.TransactionClient, "examWorkspace" | "workspaceSelection">;
+type MemberWorkspaceDbClient = Pick<Prisma.TransactionClient, "examWorkspace" | "workspaceSelection" | "workspaceMembership">;
 
 export async function lockActorWorkspaceScope(
   tx: Prisma.TransactionClient,
@@ -89,6 +91,69 @@ export async function findActiveWorkspaceOrNull(
   return client.examWorkspace.findFirst({
     where: { userId: actorId, status: "ACTIVE" },
   });
+}
+
+/**
+ * Resolve the selected active workspace for any active member.  The legacy
+ * resolver intentionally remains owner-only because most study mutations are
+ * still private to the resource owner; shared-resource and member PlanInbox
+ * flows must use this narrower member-safe resolver instead.
+ */
+export async function findSelectedMemberWorkspaceOrNull(
+  actorId: string,
+  client: MemberWorkspaceDbClient = prisma,
+) {
+  if (!getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+    return client.examWorkspace.findFirst({
+      where: { userId: actorId, status: "ACTIVE" },
+    });
+  }
+  const selection = await client.workspaceSelection.findFirst({
+    where: {
+      userId: actorId,
+      workspace: {
+        status: "ACTIVE",
+        memberships: {
+          some: {
+            userId: actorId,
+            status: "ACTIVE",
+            user: { status: "ACTIVE" },
+          },
+        },
+      },
+    },
+    include: { workspace: true },
+  });
+  if (selection?.workspace) return selection.workspace;
+
+  const membership = await client.workspaceMembership.findFirst({
+    where: {
+      userId: actorId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      workspace: { status: "ACTIVE" },
+    },
+    include: { workspace: true },
+    orderBy: { joinedAt: "asc" },
+  });
+  return membership?.workspace ?? null;
+}
+
+export async function resolveSelectedMemberWorkspace(
+  actorId: string,
+  client: MemberWorkspaceDbClient = prisma,
+) {
+  const workspace = await findSelectedMemberWorkspaceOrNull(actorId, client);
+  if (!workspace) throw new ApiError("ACTIVE_WORKSPACE_NOT_FOUND", 404);
+  return workspace;
+}
+
+export async function lockSelectedMemberWorkspaceForWrite(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+) {
+  await lockActorWorkspaceScope(tx, actorId);
+  return resolveSelectedMemberWorkspace(actorId, tx);
 }
 
 export async function resolveActiveWorkspace(
@@ -419,7 +484,8 @@ export async function activateExamWorkspace(
         where: { workspaceId, userId: actorId, status: "ACTIVE" },
         include: { workspace: true },
       });
-      if (!membership || membership.role !== "OWNER" || membership.workspace.status !== "ACTIVE" || membership.workspace.userId !== actorId) {
+      const ownerOnly = !getAuthEnv().AUTH_RBAC_ENABLED;
+      if (!membership || membership.workspace.status !== "ACTIVE" || (ownerOnly && (membership.role !== "OWNER" || membership.workspace.userId !== actorId))) {
         throw new ApiError("WORKSPACE_NOT_FOUND", 404);
       }
       if (membership.workspace.revision !== expectedRevision) {
@@ -432,17 +498,22 @@ export async function activateExamWorkspace(
         throw new ApiError("ACTIVE_SESSION_BLOCKS_WORKSPACE_SWITCH", 409);
       }
       const selection = await tx.workspaceSelection.findUnique({ where: { userId: actorId } });
-      if (expectedSelectionRevision === undefined || selection?.revision !== expectedSelectionRevision) {
-        throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, {
-          conflictFields: ["selectionRevision"],
-        });
+      if (!selection) {
+        if (expectedSelectionRevision !== undefined && expectedSelectionRevision !== 0) {
+          throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+        }
+        await tx.workspaceSelection.create({ data: { userId: actorId, workspaceId } });
+      } else if (expectedSelectionRevision === undefined || selection?.revision !== expectedSelectionRevision) {
+        throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
       }
-      if (selection.workspaceId !== workspaceId) {
-        const changed = await tx.workspaceSelection.updateMany({
-          where: { userId: actorId, revision: expectedSelectionRevision },
-          data: { workspaceId, selectedAt: new Date(), revision: { increment: 1 } },
-        });
-        if (changed.count !== 1) throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+      if (selection && selection.workspaceId !== workspaceId) {
+        if (selection) {
+          const changed = await tx.workspaceSelection.updateMany({
+            where: { userId: actorId, revision: expectedSelectionRevision },
+            data: { workspaceId, selectedAt: new Date(), revision: { increment: 1 } },
+          });
+          if (changed.count !== 1) throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+        }
       }
       await tx.auditEvent.create({
         data: { actorId, action: "WORKSPACE_SELECTED", entityType: "ExamWorkspace", entityId: workspaceId },
@@ -451,7 +522,7 @@ export async function activateExamWorkspace(
         ...membership.workspace,
         current: true,
         membershipRole: membership.role,
-        selectionRevision: selection.workspaceId === workspaceId ? selection.revision : selection.revision + 1,
+        selectionRevision: selection ? (selection.workspaceId === workspaceId ? selection.revision : selection.revision + 1) : 1,
       });
     }
 
@@ -1146,7 +1217,14 @@ export async function updateSubjectGroup(
 
 async function lockOwnedWorkspaceRevision(tx: Prisma.TransactionClient, actorId: string, workspaceId: string, expectedRevision: number) {
   await lockActorWorkspaceScope(tx, actorId);
-  const workspace = await requireWorkspaceOwner(tx, actorId, workspaceId, { active: true });
+  const workspace = getAuthEnv().AUTH_RBAC_ENABLED
+    ? await (async () => {
+      await requireWorkspacePolicy(tx, actorId, workspaceId, "workspace:manage");
+      const managed = await tx.examWorkspace.findFirst({ where: { id: workspaceId, status: "ACTIVE" } });
+      if (!managed) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+      return managed;
+    })()
+    : await requireWorkspaceOwner(tx, actorId, workspaceId, { active: true });
   if (workspace.revision !== expectedRevision) {
     throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { latest: serializeWorkspace(workspace), conflictFields: ["revision"] });
   }
@@ -1229,6 +1307,10 @@ function swapWithNeighbor<T extends { id: string }>(
 }
 
 async function assertOwnedWorkspace(actorId: string, workspaceId: string) {
+  if (getAuthEnv().AUTH_RBAC_ENABLED) {
+    await requireWorkspacePolicy(prisma, actorId, workspaceId, "workspace:read");
+    return;
+  }
   await requireWorkspaceOwner(prisma, actorId, workspaceId);
 }
 

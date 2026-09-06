@@ -27,6 +27,9 @@ export const serverEnvSchema = z.object({
   AUTH_ADMIN_EMAIL: z.string().email().optional(),
   AUTH_ADMIN_PASSWORD_HASH: z.string().optional(),
   AUTH_MULTI_USER_ENABLED: booleanFromString.default(false),
+  AUTH_RBAC_ENABLED: booleanFromString.default(false),
+  DATA_LIFECYCLE_ENABLED: booleanFromString.default(false),
+  RANKING_ENABLED: booleanFromString.default(false),
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),
@@ -69,6 +72,13 @@ export const serverEnvSchema = z.object({
       code: "custom",
       path: ["AUTH_ACTION_TOKEN_SECRET"],
       message: "AUTH_ACTION_TOKEN_SECRET is required when multi-user auth is enabled",
+    });
+  }
+  if (env.AUTH_RBAC_ENABLED && !env.AUTH_MULTI_USER_ENABLED) {
+    context.addIssue({
+      code: "custom",
+      path: ["AUTH_RBAC_ENABLED"],
+      message: "AUTH_RBAC_ENABLED requires AUTH_MULTI_USER_ENABLED",
     });
   }
   if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {

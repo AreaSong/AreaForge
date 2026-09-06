@@ -12,7 +12,7 @@ import { getAnalyticsSummary } from "./analytics-service";
 import { resolveConfiguredAiProviderForUser } from "./ai-service";
 import { ApiError } from "@/lib/api/responses";
 import { daysUntil } from "./date";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   claimPersistentCreateCommand,
@@ -77,7 +77,7 @@ export async function createAiStageAdjustmentDraft(
     });
   }
   if (claim.state === "replayed") {
-    return replayAiStageAdjustmentDraft(claim.replay, context.workspaceId);
+    return replayAiStageAdjustmentDraft(claim.replay, context.workspaceId, actorId);
   }
 
   const provider = await resolveConfiguredAiProviderForUser("stage_adjustment", {
@@ -118,12 +118,12 @@ export async function minimizedLongTermStageContext(
   actorId: string,
   now = new Date(),
 ): Promise<ScopedStageAdjustmentContext> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const [analytics, stagePlan, latestExam, weakNodeSummary] = await Promise.all([
     getAnalyticsSummary(now, actorId),
-    resolveStagePlan(input.stagePlanId, workspace.id),
-    getLatestSimulationSummary(workspace.id),
-    summarizeWeakNodes(now, workspace.id),
+    resolveStagePlan(input.stagePlanId, workspace.id, actorId),
+    getLatestSimulationSummary(workspace.id, actorId),
+    summarizeWeakNodes(now, workspace.id, actorId),
   ]);
   if (!stagePlan) throw new ApiError("STAGE_PLAN_REQUIRED", 400);
 
@@ -185,7 +185,7 @@ async function persistClaimedAiStageAdjustmentDraft(input: {
   ai: AiStageAdjustmentDraftResult["ai"];
 }): Promise<StageAdjustmentDraftRecordDto> {
   const draft = await prisma.$transaction(async (tx) => {
-    const activeWorkspace = await lockActiveWorkspaceForWrite(tx, input.actorId);
+    const activeWorkspace = await lockSelectedMemberWorkspaceForWrite(tx, input.actorId);
     if (activeWorkspace.id !== input.context.workspaceId) {
       throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409);
     }
@@ -193,6 +193,7 @@ async function persistClaimedAiStageAdjustmentDraft(input: {
       where: {
         id: input.context.stagePlanId,
         workspaceId: activeWorkspace.id,
+        ownerUserId: input.actorId,
         status: { in: ["active", "draft"] },
       },
       select: { id: true },
@@ -202,6 +203,7 @@ async function persistClaimedAiStageAdjustmentDraft(input: {
     const created = await tx.stageAdjustmentDraft.create({
       data: {
         workspaceId: activeWorkspace.id,
+        ownerUserId: input.actorId,
         stagePlanId: stagePlan.id,
         source: input.source,
         mode: input.advice.mode,
@@ -248,9 +250,10 @@ async function persistClaimedAiStageAdjustmentDraft(input: {
 async function replayAiStageAdjustmentDraft(
   replay: PersistentCreateReplay,
   workspaceId: string,
+  ownerUserId: string,
 ): Promise<AiStageAdjustmentDraftResult> {
   const draft = await prisma.stageAdjustmentDraft.findFirst({
-    where: { id: replay.resultId, workspaceId },
+    where: { id: replay.resultId, workspaceId, ownerUserId },
   });
   if (!draft) throw new ApiError("AI_STAGE_ADJUSTMENT_DRAFT_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
   const snapshot = asRecord(replay.resultSnapshot);
@@ -280,7 +283,7 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-async function resolveStagePlan(stagePlanId: string | null | undefined, workspaceId: string): Promise<{
+async function resolveStagePlan(stagePlanId: string | null | undefined, workspaceId: string, ownerUserId: string): Promise<{
   id: string;
   goal: string;
   mode: StageAdjustmentContext["stagePlanMode"];
@@ -289,7 +292,7 @@ async function resolveStagePlan(stagePlanId: string | null | undefined, workspac
 } | null> {
   if (stagePlanId) {
     const plan = await prisma.stagePlan.findFirst({
-      where: { id: stagePlanId, workspaceId },
+      where: { id: stagePlanId, workspaceId, ownerUserId },
       select: { id: true, goal: true, mode: true, status: true, endDate: true },
     });
     if (!plan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
@@ -297,7 +300,7 @@ async function resolveStagePlan(stagePlanId: string | null | undefined, workspac
   }
 
   const plan = await prisma.stagePlan.findFirst({
-    where: { workspaceId, status: { in: ["active", "draft"] } },
+    where: { workspaceId, ownerUserId, status: { in: ["active", "draft"] } },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
     select: { id: true, goal: true, mode: true, status: true, endDate: true },
   });
@@ -327,10 +330,11 @@ function normalizeStagePlan(plan: {
   };
 }
 
-async function getLatestSimulationSummary(workspaceId: string): Promise<StageAdjustmentContext["simulationSummary"]> {
+async function getLatestSimulationSummary(workspaceId: string, ownerUserId: string): Promise<StageAdjustmentContext["simulationSummary"]> {
   const exam = await prisma.simulationExam.findFirst({
     where: {
       workspaceId,
+      ownerUserId,
       OR: [
         { actualScore: { not: null } },
         { actualDurationMinutes: { not: null } },
@@ -360,15 +364,16 @@ async function getLatestSimulationSummary(workspaceId: string): Promise<StageAdj
   };
 }
 
-async function summarizeWeakNodes(now: Date, workspaceId: string): Promise<StageAdjustmentContext["weakNodeSummary"]> {
+async function summarizeWeakNodes(now: Date, workspaceId: string, ownerUserId: string): Promise<StageAdjustmentContext["weakNodeSummary"]> {
   const staleBefore = new Date(now.getTime() - staleEvidenceDays * dayMs);
   const nodes = await prisma.syllabusNode.findMany({
     where: {
-      status: { in: ["WEAK", "NEEDS_REVIEW"] },
       subject: { workspaceId },
+      progresses: { some: { ownerUserId, status: { in: ["WEAK", "NEEDS_REVIEW"] } } },
     },
     select: {
       status: true,
+      progresses: { where: { ownerUserId }, take: 1 },
       updatedAt: true,
       subject: {
         select: { name: true },

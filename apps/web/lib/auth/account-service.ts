@@ -233,7 +233,7 @@ function recordReauthenticationAudit(
   });
 }
 
-async function requireFreshAccountSession(tx: Prisma.TransactionClient, actor: CurrentUser): Promise<void> {
+export async function requireFreshAccountSession(tx: Prisma.TransactionClient, actor: CurrentUser): Promise<void> {
   const now = new Date();
   const session = await requireUsableAccountSession(tx, actor, now, "REAUTHENTICATION_REQUIRED", 403);
   if (!isReauthenticationFresh(

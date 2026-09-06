@@ -6,7 +6,12 @@ import type {
   OwnedMistakeDetailDto,
 } from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  lockActiveWorkspaceForWrite,
+  lockSelectedMemberWorkspaceForWrite,
+  resolveActiveWorkspace,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -98,10 +103,11 @@ const ownedMistakeDetailInclude = {
 type MistakeDetailRow = Prisma.MistakeGetPayload<{ include: typeof mistakeDetailInclude }>;
 
 export async function listMistakes(actorId: string, options?: { q?: string }): Promise<MistakeDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const query = options?.q?.trim().slice(0, 120) || undefined;
   const mistakes = await prisma.mistake.findMany({
     where: {
+      ownerUserId: actorId,
       subject: { workspaceId: workspace.id },
       ...(query ? {
         OR: [
@@ -156,7 +162,7 @@ export async function getMistakeCreatePrefill(
     where: {
       id: simulationLossItemId,
       archivedAt: null,
-      simulationSubjectResult: { simulationExam: { workspaceId: workspace.id } },
+      simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, ownerUserId: actorId } },
     },
     include: {
       simulationSubjectResult: {
@@ -188,7 +194,7 @@ export async function getMistakeById(id: string, actorId: string): Promise<Mista
 
 export async function getOwnedMistakeDetail(id: string, actorId: string): Promise<OwnedMistakeDetailDto | null> {
   const mistake = await prisma.mistake.findFirst({
-    where: { id, subject: { workspace: workspaceOwnerWhere(actorId) } },
+    where: { id, ownerUserId: actorId, subject: { workspace: workspaceOwnerWhere(actorId) } },
     include: ownedMistakeDetailInclude,
   });
   if (!mistake?.subject.workspace) return null;
@@ -217,7 +223,7 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
     simulationLossItemId: input.simulationLossItemId ?? null,
   });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -232,7 +238,7 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
       const snapshot = parseMistakeSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
       const storedMistake = await tx.mistake.findFirst({
-        where: { id: replay.resultId, subject: { workspaceId: workspace.id } },
+        where: { id: replay.resultId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
         include: { subject: true, syllabusNode: true },
       });
       if (!storedMistake) throw new ApiError("MISTAKE_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
@@ -250,7 +256,7 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
       ? await tx.simulationLossItem.findFirst({
         where: {
           id: input.simulationLossItemId,
-          simulationSubjectResult: { simulationExam: { workspaceId: workspace.id } },
+          simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, ownerUserId: actorId } },
         },
         select: { id: true, mistakeId: true, simulationSubjectResult: { select: { subjectId: true } } },
       })
@@ -263,6 +269,7 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
 
     const created = await tx.mistake.create({
       data: {
+        ownerUserId: actorId,
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId ?? null,
         title: input.title,
@@ -282,7 +289,11 @@ export async function createMistake(input: CreateMistakeInput, actorId: string):
 
     if (simulationLossItem) {
       const linked = await tx.simulationLossItem.updateMany({
-        where: { id: simulationLossItem.id, mistakeId: null },
+        where: {
+          id: simulationLossItem.id,
+          mistakeId: null,
+          simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, ownerUserId: actorId } },
+        },
         data: { mistakeId: created.id },
       });
       if (linked.count !== 1) throw new ApiError("SIMULATION_LOSS_ITEM_ALREADY_LINKED", 409);
@@ -311,7 +322,7 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const existing = await tx.mistake.findFirst({
-      where: { id, subject: { workspaceId: workspace.id } },
+      where: { id, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       include: mistakeDetailInclude,
     });
 
@@ -372,6 +383,7 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
     const changed = await tx.mistake.updateMany({
       where: {
         id,
+        ownerUserId: actorId,
         updatedAt: expectedUpdatedAt,
         archivedAt: null,
         subject: { workspaceId: workspace.id, archivedAt: null },
@@ -390,13 +402,13 @@ export async function updateMistake(id: string, input: UpdateMistakeInput, actor
       },
     });
     if (changed.count !== 1) {
-      const raced = await loadMistakeDetail(tx, id, workspace.id);
+      const raced = await loadMistakeDetail(tx, id, workspace.id, actorId);
       if (!raced) throw new ApiError("MISTAKE_NOT_FOUND", 404);
       throw mistakeConflict("MISTAKE_UPDATED_AT_CONFLICT", serializeMistake(raced), input);
     }
 
     await audit(actorId, "MISTAKE_UPDATED", "Mistake", id, tx);
-    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id));
+    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id, actorId));
   });
 }
 
@@ -415,7 +427,7 @@ export async function updateMistakeLinks(
 ): Promise<MistakeDto> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadMistakeDetail(tx, id, workspace.id);
+    const existing = await loadMistakeDetail(tx, id, workspace.id, actorId);
     if (!existing) throw new ApiError("MISTAKE_NOT_FOUND", 404);
     if (existing.archivedAt) throw new ApiError("MISTAKE_ARCHIVED", 409);
     if (existing.subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
@@ -426,18 +438,18 @@ export async function updateMistakeLinks(
     }
 
     const [notes, resources] = await Promise.all([
-      tx.note.findMany({ where: { id: { in: input.noteIds }, subject: { workspaceId: workspace.id } }, select: { id: true } }),
-      tx.studyResource.findMany({ where: { id: { in: input.resourceIds }, workspaceId: workspace.id }, select: { id: true } }),
+      tx.note.findMany({ where: { id: { in: input.noteIds }, ownerUserId: actorId, subject: { workspaceId: workspace.id } }, select: { id: true } }),
+      tx.studyResource.findMany({ where: { id: { in: input.resourceIds }, ownerUserId: actorId, workspaceId: workspace.id }, select: { id: true } }),
     ]);
     if (notes.length !== new Set(input.noteIds).size) throw new ApiError("NOTE_NOT_FOUND", 404);
     if (resources.length !== new Set(input.resourceIds).size) throw new ApiError("STUDY_RESOURCE_NOT_FOUND", 404);
 
     const claimed = await tx.mistake.updateMany({
-      where: { id, updatedAt: expectedUpdatedAt, archivedAt: null, subject: { workspaceId: workspace.id, archivedAt: null } },
+      where: { id, ownerUserId: actorId, updatedAt: expectedUpdatedAt, archivedAt: null, subject: { workspaceId: workspace.id, archivedAt: null } },
       data: { updatedAt: new Date() },
     });
     if (claimed.count !== 1) {
-      const raced = await loadMistakeDetail(tx, id, workspace.id);
+      const raced = await loadMistakeDetail(tx, id, workspace.id, actorId);
       if (!raced) throw new ApiError("MISTAKE_NOT_FOUND", 404);
       throw mistakeConflict("MISTAKE_UPDATED_AT_CONFLICT", serializeMistake(raced), input as UpdateMistakeInput);
     }
@@ -451,7 +463,7 @@ export async function updateMistakeLinks(
       await tx.studyResourceMistakeLink.createMany({ data: input.resourceIds.map((resourceId) => ({ resourceId, mistakeId: id })), skipDuplicates: true });
     }
     await audit(actorId, "MISTAKE_LINKS_UPDATED", "Mistake", id, tx);
-    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id));
+    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id, actorId));
   });
 }
 
@@ -463,7 +475,7 @@ async function mutateMistakeArchiveState(
 ): Promise<MistakeDto> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadMistakeDetail(tx, id, workspace.id);
+    const existing = await loadMistakeDetail(tx, id, workspace.id, actorId);
     if (!existing) throw new ApiError("MISTAKE_NOT_FOUND", 404);
 
     const latest = serializeMistake(existing);
@@ -490,6 +502,7 @@ async function mutateMistakeArchiveState(
     const changed = await tx.mistake.updateMany({
       where: {
         id,
+        ownerUserId: actorId,
         updatedAt: expectedUpdatedAt,
         subject: { workspaceId: workspace.id, archivedAt: null },
         ...archiveState,
@@ -497,7 +510,7 @@ async function mutateMistakeArchiveState(
       data: { archivedAt: archive ? new Date() : null },
     });
     if (changed.count !== 1) {
-      const raced = await loadMistakeDetail(tx, id, workspace.id);
+      const raced = await loadMistakeDetail(tx, id, workspace.id, actorId);
       if (!raced) throw new ApiError("MISTAKE_NOT_FOUND", 404);
       throw new ApiError("MISTAKE_UPDATED_AT_CONFLICT", 409, {
         latest: serializeMistake(raced),
@@ -508,7 +521,7 @@ async function mutateMistakeArchiveState(
 
     if (archive) await pauseScheduleOnTargetArchive(tx, { mistakeId: id });
     await audit(actorId, archive ? "MISTAKE_ARCHIVED" : "MISTAKE_RESTORED", "Mistake", id, tx);
-    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id));
+    return serializeMistake(await loadMistakeDetailOrThrow(tx, id, workspace.id, actorId));
   });
 }
 
@@ -560,9 +573,10 @@ async function loadMistakeDetail(
   client: Prisma.TransactionClient,
   id: string,
   workspaceId: string,
+  actorId: string,
 ): Promise<MistakeDetailRow | null> {
   return client.mistake.findFirst({
-    where: { id, subject: { workspaceId } },
+    where: { id, ownerUserId: actorId, subject: { workspaceId } },
     include: mistakeDetailInclude,
   });
 }
@@ -571,8 +585,9 @@ async function loadMistakeDetailOrThrow(
   client: Prisma.TransactionClient,
   id: string,
   workspaceId: string,
+  actorId: string,
 ): Promise<MistakeDetailRow> {
-  const mistake = await loadMistakeDetail(client, id, workspaceId);
+  const mistake = await loadMistakeDetail(client, id, workspaceId, actorId);
   if (!mistake) throw new ApiError("MISTAKE_NOT_FOUND", 404);
   return mistake;
 }

@@ -9,8 +9,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
-import { lockActorWorkspaceScope, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockActorWorkspaceScope, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import type { KnowledgeCanvasLayoutConflictSnapshot } from "./knowledge-canvas-contract";
 import {
   queryKnowledgeCanvasIndexPage,
@@ -73,23 +72,21 @@ function detailHref(entityType: KnowledgeCanvasEntityType, entityId: string): st
   }
 }
 
-async function assertActiveWorkspaceOwner(
+async function assertActiveWorkspaceMember(
   client: Pick<Prisma.TransactionClient, "examWorkspace">,
   actorId: string,
   workspaceId: string,
 ) {
   const workspace = await client.examWorkspace.findFirst({
-    where: { id: workspaceId, ...workspaceOwnerWhere(actorId) },
+    where: {
+      id: workspaceId,
+      status: "ACTIVE",
+      memberships: { some: { userId: actorId, status: "ACTIVE", user: { status: "ACTIVE" } } },
+    },
     select: { id: true, status: true, revision: true },
   });
   if (!workspace) {
     throw new ApiError("WORKSPACE_NOT_FOUND", 404);
-  }
-  if (workspace.status !== "ACTIVE") {
-    throw new ApiError("WORKSPACE_STATE_CONFLICT", 409, {
-      latest: workspace,
-      conflictFields: ["status", "revision"],
-    });
   }
   return workspace;
 }
@@ -120,12 +117,9 @@ export async function getKnowledgeCanvas(
   if (input.status != null && input.status !== "active" && input.status !== "all") {
     throw new ApiError("INVALID_CANVAS_STATUS", 400);
   }
-  const workspace = input.workspaceId
-    ? await prisma.examWorkspace.findFirst({ where: { id: input.workspaceId, ...workspaceOwnerWhere(actorId) } })
-    : await resolveActiveWorkspace(actorId);
-  if (!workspace) {
-    throw new ApiError("WORKSPACE_NOT_FOUND", 404);
-  }
+  const selectedWorkspace = await resolveSelectedMemberWorkspace(actorId);
+  if (input.workspaceId && input.workspaceId !== selectedWorkspace.id) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+  const workspace = selectedWorkspace;
 
   const requestedType = input.entityType?.trim() || null;
   if (requestedType && !isKnowledgeCanvasEntityType(requestedType)) {
@@ -143,6 +137,7 @@ export async function getKnowledgeCanvas(
   const [selected, subjects, layout] = await Promise.all([
     queryKnowledgeCanvasIndexPage({
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       focusId,
       depth: input.depth,
       cursor,
@@ -176,7 +171,7 @@ export async function getKnowledgeCanvas(
             })),
           },
         }),
-        queryKnowledgeCanvasStaleLayoutCandidates({ workspaceId: workspace.id, layoutId: layout.id }),
+        queryKnowledgeCanvasStaleLayoutCandidates({ workspaceId: workspace.id, layoutId: layout.id, ownerUserId: actorId }),
       ])
     : [[], []];
 
@@ -356,7 +351,7 @@ export async function saveKnowledgeCanvasLayout(
   try {
     return await prisma.$transaction(async (tx) => {
       await lockActorWorkspaceScope(tx, actorId);
-      await assertActiveWorkspaceOwner(tx, actorId, input.workspaceId);
+      await assertActiveWorkspaceMember(tx, actorId, input.workspaceId);
       const existing = await tx.knowledgeCanvasLayout.findUnique({
         where: { userId_workspaceId: { userId: actorId, workspaceId: input.workspaceId } },
       });
@@ -469,7 +464,7 @@ export async function resetKnowledgeCanvasLayout(
 ): Promise<KnowledgeCanvasLayoutDto> {
   return prisma.$transaction(async (tx) => {
     await lockActorWorkspaceScope(tx, actorId);
-    await assertActiveWorkspaceOwner(tx, actorId, input.workspaceId);
+    await assertActiveWorkspaceMember(tx, actorId, input.workspaceId);
     const existing = await tx.knowledgeCanvasLayout.findUnique({
       where: { userId_workspaceId: { userId: actorId, workspaceId: input.workspaceId } },
     });
@@ -519,9 +514,10 @@ export async function resetKnowledgeCanvasLayout(
 }
 
 export async function getKnowledgeOverview(actorId: string) {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const pendingResourceWhere = {
     workspaceId: workspace.id,
+    ownerUserId: actorId,
     archivedAt: null,
     subjectId: null,
     tags: { none: {} },
@@ -532,8 +528,9 @@ export async function getKnowledgeOverview(actorId: string) {
   } as const;
   const queryResults = await Promise.all([
     prisma.reviewSchedule.count({
-      where: {
-        workspaceId: workspace.id,
+        where: {
+          workspaceId: workspace.id,
+        ownerUserId: actorId,
         status: "ACTIVE",
         dueDate: { lte: new Date() },
         bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
@@ -543,16 +540,17 @@ export async function getKnowledgeOverview(actorId: string) {
       where: {
         subject: { workspaceId: workspace.id },
         archivedAt: null,
-        OR: [{ status: "WEAK" }, { status: "NEEDS_REVIEW" }],
+        OR: [{ progresses: { some: { ownerUserId: actorId, status: { in: ["WEAK", "NEEDS_REVIEW"] } } } }, { mistakes: { some: { ownerUserId: actorId } } }],
       },
     }),
     prisma.studyResource.count({ where: pendingResourceWhere }),
-    prisma.learningTreeImportBatch.count({ where: { workspaceId: workspace.id } }),
-    prisma.note.count({ where: { subject: { workspaceId: workspace.id }, archivedAt: null } }),
-    prisma.mistake.count({ where: { subject: { workspaceId: workspace.id }, archivedAt: null } }),
+    prisma.learningTreeImportBatch.count({ where: { workspaceId: workspace.id, actorId } }),
+    prisma.note.count({ where: { ownerUserId: actorId, subject: { workspaceId: workspace.id }, archivedAt: null } }),
+    prisma.mistake.count({ where: { ownerUserId: actorId, subject: { workspaceId: workspace.id }, archivedAt: null } }),
     prisma.reviewSchedule.findFirst({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         status: "ACTIVE",
         dueDate: { lte: new Date() },
         bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
@@ -564,7 +562,7 @@ export async function getKnowledgeOverview(actorId: string) {
       where: {
         subject: { workspaceId: workspace.id },
         archivedAt: null,
-        OR: [{ status: "WEAK" }, { status: "NEEDS_REVIEW" }],
+        OR: [{ progresses: { some: { ownerUserId: actorId, status: { in: ["WEAK", "NEEDS_REVIEW"] } } } }, { mistakes: { some: { ownerUserId: actorId } } }],
       },
       select: { id: true, title: true },
       orderBy: [{ status: "asc" }, { updatedAt: "asc" }],
@@ -575,24 +573,24 @@ export async function getKnowledgeOverview(actorId: string) {
       orderBy: { updatedAt: "asc" },
     }),
     prisma.learningTreeImportBatch.findFirst({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, actorId },
       select: { id: true },
       orderBy: { confirmedAt: "desc" },
     }),
     prisma.note.findMany({
-      where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id }, archivedAt: null },
       select: { id: true, title: true, updatedAt: true, subject: { select: { name: true } } },
       orderBy: { updatedAt: "desc" },
       take: 4,
     }),
     prisma.mistake.findMany({
-      where: { subject: { workspaceId: workspace.id }, archivedAt: null },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id }, archivedAt: null },
       select: { id: true, title: true, updatedAt: true, subject: { select: { name: true } } },
       orderBy: { updatedAt: "desc" },
       take: 4,
     }),
     prisma.reviewSchedule.findMany({
-      where: { workspaceId: workspace.id, status: "ACTIVE" },
+      where: { workspaceId: workspace.id, ownerUserId: actorId, status: "ACTIVE" },
       select: {
         id: true,
         dueDate: true,
@@ -600,7 +598,7 @@ export async function getKnowledgeOverview(actorId: string) {
       },
     }),
     prisma.reviewEvent.findMany({
-      where: { reviewSchedule: { workspaceId: workspace.id } },
+      where: { reviewSchedule: { workspaceId: workspace.id, ownerUserId: actorId } },
       select: { result: true, confirmedAt: true, durationSeconds: true },
       orderBy: { confirmedAt: "desc" },
       take: 100,
@@ -612,7 +610,7 @@ export async function getKnowledgeOverview(actorId: string) {
         name: true,
         color: true,
         primaryKnowledgePoints: {
-          where: { archivedAt: null },
+          where: { archivedAt: null, userId: actorId },
           select: {
             id: true,
             masteryState: true,
@@ -625,6 +623,7 @@ export async function getKnowledgeOverview(actorId: string) {
     prisma.knowledgePoint.findMany({
       where: {
         workspaceId: workspace.id,
+        userId: actorId,
         archivedAt: null,
       },
       select: {

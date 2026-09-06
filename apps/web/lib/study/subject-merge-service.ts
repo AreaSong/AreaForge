@@ -1,6 +1,8 @@
 import { prisma, type Prisma } from "@areaforge/db";
+import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
 import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import type { SubjectDuplicateSetDto, SubjectMergeResultDto } from "@/lib/contracts/workspace";
 import {
   buildPersistentCreateFingerprint,
@@ -283,6 +285,12 @@ async function findOwnedWorkspace(
   actorId: string,
   workspaceId: string,
 ) {
+  if (getAuthEnv().AUTH_RBAC_ENABLED) {
+    await requireWorkspacePolicy(tx, actorId, workspaceId, "workspace:manage");
+    const managed = await tx.examWorkspace.findFirst({ where: { id: workspaceId, status: "ACTIVE" } });
+    if (!managed) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+    return managed;
+  }
   const workspace = await tx.examWorkspace.findFirst({
     where: { id: workspaceId, ...workspaceOwnerWhere(actorId), status: "ACTIVE" },
   });

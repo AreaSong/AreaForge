@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, Layers3, Plus, Trash2 } from "lucide-react";
-import { listExamTemplates } from "@areaforge/core";
+import { EXAM_WORKSPACE_LIMITS, listExamTemplates } from "@areaforge/core";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { Checkbox, Input, Select } from "@/components/ui/field";
@@ -101,7 +101,7 @@ function GroupEditor(props: {
           <h3 id="workspace-group-title" className="flex items-center gap-2 text-sm font-semibold text-white"><Layers3 className="size-4 text-teal-300" />科目分组</h3>
           <p className="mt-1 text-xs text-zinc-500">分组用于整理科目，不会改变学习记录。</p>
         </div>
-        <Button type="button" variant="secondary" size="sm" disabled={props.groups.length >= 20} onClick={props.onAdd}>
+        <Button type="button" variant="secondary" size="sm" disabled={props.groups.length >= EXAM_WORKSPACE_LIMITS.maxInitialGroups} onClick={props.onAdd}>
           <Plus className="size-4" />添加分组
         </Button>
       </div>
@@ -145,7 +145,7 @@ function SubjectEditor(props: {
           <h3 id="workspace-subject-title" className="flex items-center gap-2 text-sm font-semibold text-white"><BookOpen className="size-4 text-teal-300" />首批科目</h3>
           <p className="mt-1 text-xs text-zinc-500">这些科目会进入计时、任务、知识和复盘。</p>
         </div>
-        <Button type="button" variant="secondary" size="sm" disabled={props.subjects.length >= 12} onClick={props.onAdd}>
+        <Button type="button" variant="secondary" size="sm" disabled={props.subjects.length >= EXAM_WORKSPACE_LIMITS.maxInitialSubjects} onClick={props.onAdd}>
           <Plus className="size-4" />添加科目
         </Button>
       </div>

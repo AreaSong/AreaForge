@@ -9,9 +9,9 @@ import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { applyTaskCas, type TaskCasPreimage } from "./concurrency";
 import { getNextStudyDayStart, getStudyDayRange } from "./date";
-import { refreshCheckInSnapshotsForDates } from "./check-in-service";
 import { getTaskDebtReorderSuggestion } from "./dashboard-query-service";
 import { createTaskDebtEvent } from "./task-debt-event-service";
+import { refreshWorkspaceCheckInsForDates } from "./task-command-support";
 import type { TaskDebtReorderDto, TaskDebtReorderSuggestionDto } from "@/lib/contracts";
 
 type TaskDebtReorderClient = PrismaClient | Prisma.TransactionClient;
@@ -67,6 +67,7 @@ export interface TaskDebtReorderApplicationResult {
 }
 
 interface ReorderTaskRecord extends TaskCasPreimage {
+  ownerUserId: string | null;
   subjectId: string;
   syllabusNodeId: string | null;
   parentTaskId: string | null;
@@ -94,7 +95,7 @@ export async function decideTaskDebtReorder(
   const selectedTaskIds = normalizeSelectedTaskIds(input.selectedTaskIds);
   const debtReorder = await getTaskDebtReorderSuggestion(actorId, now);
   const selectedSuggestions = selectCurrentSuggestions(debtReorder, selectedTaskIds);
-  const tasksById = await getReorderTasksById(selectedSuggestions.map((suggestion) => suggestion.taskId));
+  const tasksById = await getReorderTasksById(selectedSuggestions.map((suggestion) => suggestion.taskId), actorId);
   const skipped = [
     ...createMissingSuggestionSkippedItems(selectedTaskIds, selectedSuggestions),
     ...createMissingTaskSkippedItems(selectedSuggestions, tasksById),
@@ -163,7 +164,7 @@ export async function applyTaskDebtReorder(
 ): Promise<TaskDebtReorderApplicationResult> {
   const selectedTaskIds = normalizeSelectedTaskIds(input.selectedTaskIds);
   const debtReorder = await getTaskDebtReorderSuggestion(actorId, now);
-  const currentTasks = await getReorderTasksById(selectedTaskIds);
+  const currentTasks = await getReorderTasksById(selectedTaskIds, actorId);
   const preview = previewTaskDebtReorderApplication({
     suggestions: toCoreSuggestions(debtReorder.suggestions),
     selectedTaskIds,
@@ -184,7 +185,7 @@ export async function applyTaskDebtReorder(
   }
 
   const applied = await prisma.$transaction(async (tx) => {
-    const txTasks = await getReorderTasksById(preview.items.map((item) => item.taskId), tx);
+    const txTasks = await getReorderTasksById(preview.items.map((item) => item.taskId), actorId, tx);
     assertPreviewStillCurrent(preview.items, currentTasks, txTasks);
     const appliedItems: AppliedReorderItem[] = [];
 
@@ -206,7 +207,7 @@ export async function applyTaskDebtReorder(
       requiresUserConfirmation: true,
       boundary: reorderBoundary,
     });
-    await refreshCheckInSnapshotsForDates(uniqueDates(appliedItems.flatMap((item) => item.changedDates)), tx);
+    await refreshWorkspaceCheckInsForDates(actorId, uniqueDates(appliedItems.flatMap((item) => item.changedDates)), tx);
 
     return appliedItems;
   });
@@ -278,6 +279,7 @@ function createMissingTaskSkippedItems(
 
 async function getReorderTasksById(
   taskIds: string[],
+  ownerUserId: string,
   client: TaskDebtReorderClient = prisma,
 ): Promise<Map<string, ReorderTaskRecord>> {
   if (taskIds.length === 0) return new Map();
@@ -286,9 +288,11 @@ async function getReorderTasksById(
       id: {
         in: taskIds,
       },
+      ownerUserId,
     },
     select: {
       id: true,
+      ownerUserId: true,
       subjectId: true,
       syllabusNodeId: true,
       parentTaskId: true,
@@ -441,8 +445,10 @@ async function mutateTaskForDebtReorderItem(
         childPlannedDate: null,
       };
     case "split": {
+      if (!task.ownerUserId) throw new ApiError("TASK_STATE_CONFLICT", 409);
       const child = await tx.studyTask.create({
         data: {
+          ownerUserId: task.ownerUserId,
           subjectId: task.subjectId,
           syllabusNodeId: task.syllabusNodeId,
           parentTaskId: task.id,
@@ -499,10 +505,11 @@ async function updateReorderTask(
   data: Prisma.StudyTaskUncheckedUpdateManyInput,
 ): Promise<ReorderTaskRecord> {
   await applyTaskCas(tx, task, data);
-  const updatedTask = await tx.studyTask.findUnique({
-    where: { id: task.id },
+  const updatedTask = await tx.studyTask.findFirst({
+    where: { id: task.id, ownerUserId: task.ownerUserId ?? undefined },
     select: {
       id: true,
+      ownerUserId: true,
       subjectId: true,
       syllabusNodeId: true,
       parentTaskId: true,

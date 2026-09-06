@@ -7,17 +7,20 @@ import {
   isPasswordPolicySatisfied,
   isWorkspaceInvitationUsable,
 } from "@areaforge/auth";
+import { hasWorkspaceCapability, type WorkspaceCapability } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getAuthEnv } from "@/lib/auth/env";
 import { sendAuthMail } from "@/lib/auth/mail";
 import { normalizeEmail, type CurrentUser } from "@/lib/auth/session";
+import { requireMultiUserFeature } from "@/lib/auth/feature-gates";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 
 export interface WorkspaceMemberDto {
   id: string;
   userId: string;
   email: string;
-  role: "OWNER" | "MEMBER";
+  role: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
   status: "ACTIVE" | "LEFT" | "REMOVED";
   revision: number;
   joinedAt: string;
@@ -42,8 +45,14 @@ export interface WorkspaceInvitationPreviewDto {
 export async function listWorkspaceMembers(actorId: string, workspaceId: string): Promise<WorkspaceMemberDto[]> {
   requireMultiUser();
   const actorMembership = await requireMembership(prisma, actorId, workspaceId);
+  const policy = getAuthEnv().AUTH_RBAC_ENABLED
+    ? await requireWorkspacePolicy(prisma, actorId, workspaceId, "workspace:read")
+    : null;
+  const canReadAll = policy
+    ? hasWorkspaceCapability(policy.role, "member:read-all")
+    : actorMembership.role === "OWNER";
   const rows = await prisma.workspaceMembership.findMany({
-    where: actorMembership.role === "OWNER"
+    where: canReadAll
       ? { workspaceId, status: "ACTIVE" }
       : { id: actorMembership.id, workspaceId, status: "ACTIVE" },
     include: { user: { select: { email: true } } },
@@ -65,7 +74,7 @@ export async function listWorkspaceInvitations(
   workspaceId: string,
 ): Promise<WorkspaceInvitationDto[]> {
   requireMultiUser();
-  await requireOwner(prisma, actorId, workspaceId);
+  await requireMembershipCapability(prisma, actorId, workspaceId, "member:invite");
   const rows = await prisma.workspaceInvitation.findMany({
     where: { workspaceId },
     orderBy: { createdAt: "desc" },
@@ -104,7 +113,7 @@ export async function createWorkspaceInvitation(
   try {
     invitation = await prisma.$transaction(async (tx) => {
       await requireFreshActorSession(tx, actor);
-      await requireActiveOwner(tx, actor.id, workspaceId);
+      await requireMembershipCapability(tx, actor.id, workspaceId, "member:invite");
       await rejectExistingMember(tx, email, workspaceId);
       await tx.workspaceInvitation.updateMany({
         where: { workspaceId, emailNormalized: email, status: "PENDING", expiresAt: { lte: new Date() } },
@@ -149,7 +158,7 @@ export async function revokeWorkspaceInvitation(
   requireMultiUser();
   return prisma.$transaction(async (tx) => {
     await requireFreshActorSession(tx, actor);
-    await requireOwner(tx, actor.id, workspaceId);
+    await requireMembershipCapability(tx, actor.id, workspaceId, "member:invite");
     const now = new Date();
     const changed = await tx.workspaceInvitation.updateMany({
       where: { id: invitationId, workspaceId, status: "PENDING", revision: expectedRevision },
@@ -243,14 +252,16 @@ export async function removeWorkspaceMember(
   requireMultiUser();
   await prisma.$transaction(async (tx) => {
     await requireFreshActorSession(tx, actor);
-    await requireOwner(tx, actor.id, workspaceId);
+    const policy = await requireMembershipCapability(tx, actor.id, workspaceId, "member:remove");
     const member = await tx.workspaceMembership.findFirst({ where: { id: membershipId, workspaceId, status: "ACTIVE" } });
     if (!member || member.role === "OWNER") throw new ApiError("WORKSPACE_MEMBER_NOT_FOUND", 404);
+    if (policy.role === "ADMIN" && member.role === "ADMIN") throw new ApiError("WORKSPACE_MEMBER_NOT_FOUND", 404);
     const changed = await tx.workspaceMembership.updateMany({
-      where: { id: membershipId, workspaceId, status: "ACTIVE", role: "MEMBER", revision: expectedRevision },
+      where: { id: membershipId, workspaceId, status: "ACTIVE", role: member.role, revision: expectedRevision },
       data: { status: "REMOVED", removedAt: new Date(), revision: { increment: 1 } },
     });
     if (changed.count !== 1) throw new ApiError("WORKSPACE_MEMBERSHIP_CONFLICT", 409);
+    await revokeUserGrants(tx, actor.id, workspaceId, member.userId, "MEMBER_REMOVED");
     await revokeMemberSelection(tx, member.userId, workspaceId);
     await auditMembershipAction(tx, actor.id, "WORKSPACE_MEMBER_REMOVED", "WorkspaceMembership", membershipId);
   }, { isolationLevel: "Serializable" });
@@ -267,6 +278,7 @@ export async function leaveWorkspace(actor: CurrentUser, workspaceId: string, ex
       data: { status: "LEFT", leftAt: new Date(), revision: { increment: 1 } },
     });
     if (changed.count !== 1) throw new ApiError("WORKSPACE_MEMBERSHIP_CONFLICT", 409);
+    await revokeUserGrants(tx, actor.id, workspaceId, actor.id, "MEMBER_LEFT");
     await revokeMemberSelection(tx, actor.id, workspaceId);
     await auditMembershipAction(tx, actor.id, "WORKSPACE_MEMBER_LEFT", "WorkspaceMembership", membership.id);
   }, { isolationLevel: "Serializable" });
@@ -284,7 +296,7 @@ export async function transferWorkspaceOwnership(
     await requireFreshActorSession(tx, actor);
     const owner = await requireActiveOwner(tx, actor.id, workspaceId);
     const target = await tx.workspaceMembership.findFirst({
-      where: { id: targetMembershipId, workspaceId, role: "MEMBER", status: "ACTIVE" },
+      where: { id: targetMembershipId, workspaceId, role: { not: "OWNER" }, status: "ACTIVE" },
     });
     if (!target) throw new ApiError("WORKSPACE_MEMBER_NOT_FOUND", 404);
     const workspace = await tx.examWorkspace.findUniqueOrThrow({ where: { id: workspaceId } });
@@ -294,7 +306,7 @@ export async function transferWorkspaceOwnership(
       data: { role: "MEMBER", revision: { increment: 1 } },
     });
     const targetChanged = await tx.workspaceMembership.updateMany({
-      where: { id: target.id, role: "MEMBER", status: "ACTIVE", revision: expectedTargetRevision },
+      where: { id: target.id, role: target.role, status: "ACTIVE", revision: expectedTargetRevision },
       data: { role: "OWNER", revision: { increment: 1 } },
     });
     if (ownerChanged.count !== 1 || targetChanged.count !== 1) throw new ApiError("WORKSPACE_MEMBERSHIP_CONFLICT", 409);
@@ -373,6 +385,19 @@ async function requireActiveOwner(client: MembershipClient, actorId: string, wor
   });
   if (!membership) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
   return membership;
+}
+
+async function requireMembershipCapability(
+  client: Prisma.TransactionClient | typeof prisma,
+  actorId: string,
+  workspaceId: string,
+  capability: WorkspaceCapability,
+) {
+  if (getAuthEnv().AUTH_RBAC_ENABLED) {
+    return requireWorkspacePolicy(client, actorId, workspaceId, capability);
+  }
+  const owner = await requireActiveOwner(client, actorId, workspaceId);
+  return { role: owner.role };
 }
 
 async function resolveInvitationUser(
@@ -475,6 +500,31 @@ async function revokeMemberSelection(tx: Prisma.TransactionClient, userId: strin
   });
 }
 
+async function revokeUserGrants(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  granteeUserId: string,
+  reason: "MEMBER_LEFT" | "MEMBER_REMOVED",
+): Promise<void> {
+  if (!getAuthEnv().AUTH_RBAC_ENABLED) return;
+  const now = new Date();
+  const revoked = await tx.workspaceShareGrant.updateMany({
+    where: { workspaceId, scope: "USER", granteeUserId, revokedAt: null },
+    data: { revokedAt: now, revokedByUserId: actorId, revision: { increment: 1 } },
+  });
+  if (revoked.count === 0) return;
+  await tx.auditEvent.create({
+    data: {
+      actorId,
+      action: "WORKSPACE_MEMBER_USER_GRANTS_REVOKED",
+      entityType: "WorkspaceMembership",
+      entityId: granteeUserId,
+      metadata: { workspaceId, reason, revokedGrantCount: revoked.count },
+    },
+  });
+}
+
 async function revokeFailedInvitation(actorId: string, invitationId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.workspaceInvitation.updateMany({
@@ -522,7 +572,7 @@ function actionTokenSecret(): string {
 }
 
 function requireMultiUser(): void {
-  if (!getAuthEnv().AUTH_MULTI_USER_ENABLED) throw new ApiError("MULTI_USER_DISABLED", 404);
+  requireMultiUserFeature();
 }
 
 function tokenSafeEmailHash(email: string): string {

@@ -213,9 +213,13 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
   const databaseUrl = local.DATABASE_URL;
   if (!databaseUrl) throw new Error("apps/web/.env.local must define DATABASE_URL");
   const multiUserEnabled = (process.env.AUTH_MULTI_USER_ENABLED ?? local.AUTH_MULTI_USER_ENABLED ?? "false").trim();
+  const rbacEnabled = (process.env.AUTH_RBAC_ENABLED ?? local.AUTH_RBAC_ENABLED ?? "false").trim();
   const actionTokenSecret = (process.env.AUTH_ACTION_TOKEN_SECRET ?? local.AUTH_ACTION_TOKEN_SECRET ?? "").trim();
   if (multiUserEnabled === "true" && actionTokenSecret.length < 32) {
     throw new Error("AUTH_ACTION_TOKEN_SECRET with at least 32 characters is required for a multi-user test-pool runtime");
+  }
+  if (rbacEnabled === "true" && multiUserEnabled !== "true") {
+    throw new Error("AUTH_RBAC_ENABLED requires AUTH_MULTI_USER_ENABLED for a test-pool runtime");
   }
   const environment: Record<string, string> = {
     DATABASE_URL: localContainerDatabaseUrl(databaseUrl),
@@ -224,6 +228,7 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
     AUTH_SESSION_COOKIE_NAME: `af_dev_test_${slot}`,
     AUTH_SESSION_SECRET: requiredLocal(local, "AUTH_SESSION_SECRET"),
     AUTH_MULTI_USER_ENABLED: multiUserEnabled,
+    AUTH_RBAC_ENABLED: rbacEnabled,
     AI_ENABLED: "false",
     AI_LOG_PROMPTS: "false",
     AI_ALLOW_SENSITIVE_CONTEXT: "false",

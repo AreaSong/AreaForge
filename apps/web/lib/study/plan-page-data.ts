@@ -1,10 +1,11 @@
 import "server-only";
 
-import { findActiveWorkspaceOrNull, listWorkspaceSubjects } from "./exam-workspace-service";
+import { findSelectedMemberWorkspaceOrNull } from "./exam-workspace-service";
 import { listKnowledgePoints } from "./knowledge-point-service";
 import { listPlanMilestones } from "./plan-milestone-service";
 import { getPlanRolling } from "./plan-rolling-service";
 import { listStagePlans } from "./stage-service";
+import { listSubjects } from "./study-query-service";
 import { getStudyResource } from "./study-resource-service";
 import { listSyllabusOptionsShared } from "./syllabus-service";
 import { loadTaskPageData } from "./task-page-data";
@@ -45,10 +46,10 @@ export async function loadPlanPageData(
     };
   }
 
-  const workspace = await findActiveWorkspaceOrNull(actorId);
+  const workspace = await findSelectedMemberWorkspaceOrNull(actorId);
   const [subjects, syllabusNodes, milestones, stagePlans, knowledgePoints] = workspace
     ? await Promise.all([
-      listWorkspaceSubjects(actorId, workspace.id),
+      listSubjects(actorId),
       listSyllabusOptionsShared(actorId),
       listPlanMilestones(actorId),
       listStagePlans(actorId),

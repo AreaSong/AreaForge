@@ -171,10 +171,11 @@ function serialize(row: ResourceRow): StudyResourceDto {
 async function loadResource(
   workspaceId: string,
   id: string,
+  ownerUserId: string,
   client: StudyResourceDbClient = prisma,
 ): Promise<ResourceRow> {
   const row = await client.studyResource.findFirst({
-    where: { id, workspaceId },
+    where: { id, workspaceId, ownerUserId },
     include: resourceInclude,
   });
   if (!row) throw new ApiError("STUDY_RESOURCE_NOT_FOUND", 404);
@@ -190,6 +191,7 @@ export async function listStudyResources(
   const rows = await prisma.studyResource.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       ...(options?.includeArchived ? {} : { archivedAt: null }),
       ...(options?.subjectId ? { subjectId: options.subjectId } : {}),
       ...(query ? { title: { contains: query, mode: "insensitive" as const } } : {}),
@@ -202,7 +204,7 @@ export async function listStudyResources(
 
 export async function getStudyResource(actorId: string, id: string): Promise<StudyResourceDto> {
   const workspace = await resolveActiveWorkspace(actorId);
-  return serialize(await loadResource(workspace.id, id));
+  return serialize(await loadResource(workspace.id, id, actorId));
 }
 
 export async function getStudyResourceEditorOptions(actorId: string): Promise<StudyResourceEditorOptionsDto> {
@@ -215,6 +217,7 @@ export async function getStudyResourceEditorOptions(actorId: string): Promise<St
     }),
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         status: { notIn: ["DONE", "SKIPPED"] },
       },
@@ -223,13 +226,13 @@ export async function getStudyResourceEditorOptions(actorId: string): Promise<St
       select: { id: true, title: true },
     }),
     prisma.note.findMany({
-      where: { subject: { workspaceId: workspace.id, archivedAt: null }, archivedAt: null },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id, archivedAt: null }, archivedAt: null },
       orderBy: { updatedAt: "desc" },
       take: 100,
       select: { id: true, title: true },
     }),
     prisma.mistake.findMany({
-      where: { subject: { workspaceId: workspace.id, archivedAt: null }, archivedAt: null },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id, archivedAt: null }, archivedAt: null },
       orderBy: { updatedAt: "desc" },
       take: 100,
       select: { id: true, title: true },
@@ -269,6 +272,7 @@ export async function createLinkStudyResource(
       const row = await tx.studyResource.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           stableKey,
           title: input.title.trim(),
           category: normalizeCategory(input.category),
@@ -305,7 +309,7 @@ export async function createLinkStudyResource(
       const workspace = await resolveActiveWorkspace(actorId);
       const conflictStableKey = input.stableKey?.trim() || createStableKey("resource", `${workspace.id}:${urlResult.url}`);
       const latest = await prisma.studyResource.findFirst({
-        where: { workspaceId: workspace.id, stableKey: conflictStableKey },
+        where: { workspaceId: workspace.id, ownerUserId: actorId, stableKey: conflictStableKey },
         include: resourceInclude,
       });
       throw new ApiError("STUDY_RESOURCE_STABLE_KEY_CONFLICT", 409, {
@@ -470,6 +474,7 @@ async function stageStudyResourceUploadItem(
   const duplicates = await prisma.studyResource.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       sourceType: "FILE",
       attachment: { hash: staged.hash, status: "READY" },
       archivedAt: null,
@@ -514,6 +519,7 @@ async function findRecoverableBatchStaging(
   const attachment = await prisma.attachment.findFirst({
     where: {
       id: intent.entityId,
+      ownerUserId: actorId,
       noteId: null,
       status: { in: ["PENDING", "READY"] },
       studyResource: null,
@@ -532,6 +538,7 @@ async function findRecoverableBatchStaging(
   const duplicates = await prisma.studyResource.findMany({
     where: {
       workspaceId,
+      ownerUserId: actorId,
       sourceType: "FILE",
       attachment: { hash: attachment.hash, status: "READY" },
       archivedAt: null,
@@ -609,7 +616,7 @@ async function resolveDiscardingStudyResourceUpload(
     if (prior) return prior;
     const attachment = await loadReadyResolutionAttachment(tx, input.attachmentId);
     await assertAttachmentOwnedByActor(actorId, workspace.id, attachment, { client: tx, requireStagedWorkspace });
-    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, tx)) };
+    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, actorId, tx)) };
     if (input.decision === "skip") {
       const cleanup = await markUnboundAttachmentDiscarded(actorId, attachment.id, tx);
       await markStudyResourceUploadResolved(actorId, workspace.id, attachment.id, "skip", undefined, requestFingerprint, requestSnapshot, tx);
@@ -629,7 +636,7 @@ async function resolveReuseStudyResourceUpload(
   requestFingerprint: string,
 ): Promise<StudyResourceResolutionOutcome> {
   if (!input.reuseResourceId) throw new ApiError("STUDY_RESOURCE_REUSE_REQUIRED", 400);
-  const existing = await loadResource(workspaceId, input.reuseResourceId, tx);
+  const existing = await loadResource(workspaceId, input.reuseResourceId, actorId, tx);
   const latest = serialize(existing);
   if (existing.subject?.archivedAt) throw subjectArchivedError(latest);
   if (existing.sourceType !== "FILE" || !existing.attachment) throw new ApiError("STUDY_RESOURCE_REUSE_INVALID", 400);
@@ -693,7 +700,7 @@ async function resolveCopyStudyResourceUpload(
   } catch (error) {
     if (!isUnique(error)) throw error;
     const latest = input.stableKey
-      ? await prisma.studyResource.findFirst({ where: { workspaceId: expectedWorkspaceId, stableKey: input.stableKey }, include: resourceInclude })
+      ? await prisma.studyResource.findFirst({ where: { workspaceId: expectedWorkspaceId, ownerUserId: actorId, stableKey: input.stableKey }, include: resourceInclude })
       : null;
     throw new ApiError("STUDY_RESOURCE_STABLE_KEY_CONFLICT", 409, {
       latest: latest ? serialize(latest) : { stableKey: input.stableKey ?? null },
@@ -718,7 +725,7 @@ async function inspectStudyResourceCopy(
     if (prior) return prior;
     const attachment = await loadReadyResolutionAttachment(tx, input.attachmentId);
     await assertAttachmentOwnedByActor(actorId, workspace.id, attachment, { client: tx, requireStagedWorkspace });
-    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, tx)) };
+    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, actorId, tx)) };
     return { status: attachment.status === "PENDING" ? "PENDING" : "READY" };
   });
 }
@@ -738,9 +745,9 @@ async function createCopiedStudyResource(
     if (prior) return prior;
     const attachment = await loadReadyResolutionAttachment(tx, input.attachmentId, true);
     await assertAttachmentOwnedByActor(actorId, workspace.id, attachment, { client: tx, requireStagedWorkspace });
-    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, tx)) };
+    if (attachment.studyResource) return { result: serialize(await loadResource(workspace.id, attachment.studyResource.id, actorId, tx)) };
     if (input.subjectId) await assertSubjectInWorkspace(workspace.id, input.subjectId, tx);
-    await assertLinkTargetsInWorkspace(tx, workspace.id, input);
+    await assertLinkTargetsInWorkspace(tx, actorId, workspace.id, input);
     const row = await insertCopiedStudyResource(tx, actorId, workspace.id, attachment, input);
     await markStudyResourceUploadResolved(actorId, workspace.id, attachment.id, "copy", row.id, requestFingerprint, requestSnapshot, tx);
     return { result: serialize(await tx.studyResource.findUniqueOrThrow({ where: { id: row.id }, include: resourceInclude })) };
@@ -757,6 +764,7 @@ async function insertCopiedStudyResource(
   const duplicateOf = await tx.studyResource.findFirst({
     where: {
       workspaceId,
+      ownerUserId: actorId,
       sourceType: "FILE",
       attachment: { hash: attachment.hash },
       archivedAt: null,
@@ -767,6 +775,7 @@ async function insertCopiedStudyResource(
   const row = await tx.studyResource.create({
     data: {
       workspaceId,
+      ownerUserId: actorId,
       stableKey: input.stableKey?.trim() || createStableKey("resource", `${workspaceId}:${attachment.hash}:${Date.now()}`),
       title: (input.title ?? attachment.originalName).trim(),
       category: normalizeCategory(input.category),
@@ -818,7 +827,7 @@ export async function createStudyResourceFromAttachment(
   }
   if (attachment.studyResource) {
     throw new ApiError("STUDY_RESOURCE_ATTACHMENT_BOUND", 409, {
-      latest: serialize(await loadResource(workspace.id, attachment.studyResource.id)),
+      latest: serialize(await loadResource(workspace.id, attachment.studyResource.id, actorId)),
       conflictFields: ["attachment.studyResource"],
       workbench: "/knowledge/resources",
     });
@@ -875,6 +884,7 @@ export async function listStagedStudyResourceUploads(actorId: string): Promise<S
   const attachments = await prisma.attachment.findMany({
     where: {
       id: { in: attachmentIds },
+      ownerUserId: actorId,
       noteId: null,
       status: { in: ["PENDING", "READY"] },
       studyResource: null,
@@ -894,6 +904,7 @@ export async function listStagedStudyResourceUploads(actorId: string): Promise<S
   const duplicates = await prisma.studyResource.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       sourceType: "FILE",
       archivedAt: null,
       attachment: { hash: { in: hashes }, status: "READY" },
@@ -1206,7 +1217,7 @@ async function resolvePriorStudyResourceUpload(
 ): Promise<StudyResourceResolutionOutcome | null> {
   const prior = await findResolvedUpload(actorId, input.attachmentId, tx);
   if (!prior) return null;
-  const latestResource = prior.resourceId ? serialize(await loadResource(workspaceId, prior.resourceId, tx)) : null;
+  const latestResource = prior.resourceId ? serialize(await loadResource(workspaceId, prior.resourceId, actorId, tx)) : null;
   const requestChanged = prior.requestFingerprint
     ? prior.requestFingerprint !== requestFingerprint
     : prior.decision !== input.decision || (input.decision === "reuse" && prior.resourceId !== input.reuseResourceId);
@@ -1329,7 +1340,7 @@ async function updateStudyResourceInTransaction(
   id: string,
   input: UpdateStudyResourceInput,
 ) {
-  const existing = await loadResource(workspaceId, id, tx);
+  const existing = await loadResource(workspaceId, id, actorId, tx);
   if (existing.subjectId) await assertSubjectInWorkspace(workspaceId, existing.subjectId, tx);
   if (existing.revision !== input.expectedRevision) {
     const latest = serialize(existing);
@@ -1340,7 +1351,7 @@ async function updateStudyResourceInTransaction(
     });
   }
   if (input.subjectId) await assertSubjectInWorkspace(workspaceId, input.subjectId, tx);
-  await assertLinkTargetsInWorkspace(tx, workspaceId, input);
+  await assertLinkTargetsInWorkspace(tx, actorId, workspaceId, input);
   if (input.tags) {
     await tx.studyResourceTag.deleteMany({ where: { resourceId: id } });
     if (input.tags.length > 0) {
@@ -1355,7 +1366,7 @@ async function updateStudyResourceInTransaction(
   }
   await replaceResourceLinks(tx, id, input);
   const changed = await tx.studyResource.updateMany({
-    where: { id, workspaceId, revision: input.expectedRevision },
+    where: { id, workspaceId, ownerUserId: actorId, revision: input.expectedRevision },
     data: {
       title: input.title?.trim(),
       category: input.category === undefined ? undefined : normalizeCategory(input.category),
@@ -1365,14 +1376,14 @@ async function updateStudyResourceInTransaction(
     },
   });
   if (changed.count !== 1) {
-    const latest = serialize(await loadResource(workspaceId, id, tx));
+    const latest = serialize(await loadResource(workspaceId, id, actorId, tx));
     throw new ApiError("STUDY_RESOURCE_REVISION_CONFLICT", 409, {
       latest,
       conflictFields: studyResourceConflictFields(input, latest),
       workbench: "/knowledge/resources",
     });
   }
-  return tx.studyResource.findUniqueOrThrow({ where: { id }, include: resourceInclude });
+  return loadResource(workspaceId, id, actorId, tx);
 }
 
 function studyResourceConflictFields(input: UpdateStudyResourceInput, latest: StudyResourceDto): string[] {
@@ -1405,11 +1416,11 @@ export async function linkStudyResource(
 ): Promise<StudyResourceDto> {
   const updated = await prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadResource(workspace.id, id, tx);
+    const existing = await loadResource(workspace.id, id, actorId, tx);
     if (existing.subjectId) {
       await assertSubjectInWorkspace(workspace.id, existing.subjectId, tx);
     }
-    await assertLinkTargetsInWorkspace(tx, workspace.id, input);
+    await assertLinkTargetsInWorkspace(tx, actorId, workspace.id, input);
     await replaceResourceLinks(tx, id, input);
     return tx.studyResource.update({
       where: { id },
@@ -1426,11 +1437,13 @@ async function assertAttachmentOwnedByActor(
   workspaceId: string,
   attachment: {
     id: string;
+    ownerUserId: string;
     noteId: string | null;
     note: { subject: { workspaceId: string | null } } | null;
   },
   options: { client?: StudyResourceDbClient; requireStagedWorkspace?: boolean } = {},
 ): Promise<void> {
+  if (attachment.ownerUserId !== actorId) throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
   if (attachment.noteId) {
     if (attachment.note?.subject.workspaceId !== workspaceId) {
       throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
@@ -1506,6 +1519,7 @@ async function replaceLinkSet(
 
 async function assertLinkTargetsInWorkspace(
   tx: Prisma.TransactionClient,
+  actorId: string,
   workspaceId: string,
   input: {
     taskIds?: string[];
@@ -1517,19 +1531,19 @@ async function assertLinkTargetsInWorkspace(
   await Promise.all([
     assertActiveLinkTargets("taskIds", input.taskIds, (ids) =>
       tx.studyTask.findMany({
-        where: { id: { in: ids }, subject: { workspaceId } },
+        where: { id: { in: ids }, ownerUserId: actorId, subject: { workspaceId } },
         select: { id: true, subject: { select: { archivedAt: true } } },
       }),
     ),
     assertActiveLinkTargets("noteIds", input.noteIds, (ids) =>
       tx.note.findMany({
-        where: { id: { in: ids }, subject: { workspaceId } },
+        where: { id: { in: ids }, ownerUserId: actorId, subject: { workspaceId } },
         select: { id: true, subject: { select: { archivedAt: true } } },
       }),
     ),
     assertActiveLinkTargets("mistakeIds", input.mistakeIds, (ids) =>
       tx.mistake.findMany({
-        where: { id: { in: ids }, subject: { workspaceId } },
+        where: { id: { in: ids }, ownerUserId: actorId, subject: { workspaceId } },
         select: { id: true, subject: { select: { archivedAt: true } } },
       }),
     ),
@@ -1568,22 +1582,22 @@ async function assertActiveLinkTargets(
 export async function archiveStudyResource(actorId: string, id: string, expectedRevision: number): Promise<StudyResourceDto> {
   const updated = await prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadResource(workspace.id, id, tx);
+    const existing = await loadResource(workspace.id, id, actorId, tx);
     if (existing.subjectId) {
       await assertSubjectInWorkspace(workspace.id, existing.subjectId, tx);
     }
     if (existing.revision !== expectedRevision) throw studyResourceRevisionConflict(existing);
     if (existing.archivedAt) return existing;
     const changed = await tx.studyResource.updateMany({
-      where: { id, workspaceId: workspace.id, archivedAt: null, revision: expectedRevision },
+      where: { id, workspaceId: workspace.id, ownerUserId: actorId, archivedAt: null, revision: expectedRevision },
       data: { archivedAt: new Date(), revision: { increment: 1 }, actorId },
     });
-    if (changed.count !== 1) throw studyResourceRevisionConflict(await loadResource(workspace.id, id, tx));
+    if (changed.count !== 1) throw studyResourceRevisionConflict(await loadResource(workspace.id, id, actorId, tx));
     await tx.reviewSchedule.updateMany({
       where: { workspaceId: workspace.id, studyResourceId: id, status: "ACTIVE" },
       data: { status: "PAUSED", dueDate: null, pausedReason: "TARGET_ARCHIVED", revision: { increment: 1 } },
     });
-    return loadResource(workspace.id, id, tx);
+    return loadResource(workspace.id, id, actorId, tx);
   });
   return serialize(updated);
 }
@@ -1591,18 +1605,18 @@ export async function archiveStudyResource(actorId: string, id: string, expected
 export async function restoreStudyResource(actorId: string, id: string, expectedRevision: number): Promise<StudyResourceDto> {
   const updated = await prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadResource(workspace.id, id, tx);
+    const existing = await loadResource(workspace.id, id, actorId, tx);
     if (existing.subjectId) {
       await assertSubjectInWorkspace(workspace.id, existing.subjectId, tx);
     }
     if (existing.revision !== expectedRevision) throw studyResourceRevisionConflict(existing);
     if (!existing.archivedAt) return existing;
     const changed = await tx.studyResource.updateMany({
-      where: { id, workspaceId: workspace.id, archivedAt: { not: null }, revision: expectedRevision },
+      where: { id, workspaceId: workspace.id, ownerUserId: actorId, archivedAt: { not: null }, revision: expectedRevision },
       data: { archivedAt: null, revision: { increment: 1 }, actorId },
     });
-    if (changed.count !== 1) throw studyResourceRevisionConflict(await loadResource(workspace.id, id, tx));
-    return loadResource(workspace.id, id, tx);
+    if (changed.count !== 1) throw studyResourceRevisionConflict(await loadResource(workspace.id, id, actorId, tx));
+    return loadResource(workspace.id, id, actorId, tx);
   });
   return serialize(updated);
 }
@@ -1621,7 +1635,7 @@ export async function downloadStudyResource(
   disposition?: "attachment" | "inline",
 ): Promise<AttachmentDownload> {
   const workspace = await resolveActiveWorkspace(actorId);
-  const resource = await loadResource(workspace.id, id);
+  const resource = await loadResource(workspace.id, id, actorId);
   if (resource.sourceType !== "FILE" || !resource.attachmentId) {
     throw new ApiError("STUDY_RESOURCE_NOT_FILE", 400);
   }

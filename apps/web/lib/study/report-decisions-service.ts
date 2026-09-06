@@ -9,7 +9,7 @@ import {
   type PeriodicReportDto,
   type PeriodicReportKind,
 } from "./reports-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { createPlanInboxItemWithResult, type PlanInboxWriteResult } from "./plan-inbox-service";
 import type { PlanInboxWriteSummaryDto } from "@/lib/contracts";
 
@@ -54,7 +54,7 @@ export async function decidePeriodicReport(
       workbench: reportWorkbench,
     });
   }
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
 
   const status = input.action === "confirm" ? "confirmed" : "rejected";
   const nextCycleDraft = input.action === "confirm" ? report.decisionPreview.nextCycleDraft : null;
@@ -66,12 +66,13 @@ export async function decidePeriodicReport(
         rangeStart: new Date(report.range.start),
         rangeEnd: new Date(report.range.end),
         workspaceId: workspace.id,
+        ownerUserId: actorId,
       },
     });
 
     if (existing) {
       if (existing.status === status) {
-        const stageDraft = await tx.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
+        const stageDraft = await tx.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id, ownerUserId: actorId }, select: { id: true } });
         return {
           decision: existing,
           alreadyDecided: true,
@@ -97,6 +98,7 @@ export async function decidePeriodicReport(
         canAutoApply: false,
         requiresUserConfirmation: true,
         actorId,
+        ownerUserId: actorId,
         workspaceId: workspace.id,
       },
     });
@@ -119,12 +121,13 @@ export async function decidePeriodicReport(
         }));
       }
       const stagePlan = await tx.stagePlan.findFirst({
-        where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+        where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["active", "draft"] } },
         orderBy: [{ status: "asc" }, { startDate: "asc" }],
       });
       const stageDraft = await tx.stageAdjustmentDraft.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           stagePlanId: stagePlan?.id ?? null,
           sourceReportDecisionId: created.id,
           sourceReportRevision: report.revision,
@@ -146,7 +149,7 @@ export async function decidePeriodicReport(
       stageDraftId = stageDraft.id;
     } else {
       await tx.stageAdjustmentDraft.updateMany({
-        where: { workspaceId: workspace.id, sourceReportDecisionId: created.id, status: "draft" },
+        where: { workspaceId: workspace.id, ownerUserId: actorId, sourceReportDecisionId: created.id, status: "draft" },
         data: { status: "rejected", revision: { increment: 1 }, actorId },
       });
     }
@@ -184,6 +187,7 @@ export async function decidePeriodicReport(
           rangeStart: new Date(report.range.start),
           rangeEnd: new Date(report.range.end),
           workspaceId: workspace.id,
+          ownerUserId: actorId,
         },
       });
       if (!existing || existing.status !== status) {
@@ -193,7 +197,7 @@ export async function decidePeriodicReport(
           workbench: reportWorkbench,
         });
       }
-      const stageDraft = await prisma.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id }, select: { id: true } });
+      const stageDraft = await prisma.stageAdjustmentDraft.findFirst({ where: { sourceReportDecisionId: existing.id, workspaceId: workspace.id, ownerUserId: actorId }, select: { id: true } });
       return { decision: existing, alreadyDecided: true, stageDraftId: stageDraft?.id ?? null, inboxResult: emptyInboxResult() };
     }
     if (error instanceof ApiError && error.status === 409) {
@@ -211,30 +215,34 @@ export async function decidePeriodicReport(
 }
 
 export async function listPeriodicReportDecisions(kind?: PeriodicReportKind, actorId?: string): Promise<PeriodicReportDecisionDto[]> {
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+  const workspace = actorId ? await resolveSelectedMemberWorkspace(actorId) : null;
   const decisions = await prisma.periodicReportDecision.findMany({
-    where: { ...(kind ? { kind } : {}), ...(workspace ? { workspaceId: workspace.id } : {}) },
+    where: {
+      ...(kind ? { kind } : {}),
+      ...(workspace ? { workspaceId: workspace.id, ownerUserId: actorId } : {}),
+    },
     orderBy: [{ decidedAt: "desc" }],
     take: 50,
   });
 
   return Promise.all(decisions.map(async (decision) => {
     const context = workspace
-      ? await getPeriodicReportDecisionContext(decision.id, workspace.id, decision.kind as PeriodicReportKind, decision.rangeStart)
+      ? await getPeriodicReportDecisionContext(decision.id, workspace.id, decision.kind as PeriodicReportKind, decision.rangeStart, actorId!)
       : null;
     return serializePeriodicReportDecision(decision, context ?? undefined);
   }));
 }
 
 export async function getPeriodicReportDecision(id: string, actorId: string): Promise<PeriodicReportDecisionDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const decision = await prisma.periodicReportDecision.findFirst({ where: { id, workspaceId: workspace.id } });
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const decision = await prisma.periodicReportDecision.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
   if (!decision) throw new ApiError("PERIODIC_REPORT_DECISION_NOT_FOUND", 404);
   const context = await getPeriodicReportDecisionContext(
     decision.id,
     workspace.id,
     decision.kind as PeriodicReportKind,
     decision.rangeStart,
+    actorId,
   );
   return serializePeriodicReportDecision(decision, context);
 }

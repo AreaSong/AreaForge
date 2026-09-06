@@ -35,6 +35,9 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `AUTH_ADMIN_EMAIL` | 可选 | 管理员邮箱，`pnpm db:seed` 时写入 |
 | `AUTH_ADMIN_PASSWORD_HASH` | 可选 | 管理员密码的 scrypt 哈希，用 `pnpm auth:hash '<密码>'` 生成；不要填明文密码 |
 | `AUTH_MULTI_USER_ENABLED` | `false` | v1.4 邀请、成员和多 Workspace 选择闸门；只有 migration、隔离验证和 SMTP 配置完成后才在目标环境开启 |
+| `AUTH_RBAC_ENABLED` | `false` | v1.5 角色、分享、Coach 与 Operator API 闸门；默认关闭，需独立确认与隔离验证 |
+| `DATA_LIFECYCLE_ENABLED` | `false` | v1.6 本地候选数据任务/脱敏预览闸门；不启用物理删除、归档落盘或生产操作 |
+| `RANKING_ENABLED` | `false` | v1.8 私有挑战/排名候选闸门；默认关闭，不开放公开榜或通知外呼 |
 | `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
 | `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
 | `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |

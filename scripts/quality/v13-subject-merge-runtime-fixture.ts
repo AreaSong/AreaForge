@@ -95,6 +95,7 @@ export async function seedSubjectMergePair(label: string): Promise<SubjectMergeP
 export async function addTargetReferenceWeight(pair: SubjectMergePair, count = 20): Promise<void> {
   await prisma.studyTask.createMany({
     data: Array.from({ length: count }, (_, index) => ({
+      ownerUserId: pair.actorId,
       subjectId: pair.targetSubjectId,
       title: `目标科目权重 ${index + 1}`,
       type: "study",
@@ -114,6 +115,7 @@ export async function seedCompleteSubjectMergeGraph(
   const privateMarker = `V13_PRIVATE_BODY_${randomUUID()}`;
   const task = await prisma.studyTask.create({
     data: {
+      ownerUserId: pair.actorId,
       subjectId: pair.sourceSubjectId,
       title: privateMarker,
       type: "study",
@@ -147,6 +149,7 @@ export async function seedCompleteSubjectMergeGraph(
   const [note, mistake] = await Promise.all([
     prisma.note.create({
       data: {
+        ownerUserId: pair.actorId,
         subjectId: pair.sourceSubjectId,
         syllabusNodeId: syllabusNode.id,
         taskId: task.id,
@@ -156,6 +159,7 @@ export async function seedCompleteSubjectMergeGraph(
     }),
     prisma.mistake.create({
       data: {
+        ownerUserId: pair.actorId,
         subjectId: pair.sourceSubjectId,
         syllabusNodeId: syllabusNode.id,
         title: "合并夹具错题",
@@ -205,6 +209,7 @@ export async function seedCompleteSubjectMergeGraph(
     prisma.planInboxItem.create({
       data: {
         workspaceId: pair.workspaceId,
+        ownerUserId: pair.actorId,
         subjectId: pair.sourceSubjectId,
         stableKey: simulationInboxPreimage.stableKey,
         originKey: simulationInboxPreimage.originKey,
@@ -218,6 +223,7 @@ export async function seedCompleteSubjectMergeGraph(
     prisma.planInboxItem.create({
       data: {
         workspaceId: pair.workspaceId,
+        ownerUserId: pair.actorId,
         subjectId: pair.sourceSubjectId,
         stableKey: `manual-${randomUUID()}:v1`,
         originKey: `manual-${randomUUID()}`,
@@ -232,6 +238,7 @@ export async function seedCompleteSubjectMergeGraph(
   const resource = await prisma.studyResource.create({
     data: {
       workspaceId: pair.workspaceId,
+      ownerUserId: pair.actorId,
       stableKey: `resource-${randomUUID()}`,
       title: "隔离资料",
       sourceType: "LINK",
@@ -366,6 +373,7 @@ export async function seedSimulationInbox(
   await prisma.planInboxItem.create({
     data: {
       workspaceId: pair.workspaceId,
+      ownerUserId: pair.actorId,
       subjectId,
       stableKey: `${originKey}:v1`,
       originKey,

@@ -975,6 +975,7 @@ async function verifyResourceOwnerIsolation(
   });
   const foreignNote = await prisma.note.create({
     data: {
+      ownerUserId: other.user.id,
       subjectId: other.subject.id,
       title: "Foreign note",
       content: "private",

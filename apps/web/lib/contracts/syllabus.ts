@@ -65,6 +65,7 @@ export interface MasteryEvidenceCandidateDto {
 export interface SyllabusNodeDto {
   id: string;
   revision: number;
+  progressRevision: number;
   stableKey: string | null;
   archivedAt: string | null;
   subjectId: string;

@@ -295,6 +295,12 @@
     "db:seed": "tsx scripts/db/seed.ts",
     "ops:v14:auth:typecheck": "tsc -p scripts/quality/tsconfig.v14-auth.json",
     "ops:v14:auth:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v14-auth-runtime.selftest.ts",
+    "ops:v15:rbac:typecheck": "tsc -p scripts/quality/tsconfig.v15-rbac.json",
+    "ops:v15:rbac:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v15-rbac-runtime.selftest.ts",
+    "ops:v15:r-study-task-owner:typecheck": "tsc -p scripts/quality/tsconfig.v15-r-study-task-owner.json",
+    "ops:v15:r-study-task-owner:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v15-r-study-task-owner-runtime.selftest.ts",
+    "ops:ab:candidate-schema:selftest": "tsx scripts/quality/ab-candidate-schema.selftest.ts",
+    "ops:ab:v16-v18:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v16-v18-runtime.selftest.ts",
     "db:seed:complete-test": "tsx scripts/db/seed-complete-test.ts"
   },
   "devDependencies": {

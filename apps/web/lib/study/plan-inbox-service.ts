@@ -18,7 +18,10 @@ import {
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyDayKey, getStudyDayRange } from "./date";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  lockSelectedMemberWorkspaceForWrite,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { getBridgableReviewScheduleInTx } from "./review-schedule-service";
 import { acknowledgeAiDraftResultInTx } from "./ai-draft-service";
@@ -173,9 +176,9 @@ async function withPlanInboxConflictContext<T>(
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 409) throw error;
 
-    const workspace = await resolveActiveWorkspace(actorId);
+    const workspace = await resolveSelectedMemberWorkspace(actorId);
     const current = await prisma.planInboxItem.findFirst({
-      where: { id: itemId, workspaceId: workspace.id },
+      where: { id: itemId, workspaceId: workspace.id, ownerUserId: actorId },
       include: { dependencyRefs: true },
     });
     const suppliedLatest = isPlanInboxItemDto(error.details?.latest)
@@ -183,7 +186,7 @@ async function withPlanInboxConflictContext<T>(
       : null;
     const successor = error.code === "PLAN_INBOX_SUPERSEDED" && current?.supersededByItemId
       ? await prisma.planInboxItem.findFirst({
-          where: { id: current.supersededByItemId, workspaceId: workspace.id },
+          where: { id: current.supersededByItemId, workspaceId: workspace.id, ownerUserId: actorId },
           include: { dependencyRefs: true },
         })
       : null;
@@ -240,10 +243,11 @@ export async function listPlanInboxItems(
   actorId: string,
   status?: PlanInboxItemStatus,
 ): Promise<PlanInboxItemDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.planInboxItem.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       ...(status ? { status } : {}),
     },
     include: { dependencyRefs: true },
@@ -256,13 +260,14 @@ export async function getDailyReviewMinimumInboxItem(
   actorId: string,
   review: { reviewDate: string; revision: number },
 ): Promise<PlanInboxItemDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const reviewDate = new Date(review.reviewDate);
   if (Number.isNaN(reviewDate.getTime())) return null;
   const originKey = `daily-review:${getStudyDayKey(reviewDate)}:minimum`;
   const row = await prisma.planInboxItem.findFirst({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       stableKey: `${originKey}:v${review.revision}`,
       originType: "DAILY_REVIEW_MINIMUM",
       originVersion: review.revision,
@@ -277,7 +282,7 @@ export async function createPlanInboxItem(
   input: CreatePlanInboxItemInput,
 ): Promise<PlanInboxItemDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     return (await createPlanInboxItemWithResult(tx, workspace.id, actorId, input)).item;
   });
 }
@@ -321,7 +326,7 @@ export async function adoptAiPlanDraftToInbox(
   input: AdoptAiPlanDraftInput,
 ): Promise<PlanInboxItemDto[]> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const acknowledged = await acknowledgeAiDraftResultInTx(
       tx,
       actorId,
@@ -444,9 +449,9 @@ export async function createLowConversionPlanInboxItem(
   input: { sessionId: string; expectedCloseoutVersion: number },
 ): Promise<PlanInboxItemDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const session = await tx.studySession.findFirst({
-      where: { id: input.sessionId, subject: { workspaceId: workspace.id } },
+      where: { id: input.sessionId, userId: actorId, subject: { workspaceId: workspace.id } },
       select: {
         id: true,
         status: true,
@@ -541,11 +546,12 @@ export async function createAnalyticsRiskPlanInboxItem(
   const draft = buildAnalyticsRiskPlanDraft(analytics, risk, input.windowDays, day.start.toISOString());
 
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(hashtext(${draft.originKey}))`;
     const existing = await tx.planInboxItem.findFirst({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         originKey: draft.originKey,
         originVersion: draft.originVersion,
       },
@@ -607,7 +613,7 @@ export async function createPlanInboxItemWithResult(
   actorId: string,
   input: CreatePlanInboxItemInput,
 ): Promise<PlanInboxWriteResult> {
-  const activeWorkspace = await lockActiveWorkspaceForWrite(tx, actorId);
+  const activeWorkspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
   if (activeWorkspace.id !== workspaceId) {
     throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
       latest: {
@@ -623,7 +629,7 @@ export async function createPlanInboxItemWithResult(
   }
   const origin = buildOriginIdentity({ originKey: input.originKey, originVersion: input.originVersion });
   const existing = await tx.planInboxItem.findFirst({
-    where: { workspaceId, originKey: origin.originKey, originVersion: origin.originVersion },
+    where: { workspaceId, ownerUserId: actorId, originKey: origin.originKey, originVersion: origin.originVersion },
     include: { dependencyRefs: true },
   });
   if (existing) {
@@ -637,7 +643,7 @@ export async function createPlanInboxItemWithResult(
   }
 
   const newer = await tx.planInboxItem.findFirst({
-    where: { workspaceId, originKey: origin.originKey, originVersion: { gt: origin.originVersion } },
+    where: { workspaceId, ownerUserId: actorId, originKey: origin.originKey, originVersion: { gt: origin.originVersion } },
     include: { dependencyRefs: true },
     orderBy: { originVersion: "desc" },
   });
@@ -654,11 +660,12 @@ export async function createPlanInboxItemWithResult(
     primaryNodeId: input.primaryNodeId ?? null,
     relatedNodeIds: input.relatedNodeIds ?? [],
     predecessorTasks: input.predecessorTasks ?? [],
-  });
+  }, actorId);
 
   const created = await tx.planInboxItem.create({
     data: {
       workspaceId,
+      ownerUserId: actorId,
       stableKey: input.stableKey.trim(),
       originKey: origin.originKey,
       originVersion: origin.originVersion,
@@ -684,6 +691,7 @@ export async function createPlanInboxItemWithResult(
   const previous = await tx.planInboxItem.findMany({
     where: {
       workspaceId,
+      ownerUserId: actorId,
       originKey: origin.originKey,
       originVersion: { lt: origin.originVersion },
       status: "OPEN",
@@ -695,6 +703,7 @@ export async function createPlanInboxItemWithResult(
     const changed = await tx.planInboxItem.updateMany({
       where: {
         id: { in: previous.map((item) => item.id) },
+        ownerUserId: actorId,
         status: "OPEN",
         supersededByItemId: null,
       },
@@ -702,7 +711,7 @@ export async function createPlanInboxItemWithResult(
     });
     if (changed.count !== previous.length) {
       const latest = await tx.planInboxItem.findFirst({
-        where: { workspaceId, originKey: origin.originKey, id: { not: created.id } },
+        where: { workspaceId, ownerUserId: actorId, originKey: origin.originKey, id: { not: created.id } },
         include: { dependencyRefs: true },
         orderBy: { originVersion: "desc" },
       });
@@ -747,9 +756,9 @@ export async function updatePlanInboxItem(
   },
 ): Promise<PlanInboxItemDto> {
   return withPlanInboxConflictContext(actorId, itemId, () => prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockInboxItem(tx, itemId);
-    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id }, include: { dependencyRefs: true } });
+    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id, ownerUserId: actorId }, include: { dependencyRefs: true } });
     if (!existing) throw new ApiError("PLAN_INBOX_ITEM_NOT_FOUND", 404);
     if (existing.supersededByItemId) throw new ApiError("PLAN_INBOX_SUPERSEDED", 409);
     if (existing.status === "CONVERTED") throw new ApiError("PLAN_INBOX_ALREADY_CONVERTED", 409);
@@ -764,7 +773,7 @@ export async function updatePlanInboxItem(
       primaryNodeId: input.primaryNodeId === undefined ? existing.primaryNodeId : input.primaryNodeId,
       relatedNodeIds,
       predecessorTasks: input.predecessorTasks ?? existing.dependencyRefs.filter((ref) => ref.targetType === "TASK" && ref.taskId).map((ref) => ({ taskId: ref.taskId as string, dependencyType: ref.dependencyType })),
-    });
+    }, actorId);
     if (input.predecessorTasks) {
       await tx.planInboxDependencyRef.deleteMany({ where: { inboxItemId: existing.id, targetType: "TASK" } });
       if (input.predecessorTasks.length) await tx.planInboxDependencyRef.createMany({ data: input.predecessorTasks.map((dependency) => ({ inboxItemId: existing.id, targetType: "TASK", taskId: dependency.taskId, dependencyType: dependency.dependencyType })) });
@@ -791,9 +800,9 @@ export async function dismissPlanInboxItem(
   expectedRevision: number,
 ): Promise<PlanInboxItemDto> {
   return withPlanInboxConflictContext(actorId, itemId, () => prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockInboxItem(tx, itemId);
-    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id }, include: { dependencyRefs: true } });
+    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id, ownerUserId: actorId }, include: { dependencyRefs: true } });
     if (!existing) throw new ApiError("PLAN_INBOX_ITEM_NOT_FOUND", 404);
     if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision }) === "revision_conflict") {
       throw new ApiError("PLAN_INBOX_REVISION_CONFLICT", 409, { latest: serialize(existing), conflictFields: ["revision"] });
@@ -814,14 +823,14 @@ export async function reopenPlanInboxItem(
   expectedRevision: number,
 ): Promise<PlanInboxItemDto> {
   return withPlanInboxConflictContext(actorId, itemId, () => prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockInboxItem(tx, itemId);
-    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id }, include: { dependencyRefs: true } });
+    const existing = await tx.planInboxItem.findFirst({ where: { id: itemId, workspaceId: workspace.id, ownerUserId: actorId }, include: { dependencyRefs: true } });
     if (!existing) throw new ApiError("PLAN_INBOX_ITEM_NOT_FOUND", 404);
     if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision }) === "revision_conflict") {
       throw new ApiError("PLAN_INBOX_REVISION_CONFLICT", 409, { latest: serialize(existing), conflictFields: ["revision"] });
     }
-    const newer = await tx.planInboxItem.findFirst({ where: { workspaceId: workspace.id, originKey: existing.originKey, originVersion: { gt: existing.originVersion } }, include: { dependencyRefs: true }, orderBy: { originVersion: "desc" } });
+    const newer = await tx.planInboxItem.findFirst({ where: { workspaceId: workspace.id, ownerUserId: actorId, originKey: existing.originKey, originVersion: { gt: existing.originVersion } }, include: { dependencyRefs: true }, orderBy: { originVersion: "desc" } });
     if (newer) throw new ApiError("PLAN_INBOX_SUPERSEDED", 409, { latest: serialize(newer), conflictFields: ["originVersion"] });
     const gate = canReopenInboxItem({ status: existing.status, supersededByItemId: existing.supersededByItemId });
     if (gate !== "ok") throw new ApiError(`PLAN_INBOX_${gate.toUpperCase()}`, 409);
@@ -845,7 +854,7 @@ export async function convertPlanInboxItem(
   const requestFingerprint = planInboxConvertFingerprint(itemId, input.expectedRevision);
 
   return withPlanInboxConflictContext(actorId, itemId, () => prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command: PersistentCreateCommand = {
       actorId,
       workspaceId: workspace.id,
@@ -863,7 +872,7 @@ export async function convertPlanInboxItem(
     }
     if (claim.state === "replayed") {
       const replayed = await tx.planInboxItem.findFirst({
-        where: { id: claim.replay.resultId, workspaceId: workspace.id },
+        where: { id: claim.replay.resultId, workspaceId: workspace.id, ownerUserId: actorId },
         include: { dependencyRefs: true },
       });
       if (!replayed || replayed.status !== "CONVERTED" || !replayed.convertedTaskId) {
@@ -877,7 +886,7 @@ export async function convertPlanInboxItem(
     await lockWorkspaceDependencyGraph(tx, workspace.id);
     await lockInboxItem(tx, itemId);
     const existing = await tx.planInboxItem.findFirst({
-      where: { id: itemId, workspaceId: workspace.id },
+      where: { id: itemId, workspaceId: workspace.id, ownerUserId: actorId },
       include: { dependencyRefs: true },
     });
     if (!existing) throw new ApiError("PLAN_INBOX_ITEM_NOT_FOUND", 404);
@@ -901,7 +910,7 @@ export async function convertPlanInboxItem(
     }
 
     const newer = await tx.planInboxItem.findFirst({
-      where: { workspaceId: workspace.id, originKey: existing.originKey, originVersion: { gt: existing.originVersion } },
+      where: { workspaceId: workspace.id, ownerUserId: actorId, originKey: existing.originKey, originVersion: { gt: existing.originVersion } },
       include: { dependencyRefs: true },
       orderBy: { originVersion: "desc" },
     });
@@ -930,7 +939,7 @@ export async function convertPlanInboxItem(
       primaryNodeId: existing.primaryNodeId,
       relatedNodeIds: parseStringArray(existing.relatedNodeIds),
       predecessorTasks: existing.dependencyRefs.filter((ref) => ref.targetType === "TASK" && ref.taskId).map((ref) => ({ taskId: ref.taskId as string, dependencyType: ref.dependencyType })),
-    });
+    }, actorId);
 
     const reviewScheduleId = await resolveTrustedInboxReviewScheduleId(
       tx,
@@ -941,7 +950,7 @@ export async function convertPlanInboxItem(
 
     const milestone = existing.planMilestoneId
       ? await tx.planMilestone.findFirst({
-          where: { id: existing.planMilestoneId, workspaceId: workspace.id },
+          where: { id: existing.planMilestoneId, workspaceId: workspace.id, ownerUserId: actorId },
           select: { stagePlanId: true },
         })
       : null;
@@ -951,14 +960,18 @@ export async function convertPlanInboxItem(
       ? normalizedPriority
       : "MEDIUM";
 
-    const resolvedDependencies = await resolveDependencyRefs(tx, workspace.id, existing);
+    const resolvedDependencies = await resolveDependencyRefs(tx, workspace.id, existing, actorId);
     const graph = await tx.taskDependency.findMany({
-      where: { predecessor: { subject: { workspaceId: workspace.id } }, successor: { subject: { workspaceId: workspace.id } } },
+      where: {
+        predecessor: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
+        successor: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
+      },
       select: { predecessorId: true, successorId: true, type: true },
     });
 
     const task = await tx.studyTask.create({
       data: {
+        ownerUserId: actorId,
         subjectId,
         syllabusNodeId: existing.primaryNodeId,
         planMilestoneId: existing.planMilestoneId,
@@ -1010,7 +1023,7 @@ export async function convertPlanInboxItem(
       serialize(updated) as unknown as Prisma.InputJsonValue,
     );
 
-    await refreshWorkspaceCheckInSnapshotForDate(workspace.id, plannedDate, tx);
+    await refreshWorkspaceCheckInSnapshotForDate(actorId, workspace.id, plannedDate, tx);
 
     return serialize(updated);
   }));
@@ -1019,18 +1032,27 @@ export async function convertPlanInboxItem(
 export type { PlanInboxFormOptions } from "@/lib/contracts/plan-inbox";
 
 export async function getPlanInboxFormOptions(actorId: string): Promise<PlanInboxFormOptions> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const isWorkspaceOwner = workspace.userId === actorId;
+  if (!isWorkspaceOwner) {
+    const subjects = await prisma.subject.findMany({
+      where: { workspaceId: workspace.id, archivedAt: null },
+      select: { id: true, name: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    return { subjects, nodes: [], milestones: [], tasks: [], stagePlans: [] };
+  }
   const [subjects, nodes, milestones, tasks, stagePlans] = await Promise.all([
     prisma.subject.findMany({ where: { workspaceId: workspace.id, archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
     prisma.syllabusNode.findMany({ where: { subject: { workspaceId: workspace.id }, archivedAt: null }, select: { id: true, subjectId: true, title: true }, orderBy: { title: "asc" } }),
-    prisma.planMilestone.findMany({ where: { workspaceId: workspace.id, archivedAt: null }, select: { id: true, subjectId: true, title: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.planMilestone.findMany({ where: { workspaceId: workspace.id, ownerUserId: actorId, archivedAt: null }, select: { id: true, subjectId: true, title: true }, orderBy: { sortOrder: "asc" } }),
     prisma.studyTask.findMany({
-      where: { subject: { workspaceId: workspace.id, archivedAt: null }, status: { notIn: ["DONE", "SKIPPED"] } },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id, archivedAt: null }, status: { notIn: ["DONE", "SKIPPED"] } },
       select: { id: true, subjectId: true, title: true, subject: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
-    prisma.stagePlan.findMany({ where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } }, select: { id: true, name: true }, orderBy: [{ status: "asc" }, { startDate: "asc" }] }),
+    prisma.stagePlan.findMany({ where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["active", "draft"] } }, select: { id: true, name: true }, orderBy: [{ status: "asc" }, { startDate: "asc" }] }),
   ]);
   return {
     subjects,
@@ -1075,6 +1097,7 @@ async function resolveTrustedInboxReviewScheduleId(
   }
   const schedule = await getBridgableReviewScheduleInTx(
     tx,
+    item.ownerUserId,
     workspaceId,
     reviewScheduleId,
     subjectId,
@@ -1117,8 +1140,9 @@ async function assertEditableRelations(
     relatedNodeIds: string[];
     predecessorTasks: Array<{ taskId: string; dependencyType: TaskDependencyType }>;
   },
+  ownerUserId: string,
 ): Promise<void> {
-  const latest = await loadPlanInboxRelationConflictLatest(tx, workspaceId, input);
+  const latest = await loadPlanInboxRelationConflictLatest(tx, workspaceId, input, ownerUserId);
   if (input.subjectId && (!latest.relations.subject || latest.relations.subject.archived)) {
     throw new ApiError("PLAN_INBOX_SUBJECT_INVALID", 409, { latest, conflictFields: ["subjectId"] });
   }
@@ -1167,6 +1191,7 @@ async function loadPlanInboxRelationConflictLatest(
     relatedNodeIds: string[];
     predecessorTasks: Array<{ taskId: string; dependencyType: TaskDependencyType }>;
   },
+  ownerUserId: string,
 ): Promise<PlanInboxRelationConflictLatest> {
   const nodeIds = Array.from(new Set([input.primaryNodeId, ...input.relatedNodeIds].filter((id): id is string => Boolean(id))));
   const predecessorIds = Array.from(new Set(input.predecessorTasks.map((dependency) => dependency.taskId)));
@@ -1176,7 +1201,7 @@ async function loadPlanInboxRelationConflictLatest(
       select: { id: true, archivedAt: true },
     }) : null,
     input.planMilestoneId ? tx.planMilestone.findFirst({
-      where: { id: input.planMilestoneId, workspaceId },
+      where: { id: input.planMilestoneId, workspaceId, ownerUserId },
       select: { id: true, subjectId: true, archivedAt: true },
     }) : null,
     nodeIds.length ? tx.syllabusNode.findMany({
@@ -1184,7 +1209,7 @@ async function loadPlanInboxRelationConflictLatest(
       select: { id: true, subjectId: true, archivedAt: true },
     }) : [],
     predecessorIds.length ? tx.studyTask.findMany({
-      where: { id: { in: predecessorIds }, subject: { workspaceId } },
+      where: { id: { in: predecessorIds }, ownerUserId, subject: { workspaceId } },
       select: { id: true, subjectId: true, status: true, subject: { select: { archivedAt: true } } },
     }) : [],
   ]);
@@ -1213,6 +1238,7 @@ async function resolveDependencyRefs(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   item: PlanInboxRow,
+  ownerUserId: string,
 ): Promise<Array<{ taskId: string; dependencyType: TaskDependencyType }>> {
   const resolved: Array<{ taskId: string; dependencyType: TaskDependencyType }> = [];
   for (const ref of item.dependencyRefs) {
@@ -1226,10 +1252,11 @@ async function resolveDependencyRefs(
             importBatchId: ref.importBatchId,
             sourcePlanStableKey: ref.planStableKey,
             originVersion: ref.planOriginVersion,
-          })
+          }, item.ownerUserId)
         : await tx.planInboxItem.findFirst({
             where: {
               workspaceId,
+              ownerUserId: item.ownerUserId,
               stableKey: ref.planStableKey,
               ...(ref.planOriginVersion ? { originVersion: ref.planOriginVersion } : {}),
             },
@@ -1251,6 +1278,7 @@ async function resolveDependencyRefs(
     const validTasks = await tx.studyTask.count({
       where: {
         id: { in: unique.map((dependency) => dependency.taskId) },
+        ownerUserId,
         subject: { workspaceId, archivedAt: null },
       },
     });
@@ -1265,6 +1293,7 @@ async function resolveImportedPlanPredecessor(
   tx: Prisma.TransactionClient,
   workspaceId: string,
   input: { importBatchId: string; sourcePlanStableKey: string; originVersion: number | null },
+  ownerUserId: string,
 ): Promise<PlanInboxRow | null> {
   const mapping = await tx.learningTreeImportItem.findFirst({
     where: {
@@ -1280,6 +1309,7 @@ async function resolveImportedPlanPredecessor(
     where: {
       id: mapping.mappedTargetId,
       workspaceId,
+      ownerUserId,
       ...(input.originVersion ? { originVersion: input.originVersion } : {}),
     },
     include: { dependencyRefs: true },
@@ -1292,34 +1322,37 @@ async function isOriginArchived(tx: Prisma.TransactionClient, workspaceId: strin
     : {};
   if (snapshot.sourceArchived === true || snapshot.archivedAt) return true;
   if (item.originType === "SIMULATION_LOSS" && typeof snapshot.examId === "string") {
-    return !(await tx.simulationExam.findFirst({ where: { id: snapshot.examId, workspaceId }, select: { id: true } }));
+    return !(await tx.simulationExam.findFirst({ where: { id: snapshot.examId, workspaceId, ownerUserId: item.ownerUserId }, select: { id: true } }));
   }
   if (item.originType === "PERIODIC_REPORT" && typeof snapshot.decisionId === "string") {
-    return !(await tx.periodicReportDecision.findFirst({ where: { id: snapshot.decisionId, workspaceId }, select: { id: true } }));
+    return !(await tx.periodicReportDecision.findFirst({ where: { id: snapshot.decisionId, workspaceId, ownerUserId: item.ownerUserId }, select: { id: true } }));
   }
   if (item.originType === "STAGE_ADJUSTMENT" && typeof snapshot.draftId === "string") {
-    return !(await tx.stageAdjustmentDraft.findFirst({ where: { id: snapshot.draftId, workspaceId }, select: { id: true } }));
+    return !(await tx.stageAdjustmentDraft.findFirst({ where: { id: snapshot.draftId, workspaceId, ownerUserId: item.ownerUserId }, select: { id: true } }));
   }
   if (item.originType === "DAILY_REVIEW_MINIMUM" && typeof snapshot.dailyReviewId === "string") {
-    return !(await tx.dailyReview.findFirst({ where: { id: snapshot.dailyReviewId, workspaceId }, select: { id: true } }));
+    return !(await tx.dailyReview.findFirst({
+      where: { id: snapshot.dailyReviewId, workspaceId, ownerUserId: item.ownerUserId },
+      select: { id: true },
+    }));
   }
   if (item.originType === "LOW_CONVERSION" && typeof snapshot.sessionId === "string") {
     const source = await tx.studySession.findFirst({
-      where: { id: snapshot.sessionId, subject: { workspaceId } },
+      where: { id: snapshot.sessionId, userId: item.ownerUserId, subject: { workspaceId } },
       select: { subject: { select: { archivedAt: true } } },
     });
     return !source || Boolean(source.subject.archivedAt);
   }
   if (item.originType === "RECOVERY_MINIMUM" && typeof snapshot.recoveryId === "string") {
     const source = await tx.recoveryState.findFirst({
-      where: { id: snapshot.recoveryId, workspaceId },
+      where: { id: snapshot.recoveryId, workspaceId, userId: item.ownerUserId },
       select: { status: true, progressionVersion: true },
     });
     return !source || source.status !== "ACTIVE" || source.progressionVersion !== item.originVersion;
   }
   if (item.originType === "RETEST_FOLLOW_UP" && typeof snapshot.retestId === "string") {
     const source = await tx.knowledgeRetest.findFirst({
-      where: { id: snapshot.retestId, workspaceId },
+      where: { id: snapshot.retestId, workspaceId, userId: item.ownerUserId },
       select: { status: true },
     });
     return !source || source.status !== "CLOSED";
@@ -1342,7 +1375,7 @@ async function assertTrustedOriginCurrent(
   if (!examId) throw simulationOriginStale(item);
 
   const exam = await tx.simulationExam.findFirst({
-    where: { id: examId, workspaceId },
+    where: { id: examId, workspaceId, ownerUserId: item.ownerUserId },
     select: {
       subjectResults: {
         select: {
@@ -1427,7 +1460,7 @@ async function assertLowConversionOriginCurrent(
     : null;
   if (!sessionId || closeoutVersion == null) throw new ApiError("PLAN_INBOX_ORIGIN_STALE", 409);
   const session = await tx.studySession.findFirst({
-    where: { id: sessionId, subject: { workspaceId } },
+    where: { id: sessionId, userId: item.ownerUserId, subject: { workspaceId } },
     select: {
       status: true,
       endedAt: true,

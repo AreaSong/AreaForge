@@ -12,7 +12,12 @@ import {
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
 import { cache } from "react";
 import { ApiError } from "@/lib/api/responses";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { getAuthEnv } from "@/lib/auth/env";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
+import {
+  lockSelectedMemberWorkspaceForWrite,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -21,6 +26,12 @@ import {
 } from "./persistent-idempotency";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
 import { calculateMasteryConfidence, syllabusMasteryStatusView } from "@/lib/knowledge/mastery-status";
+import {
+  memberSyllabusProgressInclude,
+  resolveMemberSyllabusProgress,
+  type DbMasteryLevel,
+  type DbSyllabusNodeStatus,
+} from "./syllabus-progress";
 import type {
   MasteryEvidenceTypeDto,
   MasteryLevelDto,
@@ -33,104 +44,118 @@ import type {
 } from "@/lib/contracts";
 
 type DbSyllabusNodeKind = "SUBJECT" | "CHAPTER" | "TOPIC" | "PROBLEM_TYPE";
-type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
-type DbMasteryLevel = "SEEN" | "LEARNED" | "BASIC_EXERCISES" | "CAN_EXPLAIN" | "RETEST_PASSED" | "EXAM_STABLE";
 type DbTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "SKIPPED" | "DEFERRED";
 type SyllabusDbClient = PrismaClient | Prisma.TransactionClient;
 
-const syllabusNodeEvidenceInclude = {
-  _count: {
-    select: {
-      tasks: true,
-      sessions: true,
-      notes: true,
-      mistakes: true,
+function syllabusNodeEvidenceInclude(ownerUserId: string) {
+  const taskWhere = { ownerUserId };
+  const sessionWhere = { userId: ownerUserId };
+  const noteWhere = { ownerUserId };
+  const mistakeWhere = { ownerUserId };
+  const evidenceWhere = { ownerUserId };
+
+  return {
+    ...memberSyllabusProgressInclude(ownerUserId),
+    _count: {
+      select: {
+        tasks: { where: taskWhere },
+        sessions: { where: sessionWhere },
+        notes: { where: noteWhere },
+        mistakes: { where: mistakeWhere },
+      },
     },
-  },
-  tasks: {
-    orderBy: { updatedAt: "desc" as const },
-    take: 8,
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      completedAt: true,
-      updatedAt: true,
+    tasks: {
+      where: taskWhere,
+      orderBy: { updatedAt: "desc" as const },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        completedAt: true,
+        updatedAt: true,
+      },
     },
-  },
-  sessions: {
-    orderBy: { updatedAt: "desc" as const },
-    take: 8,
-    select: {
-      id: true,
-      startedAt: true,
-      endedAt: true,
-      effectiveMinutes: true,
-      updatedAt: true,
+    sessions: {
+      where: sessionWhere,
+      orderBy: { updatedAt: "desc" as const },
+      take: 8,
+      select: {
+        id: true,
+        startedAt: true,
+        endedAt: true,
+        effectiveMinutes: true,
+        updatedAt: true,
+      },
     },
-  },
-  notes: {
-    orderBy: { updatedAt: "desc" as const },
-    take: 8,
-    select: {
-      id: true,
-      title: true,
-      updatedAt: true,
+    notes: {
+      where: noteWhere,
+      orderBy: { updatedAt: "desc" as const },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+      },
     },
-  },
-  mistakes: {
-    orderBy: { updatedAt: "desc" as const },
-    take: 8,
-    select: {
-      id: true,
-      title: true,
-      updatedAt: true,
+    mistakes: {
+      where: mistakeWhere,
+      orderBy: { updatedAt: "desc" as const },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+      },
     },
-  },
-  masteryConditions: {
-    orderBy: { condition: "asc" as const },
-    select: {
-      condition: true,
-      checked: true,
-      checkedAt: true,
-      actorId: true,
+    masteryConditions: {
+      where: { ownerUserId },
+      orderBy: { condition: "asc" as const },
+      select: {
+        condition: true,
+        checked: true,
+        checkedAt: true,
+        actorId: true,
+      },
     },
-  },
-  masteryEvidence: {
-    orderBy: { createdAt: "desc" as const },
-    take: 12,
-    select: {
-      id: true,
-      evidenceType: true,
-      taskId: true,
-      sessionId: true,
-      noteId: true,
-      mistakeId: true,
-      retestId: true,
-      summary: true,
-      createdAt: true,
-      actorId: true,
-      task: { select: { title: true } },
-      session: { select: { startedAt: true, effectiveMinutes: true } },
-      note: { select: { title: true } },
-      mistake: { select: { title: true } },
-      retest: { select: { result: true, testedAt: true, score: true } },
+    masteryEvidence: {
+      where: evidenceWhere,
+      orderBy: { createdAt: "desc" as const },
+      take: 12,
+      select: {
+        id: true,
+        evidenceType: true,
+        taskId: true,
+        sessionId: true,
+        noteId: true,
+        mistakeId: true,
+        retestId: true,
+        summary: true,
+        createdAt: true,
+        actorId: true,
+        task: { select: { title: true } },
+        session: { select: { startedAt: true, effectiveMinutes: true } },
+        note: { select: { title: true } },
+        mistake: { select: { title: true } },
+        retest: { select: { result: true, testedAt: true, score: true } },
+      },
     },
-  },
-  masteryRetests: {
-    orderBy: { testedAt: "desc" as const },
-    take: 12,
-    select: {
-      id: true,
-      testedAt: true,
-      result: true,
-      score: true,
-      summary: true,
-      nextReviewAt: true,
-      actorId: true,
+    masteryRetests: {
+      where: { ownerUserId },
+      orderBy: { testedAt: "desc" as const },
+      take: 12,
+      select: {
+        id: true,
+        testedAt: true,
+        result: true,
+        score: true,
+        summary: true,
+        nextReviewAt: true,
+        actorId: true,
+      },
     },
-  },
-};
+  } satisfies Prisma.SyllabusNodeInclude;
+}
 
 const masteryConditionValues: MasteryProofCondition[] = [
   "course_or_textbook",
@@ -155,6 +180,7 @@ export interface CreateSyllabusNodeInput {
 
 export interface UpdateSyllabusNodeInput {
   expectedRevision: number;
+  expectedProgressRevision: number;
   parentId?: string | null;
   title?: string;
   kind?: SyllabusNodeKindDto;
@@ -211,6 +237,13 @@ interface FlatSyllabusNode {
   sortOrder: number;
   targetMinutes: number;
   actualMinutes: number;
+  progresses?: Array<{
+    status: DbSyllabusNodeStatus;
+    masteryLevel: DbMasteryLevel | null;
+    targetMinutes: number;
+    actualMinutes: number;
+    revision: number;
+  }>;
   _count?: {
     tasks: number;
     sessions: number;
@@ -280,7 +313,7 @@ interface FlatSyllabusNode {
 }
 
 export async function listSyllabusTree(actorId: string): Promise<SyllabusNodeDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const subjects = await prisma.subject.findMany({
     where: { workspaceId: workspace.id },
     orderBy: { sortOrder: "asc" },
@@ -288,7 +321,7 @@ export async function listSyllabusTree(actorId: string): Promise<SyllabusNodeDto
       syllabusNodes: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
-          ...syllabusNodeEvidenceInclude,
+          ...syllabusNodeEvidenceInclude(actorId),
         },
       },
     },
@@ -305,12 +338,12 @@ export async function listSyllabusTree(actorId: string): Promise<SyllabusNodeDto
 }
 
 export async function getSyllabusNode(actorId: string, nodeId: string): Promise<SyllabusNodeDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const node = await prisma.syllabusNode.findFirst({
     where: { id: nodeId, subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
-      ...syllabusNodeEvidenceInclude,
+      ...syllabusNodeEvidenceInclude(actorId),
     },
   });
   if (!node) throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
@@ -322,7 +355,7 @@ export async function getSyllabusNode(actorId: string, nodeId: string): Promise<
  * 避免选择器场景为每个节点携带整组关联查询。
  */
 export async function listSyllabusOptions(actorId: string): Promise<SyllabusOptionNodeDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const nodes = await prisma.syllabusNode.findMany({
     where: {
       archivedAt: null,
@@ -420,7 +453,12 @@ export async function createSyllabusNode(
     targetMinutes: input.targetMinutes,
   });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+      await requireWorkspacePolicy(tx, actorId, workspace.id, "workspace:manage");
+    } else if (workspace.userId !== actorId) {
+      throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
+    }
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -434,7 +472,7 @@ export async function createSyllabusNode(
     if (replay) {
       const snapshot = parseSyllabusNodeSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
-      return serializeNode(await findSyllabusNodeForProof(replay.resultId, tx, workspace.id, true), []);
+      return serializeNode(await findSyllabusNodeForProof(replay.resultId, tx, workspace.id, true, actorId), []);
     }
 
     await assertSubjectExists(input.subjectId, workspace.id, tx);
@@ -452,10 +490,18 @@ export async function createSyllabusNode(
         masteryLevel: input.masteryLevel ? toDbMastery(input.masteryLevel) : null,
         sortOrder: input.sortOrder,
         targetMinutes: input.targetMinutes,
+        progresses: {
+          create: {
+            ownerUserId: actorId,
+            status: toDbStatus(input.status),
+            masteryLevel: input.masteryLevel ? toDbMastery(input.masteryLevel) : null,
+            targetMinutes: input.targetMinutes,
+          },
+        },
       },
       include: {
         subject: true,
-        ...syllabusNodeEvidenceInclude,
+        ...syllabusNodeEvidenceInclude(actorId),
       },
     });
 
@@ -491,7 +537,12 @@ export async function importSyllabusMarkdown(
   });
 
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+      await requireWorkspacePolicy(tx, actorId, workspace.id, "workspace:manage");
+    } else if (workspace.userId !== actorId) {
+      throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
+    }
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -527,10 +578,17 @@ export async function importSyllabusMarkdown(
           status: "NOT_STARTED",
           sortOrder: parsedNode.sourceLine * 10 + index,
           targetMinutes: 0,
+          progresses: {
+            create: {
+              ownerUserId: actorId,
+              status: "NOT_STARTED",
+              targetMinutes: 0,
+            },
+          },
         },
         include: {
           subject: true,
-          ...syllabusNodeEvidenceInclude,
+          ...syllabusNodeEvidenceInclude(actorId),
         },
       });
 
@@ -580,10 +638,14 @@ export async function updateSyllabusNode(
       : input.masteryLevel === undefined
         ? undefined
       : input.masteryLevel;
+  const hasStructuralChanges = [input.parentId, input.title, input.kind, input.sortOrder]
+    .some((value) => value !== undefined);
+  const hasProgressChanges = [input.status, input.masteryLevel, input.targetMinutes, input.masteryConditions]
+    .some((value) => value !== undefined);
 
   const node = await prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await findSyllabusNodeForProof(id, tx, workspace.id, true);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    const existing = await findSyllabusNodeForProof(id, tx, workspace.id, true, actorId);
     if (existing.revision !== input.expectedRevision) {
       const latestDto = serializeNode(existing, []);
       throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
@@ -591,6 +653,20 @@ export async function updateSyllabusNode(
         conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
         workbench: "/knowledge/syllabi",
       });
+    }
+    const existingProgress = resolveMemberSyllabusProgress(existing);
+    if (existingProgress.revision !== input.expectedProgressRevision) {
+      const latestDto = serializeNode(existing, []);
+      throw new ApiError("SYLLABUS_NODE_PROGRESS_REVISION_CONFLICT", 409, {
+        latest: latestDto,
+        conflictFields: ["progressRevision"],
+        workbench: "/knowledge/syllabi",
+      });
+    }
+    if (hasStructuralChanges && getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+      await requireWorkspacePolicy(tx, actorId, workspace.id, "workspace:manage");
+    } else if (hasStructuralChanges && workspace.userId !== actorId) {
+      throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
     }
     if (input.parentId !== undefined) {
       await assertParentIsSafe(id, existing.subjectId, input.parentId, tx, workspace.id);
@@ -600,41 +676,73 @@ export async function updateSyllabusNode(
     }
 
     const proofNode = masteryProofRequest
-      ? await findSyllabusNodeForProof(id, tx, workspace.id, true)
+      ? await findSyllabusNodeForProof(id, tx, workspace.id, true, actorId)
       : existing;
     const proof = masteryProofRequest
       ? assertNodeCanMarkMastery(proofNode, masteryProofRequest.level)
       : null;
-    const changed = await tx.syllabusNode.updateMany({
-      where: {
-        id,
-        revision: input.expectedRevision,
-        archivedAt: null,
-        subject: { workspaceId: workspace.id, archivedAt: null },
-      },
-      data: {
-        parentId: input.parentId,
-        title: input.title,
-        kind: input.kind ? toDbKind(input.kind) : undefined,
-        status: input.status ? toDbStatus(input.status) : undefined,
-        masteryLevel: nextMasteryLevel === undefined ? undefined : nextMasteryLevel ? toDbMastery(nextMasteryLevel) : null,
-        sortOrder: input.sortOrder,
-        targetMinutes: input.targetMinutes,
-        revision: { increment: 1 },
-      },
-    });
-
-    if (changed.count !== 1) {
-      const latest = await findSyllabusNodeForProof(id, tx, workspace.id);
-      const latestDto = serializeNode(latest, []);
-      throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
-        latest: latestDto,
-        conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
-        workbench: "/knowledge/syllabi",
+    if (hasStructuralChanges) {
+      const changed = await tx.syllabusNode.updateMany({
+        where: {
+          id,
+          revision: input.expectedRevision,
+          archivedAt: null,
+          subject: { workspaceId: workspace.id, archivedAt: null },
+        },
+        data: {
+          parentId: input.parentId,
+          title: input.title,
+          kind: input.kind ? toDbKind(input.kind) : undefined,
+          sortOrder: input.sortOrder,
+          revision: { increment: 1 },
+        },
       });
+      if (changed.count !== 1) {
+        const latest = await findSyllabusNodeForProof(id, tx, workspace.id, false, actorId);
+        const latestDto = serializeNode(latest, []);
+        throw new ApiError("SYLLABUS_NODE_REVISION_CONFLICT", 409, {
+          latest: latestDto,
+          conflictFields: collectSyllabusNodeConflictFields(input, latestDto),
+          workbench: "/knowledge/syllabi",
+        });
+      }
     }
 
-    const updated = await findSyllabusNodeForProof(id, tx, workspace.id, true);
+    if (hasProgressChanges) {
+      const changedProgress = await tx.syllabusNodeProgress.updateMany({
+        where: {
+          syllabusNodeId: id,
+          ownerUserId: actorId,
+          revision: input.expectedProgressRevision,
+        },
+        data: {
+          status: input.status ? toDbStatus(input.status) : undefined,
+          masteryLevel: nextMasteryLevel === undefined ? undefined : nextMasteryLevel ? toDbMastery(nextMasteryLevel) : null,
+          targetMinutes: input.targetMinutes,
+          revision: { increment: 1 },
+        },
+      });
+      if (changedProgress.count !== 1) {
+        const latest = await findSyllabusNodeForProof(id, tx, workspace.id, false, actorId);
+        const latestDto = serializeNode(latest, []);
+        throw new ApiError("SYLLABUS_NODE_PROGRESS_REVISION_CONFLICT", 409, {
+          latest: latestDto,
+          conflictFields: ["progressRevision"],
+          workbench: "/knowledge/syllabi",
+        });
+      }
+      if (actorId === workspace.userId) {
+        await tx.syllabusNode.update({
+          where: { id },
+          data: {
+            status: input.status ? toDbStatus(input.status) : undefined,
+            masteryLevel: nextMasteryLevel === undefined ? undefined : nextMasteryLevel ? toDbMastery(nextMasteryLevel) : null,
+            targetMinutes: input.targetMinutes,
+          },
+        });
+      }
+    }
+    const updated = await findSyllabusNodeForProof(id, tx, workspace.id, true, actorId);
 
     await audit(
       actorId,
@@ -676,8 +784,13 @@ async function setSyllabusNodeArchived(
   archived: boolean,
 ): Promise<SyllabusNodeDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await findSyllabusNodeForProof(id, tx, workspace.id, true);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+      await requireWorkspacePolicy(tx, actorId, workspace.id, "workspace:manage");
+    } else if (workspace.userId !== actorId) {
+      throw new ApiError("SYLLABUS_NODE_NOT_FOUND", 404);
+    }
+    const existing = await findSyllabusNodeForProof(id, tx, workspace.id, true, actorId);
     const existingDto = serializeNode(existing, []);
     if (existing.revision !== expectedRevision) {
       throw syllabusArchiveConflict(existingDto);
@@ -697,7 +810,7 @@ async function setSyllabusNodeArchived(
       },
     });
     if (changed.count !== 1) {
-      throw syllabusArchiveConflict(serializeNode(await findSyllabusNodeForProof(id, tx, workspace.id), []));
+      throw syllabusArchiveConflict(serializeNode(await findSyllabusNodeForProof(id, tx, workspace.id, false, actorId), []));
     }
 
     if (archived) {
@@ -711,7 +824,7 @@ async function setSyllabusNodeArchived(
       undefined,
       tx,
     );
-    return serializeNode(await findSyllabusNodeForProof(id, tx, workspace.id), []);
+    return serializeNode(await findSyllabusNodeForProof(id, tx, workspace.id, false, actorId), []);
   });
 }
 
@@ -729,8 +842,8 @@ export async function addMasteryEvidence(
   actorId: string,
 ): Promise<SyllabusNodeDto> {
   const updated = await prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const node = await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    const node = await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true, actorId);
     const data = await buildMasteryEvidenceCreateData(node, input, actorId, tx);
     const existing = await findExistingMasteryEvidence(data, tx);
     if (!existing) {
@@ -745,7 +858,7 @@ export async function addMasteryEvidence(
       }, tx);
     }
 
-    return findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true);
+    return findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true, actorId);
   });
 
   return serializeNode(updated, []);
@@ -769,7 +882,7 @@ export async function addMasteryRetest(
   });
 
   const updated = await prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -783,13 +896,14 @@ export async function addMasteryRetest(
     if (replay) {
       const snapshot = parseSyllabusNodeSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
-      return serializeNode(await findSyllabusNodeForProof(replay.resultId, tx, workspace.id, true), []);
+      return serializeNode(await findSyllabusNodeForProof(replay.resultId, tx, workspace.id, true, actorId), []);
     }
 
-    await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true);
+    await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true, actorId);
     const retest = await tx.masteryRetest.create({
       data: {
         syllabusNodeId,
+        ownerUserId: actorId,
         testedAt,
         result: input.result,
         score: input.score,
@@ -803,6 +917,7 @@ export async function addMasteryRetest(
       await tx.masteryEvidence.create({
         data: {
           syllabusNodeId,
+          ownerUserId: actorId,
           evidenceType: "retest",
           retestId: retest.id,
           summary: input.summary,
@@ -812,7 +927,7 @@ export async function addMasteryRetest(
     }
 
     const result = {
-      ...serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true), []),
+      ...serializeNode(await findSyllabusNodeForProof(syllabusNodeId, tx, workspace.id, true, actorId), []),
       recordedRetestId: retest.id,
     };
     await recordPersistentCreateResult(tx, command, syllabusNodeId, {
@@ -923,15 +1038,16 @@ function assertNodeCanMarkMastery(
 
 async function findSyllabusNodeForProof(
   id: string,
-  client: Prisma.TransactionClient | typeof prisma = prisma,
-  workspaceId?: string,
-  requireActiveSubject = false,
+  client: Prisma.TransactionClient | typeof prisma,
+  workspaceId: string | undefined,
+  requireActiveSubject: boolean,
+  ownerUserId: string,
 ): Promise<FlatSyllabusNode> {
   const node = await client.syllabusNode.findFirst({
     where: { id, ...(workspaceId ? { subject: { workspaceId } } : {}) },
     include: {
       subject: true,
-      ...syllabusNodeEvidenceInclude,
+      ...syllabusNodeEvidenceInclude(ownerUserId),
     },
   });
 
@@ -946,7 +1062,15 @@ async function findSyllabusNodeForProof(
     });
   }
 
-  return { ...node, subject: node.subject };
+  const progress = resolveMemberSyllabusProgress(node);
+  return {
+    ...node,
+    status: progress.status,
+    masteryLevel: progress.masteryLevel,
+    targetMinutes: progress.targetMinutes,
+    actualMinutes: progress.actualMinutes,
+    subject: node.subject,
+  };
 }
 
 async function upsertMasteryConditions(
@@ -962,13 +1086,15 @@ async function upsertMasteryConditions(
     const checked = selected.has(condition);
     await client.masteryConditionRecord.upsert({
       where: {
-        syllabusNodeId_condition: {
+        syllabusNodeId_ownerUserId_condition: {
           syllabusNodeId,
+          ownerUserId: actorId,
           condition,
         },
       },
       create: {
         syllabusNodeId,
+        ownerUserId: actorId,
         condition,
         checked,
         checkedAt: checked ? now : null,
@@ -993,40 +1119,45 @@ async function buildMasteryEvidenceCreateData(
     case "task":
       return {
         syllabusNodeId: node.id,
+        ownerUserId: actorId,
         evidenceType: "task",
-        taskId: await assertTaskEvidenceBelongsToNode(input.taskId, node.id, client),
+        taskId: await assertTaskEvidenceBelongsToNode(input.taskId, node.id, actorId, client),
         summary: input.summary,
         actorId,
       };
     case "session":
       return {
         syllabusNodeId: node.id,
+        ownerUserId: actorId,
         evidenceType: "session",
-        sessionId: await assertSessionEvidenceBelongsToNode(input.sessionId, node.id, client),
+        sessionId: await assertSessionEvidenceBelongsToNode(input.sessionId, node.id, actorId, client),
         summary: input.summary,
         actorId,
       };
     case "note":
       return {
         syllabusNodeId: node.id,
+        ownerUserId: actorId,
         evidenceType: "note",
-        noteId: await assertNoteEvidenceBelongsToNode(input.noteId, node.id, client),
+        noteId: await assertNoteEvidenceBelongsToNode(input.noteId, node.id, actorId, client),
         summary: input.summary,
         actorId,
       };
     case "mistake":
       return {
         syllabusNodeId: node.id,
+        ownerUserId: actorId,
         evidenceType: "mistake",
-        mistakeId: await assertMistakeEvidenceBelongsToNode(input.mistakeId, node.id, client),
+        mistakeId: await assertMistakeEvidenceBelongsToNode(input.mistakeId, node.id, actorId, client),
         summary: input.summary,
         actorId,
       };
     case "retest":
       return {
         syllabusNodeId: node.id,
+        ownerUserId: actorId,
         evidenceType: "retest",
-        retestId: await assertRetestEvidenceBelongsToNode(input.retestId, node.id, client),
+        retestId: await assertRetestEvidenceBelongsToNode(input.retestId, node.id, actorId, client),
         summary: input.summary,
         actorId,
       };
@@ -1054,14 +1185,15 @@ async function findExistingMasteryEvidence(
 async function assertTaskEvidenceBelongsToNode(
   id: string | undefined,
   syllabusNodeId: string,
+  ownerUserId: string,
   client: Prisma.TransactionClient,
 ): Promise<string> {
   if (!id) throw new ApiError("MASTERY_EVIDENCE_REFERENCE_REQUIRED", 400);
   const task = await client.studyTask.findUnique({
     where: { id },
-    select: { syllabusNodeId: true },
+    select: { syllabusNodeId: true, ownerUserId: true },
   });
-  if (!task || task.syllabusNodeId !== syllabusNodeId) {
+  if (!task || task.syllabusNodeId !== syllabusNodeId || task.ownerUserId !== ownerUserId) {
     throw new ApiError("MASTERY_EVIDENCE_NODE_MISMATCH", 400);
   }
   return id;
@@ -1070,14 +1202,15 @@ async function assertTaskEvidenceBelongsToNode(
 async function assertSessionEvidenceBelongsToNode(
   id: string | undefined,
   syllabusNodeId: string,
+  ownerUserId: string,
   client: Prisma.TransactionClient,
 ): Promise<string> {
   if (!id) throw new ApiError("MASTERY_EVIDENCE_REFERENCE_REQUIRED", 400);
   const session = await client.studySession.findUnique({
     where: { id },
-    select: { syllabusNodeId: true },
+    select: { syllabusNodeId: true, userId: true },
   });
-  if (!session || session.syllabusNodeId !== syllabusNodeId) {
+  if (!session || session.syllabusNodeId !== syllabusNodeId || session.userId !== ownerUserId) {
     throw new ApiError("MASTERY_EVIDENCE_NODE_MISMATCH", 400);
   }
   return id;
@@ -1086,14 +1219,15 @@ async function assertSessionEvidenceBelongsToNode(
 async function assertNoteEvidenceBelongsToNode(
   id: string | undefined,
   syllabusNodeId: string,
+  ownerUserId: string,
   client: Prisma.TransactionClient,
 ): Promise<string> {
   if (!id) throw new ApiError("MASTERY_EVIDENCE_REFERENCE_REQUIRED", 400);
   const note = await client.note.findUnique({
     where: { id },
-    select: { syllabusNodeId: true },
+    select: { syllabusNodeId: true, ownerUserId: true },
   });
-  if (!note || note.syllabusNodeId !== syllabusNodeId) {
+  if (!note || note.syllabusNodeId !== syllabusNodeId || note.ownerUserId !== ownerUserId) {
     throw new ApiError("MASTERY_EVIDENCE_NODE_MISMATCH", 400);
   }
   return id;
@@ -1102,14 +1236,15 @@ async function assertNoteEvidenceBelongsToNode(
 async function assertMistakeEvidenceBelongsToNode(
   id: string | undefined,
   syllabusNodeId: string,
+  ownerUserId: string,
   client: Prisma.TransactionClient,
 ): Promise<string> {
   if (!id) throw new ApiError("MASTERY_EVIDENCE_REFERENCE_REQUIRED", 400);
   const mistake = await client.mistake.findUnique({
     where: { id },
-    select: { syllabusNodeId: true },
+    select: { syllabusNodeId: true, ownerUserId: true },
   });
-  if (!mistake || mistake.syllabusNodeId !== syllabusNodeId) {
+  if (!mistake || mistake.syllabusNodeId !== syllabusNodeId || mistake.ownerUserId !== ownerUserId) {
     throw new ApiError("MASTERY_EVIDENCE_NODE_MISMATCH", 400);
   }
   return id;
@@ -1118,14 +1253,15 @@ async function assertMistakeEvidenceBelongsToNode(
 async function assertRetestEvidenceBelongsToNode(
   id: string | undefined,
   syllabusNodeId: string,
+  actorId: string,
   client: Prisma.TransactionClient,
 ): Promise<string> {
   if (!id) throw new ApiError("MASTERY_EVIDENCE_REFERENCE_REQUIRED", 400);
   const retest = await client.masteryRetest.findUnique({
     where: { id },
-    select: { result: true, syllabusNodeId: true },
+    select: { result: true, syllabusNodeId: true, actorId: true },
   });
-  if (!retest || retest.syllabusNodeId !== syllabusNodeId) {
+  if (!retest || retest.syllabusNodeId !== syllabusNodeId || retest.actorId !== actorId) {
     throw new ApiError("MASTERY_EVIDENCE_NODE_MISMATCH", 400);
   }
   if (retest.result !== "passed") {
@@ -1201,12 +1337,20 @@ function toSyllabusMapSummaryInput(node: SyllabusNodeDto) {
 }
 
 function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): SyllabusNodeDto {
-  const masteryLevel = node.masteryLevel ? fromDbMastery(node.masteryLevel) : null;
-  const status = fromDbStatus(node.status);
-  const masteryConditions = getCompletedMasteryConditions(node, masteryLevel);
-  const proof = createMasteryProof(node, masteryLevel ?? "learned", masteryConditions);
-  const evidence = createMasteryEvidenceSummary(node, proof.evidence);
-  const latestRetest = node.masteryRetests?.[0] ?? null;
+  const progress = resolveMemberSyllabusProgress(node);
+  const effectiveNode: FlatSyllabusNode = {
+    ...node,
+    status: progress.status,
+    masteryLevel: progress.masteryLevel,
+    targetMinutes: progress.targetMinutes,
+    actualMinutes: progress.actualMinutes,
+  };
+  const masteryLevel = effectiveNode.masteryLevel ? fromDbMastery(effectiveNode.masteryLevel) : null;
+  const status = fromDbStatus(effectiveNode.status);
+  const masteryConditions = getCompletedMasteryConditions(effectiveNode, masteryLevel);
+  const proof = createMasteryProof(effectiveNode, masteryLevel ?? "learned", masteryConditions);
+  const evidence = createMasteryEvidenceSummary(effectiveNode, proof.evidence);
+  const latestRetest = effectiveNode.masteryRetests?.[0] ?? null;
   const masteryView = syllabusMasteryStatusView({
     level: masteryLevel,
     nextRetestAt: latestRetest?.nextReviewAt,
@@ -1216,6 +1360,7 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
   return {
     id: node.id,
     revision: node.revision,
+    progressRevision: progress.revision,
     stableKey: node.stableKey,
     archivedAt: node.archivedAt?.toISOString() ?? null,
     subjectId: node.subjectId,
@@ -1237,8 +1382,8 @@ function serializeNode(node: FlatSyllabusNode, children: SyllabusNodeDto[]): Syl
       daysSinceLastEvidence: evidence.daysSinceLastEvidence,
     }),
     sortOrder: node.sortOrder,
-    targetMinutes: node.targetMinutes,
-    actualMinutes: node.actualMinutes,
+    targetMinutes: progress.targetMinutes,
+    actualMinutes: progress.actualMinutes,
     evidence,
     masteryConditions,
     masteryConditionRecords: serializeMasteryConditionRecords(node),

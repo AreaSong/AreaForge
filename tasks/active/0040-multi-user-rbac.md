@@ -42,7 +42,8 @@ releaseRequired: true
 - v1.4 本地实施精确确认包已于 2026-09-05 确认，覆盖 schema、owner/selection 回填、SMTP dependency admission、API/UI、验证和回滚；不包含 Release、生产 migration/apply、RBAC、完整导出或物理删除。
 - 已实现账户状态/authRevision、设备 session、邮箱验证/密码重置、重新验证、持久认证限流、server-only SMTP、WorkspaceMembership/Invitation/Selection、Workspace 生命周期和成员生命周期；多人开关默认关闭，学习正文保持 owner-only。
 - 已补充所有已认证 mutation 的 same-origin/CSRF 边界、报告和阶段查询的 actor/workspace fail-closed、StagePlan 当前计划数据库级 partial unique index 与重复 preimage 阻断；多人路径仍默认关闭。
-- Auth/API/Config 目标测试、Web 全量 927/927、Web/v1.4 typecheck、目标 ESLint、`CI=true pnpm check` 和隔离 PostgreSQL 12 组 runtime（含唯一索引读回）已通过；仍待共享测试池桌面/移动浏览器验收、文档同步和 Git 检查点。
+- 成员工作区 UI 已允许所有 active membership 切换，显示真实角色，非 Owner 可主动离开；在 RBAC 开启的本地候选中，Workspace/科目结构读取允许 active membership，结构写入和科目合并允许 `workspace:manage`（Owner/Admin），生命周期归档/恢复仍保持 Owner-only。
+- Auth/API/Config 目标测试、Web 全量 927/927、Web/v1.4 typecheck、目标 ESLint、`CI=true pnpm check`、隔离 PostgreSQL 12 组 runtime（含唯一索引读回）和共享测试池桌面 spot check 已通过；仍待完整桌面/移动浏览器验收、文档同步和 Git 检查点。
 
 ## 验收
 

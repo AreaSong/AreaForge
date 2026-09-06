@@ -64,7 +64,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。`v1.1.0` 已发布并进入生产，`v1.1.1` 已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但未 production apply，`v1.2.0` 已形成稳定 Release 但未 production apply。Release 资产证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。当前生产为 `v1.1.1`，`v1.2.0` 已形成稳定 Release 但未 production apply；v1.3 已合并 main，v1.4/v1.5 仍是本地候选。Release 资产证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
@@ -93,12 +93,12 @@
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
 | 个人版完全动态化 | 隔离已实现 | 多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo 已实现；全新临时 PostgreSQL 17 的 10 组专项 runtime、空库闭环、桌面/移动、Core 109/109、Web 914/914、`pnpm check` 和文档/风险/治理/任务门禁通过。PR #56 的 push/pull_request `ci/verify` 均成功并 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，main push CI run `33906942919` 成功 | `tasks/active/0039-personal-dynamic-foundation.md`；尚缺独立签名 Release 和 production apply |
-| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期、same-origin/CSRF 边界、actor/workspace fail-closed、StagePlan 当前计划唯一约束和 owner-only 学习正文边界；目标测试、Web 927/927、`CI=true pnpm check` 和隔离 PostgreSQL runtime 已通过。默认多人开关关闭，最终浏览器/总门禁、PR/CI、Release 和生产尚缺 | `tasks/active/0040-multi-user-rbac.md` |
-| 预设角色、分享授权与 Coach 协作 | 未实现 | v1.4 本地候选只有 OWNER/MEMBER 归属底座，尚无 Admin/Coach/Viewer、统一 policy service、角色/grant 管理或多人建议确认闭环 | `tasks/backlog/0044-rbac-privacy-collaboration.md` |
-| 完整账户/Workspace 导出 | 未实现 | 仅有学习树一次性 canonical 导出，不等于账户导出 | `tasks/backlog/0041-data-lifecycle.md` |
-| 数据任务中心、回收站、物理删除与账户关闭 | 未实现 | 当前主要采用归档和长期保留，没有持久数据任务状态机；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
-| 受控运维中心 | 未实现 | 当前版本中心已有受控 updater request；尚无通用请求生命周期和 operation catalog；Web runtime 不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
-| 个人成长指标、私有挑战与排名 | 未实现 | 当前统计服务个人学习闭环，不存在挑战 CRUD、参与者管理、排名投影、opt-in 或反作弊 | `tasks/backlog/0043-ranking-platform-hardening.md` |
+| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期、same-origin/CSRF 边界、actor/workspace fail-closed、StagePlan 当前计划唯一约束和 owner-only 学习正文边界；目标测试、Web 927/927、`CI=true pnpm check`、隔离 PostgreSQL runtime 和共享测试池桌面 spot check 已通过。默认多人开关关闭，完整浏览器矩阵/总门禁、PR/CI、Release 和生产尚缺 | `tasks/active/0040-multi-user-rbac.md` |
+| 预设角色、分享授权与 Coach 协作 | 隔离已实现 | v1.5 本地候选已形成 Admin/Coach/Viewer、统一 policy service、Owner-only 角色调整、USER/ROLE/WORKSPACE grant、NOTE/MISTAKE/ATTACHMENT 共享、CoachSuggestion/PlanInbox 确认链和脱敏 Operator 管理面；Core 112/112、Web 942/942、隔离 PostgreSQL runtime、Prisma validate、`CI=true pnpm check` 和共享测试池协作页面桌面 spot check 已通过。完整浏览器矩阵、PR/CI、Release 与生产证据仍缺 | `tasks/active/0044-rbac-privacy-collaboration.md` |
+| 完整账户/Workspace 导出 | 基础版 | `packages/core` 已有内存 redaction/manifest/hash；v1.6 本地候选增加 feature-gated 数据任务、脱敏预览/一次性 grant descriptor 和 worker claim/heartbeat/complete/expire 生命周期，但不落盘、不暴露 objectKey；仍不等于账户全量导出；DATA-EXPORT 确认包和共享/生产 migration 未确认 | `tasks/backlog/0041-data-lifecycle.md` |
+| 数据任务中心、回收站、物理删除与账户关闭 | 基础版 | 数据任务中心已支持 preview/排队/取消/重试、worker lease/CAS 和删除 preview；DELETE 固定 preview-only，尚无统一回收站、物理删除、附件清理、备份删除账本或真实归档 worker；`AF-RISK-DATA-001` 保持 deferred-work | `tasks/backlog/0041-data-lifecycle.md` |
+| 受控运维中心 | 基础版 | 已增加只读 catalog、strict intent、持久候选请求/确认/审批/hold/retry/lease API、Operator UI，以及 report-only 的 hash-chain journal/reconciliation 契约；尚无 root-agent 实际执行、跨进程锁、真实 updater/生产动作；Web runtime 仍不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
+| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊分级、申诉状态机、opt-in、挑战/参与者 CRUD、可重建 projection 和删除 preview hook/API 已形成本地候选；默认 `RANKING_ENABLED=false`，尚缺持久申诉存储以外的完整通知/故障开关/退出删除导出联动、migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
 | 平台化加固 | 未实现 | 尚无通用后台任务扩展、多人通知/搜索、滥用保护、举报申诉和多租户观测 | `tasks/backlog/0045-platform-hardening.md` |
 | v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE/OPS/RANKING、Release、生产和运营证据均未形成 | `tasks/backlog/0046-v2-platform-gate.md` |
 

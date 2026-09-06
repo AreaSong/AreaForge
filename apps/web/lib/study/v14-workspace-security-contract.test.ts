@@ -42,12 +42,12 @@ test("v1.4 migration 对零个或多个活动 Workspace 的用户均 fail closed
   assert.match(activeWorkspacePreimage, /HAVING count\(workspace\."id"\) <> 1/);
 });
 
-test("v1.4 UI 不向普通成员提供 owner-only Workspace 切换入口", () => {
+test("v1.4 UI 允许所有 active membership 切换，仍隐藏结构管理", () => {
   const sidebar = loadSource("components/workspace-settings-sidebar.tsx");
   const membership = loadSource("components/workspace-membership-client.tsx");
 
-  assert.match(sidebar, /workspace\.membershipRole === "MEMBER"[\s\S]*?<Badge>成员<\/Badge>/);
-  assert.match(membership, /workspace\.membershipRole === "OWNER" && workspace\.status === "ACTIVE" && !workspace\.current/);
+  assert.match(sidebar, /workspace\.id !== props\.activeId && workspace\.status === "ACTIVE"/);
+  assert.match(membership, /workspace\.status === "ACTIVE" && !workspace\.current && workspace\.membershipRole/);
 });
 
 test("v1.4 Workspace 生命周期 PATCH 不混入内容字段", () => {

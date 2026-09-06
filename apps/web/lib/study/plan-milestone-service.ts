@@ -5,7 +5,7 @@ import type {
   PlanMilestoneConflictLatest,
   PlanMilestoneDto,
 } from "@/lib/contracts/planning";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import type { StagePlanDto } from "@/lib/contracts";
 import {
   buildPersistentCreateFingerprint,
@@ -50,9 +50,9 @@ function serialize(row: {
 }
 
 export async function listPlanMilestones(actorId: string): Promise<PlanMilestoneDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.planMilestone.findMany({
-    where: { workspaceId: workspace.id },
+    where: { workspaceId: workspace.id, ownerUserId: actorId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return rows.map(serialize);
@@ -85,7 +85,7 @@ export async function createPlanMilestone(
   });
   try {
     return await prisma.$transaction(async (tx) => {
-      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
       const command = {
         actorId,
         workspaceId: workspace.id,
@@ -99,13 +99,13 @@ export async function createPlanMilestone(
       if (replay) {
         const snapshot = parseMilestoneSnapshot(replay.resultSnapshot);
         if (snapshot) return snapshot;
-        const stored = await tx.planMilestone.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id } });
+        const stored = await tx.planMilestone.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id, ownerUserId: actorId } });
         if (!stored) throw new ApiError("PLAN_MILESTONE_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
         return serialize(stored);
       }
 
       const stagePlan = await tx.stagePlan.findFirst({
-        where: { id: input.stagePlanId, workspaceId: workspace.id },
+        where: { id: input.stagePlanId, workspaceId: workspace.id, ownerUserId: actorId },
       });
       if (!stagePlan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
       if (input.expectedStagePlanRevision !== undefined && stagePlan.revision !== input.expectedStagePlanRevision) {
@@ -123,7 +123,7 @@ export async function createPlanMilestone(
         if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
       }
 
-      const duplicate = await tx.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } });
+      const duplicate = await tx.planMilestone.findFirst({ where: { workspaceId: workspace.id, ownerUserId: actorId, stableKey } });
       if (duplicate) {
         throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, {
           latest: milestoneConflictLatest(serialize(duplicate), undefined, undefined, serializeStagePlan(stagePlan)),
@@ -135,6 +135,7 @@ export async function createPlanMilestone(
       const created = await tx.planMilestone.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           stagePlanId: input.stagePlanId,
           subjectId: input.subjectId ?? null,
           stableKey,
@@ -154,10 +155,10 @@ export async function createPlanMilestone(
     });
   } catch (error) {
     if (!(error instanceof ApiError) && !isUniqueViolation(error)) throw error;
-    const workspace = await resolveActiveWorkspace(actorId);
+    const workspace = await resolveSelectedMemberWorkspace(actorId);
     const [latest, stagePlan] = await Promise.all([
-      prisma.planMilestone.findFirst({ where: { workspaceId: workspace.id, stableKey } }),
-      prisma.stagePlan.findFirst({ where: { id: input.stagePlanId, workspaceId: workspace.id } }),
+      prisma.planMilestone.findFirst({ where: { workspaceId: workspace.id, ownerUserId: actorId, stableKey } }),
+      prisma.stagePlan.findFirst({ where: { id: input.stagePlanId, workspaceId: workspace.id, ownerUserId: actorId } }),
     ]);
     if (isUniqueViolation(error)) {
       throw new ApiError("PLAN_MILESTONE_STABLE_KEY_CONFLICT", 409, {
@@ -201,9 +202,9 @@ export async function updatePlanMilestone(
   },
 ): Promise<PlanMilestoneDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const existing = await tx.planMilestone.findFirst({
-      where: { id: milestoneId, workspaceId: workspace.id },
+      where: { id: milestoneId, workspaceId: workspace.id, ownerUserId: actorId },
     });
     if (!existing) throw new ApiError("PLAN_MILESTONE_NOT_FOUND", 404);
 
@@ -216,7 +217,7 @@ export async function updatePlanMilestone(
     }
 
     const changed = await tx.planMilestone.updateMany({
-      where: { id: existing.id, workspaceId: workspace.id, revision: input.expectedRevision },
+      where: { id: existing.id, workspaceId: workspace.id, ownerUserId: actorId, revision: input.expectedRevision },
       data: {
         title: input.title?.trim() ?? undefined,
         targetDate: input.targetDate === undefined ? undefined : input.targetDate ? new Date(input.targetDate) : null,
@@ -227,14 +228,14 @@ export async function updatePlanMilestone(
       },
     });
     if (changed.count !== 1) {
-      const latest = await tx.planMilestone.findUnique({ where: { id: existing.id } });
+      const latest = await tx.planMilestone.findFirst({ where: { id: existing.id, workspaceId: workspace.id, ownerUserId: actorId } });
       throw new ApiError("PLAN_MILESTONE_REVISION_CONFLICT", 409, {
         latest: milestoneConflictLatest(latest ? serialize(latest) : null),
         conflictFields: ["revision"],
         workbench: milestoneWorkbench,
       });
     }
-    const updated = await tx.planMilestone.findUniqueOrThrow({ where: { id: existing.id } });
+    const updated = await tx.planMilestone.findFirstOrThrow({ where: { id: existing.id, workspaceId: workspace.id, ownerUserId: actorId } });
     await tx.auditEvent.create({
       data: { actorId, action: "PLAN_MILESTONE_UPDATED", entityType: "PlanMilestone", entityId: existing.id },
     });

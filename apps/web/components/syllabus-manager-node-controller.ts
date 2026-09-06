@@ -44,6 +44,7 @@ export function useSyllabusNodeController({
 }) {
   const [conflict, setConflict] = useState<SyllabusConflict | null>(null);
   const [revisionOverrides, setRevisionOverrides] = useState<Record<string, number>>({});
+  const [progressRevisionOverrides, setProgressRevisionOverrides] = useState<Record<string, number>>({});
   const [restoredSubmission, setRestoredSubmission] = useState<SyllabusUpdateSubmission | null>(null);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export function useSyllabusNodeController({
     const submission: SyllabusUpdateSubmission = {
       nodeId: id,
       expectedRevision: revisionOverrides[id] ?? baseline.revision,
+      expectedProgressRevision: progressRevisionOverrides[id] ?? baseline.progressRevision,
       baseline: createSyllabusUpdateBaseline(baseline),
       body: structuredClone(body),
     };
@@ -82,6 +84,7 @@ export function useSyllabusNodeController({
       const response = await updateSyllabusNode(id, {
         ...submission.body,
         expectedRevision: submission.expectedRevision,
+        expectedProgressRevision: submission.expectedProgressRevision,
       });
       if (!response.ok) {
         const data = response.body;
@@ -105,6 +108,7 @@ export function useSyllabusNodeController({
       removePrivateBusinessDraft(syllabusUpdateDraftKey(id));
       setRestoredSubmission((current) => current?.nodeId === id ? null : current);
       setRevisionOverrides((current) => omitRecordKey(current, id));
+      setProgressRevisionOverrides((current) => omitRecordKey(current, id));
       runtime.refresh();
       return true;
     } catch {
@@ -122,7 +126,10 @@ export function useSyllabusNodeController({
       runtime.setError("草稿对应节点已不存在，请返回考纲工作台处理");
       return;
     }
-    if (latest.revision !== restoredSubmission.expectedRevision) {
+    if (
+      latest.revision !== restoredSubmission.expectedRevision
+      || latest.progressRevision !== restoredSubmission.expectedProgressRevision
+    ) {
       setConflict({
         baseline: restoredSubmission.baseline,
         submission: restoredSubmission,
@@ -198,6 +205,7 @@ export function useSyllabusNodeController({
     removePrivateBusinessDraft(syllabusUpdateDraftKey(conflict.submission.nodeId));
     setRestoredSubmission((current) => current?.nodeId === conflict.submission.nodeId ? null : current);
     setRevisionOverrides((current) => omitRecordKey(current, conflict.submission.nodeId));
+    setProgressRevisionOverrides((current) => omitRecordKey(current, conflict.submission.nodeId));
     setConflict(null);
     runtime.setError("已采用服务端版本");
     runtime.refresh();
@@ -208,6 +216,10 @@ export function useSyllabusNodeController({
     setRevisionOverrides((current) => ({
       ...current,
       [conflict.submission.nodeId]: conflict.latest.revision,
+    }));
+    setProgressRevisionOverrides((current) => ({
+      ...current,
+      [conflict.submission.nodeId]: conflict.latest.progressRevision,
     }));
     setConflict(null);
     runtime.setError("已载入服务端最新 revision，本地输入仍保留；检查后请再次点击保存，不会自动重放");

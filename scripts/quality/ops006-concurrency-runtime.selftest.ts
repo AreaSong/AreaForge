@@ -140,18 +140,21 @@ async function verifyMigrationContract(): Promise<void> {
 }
 
 async function verifyCheckInLockKeys(): Promise<void> {
-  const targets = getCheckInLockTargets([
+  const targets = getCheckInLockTargets("ops006-user-a", [
     new Date("2026-07-18T16:30:00.000Z"),
     new Date("2026-07-17T16:30:00.000Z"),
     new Date("2026-07-18T01:00:00.000Z"),
+  ]);
+  const otherActorTargets = getCheckInLockTargets("ops006-user-b", [
+    new Date("2026-07-18T16:30:00.000Z"),
   ]);
   if (
     checkInLockNamespace !== 1095123785
     || targets.length !== 2
     || targets[0]?.studyDayKey !== "2026-07-18"
-    || targets[0]?.lockKey !== 20260718
     || targets[1]?.studyDayKey !== "2026-07-19"
-    || targets[1]?.lockKey !== 20260719
+    || targets[0]?.lockKey === targets[1]?.lockKey
+    || targets[0]?.lockKey === otherActorTargets[0]?.lockKey
     || Number(checkInLockNamespace) === 2026070703
   ) {
     throw new Error("OPS-006 CheckIn advisory lock key contract failed");
@@ -159,7 +162,7 @@ async function verifyCheckInLockKeys(): Promise<void> {
   checks.push({
     id: "checkin.lock_key_contract",
     status: "pass",
-    details: { orderedDayCount: 2, duplicateDayRemoved: true, recoveryKeyIsolated: true },
+    details: { orderedDayCount: 2, duplicateDayRemoved: true, recoveryKeyIsolated: true, actorKeyIsolated: true },
   });
 }
 
@@ -475,6 +478,7 @@ async function createTask(
 ): Promise<string> {
   const task = await prisma.studyTask.create({
     data: {
+      ownerUserId: base.actorId,
       subjectId: base.subjectId,
       syllabusNodeId: base.syllabusNodeId,
       title,

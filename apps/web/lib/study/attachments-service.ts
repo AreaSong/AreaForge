@@ -21,6 +21,7 @@ import { getAuthEnv } from "@/lib/auth/env";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { requireWorkspaceOwner } from "@/lib/workspace/access-service";
+import { requireSharedResourceAccess } from "@/lib/workspace/policy-service";
 import type { AttachmentDto } from "@/lib/contracts";
 import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
 import {
@@ -442,7 +443,7 @@ async function finalizeNoteAttachmentReady(
     }
 
     const note = await tx.note.findFirst({
-      where: { id: context.noteId, subject: { workspaceId: context.workspaceId } },
+      where: { id: context.noteId, ownerUserId: context.actorId, subject: { workspaceId: context.workspaceId } },
       select: { id: true, revision: true, archivedAt: true },
     });
     if (!note) {
@@ -502,56 +503,9 @@ async function rejectNoteAttachmentBeforeReady(
 export async function getAttachmentDownload(
   id: string,
   disposition: "attachment" | "inline" = "attachment",
-  actorId?: string,
+  actorId: string,
 ): Promise<AttachmentDownload> {
-  const attachment = await prisma.attachment.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      noteId: true,
-      originalName: true,
-      mimeType: true,
-      sizeBytes: true,
-      hash: true,
-      uri: true,
-      status: true,
-      createdAt: true,
-      studyResource: {
-        select: {
-          id: true,
-          workspace: { select: { id: true } },
-        },
-      },
-      note: {
-        select: {
-          subject: { select: { workspace: { select: { id: true } } } },
-        },
-      },
-    },
-  });
-
-  if (!attachment) {
-    throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
-  }
-
-  const noteOwned = Boolean(attachment.noteId);
-  const resourceOwned = Boolean(attachment.studyResource);
-  if (!noteOwned && !resourceOwned) {
-    throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
-  }
-
-  if (actorId) {
-    const workspaceId =
-      attachment.studyResource?.workspace.id ??
-      attachment.note?.subject.workspace?.id ??
-      null;
-    // Legacy notes may lack workspace; noteId presence alone was historically enough.
-    if (workspaceId) {
-      await requireWorkspaceOwner(prisma, actorId, workspaceId);
-    } else if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
-      throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
-    }
-  }
+  const attachment = await loadAuthorizedAttachment(id, actorId);
 
   if (attachment.status !== "READY") {
     throw new ApiError("ATTACHMENT_NOT_READY", 409);
@@ -610,6 +564,76 @@ export async function getAttachmentDownload(
       disposition,
     }),
   };
+}
+
+async function loadAuthorizedAttachment(id: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const identity = await tx.attachment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        ownerUserId: true,
+        noteId: true,
+        studyResource: { select: { workspaceId: true, ownerUserId: true } },
+        note: { select: { ownerUserId: true, subject: { select: { workspaceId: true } } } },
+      },
+    });
+    if (!identity || (!identity.noteId && !identity.studyResource)) throw attachmentNotFound();
+    const parentOwners = [identity.note?.ownerUserId, identity.studyResource?.ownerUserId].filter(
+      (owner): owner is string => Boolean(owner),
+    );
+    if (parentOwners.length === 0 || parentOwners.some((owner) => owner !== identity.ownerUserId)) {
+      // A mismatched lineage must never be made reachable by a grant on the
+      // parent object. Treat it as absent and leave reconciliation to report
+      // the data-integrity problem separately.
+      throw attachmentNotFound();
+    }
+    const workspaceId = identity.studyResource?.workspaceId ?? identity.note?.subject.workspaceId ?? null;
+    if (!workspaceId) {
+      if (identity.ownerUserId !== actorId || getAuthEnv().AUTH_MULTI_USER_ENABLED) throw attachmentNotFound();
+    } else if (getAuthEnv().AUTH_RBAC_ENABLED) {
+      await requireSharedResourceAccess(tx, {
+        actorId,
+        workspaceId,
+        resourceType: "ATTACHMENT",
+        resourceId: id,
+      });
+    } else {
+      // 多人/RBAC 尚未开启时也不能把 Workspace Owner 身份当成附件
+      // 读取授权；附件正文默认仍归资源 owner，避免 feature flag 组合泄露。
+      if (identity.ownerUserId !== actorId) throw attachmentNotFound();
+      await requireWorkspaceOwner(tx, actorId, workspaceId);
+    }
+    const attachment = await tx.attachment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        noteId: true,
+        originalName: true,
+        mimeType: true,
+        sizeBytes: true,
+        hash: true,
+        uri: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+    if (!attachment) throw attachmentNotFound();
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "ATTACHMENT_READ",
+        entityType: "Attachment",
+        entityId: id,
+        metadata: { workspaceId },
+      },
+    });
+    return attachment;
+  });
+}
+
+function attachmentNotFound(): ApiError {
+  return new ApiError("ATTACHMENT_NOT_FOUND", 404);
 }
 
 /**
@@ -762,7 +786,7 @@ async function loadReplayedNoteAttachment(
 ): Promise<AttachmentDto> {
   await assertNoteExists(noteId, actorId);
   const attachment = await prisma.attachment.findFirst({
-    where: { id: attachmentId, noteId, status: "READY" },
+    where: { id: attachmentId, ownerUserId: actorId, noteId, status: "READY" },
     select: attachmentDtoSelect,
   });
   if (!attachment) {
@@ -790,7 +814,7 @@ async function claimNoteAttachmentCommand(
       });
     }
     const note = await tx.note.findFirst({
-      where: { id: noteId, subject: { workspaceId: workspace.id } },
+      where: { id: noteId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       select: { id: true, revision: true, archivedAt: true },
     });
     if (!note) throw new ApiError("NOTE_NOT_FOUND", 404);
@@ -815,6 +839,7 @@ async function createPendingIntent(
     return await prisma.$transaction(async (tx) => {
       const created = await tx.attachment.create({
         data: {
+          ownerUserId: actorId,
           noteId: noteId ?? undefined,
           originalName: draft.originalName,
           storedName: draft.storedName,
@@ -861,6 +886,11 @@ async function assertAttachmentIntentOwner(
   attachmentId: string,
   client: AttachmentDbClient = prisma,
 ): Promise<void> {
+  const attachment = await client.attachment.findUnique({
+    where: { id: attachmentId },
+    select: { ownerUserId: true },
+  });
+  if (!attachment || attachment.ownerUserId !== actorId) throw new ApiError("ATTACHMENT_NOT_FOUND", 404);
   const intent = await client.auditEvent.findFirst({
     where: {
       actorId,
@@ -947,7 +977,7 @@ async function markIntentFailed(attachmentId: string, failurePhase: string, fail
 async function assertNoteExists(noteId: string, actorId: string): Promise<string> {
   const workspace = await resolveActiveWorkspace(actorId);
   const note = await prisma.note.findFirst({
-    where: { id: noteId, subject: { workspaceId: workspace.id } },
+    where: { id: noteId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
     select: { id: true },
   });
 

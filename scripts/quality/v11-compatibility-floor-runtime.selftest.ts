@@ -193,12 +193,12 @@ async function seedCompatibilityFixture(prisma: CompatiblePrisma, services: Cand
   const sharedDate = new Date("2026-07-22T00:00:00.000Z");
   const rangeEnd = new Date("2026-07-28T23:59:59.000Z");
   await prisma.dailyReview.createMany({ data: [
-    { workspaceId: first.id, reviewDate: sharedDate, summary: "first" },
-    { workspaceId: second.id, reviewDate: sharedDate, summary: "second" },
+    { ownerUserId: fixtureUserId, workspaceId: first.id, reviewDate: sharedDate, summary: "first" },
+    { ownerUserId: fixtureUserId, workspaceId: second.id, reviewDate: sharedDate, summary: "second" },
   ] });
   await prisma.checkIn.createMany({ data: [
-    { workspaceId: first.id, studyDate: sharedDate },
-    { workspaceId: second.id, studyDate: sharedDate },
+    { ownerUserId: fixtureUserId, workspaceId: first.id, studyDate: sharedDate },
+    { ownerUserId: fixtureUserId, workspaceId: second.id, studyDate: sharedDate },
   ] });
   await prisma.periodicReportDecision.createMany({ data: [
     { workspaceId: first.id, kind: "week", rangeStart: sharedDate, rangeEnd, status: "CONFIRMED", reportSnapshot: {} },
@@ -206,11 +206,11 @@ async function seedCompatibilityFixture(prisma: CompatiblePrisma, services: Cand
   ] });
 
   await expectUniqueConflict(
-    () => prisma.dailyReview.create({ data: { workspaceId: first.id, reviewDate: sharedDate, summary: "duplicate" } }),
+    () => prisma.dailyReview.create({ data: { ownerUserId: fixtureUserId, workspaceId: first.id, reviewDate: sharedDate, summary: "duplicate" } }),
     "DailyReview workspace/date",
   );
   await expectUniqueConflict(
-    () => prisma.checkIn.create({ data: { workspaceId: first.id, studyDate: sharedDate } }),
+    () => prisma.checkIn.create({ data: { ownerUserId: fixtureUserId, workspaceId: first.id, studyDate: sharedDate } }),
     "CheckIn workspace/date",
   );
   await expectUniqueConflict(

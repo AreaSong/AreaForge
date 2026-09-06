@@ -21,7 +21,7 @@ export default async function SettingsProfilePage() {
   if (!user) redirect("/login");
 
   const [vault, items] = await Promise.all([
-    getMotivationVault(),
+    getMotivationVault(user.id),
     listMotivationItems(user.id, true),
   ]);
 

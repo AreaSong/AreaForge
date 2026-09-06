@@ -4,10 +4,18 @@ export interface WorkspaceMemberView {
   id: string;
   userId: string;
   email: string;
-  role: "OWNER" | "MEMBER";
+  role: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
   status: "ACTIVE" | "LEFT" | "REMOVED";
   revision: number;
   joinedAt: string;
+}
+
+export type WorkspaceRoleMemberView = WorkspaceMemberView;
+
+export interface WorkspaceCapabilitiesView {
+  workspaceId: string;
+  role: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
+  capabilities: string[];
 }
 
 export interface WorkspaceInvitationView {
@@ -35,6 +43,23 @@ interface MembershipResponse {
   invitationPreview?: WorkspaceInvitationPreviewView;
   workspaceId?: string;
   createdAccount?: boolean;
+  membership?: WorkspaceRoleMemberView;
+  capability?: WorkspaceCapabilitiesView;
+}
+
+export function getWorkspaceCapabilities(workspaceId: string): Promise<ApiResult<MembershipResponse>> {
+  return requestApiResult(`/api/exam-workspaces/${encodeURIComponent(workspaceId)}/capabilities`);
+}
+
+export function updateWorkspaceMemberRole(
+  workspaceId: string,
+  membershipId: string,
+  input: { role: "ADMIN" | "COACH" | "MEMBER" | "VIEWER"; expectedRevision: number },
+): Promise<ApiResult<MembershipResponse>> {
+  return requestApiResult(
+    `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(membershipId)}/role`,
+    createJsonRequest("PATCH", input),
+  );
 }
 
 export function previewWorkspaceInvitation(token: string): Promise<ApiResult<MembershipResponse>> {

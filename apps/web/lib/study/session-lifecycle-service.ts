@@ -7,7 +7,7 @@ import {
   isUniqueConstraintViolation,
 } from "./concurrency";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   claimPersistentCreateCommand,
@@ -90,7 +90,8 @@ export async function updateStudySessionContext(
       const points = await tx.knowledgePoint.findMany({
         where: {
           id: { in: knowledgePointIds },
-          workspaceId: (await resolveActiveWorkspace(actorId, tx)).id,
+          workspaceId: (await resolveSelectedMemberWorkspace(actorId, tx)).id,
+          userId: actorId,
           archivedAt: null,
           OR: [
             { primarySubjectId: existing.subjectId },
@@ -156,7 +157,7 @@ export async function startStudySession(
   });
   try {
     const session = await prisma.$transaction(async (tx) => {
-      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
       const command = {
         actorId,
         workspaceId: workspace.id,
@@ -325,7 +326,7 @@ export async function heartbeatStudySession(
   input: StudySessionHeartbeatInput,
   actorId: string,
 ): Promise<StudySessionDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const clientDeviceId = normalizeDeviceId(input.clientDeviceId);
   const clientDeviceLabel = normalizeDeviceLabel(input.clientDeviceLabel);
   await prisma.$transaction(async (tx) => {

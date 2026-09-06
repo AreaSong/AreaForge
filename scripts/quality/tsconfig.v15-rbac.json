@@ -1,0 +1,11 @@
+{
+  "extends": "../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "v15-rbac-runtime-fixture.ts",
+    "v15-rbac-runtime.selftest.ts"
+  ],
+  "exclude": ["../../node_modules"]
+}

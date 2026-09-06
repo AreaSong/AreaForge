@@ -1,6 +1,6 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { completeConfiguredActivitySessionInTx } from "./session-command-service";
 import { activeTimerSessionId } from "./activity-session-state";
 import { masteryStateForRetest } from "./knowledge-mastery";
@@ -67,7 +67,7 @@ const pointInclude = {
 } satisfies Prisma.KnowledgeRetestPointInclude;
 
 export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRetestListItemDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.knowledgeRetest.findMany({
     where: { userId: actorId, workspaceId: workspace.id },
     include: {
@@ -97,7 +97,7 @@ export async function listKnowledgeRetests(actorId: string): Promise<KnowledgeRe
 }
 
 export async function getKnowledgeRetest(actorId: string, id: string): Promise<KnowledgeRetestDetailDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const row = await prisma.knowledgeRetest.findFirst({
     where: { id, userId: actorId, workspaceId: workspace.id },
     include: {
@@ -124,7 +124,7 @@ export async function createKnowledgeRetest(actorId: string, input: CreateKnowle
   });
 
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -173,7 +173,7 @@ export async function startKnowledgeRetest(
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const fingerprint = buildPersistentCreateFingerprint("knowledge-retest-start-v1", { id, expectedRevision: input.expectedRevision });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = retestCommand(actorId, workspace.id, id, "STARTED", idempotencyKey, fingerprint);
     const replay = await findPersistentCreateReplay(tx, command);
     if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);
@@ -224,7 +224,7 @@ export async function submitKnowledgeRetest(actorId: string, id: string, input: 
     reviewText: input.reviewText,
   });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = retestCommand(actorId, workspace.id, id, "SUBMITTED", idempotencyKey, fingerprint);
     const replay = await findPersistentCreateReplay(tx, command);
     if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);
@@ -308,7 +308,7 @@ export async function confirmKnowledgeRetest(
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const fingerprint = buildPersistentCreateFingerprint("knowledge-retest-confirm-v1", { id, expectedRevision: input.expectedRevision });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = retestCommand(actorId, workspace.id, id, "CONFIRMED", idempotencyKey, fingerprint);
     const replay = await findPersistentCreateReplay(tx, command);
     if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);
@@ -322,7 +322,7 @@ export async function confirmKnowledgeRetest(
     const testedAt = existing.testedAt ? new Date(existing.testedAt) : new Date();
     const pointIds = existing.points.map((point) => point.knowledgePointId);
     const previousEvidence = await tx.knowledgeEvidence.findMany({
-      where: { workspaceId: workspace.id, sourceType: "RETEST", knowledgePointId: { in: pointIds } },
+      where: { workspaceId: workspace.id, userId: actorId, sourceType: "RETEST", knowledgePointId: { in: pointIds } },
       select: { knowledgePointId: true, occurredAt: true, dimensions: true },
     });
     for (const point of existing.points) {
@@ -334,8 +334,8 @@ export async function confirmKnowledgeRetest(
         previousEvidence: evidence,
         method: existing.method,
       });
-      await tx.knowledgePoint.update({
-        where: { id: point.knowledgePointId },
+      await tx.knowledgePoint.updateMany({
+        where: { id: point.knowledgePointId, userId: actorId, workspaceId: workspace.id },
         data: { masteryState: state, nextRetestAt: nextDueAt, revision: { increment: 1 } },
       });
       await tx.knowledgeEvidence.create({
@@ -358,7 +358,7 @@ export async function confirmKnowledgeRetest(
         },
       });
     }
-    await tx.knowledgeRetest.update({ where: { id }, data: { status: "CLOSED", nextDueAt, revision: { increment: 1 } } });
+    await tx.knowledgeRetest.updateMany({ where: { id, userId: actorId, workspaceId: workspace.id }, data: { status: "CLOSED", nextDueAt, revision: { increment: 1 } } });
     await syncRetestFollowUpInbox(tx, actorId, workspace.id, existing, nextDueAt);
     await tx.auditEvent.create({ data: { actorId, action: "KNOWLEDGE_RETEST_CONFIRMED", entityType: "KnowledgeRetest", entityId: id } });
     const result = serializeDetail(await findDetail(tx, id, actorId, workspace.id));
@@ -375,7 +375,7 @@ export async function voidKnowledgeRetest(
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const fingerprint = buildPersistentCreateFingerprint("knowledge-retest-void-v1", { id, expectedRevision: input.expectedRevision });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = retestCommand(actorId, workspace.id, id, "VOIDED", idempotencyKey, fingerprint);
     const replay = await findPersistentCreateReplay(tx, command);
     if (replay) return replayRetest(tx, replay.resultId, actorId, workspace.id, replay.resultSnapshot);

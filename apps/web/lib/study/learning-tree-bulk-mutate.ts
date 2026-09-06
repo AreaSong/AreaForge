@@ -238,8 +238,9 @@ async function bulkCards(
           revision = target.revision + 1, "updatedAt" = NOW()
       FROM (VALUES ${values}) AS data(id, subject_id, title, content, kind, stable_key, primary_node_id)
       WHERE target.id = data.id AND target."subjectId" = data.subject_id
+        AND target."ownerUserId" = $${args.length + 1}::text
         AND EXISTS (SELECT 1 FROM "Subject" subject WHERE subject.id = target."subjectId" AND subject."workspaceId" = $1::text)
-    `, args, chunk.length);
+    `, [...args, context.actorId], chunk.length);
     writeBatchCount += 1;
     await context.tx.noteRelatedSyllabusNode.deleteMany({ where: { noteId: { in: chunk.map((row) => row.targetId) } } });
     for (const relationChunk of chunks(relations)) {
@@ -274,7 +275,8 @@ async function bulkResources(
           "subjectId" = data.subject_id, revision = target.revision + 1, "updatedAt" = NOW()
       FROM (VALUES ${values}) AS data(id, subject_id, title, external_url, display_host)
       WHERE target.id = data.id AND target."workspaceId" = $1::text
-    `, args, chunk.length);
+        AND target."ownerUserId" = $${args.length + 1}::text
+    `, [...args, context.actorId], chunk.length);
     writeBatchCount += 1;
     for (const target of chunk) result.set(target.item.stableKey, target.targetId);
   }
@@ -288,7 +290,7 @@ async function bulkPlans(
   const plans = targets.map((target) => target.object).filter((object) => object.type === "plan");
   const milestoneKeys = [...new Set(plans.flatMap((plan) => plan.milestoneKey ? [plan.milestoneKey] : []))];
   const milestones = milestoneKeys.length ? await context.tx.planMilestone.findMany({
-    where: { workspaceId: context.workspaceId, stableKey: { in: milestoneKeys }, archivedAt: null },
+    where: { workspaceId: context.workspaceId, ownerUserId: context.actorId, stableKey: { in: milestoneKeys }, archivedAt: null },
     select: { id: true, stableKey: true },
   }) : [];
   const milestoneByKey = new Map(milestones.map((milestone) => [milestone.stableKey, milestone.id]));
@@ -307,6 +309,7 @@ async function bulkPlans(
     const previous = await context.tx.planInboxItem.findMany({
       where: {
         workspaceId: context.workspaceId,
+        ownerUserId: context.actorId,
         originKey: { in: [...versionByOrigin.keys()] },
         status: "OPEN",
         supersededByItemId: null,
@@ -316,6 +319,7 @@ async function bulkPlans(
     const created = await context.tx.planInboxItem.createManyAndReturn({
       data: rows.map(({ plan, subjectId, originKey }) => ({
         workspaceId: context.workspaceId,
+        ownerUserId: context.actorId,
         stableKey: plan.batchRef,
         originKey,
         originVersion: plan.originVersion,
@@ -405,9 +409,10 @@ async function bulkSupersedePlans(
     UPDATE "PlanInboxItem" AS target
     SET "supersededByItemId" = data.superseded_by_id, revision = target.revision + 1, "updatedAt" = NOW()
     FROM (VALUES ${values}) AS data(id, superseded_by_id)
-    WHERE target.id = data.id AND target."workspaceId" = $1::text
-      AND target.status = 'OPEN' AND target."supersededByItemId" IS NULL
-  `, args, rows.length);
+      WHERE target.id = data.id AND target."workspaceId" = $1::text
+        AND target."ownerUserId" = $${args.length + 1}::text
+        AND target.status = 'OPEN' AND target."supersededByItemId" IS NULL
+  `, [...args, context.actorId], rows.length);
 }
 
 function resolveNode(

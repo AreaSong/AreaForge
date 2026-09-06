@@ -191,6 +191,7 @@ async function verifyPreviewedUniqueConflicts(): Promise<void> {
   await prisma.planInboxItem.create({
     data: {
       workspaceId: pair.workspaceId,
+      ownerUserId: pair.actorId,
       subjectId: pair.sourceSubjectId,
       stableKey: `invalid-${randomUUID()}`,
       originKey: `invalid-${randomUUID()}`,
@@ -220,6 +221,7 @@ async function verifyMergeTransactionRollback(): Promise<void> {
   await addTargetReferenceWeight(pair, 2);
   const task = await prisma.studyTask.create({
     data: {
+      ownerUserId: pair.actorId,
       subjectId: pair.sourceSubjectId,
       title: "回滚任务",
       type: "study",
@@ -294,7 +296,7 @@ async function verifyUndoUniqueConflictRollback(): Promise<void> {
 async function verifyUndoExpiry(): Promise<void> {
   const pair = await seedSubjectMergePair("expired");
   await addTargetReferenceWeight(pair, 2);
-  await prisma.studyTask.create({ data: { subjectId: pair.sourceSubjectId, title: "过期任务", type: "study", plannedDate: new Date() } });
+  await prisma.studyTask.create({ data: { ownerUserId: pair.actorId, subjectId: pair.sourceSubjectId, title: "过期任务", type: "study", plannedDate: new Date() } });
   const preview = await getPreview(pair);
   const merged = await mergeWorkspaceSubjects(pair.actorId, commandFor(pair, preview, `expire-merge-${randomUUID()}`));
   const event = await prisma.auditEvent.findUniqueOrThrow({ where: { id: merged.operationId } });

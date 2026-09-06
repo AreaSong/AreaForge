@@ -222,6 +222,7 @@ async function seedWorkspace() {
   });
   const note = await prisma.note.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: "Concept card",
       content: "body",
@@ -231,6 +232,7 @@ async function seedWorkspace() {
   });
   const mistake = await prisma.mistake.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: "Mistake 1",
       questionText: "在约束条件变化后，应如何选择正确方法？",
@@ -269,6 +271,7 @@ async function verifyMistakeCompletenessGate(
 
   const legacyIncomplete = await prisma.mistake.create({
     data: {
+      ownerUserId: seed.user.id,
       subjectId: seed.subject.id,
       title: "Legacy incomplete mistake",
       cause: "UNKNOWN",
@@ -348,8 +351,8 @@ async function verifyMistakeV2AttemptsAndLinks(
   );
   assert.equal(await prisma.mistakeAttempt.count({ where: { mistakeId: mistake.id } }), 1);
 
-  const note = await prisma.note.create({ data: { subjectId: seed.subject.id, title: "Mistake v2 note", content: "linked note" } });
-  const resource = await prisma.studyResource.create({ data: { workspaceId: seed.workspace.id, subjectId: seed.subject.id, stableKey: `mistake-v2-resource-${randomUUID()}`, title: "Mistake v2 resource", sourceType: "LINK", externalUrl: "https://example.com/mistake-v2" } });
+  const note = await prisma.note.create({ data: { ownerUserId: seed.user.id, subjectId: seed.subject.id, title: "Mistake v2 note", content: "linked note" } });
+  const resource = await prisma.studyResource.create({ data: { workspaceId: seed.workspace.id, ownerUserId: seed.user.id, subjectId: seed.subject.id, stableKey: `mistake-v2-resource-${randomUUID()}`, title: "Mistake v2 resource", sourceType: "LINK", externalUrl: "https://example.com/mistake-v2" } });
   const linked = await updateMistakeLinks(mistake.id, { expectedUpdatedAt: mistake.updatedAt, noteIds: [note.id], resourceIds: [resource.id] }, seed.user.id);
   assert.deepEqual(linked.noteLinks.map((item) => item.noteId), [note.id]);
   assert.deepEqual(linked.resourceLinks.map((item) => item.resourceId), [resource.id]);
@@ -926,7 +929,7 @@ async function verifyConfirmIdempotencyAndCheckIn(
   }
 
   const today = getStudyDayRange();
-  const checkIns = await listWorkspaceCheckIns(seed.workspace.id, today.start, today.start);
+  const checkIns = await listWorkspaceCheckIns(seed.user.id, seed.workspace.id, today.start, today.start);
   assert.equal(checkIns.length, 1);
   assert.equal(checkIns[0].sourceVersion, 2);
   assert.equal(checkIns[0].reviewSeconds, 320);
@@ -1080,7 +1083,7 @@ async function verifyCorrectionSingleSuccessor(
   assert.equal(await prisma.reviewEvent.count({ where: { correctedEventId: concurrentConfirmed.event.id } }), 1);
 
   const today = getStudyDayRange();
-  const checkIns = await listWorkspaceCheckIns(seed.workspace.id, today.start, today.start);
+  const checkIns = await listWorkspaceCheckIns(seed.user.id, seed.workspace.id, today.start, today.start);
   const row = checkIns[0];
   assert.ok(row);
   // correction replaces original: one effective event from first confirm (320) + this note's 90
@@ -1219,7 +1222,7 @@ async function verifyBridgeAndInboxConvert(
     data: { subjectId: seed.subject.id, title: "Inbox related", kind: "PROBLEM_TYPE", stableKey: "inbox-related" },
   });
   const predecessor = await prisma.studyTask.create({
-    data: { subjectId: seed.subject.id, title: "Inbox predecessor", type: "focus", plannedDate: getStudyDayRange().start, estimatedMinutes: 20 },
+    data: { ownerUserId: seed.user.id, subjectId: seed.subject.id, title: "Inbox predecessor", type: "focus", plannedDate: getStudyDayRange().start, estimatedMinutes: 20 },
   });
   const publicInput = {
     clientRequestKey: `public-inbox-${randomUUID()}`,
@@ -1996,6 +1999,7 @@ async function verifyHardConcurrencyFixtures(
   const upgradeDay = getStudyDayRange().start;
   await prisma.checkIn.create({
     data: {
+      ownerUserId: upgradeSeed.user.id,
       workspaceId: upgradeSeed.workspace.id,
       studyDate: upgradeDay,
       sourceVersion: 1,
@@ -2017,6 +2021,7 @@ async function verifyHardConcurrencyFixtures(
   });
   const upgradeNote = await prisma.note.create({
     data: {
+      ownerUserId: upgradeSeed.user.id,
       subjectId: upgradeSeed.subject.id,
       title: "Upgrade checkin note",
       content: "x",
@@ -2034,7 +2039,7 @@ async function verifyHardConcurrencyFixtures(
     result: "PASSED",
     durationSeconds: 300,
   });
-  const upgraded = await listWorkspaceCheckIns(upgradeSeed.workspace.id, upgradeDay, upgradeDay);
+  const upgraded = await listWorkspaceCheckIns(upgradeSeed.user.id, upgradeSeed.workspace.id, upgradeDay, upgradeDay);
   assert.equal(upgraded.length, 1);
   assert.equal(upgraded[0].sourceVersion, 2);
   assert.equal(upgraded[0].reviewCount, 1);

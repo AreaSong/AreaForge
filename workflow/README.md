@@ -20,7 +20,7 @@
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
 - `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
-- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产，v1.4 AUTH 已进入本地实现收口，v1.5-v2.0 仍是未来计划。任何本地 runtime 都不自动表示 Release 或 production 已完成。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产，v1.4 AUTH 与 v1.5 RBAC 已形成隔离 runtime、本地总门禁和桌面 spot check；v1.6-v1.8 已形成默认关闭的本地候选 runtime，并在一次性隔离 fixture 验证，候选 migration 尚未 apply 到共享测试库或生产；v1.9-v2.0 尚未进入业务 runtime。各版本仍缺相应浏览器矩阵、Git/PR/CI、Release/生产证据；任何本地 runtime 都不自动表示 Release 或 production 已完成。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 

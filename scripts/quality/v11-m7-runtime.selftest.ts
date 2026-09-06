@@ -56,6 +56,7 @@ try {
   });
   const oldSearchNote = await prisma.note.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: "Needle card",
       content: "search target",
@@ -64,6 +65,7 @@ try {
   });
   await prisma.note.createMany({
     data: Array.from({ length: 205 }, (_, index) => ({
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: `filler-card-${index}`,
       content: "filler",
@@ -72,6 +74,7 @@ try {
   });
   const lateSearchMistake = await prisma.mistake.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: "Needle mistake",
       nextReviewAt: new Date("2035-01-01T00:00:00.000Z"),
@@ -79,6 +82,7 @@ try {
   });
   await prisma.mistake.createMany({
     data: Array.from({ length: 205 }, (_, index) => ({
+      ownerUserId: user.id,
       subjectId: subject.id,
       title: `filler-mistake-${index}`,
       nextReviewAt: new Date("2026-07-27T00:00:00.000Z"),
@@ -87,6 +91,7 @@ try {
   const archivedSearchResource = await prisma.studyResource.create({
     data: {
       workspaceId: workspace.id,
+      ownerUserId: user.id,
       stableKey: "needle-resource",
       title: "Needle resource",
       sourceType: "LINK",
@@ -110,6 +115,7 @@ try {
   assert.deepEqual(filteredSyllabus[0]?.children.map((node) => node.title), ["Needle 极限"]);
   const vault = await prisma.motivationVault.create({
     data: {
+      userId: user.id,
       whyStarted: "为了把长期目标落实到今天",
       futureSelf: "稳定完成每一次最低行动",
     },

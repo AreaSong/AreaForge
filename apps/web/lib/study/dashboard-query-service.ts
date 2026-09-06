@@ -17,7 +17,7 @@ import { prisma } from "@areaforge/db";
 import { cache } from "react";
 import { getStudyDayRange, optionalDaysUntil } from "./date";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   createDashboardRecoveryFromRealtimePlan,
   createDashboardRecoveryFromState,
@@ -41,7 +41,7 @@ export async function getTodayDashboard(
   actorId: string,
   now = new Date(),
 ): Promise<TodayDashboardDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const day = getStudyDayRange(now);
   const recentStart = new Date(day.start.getTime() - 60 * 24 * 60 * 60 * 1000);
   const weeklyStart = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
@@ -74,6 +74,7 @@ export async function getTodayDashboard(
     }),
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           gte: day.start,
@@ -90,6 +91,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: {
           gte: day.start,
@@ -108,6 +110,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findFirst({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         status: {
           in: ["RUNNING", "PAUSED", "CLOSING"],
@@ -124,10 +127,11 @@ export async function getTodayDashboard(
       orderBy: { startedAt: "desc" },
     }),
     prisma.dailyReview.findFirst({
-      where: { reviewDate: day.start, workspaceId: workspace.id },
+      where: { reviewDate: day.start, workspaceId: workspace.id, ownerUserId: actorId },
     }),
     prisma.studyTask.count({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           lt: day.start,
@@ -140,6 +144,7 @@ export async function getTodayDashboard(
     // 单次取 12 条逾期任务：前 5 条给欠账预览，全量给欠账重排，替代原先两条同条件查询。
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: {
           lt: day.start,
@@ -159,6 +164,7 @@ export async function getTodayDashboard(
     }),
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: {
           gte: recentStart,
@@ -172,14 +178,15 @@ export async function getTodayDashboard(
         effectiveMinutes: true,
       },
     }),
-    listCheckInSnapshotsInRange(recentStart, day.end, prisma, workspace.id),
+    listCheckInSnapshotsInRange(actorId, recentStart, day.end, prisma, workspace.id),
     prisma.motivationVault.findFirst({
-      orderBy: { createdAt: "asc" },
+      where: { userId: actorId },
     }),
-    findActiveRecoveryState(),
+    findActiveRecoveryState(actorId, workspace.id),
     prisma.simulationExam.findFirst({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         status: { not: "CONFIRMED" },
         examDate: { gte: day.start },
       },

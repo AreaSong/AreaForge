@@ -8,15 +8,16 @@ import {
   studyResourceDetailRoute,
   syllabusNodeDetailRoute,
 } from "@/lib/navigation/route-helpers";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
+import { resolveMemberSyllabusProgress } from "./syllabus-progress";
 import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMasteryPersistenceLevel } from "@/lib/knowledge/mastery-status";
 
 export type { ReviewTargetDto } from "@/lib/contracts/review-target";
 
 export async function getReviewTarget(actorId: string, scheduleId: string): Promise<ReviewTargetDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const schedule = await prisma.reviewSchedule.findFirst({
-    where: { id: scheduleId, workspaceId: workspace.id },
+    where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     select: {
       targetType: true,
       noteId: true,
@@ -29,7 +30,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
 
   if (schedule.targetType === "NOTE" && schedule.noteId) {
     const note = await prisma.note.findFirst({
-      where: { id: schedule.noteId, subject: { workspaceId: workspace.id } },
+      where: { id: schedule.noteId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       include: { subject: { select: { id: true, name: true } } },
     });
     if (!note) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
@@ -49,7 +50,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
 
   if (schedule.targetType === "MISTAKE" && schedule.mistakeId) {
     const mistake = await prisma.mistake.findFirst({
-      where: { id: schedule.mistakeId, subject: { workspaceId: workspace.id } },
+      where: { id: schedule.mistakeId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       include: { subject: { select: { id: true, name: true } } },
     });
     if (!mistake) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
@@ -75,7 +76,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
 
   if (schedule.targetType === "STUDY_RESOURCE" && schedule.studyResourceId) {
     const resource = await prisma.studyResource.findFirst({
-      where: { id: schedule.studyResourceId, workspaceId: workspace.id },
+      where: { id: schedule.studyResourceId, workspaceId: workspace.id, ownerUserId: actorId },
       include: {
         subject: { select: { id: true, name: true } },
         attachment: { select: { mimeType: true, originalName: true } },
@@ -104,9 +105,20 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
     const node = await prisma.syllabusNode.findFirst({
       where: { id: schedule.syllabusNodeId, subject: { workspaceId: workspace.id } },
-      include: { subject: { select: { id: true, name: true } } },
+      include: {
+        subject: { select: { id: true, name: true } },
+        progresses: { where: { ownerUserId: actorId }, take: 1 },
+      },
     });
     if (!node) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
+    const progress = resolveMemberSyllabusProgress({
+      status: node.status,
+      masteryLevel: node.masteryLevel,
+      targetMinutes: node.targetMinutes,
+      actualMinutes: node.actualMinutes,
+      revision: node.revision,
+      progresses: node.progresses,
+    });
     return {
       id: node.id,
       subjectId: node.subjectId,
@@ -114,7 +126,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       title: node.title,
       subtitle: `${node.subject.name} · ${syllabusKindLabel(node.kind)}`,
       canonicalHref: syllabusNodeDetailRoute(node.id),
-      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(node.status)}\n\n掌握状态：${masteryStatusLabel(masteryStatusForSyllabusLevel(node.masteryLevel ? node.masteryLevel.toLowerCase() as SyllabusMasteryPersistenceLevel : null))}`),
+      body: parseSafeMarkdown(`当前状态：${syllabusStatusLabel(progress.status)}\n\n掌握状态：${masteryStatusLabel(masteryStatusForSyllabusLevel(progress.masteryLevel ? progress.masteryLevel.toLowerCase() as SyllabusMasteryPersistenceLevel : null))}`),
       revealTitle: null,
       revealBody: [],
       canPass: true,
