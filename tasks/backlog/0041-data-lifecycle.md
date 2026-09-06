@@ -40,7 +40,7 @@ releaseRequired: true
 
 ### DATA-DELETE 确认说明
 
-本基础任务只允许本地候选的删除影响预览和纯状态机：默认不可执行，只有显式隔离 fixture 可演练重新验证、冷静期、冻结、范围 fingerprint、kill-point、失败补偿和重试；不执行软删除、回收站状态变更、物理删除、附件清理、备份删除账本或恢复后重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
+本基础任务只允许本地候选的删除影响预览和纯状态机：默认不可执行，只有显式隔离 fixture 可演练重新验证、冷静期、冻结、范围 fingerprint、kill-point、失败补偿和重试。纯 Core deletion ledger 提供连续序号、不可变哈希链、篡改拒绝和历史备份恢复后的只读 replay plan，计划固定 `executionAllowed=false`；不执行软删除、回收站状态变更、物理删除、附件清理、账本持久化或恢复后真实重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
 
 > 当前工作树中 `DataJob` / `DataExportPackage` / `DataExportDownloadGrant` schema 或 migration 仍属于候选变更；允许在一次性隔离数据库中做可回收的验证，但在 DATA-EXPORT 与 DATA-DELETE 确认前不得 apply 到共享/生产数据库、归档落盘、发放真实下载包、删除或生产 apply，也不能据此更新本任务为完成。
 

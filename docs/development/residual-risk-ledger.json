@@ -266,7 +266,7 @@
       "id": "AF-RISK-DATA-001",
       "type": "deferred-work",
       "reviewAt": "2026-10-21",
-      "currentImpact": "v1.6 本地候选已有 feature-gated 数据任务、脱敏 preview、一次性 grant descriptor、确定性内存 ZIP/真实字节 SHA-256，以及默认不可执行的删除状态机；这些只证明纯规则和隔离 worker 契约，仍缺真实导出临时存储/附件本体/下载流、物理删除、附件清理、备份 deletion ledger 与完整账户导出",
+      "currentImpact": "v1.6 本地候选已有数据任务、确定性内存 ZIP/真实字节 SHA-256、默认不可执行删除状态机和纯 deletion ledger/replay plan；这些只证明纯规则和隔离 worker 契约，仍缺真实导出临时存储/附件本体/下载流、物理删除、附件清理、账本持久化/恢复后真实重放与完整账户导出",
       "executableNow": false,
       "closeCondition": "关闭：owner 鉴权/软归档/backup-restore/一次性导出临时资源释放 fixture 与 redaction matrix 齐备，且未来物理删除/撤销路线有单独确认包与实现证据后，方可人工关账。重开：缩短保留期、物理删除、备份副本同步删除、完整账户导出、扩大到 AI history、跨用户可见、或 confirm 落库策略变化",
       "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle 已确认）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close/reopen condition",
