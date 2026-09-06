@@ -53,12 +53,15 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   const defaults = parseServerEnv(baseEnv);
   assert.equal(defaults.DATA_LIFECYCLE_ENABLED, false);
   assert.equal(defaults.RANKING_ENABLED, false);
+  assert.equal(defaults.RANKING_PROJECTION_ENABLED, false);
 
   const enabled = parseServerEnv({
     ...baseEnv,
     DATA_LIFECYCLE_ENABLED: "true",
     RANKING_ENABLED: "true",
+    RANKING_PROJECTION_ENABLED: "true",
   });
   assert.equal(enabled.DATA_LIFECYCLE_ENABLED, true);
   assert.equal(enabled.RANKING_ENABLED, true);
+  assert.equal(enabled.RANKING_PROJECTION_ENABLED, true);
 });

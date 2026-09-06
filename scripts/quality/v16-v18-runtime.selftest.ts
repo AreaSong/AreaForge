@@ -33,6 +33,7 @@ try {
   process.env.AUTH_RBAC_ENABLED = "true";
   process.env.DATA_LIFECYCLE_ENABLED = "true";
   process.env.RANKING_ENABLED = "true";
+  process.env.RANKING_PROJECTION_ENABLED = "true";
   process.env.AUTH_SESSION_SECRET = process.env.AUTH_SESSION_SECRET ?? "ab-candidate-session-secret-20260906";
   process.env.AUTH_ACTION_TOKEN_SECRET = process.env.AUTH_ACTION_TOKEN_SECRET ?? "ab-candidate-action-secret-20260906";
 

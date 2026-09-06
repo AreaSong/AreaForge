@@ -10,7 +10,12 @@ export function isRankingFeatureEnabled(env: { [key: string]: string | undefined
   return env.RANKING_ENABLED === "true";
 }
 
-export function requireRankingFeature(options: { multiUser?: boolean } = {}): void {
+export function isRankingProjectionEnabled(env: { [key: string]: string | undefined } = process.env): boolean {
+  return env.RANKING_PROJECTION_ENABLED === "true";
+}
+
+export function requireRankingFeature(options: { multiUser?: boolean; projection?: boolean } = {}): void {
   if (!isRankingFeatureEnabled()) throw new ApiError("RANKING_DISABLED", 404);
   if (options.multiUser) requireRbacFeature();
+  if (options.projection && !isRankingProjectionEnabled()) throw new ApiError("RANKING_PROJECTION_DISABLED", 404);
 }

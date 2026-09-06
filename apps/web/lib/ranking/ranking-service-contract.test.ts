@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { previewRankingDeletion } from "./deletion-preview-service";
-import { isRankingFeatureEnabled } from "./feature-gate";
+import { isRankingFeatureEnabled, isRankingProjectionEnabled } from "./feature-gate";
 
 const rankingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -13,6 +13,8 @@ test("ranking feature gate is fail-closed unless explicitly enabled", () => {
   assert.equal(isRankingFeatureEnabled({ RANKING_ENABLED: "false" }), false);
   assert.equal(isRankingFeatureEnabled({ RANKING_ENABLED: "1" }), false);
   assert.equal(isRankingFeatureEnabled({ RANKING_ENABLED: "true" }), true);
+  assert.equal(isRankingProjectionEnabled({ RANKING_PROJECTION_ENABLED: "false" }), false);
+  assert.equal(isRankingProjectionEnabled({ RANKING_PROJECTION_ENABLED: "true" }), true);
 });
 
 test("projection loader has a narrow source-field allowlist and workspace fence", async () => {

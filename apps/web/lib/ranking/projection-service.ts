@@ -23,7 +23,7 @@ export async function getChallengeProjection(
   actorId: string,
   challengeId: string,
 ): Promise<RankingProjectionViewDto> {
-  requireRankingFeature({ multiUser: true });
+  requireRankingFeature({ multiUser: true, projection: true });
   const challenge = await requireChallengeMember(prisma, actorId, challengeId);
   const actorParticipant = challenge.participants.find((participant) => participant.userId === actorId);
   if (actorParticipant?.status !== "ACTIVE") throw new ApiError("RANKING_PARTICIPANT_NOT_ACTIVE", 409);
@@ -56,7 +56,7 @@ export async function rebuildChallengeProjection(
   challengeId: string,
   expectedRevision?: number,
 ): Promise<RankingProjectionViewDto> {
-  requireRankingFeature({ multiUser: true });
+  requireRankingFeature({ multiUser: true, projection: true });
   return prisma.$transaction(async (tx) => {
     const challenge = await requireOwnedRebuildableChallenge(tx, actor.id, challengeId, expectedRevision);
     const participants = challenge.participants.filter((participant) => participant.status === "ACTIVE");
