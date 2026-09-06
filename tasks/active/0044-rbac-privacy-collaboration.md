@@ -39,6 +39,7 @@ releaseRequired: true
 - 全新隔离 PostgreSQL 的专项 runtime 已通过，覆盖迁移歧义拒绝、双 Workspace、五级角色、跨租户、grant 生命周期、Coach 确认链、PlanInbox lineage、成员移除/角色变化/账户暂停即时失效和 Operator 脱敏；Core/Web 当前专项验证通过，Prisma validate、typecheck、Web lint（0 error）和本地总门禁已通过，Release 层仍未开始。
 - v1.5-R 已新增 `StudyTask.ownerUserId` additive owner lineage：现有任务按 `Subject -> ExamWorkspace.userId` 回填，成员创建/拆分/模拟/复习桥接/债务拆小及 PlanInbox 转换均写入服务端 actor owner；成员 PlanInbox 接受 Coach 建议后可在 CAS、审计和幂等保护下显式转换为自己的正式任务。为兼容尚未升级的旧写入器，owner 列暂保留 nullable；owner 为空的任务不允许成员级写操作，仍需后续清理/收紧为非空。
 - v1.5-R 新增隔离 runtime selftest，已验证成员 PlanInbox 显式转换后生成成员 owner 任务，成员可以读回，Workspace owner 不会在成员任务列表中串读；production migration/apply 仍未执行。
+- Git 检查点 `5816338` 已推送到 `codex/v15-rbac-foundation`，branch push CI run `34021752169` 成功；尚未创建受保护 PR，也未合并、发布或 apply 到生产。
 - Release、生产 migration/apply、真实生产账户操作、物理删除和服务器动作仍需独立确认与证据。
 - 本轮补齐 v1.5-R 同 Workspace 成员隔离收口：复习目标、任务关系、session evidence、附件父对象/下载 fallback、学习树导入/批量私有对象、错题模拟失分来源、笔记资源选择、科目重复预览和容量入口均加入 actor/owner 条件；新增跨成员静态契约覆盖。
 - 协作 UI 已接通分享授权编辑、共享资源脱敏摘要、Coach 建议创建、成员真实角色显示、所有 active membership 切换与非 Owner 离开；仍缺完整 desktop/mobile 浏览器矩阵和受保护 Release/生产证据。

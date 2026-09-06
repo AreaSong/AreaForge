@@ -11,7 +11,7 @@
 - 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`）；Release 于 2026-09-01 发布，workflow run `33521890241` 成功，manifest、SBOM、provenance、checksum、签名资产与不可变镜像 digest 已严格验证。`v1.2.0` 是 annotated tag，tag 本身没有 GPG signature，不能写成“签名 tag”。
 - 当前默认分支的 workspace package version 已统一为 `1.2.0`；PR #49 已于 2026-09-01 经 CI run `33505174259` 成功后 squash 合并到 `main`，其后 main push CI run `33506280124` 也已成功。`v1.2.0` tag、GitHub Release 和 GHCR 镜像已创建；生产 apply 尚未执行。
 - 当前生产仍为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`）；2026-08-01 已通过 Web 版本中心受控请求完成该版本的 production apply，远端 `https://forge.areasong.top/api/health` 报告 `1.1.1` 与 verified production runtime identity。`v1.2.0` 发布未执行 production migration/update、备份恢复、回滚或写入型 smoke，生产与回滚目标仍为 `v1.1.1`。
-- A -> B 当前进度：v1.3 动态个人版已由 PR #56 合并 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，尚缺独立 Release/production disposition；v1.4 AUTH 身份、Workspace 与 Membership 主体代码和隔离 PostgreSQL runtime 已形成，仍缺完整桌面/移动旅程、Git 检查点、Release 和生产证据；v1.5 RBAC、隐私授权与 Coach 协作已形成本地实现、隔离 PostgreSQL runtime、完整 `pnpm check`，默认多人/RBAC 开关关闭；v1.6 数据任务/删除预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影也已形成本地候选与一次性隔离 runtime 证据，但候选 migration 尚未 apply 到共享测试库或生产、feature gate 默认关闭，仍缺完整浏览器矩阵、Git/PR/CI、Release 和生产证据。v1.9-v2.0 尚未进入业务 runtime。
+- A -> B 当前进度：v1.3 动态个人版已由 PR #56 合并 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，尚缺独立 Release/production disposition；v1.4 AUTH、v1.5 RBAC/隐私授权/Coach、v1.6 数据任务/删除预览、v1.7 受控运维请求和 v1.8 私有挑战/排名投影已形成默认关闭的本地候选与一次性隔离 runtime 证据。候选已建立 Git 检查点并推送 `codex/v15-rbac-foundation` commit `5816338e5f06a2c241b120246157bfaf90bc01ff`，branch push CI run `34021752169` 成功；尚无受保护 PR/合并。候选 migration 尚未 apply 到共享测试库或生产，仍缺完整浏览器矩阵、Release 和生产证据。v1.9-v2.0 尚未进入业务 runtime。
 - 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；开始学习、今日、知识、检验、路线构成五个一级业务入口，设置位于侧栏底部工具区，确认中心作为共享工作流入口。`/focus` 是独立一级入口，知识点是可跨阶段/考纲/检验复用的核心对象，报告、阶段建议、模拟考试、专项复测和 AI 草稿统一进入确认中心。当前只保留一套 canonical 路由，旧 `/plan/*`、`/review/*`、`/quick-review/*`、计时详情、重复设置路径、`/today/*`、`/stage/*` 和根级旧业务页面已移除，不再提供兼容重定向。本地优先计时在真实 session 同步后才进入证据接力。发布与 production apply 状态仍以本文件前述稳定基线和对应 evidence 文档为准。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
@@ -58,7 +58,7 @@
 
 ## 工作原则
 
-- 先读方案、上下文和最近的局部 `AGENTS.md`，再改代码。
+- 从仓库根到目标路径逐层检查适用的 `AGENTS.md`，按任务范围读取相关源事实后再改代码；局部技术规则可细化实现，但不得放宽根安全和批准边界。skill 的条件阅读与完成规则归口 `docs/development/codex-workflow.md`。
 - 涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、供应链、残余风险、AI 或验证选择时，优先使用 `.codex/skills-src/` 中对应的 AreaForge repo-local skill。
 - 涉及公开 issue、支持入口、贡献者 PR、公开安全披露或维护者 triage 时，优先使用 `.codex/skills-src/areaforge-public-maintenance`，再按风险面交给安全、SRE、Release、供应链或体验 owner skill。
 - 跨多个治理面推进时，先用 `.codex/skills-src/areaforge-operating-loop` 做任务分级、owner skill 路由、验证选择和收尾证据整理。
@@ -67,11 +67,11 @@
 - 文档或入口变更后，按 `docs/development/doc-sync-checklist.md` 检查漂移。
 - 验证选择遵循 `docs/development/validation-matrix.md`。
 - 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
-- 外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具的准入与扩大，遵循 `docs/development/external-capability-admission.md`；它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
+- 新增或扩大外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具时，遵循 `docs/development/external-capability-admission.md`；已准入且在当前请求范围内的只读调用无需重复准入。既有精确生产只读确认包仍有效，它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
 - 本地容器化 UI 验证统一使用 `areaforge-dev-test` 测试池：普通迭代执行 `pnpm dev:test:refresh` 复用最新槽位，只有明确需要保留旧版本比较时才执行 `pnpm dev:test:snapshot`；最多保留三个 Web 实例，不得绕过测试池创建递增命名的长期残留容器。
 - 浏览器/Playwright 验收必须复用 `pnpm dev:test:latest -- --json` 返回的 URL；不得为每个对话、每个页面或每次截图另起 `areaforge-v11browser-runtime-*` 容器。若某个验收工具确实创建一次性 runtime 容器，必须在该次验收结束时删除，不能把它当作测试池实例或长期运行服务。
-- 每个任务收尾都要在本地 Docker 可用时运行 `pnpm dev:test:latest -- --json` 并明确本次是否更新测试池；实际 `refresh`/`snapshot` 后必须报告机器返回的最新槽位、端口和访问地址，不得默认 slot 1 或要求维护者逐个尝试。未更新测试池时也要说明“本次未更新”，并把当前 latest 仅标为既有实例；Docker 不可用时明确 latest 未核验。
-- 发布、生产运维或长期运营状态变化，更新 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的相关入口，并运行 `pnpm ops:readiness`；进入 release/update/交接证据时先看 `pnpm ops:handoff`，再补跑 `pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。
+- 测试池收尾按 `docs/development/codex-workflow.md` 执行：本地 UI/浏览器验收、测试池操作或本地测试 URL 查询在范围内时，Docker 可用则运行 `pnpm dev:test:latest -- --json`；实际 `refresh`/`snapshot` 后报告机器返回的槽位、端口和 URL。未更新时标为既有实例，不得用它证明本次改动；范围内但 Docker 不可用时报告未核验。纯文档、只读审阅、非 Web 任务标为不适用，不为收尾启动 Docker 或刷新测试池。
+- 实际发布、生产运维、长期运营状态或其证据发生变化时，同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的受影响入口，并按验证矩阵运行 `pnpm ops:readiness`；release/update/运维交接证据需要 `pnpm ops:handoff`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。单纯审阅这些规则或修正文案不表示生产状态变化。
 - 当前学习闭环围绕“开始学习（选科目） -> 专注计时 -> 收口 -> 证据/复测 -> 今日闭环 -> 周期报告与阶段调整”展开；任务和考纲是可选上下文，学习是否真正学进去才是主要结果。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
 - `packages/db` 集中数据库访问；页面和组件不直接调用 Prisma。
@@ -81,7 +81,7 @@
 
 ## 高风险边界
 
-命中以下任一项时，先说明影响、风险、验证与回滚思路，再等待确认：
+拟执行以下动作或改变对应高风险边界的实现时，先说明影响、风险、验证与回滚思路，再等待明确确认。只读审阅、诊断、计划、文档准备和无真实状态写入的静态/mock 检查可先行；它们不授权 migration、真实数据写入、Provider 外呼或生产操作。
 
 - 数据库 migration、数据修复、批量删除、清空记录。
 - 删除附件、移动上传目录、修改备份/恢复策略。
@@ -89,11 +89,12 @@
 - 网页内直接触发部署、执行服务器命令或一键更新；允许的版本中心只能提交受控请求，由服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 将动机档案、情绪记录、复盘正文发送给 AI 的默认策略变化。
 
-文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。
+确认范围和跨 skill 复用以 `docs/development/high-risk-confirmation-packets.md` 为准；同一未超范围的确认不因 handoff 重复询问，一次性或独立确认要求不得复用。文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。
 
 ## 验证要求
 
-- 常规代码改动：运行 `pnpm check`，若耗时或环境不允许，至少运行相关 `typecheck`、`lint`、`db:validate`、`build`。
+- 验证命令以 `docs/development/validation-matrix.md` 的改动路径和风险 profile 为准，最终文档/metadata 同步后执行。常规代码运行 `pnpm check`；环境阻塞时先运行可执行的相关检查并报告缺口，不以“耗时”豁免高风险或 Release 必需门禁。
 - `packages/core` 规则改动：补充或运行对应单元测试。
-- UI 改动：能启动时用浏览器或截图检查主要页面状态。
+- UI 改动：验证实际受影响页面、交互和失败状态；布局变化包含桌面/窄视口。无法启动时明确缺失体验证据，不宣称体验已验证。
 - Prisma schema 改动：运行 `pnpm db:validate`。
+- 完成状态按 `docs/development/completion-evidence-checklist.md` 区分 complete、partial、blocked 和不适用；审阅以文件/行号证据完成审阅交付，不自动修改文件或声称修复。

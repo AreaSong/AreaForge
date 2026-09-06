@@ -50,7 +50,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 |---|---|
 | 仓库状态 | 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfa`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
 | 当前候选 | 当前 checkout 的 package version 为 `1.2.0`，对应高密度工作台、Dynamic Island、错题 v2 与 Web 治理门禁的稳定 Release；未执行 production apply |
-| A -> B 本地进度 | v1.3 动态个人版已合并 `main` 但未独立 Release；v1.4/v1.5 已通过隔离 runtime 与本地总门禁；v1.6 数据任务预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影已形成默认关闭的本地候选，并在一次性隔离 fixture 验证，候选 migration 尚未 apply 到共享测试库或生产，仍缺完整浏览器矩阵、PR/CI、Release 和生产证据 |
+| A -> B 本地进度 | v1.3 动态个人版已合并 `main` 但未独立 Release；v1.4-v1.8 默认关闭的本地候选已通过总门禁与一次性隔离 runtime，commit `5816338` 的 branch push CI run `34021752169` 成功；候选 migration 尚未 apply 到共享测试库或生产，仍缺完整浏览器矩阵、受保护 PR/合并、Release 和生产证据 |
 | 线上基线 | `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 与 verified production runtime identity 已验证 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
 | 当前收口 | `v1.2.0` 已完成全量检查、桌面/移动验收、受保护 PR、annotated tag、稳定 Release 与严格资产校验；本次未执行 production apply，生产和回滚目标仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变 |

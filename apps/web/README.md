@@ -6,7 +6,7 @@
 
 当前 checkout 的 package version 为 `1.2.0`，对应已发布的 `v1.2.0` 稳定 Release；生产仍未更新，生产证据与 Release 工件证据保持分离。
 
-当前分支还包含 v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作，以及 v1.6-v1.8 数据任务预览、受控运维请求和私有挑战/排名投影本地候选：前两版已形成隔离 runtime、本地总门禁和共享测试池桌面 spot check，后三版默认 feature gate 关闭且候选 migration 未 apply。默认 `AUTH_MULTI_USER_ENABLED=false`、`AUTH_RBAC_ENABLED=false`、`DATA_LIFECYCLE_ENABLED=false`、`RANKING_ENABLED=false`；完整浏览器矩阵、PR/CI、Release 或 production apply 证据仍缺，敏感学习正文仍只允许资源 owner 或持有有效 grant 的成员读取。
+当前分支还包含 v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作，以及 v1.6-v1.8 数据任务预览、受控运维请求和私有挑战/排名投影本地候选；commit `5816338` 已通过 branch push CI run `34021752169`。默认 `AUTH_MULTI_USER_ENABLED=false`、`AUTH_RBAC_ENABLED=false`、`DATA_LIFECYCLE_ENABLED=false`、`RANKING_ENABLED=false`；候选 migration 未 apply 到共享测试库或生产，完整浏览器矩阵、受保护 PR/合并、Release 或 production apply 证据仍缺，敏感学习正文仍只允许资源 owner 或持有有效 grant 的成员读取。
 
 ## Getting Started
 
