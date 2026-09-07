@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "v15-rbac-browser-failure-matrix-v1",
+  "status": "pass",
+  "generatedAt": "2026-09-07T12:10:12.452Z",
+  "contentClassification": "synthetic-only",
+  "runtime": {
+    "database": "areaforge_test_v15rbac_browser_failure_20260907_01",
+    "url": "http://127.0.0.1:43172",
+    "appVersion": "1.2.0",
+    "sourceGitCommit": "6568c87e2de5959227af60d840af2c19cfad0a45",
+    "sourceFingerprint": "sha256:10faedcf7d4fd37490904287e06f2dce469b12f7f12ceba8519bc91534aaf725",
+    "buildId": "sha256:a118082ee7f69da2ce9fc12e586fb7698e2ca6b53b31a7173a3a55c47f40c887",
+    "runtimeMode": "production-build-test-pool"
+  },
+  "cases": [
+    {
+      "id": "anonymous-private-api",
+      "actor": "anonymous",
+      "status": 401,
+      "error": "UNAUTHORIZED"
+    },
+    {
+      "id": "non-operator-directory",
+      "actor": "owner",
+      "status": 404,
+      "error": "PLATFORM_OPERATOR_NOT_FOUND"
+    },
+    {
+      "id": "cross-workspace-capability",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "member-role-escalation",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "viewer-cannot-share-owner-note",
+      "actor": "viewer",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "self-grant-rejected",
+      "actor": "owner",
+      "status": 400,
+      "error": "WORKSPACE_SHARE_GRANT_TARGET_INVALID"
+    },
+    {
+      "id": "workspace-coach-grant-rejected",
+      "actor": "owner",
+      "status": 400,
+      "error": "WORKSPACE_SHARE_GRANT_COACH_SCOPE_INVALID"
+    },
+    {
+      "id": "stale-role-revision",
+      "actor": "owner",
+      "status": 409,
+      "error": "WORKSPACE_MEMBERSHIP_CONFLICT"
+    },
+    {
+      "id": "coach-without-grant",
+      "actor": "coach",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "member-cannot-list-invitations",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "stale-invitation-revoke",
+      "actor": "owner",
+      "status": 404,
+      "error": "WORKSPACE_INVITATION_NOT_FOUND"
+    },
+    {
+      "id": "role-change-invalidates-role-grant",
+      "actor": "coach",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "membership-removal-invalidates-session",
+      "actor": "viewer",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "revoked-grant-invalidates-read",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "operator-self-action-rejected",
+      "actor": "operator",
+      "status": 409,
+      "error": "OPERATOR_SELF_ACTION_FORBIDDEN"
+    },
+    {
+      "id": "operator-stale-auth-revision",
+      "actor": "operator",
+      "status": 409,
+      "error": "AUTH_REVISION_CONFLICT"
+    },
+    {
+      "id": "suspension-invalidates-session",
+      "actor": "member",
+      "status": 401,
+      "error": "UNAUTHORIZED"
+    }
+  ],
+  "visualObservations": [
+    {
+      "id": "owner-desktop",
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "finalPath": "/settings/workspaces",
+      "horizontalOverflow": 0
+    },
+    {
+      "id": "member-mobile",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "finalPath": "/login",
+      "horizontalOverflow": 0
+    }
+  ],
+  "telemetry": {
+    "expectedHttpFailureConsoleCount": 17,
+    "unexpectedConsoleErrors": [],
+    "pageErrors": []
+  },
+  "screenshots": [
+    "owner-failure-matrix-desktop.png",
+    "member-session-invalidated-mobile.png"
+  ],
+  "safetyFacts": {
+    "isolatedDatabaseUsed": true,
+    "isolatedDatabaseCleaned": true,
+    "isolatedDatabaseDropped": true,
+    "testPoolUsed": true,
+    "testPoolInstanceCleaned": true,
+    "syntheticAccountsOnly": true,
+    "productionWriteAttempted": false,
+    "sharedDatabaseMigrationAttempted": false,
+    "physicalDeleteAttempted": false,
+    "serverCommandExecutionAttempted": false,
+    "secretValuePersisted": false
+  },
+  "doesNotProve": [
+    "protected PR merge or signed Release readiness",
+    "production migration, production feature enablement or production health",
+    "real SMTP delivery"
+  ]
+}

@@ -5,7 +5,7 @@ import path from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright-core";
 import { hashPassword } from "../../packages/auth/src/index";
 import { prisma } from "../../packages/db/src/index";
-import { seedRbacRuntimeFixture } from "../quality/v15-rbac-runtime-fixture";
+import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "../quality/v15-rbac-runtime-fixture";
 
 interface BrowserResult {
   id: string;
@@ -20,6 +20,9 @@ const expectedDatabase = required(process.env.AREAFORGE_V15_BROWSER_EXPECTED_DAT
 const operatorEmail = required(process.env.AREAFORGE_V15_BROWSER_OPERATOR_EMAIL, "AREAFORGE_V15_BROWSER_OPERATOR_EMAIL").toLowerCase();
 const outputDirectory = path.join(root, "output/playwright/v15-failure-matrix");
 const results: BrowserResult[] = [];
+const consoleErrors: string[] = [];
+const pageErrors: string[] = [];
+let fixtureSeeded = false;
 
 try {
   await assertIsolatedDatabase();
@@ -28,11 +31,12 @@ try {
     passwordHash: await hashPassword(password),
     operatorEmail,
   });
+  fixtureSeeded = true;
   await mkdir(outputDirectory, { recursive: true });
 
   const browser = await chromium.launch({ headless: true, executablePath: chromeExecutablePath() });
   try {
-    const anonymous = await browser.newContext({ baseURL: baseUrl.origin, viewport: { width: 1280, height: 900 } });
+    const anonymous = instrumentContext(await browser.newContext({ baseURL: baseUrl.origin, viewport: { width: 1280, height: 900 } }));
     await (await anonymous.newPage()).goto(`${baseUrl.origin}/login`);
     const owner = await authenticatedContext(browser, fixture.users.owner.email, password, { width: 1280, height: 900 });
     const coach = await authenticatedContext(browser, fixture.users.coach.email, password, { width: 1280, height: 900 });
@@ -42,14 +46,21 @@ try {
     const contexts = [anonymous, owner, coach, member, viewer, operator];
     try {
       await runMatrix({ anonymous, owner, coach, member, viewer, operator }, fixture);
-      await captureScreenshots(owner, member);
-      assert.equal(results.length, 12);
+      const visualObservations = await captureScreenshots(owner, member);
+      assert.equal(results.length, 17);
       assert.equal(results.every((result) => result.status >= 400), true);
+      const unexpectedConsoleErrors = consoleErrors.filter((message) => !isExpectedHttpFailureConsole(message));
+      const expectedHttpFailureConsoleCount = consoleErrors.length - unexpectedConsoleErrors.length;
+      assert.equal(expectedHttpFailureConsoleCount, results.length);
+      assert.deepEqual(unexpectedConsoleErrors, []);
+      assert.deepEqual(pageErrors, []);
       const health = await fetch(`${baseUrl.origin}/api/health`).then((response) => response.json()) as {
         version?: string;
         runtimeIdentity?: { gitCommit?: string; productExperienceSourceHash?: string; buildId?: string; status?: string };
       };
       assert.equal(health.runtimeIdentity?.status, "verified");
+      await resetRbacRuntimeFixture();
+      fixtureSeeded = false;
       await writeFile(path.join(outputDirectory, "evidence.json"), `${JSON.stringify({
         schemaVersion: "v15-rbac-browser-failure-matrix-v1",
         status: "pass",
@@ -65,9 +76,16 @@ try {
           runtimeMode: "production-build-test-pool",
         },
         cases: results,
+        visualObservations,
+        telemetry: {
+          expectedHttpFailureConsoleCount,
+          unexpectedConsoleErrors,
+          pageErrors,
+        },
         screenshots: ["owner-failure-matrix-desktop.png", "member-session-invalidated-mobile.png"],
         safetyFacts: {
           isolatedDatabaseUsed: true,
+          isolatedDatabaseCleaned: true,
           testPoolUsed: true,
           syntheticAccountsOnly: true,
           productionWriteAttempted: false,
@@ -90,6 +108,7 @@ try {
     await browser.close();
   }
 } finally {
+  if (fixtureSeeded) await resetRbacRuntimeFixture();
   await prisma.$disconnect();
 }
 
@@ -106,6 +125,27 @@ async function runMatrix(
   await expectBrowserError(contexts.owner, "owner", "workspace-coach-grant-rejected", `/api/exam-workspaces/${fixture.workspaceIds.primary}/share-grants`, "POST", { resourceType: "NOTE", resourceId: fixture.notes.userGrant, scope: "WORKSPACE", access: "COACH" }, 400, "WORKSPACE_SHARE_GRANT_COACH_SCOPE_INVALID");
   await expectBrowserError(contexts.owner, "owner", "stale-role-revision", `/api/exam-workspaces/${fixture.workspaceIds.primary}/members/${fixture.memberships.member}/role`, "PATCH", { role: "VIEWER", expectedRevision: 999 }, 409, "WORKSPACE_MEMBERSHIP_CONFLICT");
   await expectBrowserError(contexts.coach, "coach", "coach-without-grant", "/api/coach/suggestions", "POST", { workspaceId: fixture.workspaceIds.primary, resourceType: "NOTE", resourceId: fixture.notes.userGrant, payload: { title: "不得创建", plannedDate: null, estimatedMinutes: 25, priority: "HIGH", type: "study", subjectId: fixture.subjects.primary, primaryNodeId: null } }, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
+  await expectBrowserError(contexts.member, "member", "member-cannot-list-invitations", `/api/exam-workspaces/${fixture.workspaceIds.primary}/invitations`, "GET", undefined, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
+  const invitation = await prisma.workspaceInvitation.create({
+    data: {
+      workspaceId: fixture.workspaceIds.primary,
+      emailNormalized: "pending-browser-failure@example.invalid",
+      tokenHash: `browser-failure-${randomBytes(16).toString("hex")}`,
+      invitedByUserId: fixture.users.owner.userId,
+      expiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+  await expectBrowserError(contexts.owner, "owner", "stale-invitation-revoke", `/api/exam-workspaces/${fixture.workspaceIds.primary}/invitations/${invitation.id}`, "DELETE", { expectedRevision: 999 }, 404, "WORKSPACE_INVITATION_NOT_FOUND");
+
+  const coachRoleGrant = await browserRequest(contexts.owner, `/api/exam-workspaces/${fixture.workspaceIds.primary}/share-grants`, "POST", { resourceType: "NOTE", resourceId: fixture.notes.roleGrant, scope: "ROLE", granteeRole: "COACH", access: "COACH" });
+  assert.equal(coachRoleGrant.status, 201);
+  assert.equal((await browserRequest(contexts.coach, `/api/shared-resources/NOTE/${fixture.notes.roleGrant}`, "GET")).status, 200);
+  const coachMembership = await prisma.workspaceMembership.findUniqueOrThrow({ where: { id: fixture.memberships.coach }, select: { revision: true } });
+  assert.equal((await browserRequest(contexts.owner, `/api/exam-workspaces/${fixture.workspaceIds.primary}/members/${fixture.memberships.coach}/role`, "PATCH", { role: "MEMBER", expectedRevision: coachMembership.revision })).status, 200);
+  await expectBrowserError(contexts.coach, "coach", "role-change-invalidates-role-grant", `/api/shared-resources/NOTE/${fixture.notes.roleGrant}`, "GET", undefined, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
+
+  await prisma.workspaceMembership.update({ where: { id: fixture.memberships.viewer }, data: { status: "REMOVED", removedAt: new Date() } });
+  await expectBrowserError(contexts.viewer, "viewer", "membership-removal-invalidates-session", `/api/exam-workspaces/${fixture.workspaceIds.primary}/capabilities`, "GET", undefined, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
 
   const grant = await browserRequest(contexts.owner, `/api/exam-workspaces/${fixture.workspaceIds.primary}/share-grants`, "POST", { resourceType: "NOTE", resourceId: fixture.notes.userGrant, scope: "USER", granteeUserId: fixture.users.member.userId, access: "VIEW" });
   assert.equal(grant.status, 201);
@@ -115,6 +155,7 @@ async function runMatrix(
   assert.equal((await browserRequest(contexts.owner, `/api/exam-workspaces/${fixture.workspaceIds.primary}/share-grants/${grantId}`, "DELETE", { expectedRevision: grantRevision })).status, 200);
   await expectBrowserError(contexts.member, "member", "revoked-grant-invalidates-read", `/api/shared-resources/NOTE/${fixture.notes.userGrant}`, "GET", undefined, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
 
+  await expectBrowserError(contexts.operator, "operator", "operator-self-action-rejected", `/api/system/accounts/${fixture.users.operator.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: 1, reason: "SECURITY_REVIEW" }, 409, "OPERATOR_SELF_ACTION_FORBIDDEN");
   await expectBrowserError(contexts.operator, "operator", "operator-stale-auth-revision", `/api/system/accounts/${fixture.users.viewer.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: 999, reason: "SECURITY_REVIEW" }, 409, "AUTH_REVISION_CONFLICT");
   const memberBefore = await prisma.user.findUniqueOrThrow({ where: { id: fixture.users.member.userId }, select: { authRevision: true } });
   const suspended = await browserRequest(contexts.operator, `/api/system/accounts/${fixture.users.member.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: memberBefore.authRevision, reason: "SECURITY_REVIEW" });
@@ -128,12 +169,12 @@ async function authenticatedContext(
   password: string,
   viewport: { width: number; height: number },
 ): Promise<BrowserContext> {
-  const context = await browser.newContext({ baseURL: baseUrl.origin, viewport });
+  const context = instrumentContext(await browser.newContext({ baseURL: baseUrl.origin, viewport }));
   const page = await context.newPage();
   const response = await page.goto(`${baseUrl.origin}/login`);
   assert.equal(response?.status(), 200);
   await page.getByLabel("邮箱").fill(email);
-  await page.getByLabel("密码").fill(password);
+  await page.locator('input[name="password"]').fill(password);
   await Promise.all([
     page.waitForResponse((candidate) => candidate.url().endsWith("/api/auth/login") && candidate.request().method() === "POST"),
     page.getByRole("button", { name: "登录" }).click(),
@@ -174,17 +215,48 @@ async function browserRequest(context: BrowserContext, url: string, method: stri
   return result;
 }
 
-async function captureScreenshots(owner: BrowserContext, member: BrowserContext): Promise<void> {
+async function captureScreenshots(owner: BrowserContext, member: BrowserContext) {
   const ownerPage = await visiblePage(owner, "/settings/workspaces");
   await ownerPage.screenshot({ path: path.join(outputDirectory, "owner-failure-matrix-desktop.png"), fullPage: true });
   const memberPage = await visiblePage(member, "/settings/workspaces");
   await memberPage.screenshot({ path: path.join(outputDirectory, "member-session-invalidated-mobile.png"), fullPage: true });
+  return Promise.all([
+    visualObservation("owner-desktop", ownerPage),
+    visualObservation("member-mobile", memberPage),
+  ]);
 }
 
 async function visiblePage(context: BrowserContext, pathname: string): Promise<Page> {
   const page = context.pages()[0] ?? await context.newPage();
   await page.goto(`${baseUrl.origin}${pathname}`, { waitUntil: "networkidle" });
   return page;
+}
+
+function instrumentContext(context: BrowserContext): BrowserContext {
+  const attach = (page: Page) => {
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+  };
+  context.on("page", attach);
+  context.pages().forEach(attach);
+  return context;
+}
+
+function isExpectedHttpFailureConsole(message: string): boolean {
+  return /^Failed to load resource: the server responded with a status of (?:400|401|404|409) \(/.test(message);
+}
+
+async function visualObservation(id: string, page: Page) {
+  const measurement = await page.evaluate(() => ({
+    innerWidth: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    finalPath: window.location.pathname,
+  }));
+  const horizontalOverflow = Math.max(0, measurement.scrollWidth - measurement.innerWidth);
+  assert.equal(horizontalOverflow, 0, `${id} horizontal overflow`);
+  return { id, ...measurement, horizontalOverflow };
 }
 
 async function assertIsolatedDatabase(): Promise<void> {

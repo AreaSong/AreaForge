@@ -2,9 +2,8 @@
 
 ```yaml
 status: in-progress
-phase: implementation
+phase: local-verified
 blockers:
-  - complete browser failure variants remain
   - protected PR/CI, Release and production apply remain independent stages
 risk: high
 ownerSkill: areaforge-security-governance
@@ -14,6 +13,7 @@ validation:
   - pnpm ops:v15:rbac:runtime:selftest
   - pnpm ops:v15:r-study-task-owner:typecheck
   - pnpm ops:v15:r-study-task-owner:runtime:selftest
+  - pnpm ops:v15:rbac:browser:failure-matrix
   - pnpm check
   - pnpm governance:preflight
   - pnpm risk:preflight
@@ -42,7 +42,7 @@ releaseRequired: true
 - owner-required follow-up 已建立 Git 检查点 `eeb8699` 并推送到 `codex/v15-rbac-foundation`，branch push CI run `34112094833` 成功；尚未创建受保护 PR，也未合并、发布或 apply 到生产。
 - Release、生产 migration/apply、真实生产账户操作、物理删除和服务器动作仍需独立确认与证据。
 - 本轮补齐 v1.5-R 同 Workspace 成员隔离收口：复习目标、任务关系、session evidence、附件父对象/下载 fallback、学习树导入/批量私有对象、错题模拟失分来源、笔记资源选择、科目重复预览、容量入口、App Shell 待复习计数/阶段计划和每日复盘 review event 均加入 actor/owner 条件；新增跨成员静态契约覆盖。
-- 协作 UI 已接通分享授权编辑、共享资源脱敏摘要、Coach 建议创建、成员真实角色显示、所有 active membership 切换与非 Owner 离开；本轮又补齐脱敏 Operator 账户目录 UI、无 Workspace Operator 的确认中心门禁、成员自有笔记候选读取和分享目标排除自己。六类身份 desktop/mobile 可见性矩阵与跨 Workspace 404 已通过，证据见 `output/playwright/v15-role-matrix/evidence.json`；代表性角色/邀请/grant/Coach/Operator 浏览器写入也已通过，证据见 `output/playwright/v15-write-matrix/evidence.json`。完整失败变体、受保护 PR/合并、Release 和生产证据仍缺。
+- 协作 UI 已接通分享授权编辑、共享资源脱敏摘要、Coach 建议创建、成员真实角色显示、所有 active membership 切换与非 Owner 离开；本轮又补齐脱敏 Operator 账户目录 UI、无 Workspace Operator 的确认中心门禁、成员自有笔记候选读取和分享目标排除自己。六类身份 desktop/mobile 可见性矩阵与跨 Workspace 404 已通过，证据见 `output/playwright/v15-role-matrix/evidence.json`；代表性角色/邀请/grant/Coach/Operator 浏览器写入见 `output/playwright/v15-write-matrix/evidence.json`；17 项浏览器失败矩阵见 `output/playwright/v15-failure-matrix/evidence.json`。当前本地候选已完成已知查询审计、owner 非空收紧、正向写入与失败矩阵，受保护 PR/合并、Release 和生产证据仍缺。
 
 ## 验收
 
