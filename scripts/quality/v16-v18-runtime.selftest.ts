@@ -32,6 +32,7 @@ import {
 import { enqueueRankingNotification } from "../../apps/web/lib/ranking/notification-service";
 import { rebuildChallengeProjection } from "../../apps/web/lib/ranking/projection-service";
 import { previewRankingDeletion } from "../../apps/web/lib/ranking/deletion-preview-service";
+import { listAuditEvents } from "../../apps/web/lib/system/audit-search-service";
 import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "./v15-rbac-runtime-fixture";
 
 const HASH = `sha256:${"a".repeat(64)}`;
@@ -155,6 +156,14 @@ try {
   assert.equal(invited.status, "INVITED");
   assert.equal(projection.stale, false);
   assert.equal(projection.entries.length, 2);
+  const rankingAuditEvents = await listAuditEvents(fixture.users.operator.actor, {
+    actionPrefix: "RANKING_",
+    workspaceId: fixture.workspaceIds.primary,
+    limit: 50,
+  });
+  assert.ok(rankingAuditEvents.length >= 3);
+  assert.equal(rankingAuditEvents.some((event) => "reason" in event.metadata), false);
+  assert.equal(rankingAuditEvents.some((event) => "requestHash" in event.metadata), false);
   const appealReason = "隔离候选排名需要复核";
   const appeal = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
     participantId: invited.id,
@@ -382,6 +391,7 @@ try {
       rankingOptOutCleanup: "CLEAN",
       rankingMemberDeletionPreview: "READY",
       rankingOwnerDeletionPreview: "BLOCKED",
+      auditSearchEvents: rankingAuditEvents.length,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

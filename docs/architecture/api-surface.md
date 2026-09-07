@@ -95,6 +95,10 @@
 
 手动恢复只创建或复用 active `RecoveryState`，不复用任务补做 API，也不改写任务计划日期、状态或债务状态。完成或取消恢复只更新对应 `RecoveryState.status/endedAt/exitCondition`；任务欠账、`StudyTask` 和 `TaskDebtEvent` 不被批量改写。
 
+### Platform / Audit
+
+- `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
+
 ### Analytics
 
 - `GET /api/analytics/summary`
