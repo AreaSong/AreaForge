@@ -47,6 +47,7 @@ try {
   await verifyRoleMatrixAndWorkspaceIsolation(fixture);
   await verifyShareGrantLifecycle(fixture);
   await verifyCoachSuggestionLineageAndCas(fixture);
+  await verifyFailureMatrix(fixture);
   await verifyRoleAndMemberStateInvalidation(fixture);
   await verifyOperatorRedactionAndAudit(fixture);
 
@@ -345,6 +346,106 @@ async function verifyCoachSuggestionLineageAndCas(fixture: RbacRuntimeFixture): 
     "COACH_SUGGESTION_CONFLICT",
   );
   checks.push({ id: "coach_confirm_only_plan_inbox_lineage_and_cas", status: "pass", details: { accepted: true, planInboxLinked: true, staleRevisionRejected: true } });
+}
+
+async function verifyFailureMatrix(fixture: RbacRuntimeFixture): Promise<void> {
+  await expectApiError(
+    () => getWorkspaceCapabilities(fixture.users.operator.userId, fixture.workspaceIds.primary),
+    "WORKSPACE_RESOURCE_NOT_FOUND",
+  );
+  await expectApiError(
+    () => updateWorkspaceMemberRole(
+      fixture.users.admin.actor,
+      fixture.workspaceIds.primary,
+      fixture.memberships.member,
+      "VIEWER",
+      1,
+    ),
+    "WORKSPACE_RESOURCE_NOT_FOUND",
+  );
+  await expectApiError(
+    () => updateWorkspaceMemberRole(
+      fixture.users.member.actor,
+      fixture.workspaceIds.primary,
+      fixture.memberships.viewer,
+      "MEMBER",
+      1,
+    ),
+    "WORKSPACE_RESOURCE_NOT_FOUND",
+  );
+  await expectApiError(
+    () => createWorkspaceShareGrant(fixture.users.viewer.userId, fixture.workspaceIds.primary, {
+      resourceType: "NOTE",
+      resourceId: fixture.notes.userGrant,
+      scope: "USER",
+      granteeUserId: fixture.users.member.userId,
+      access: "VIEW",
+    }),
+    "WORKSPACE_RESOURCE_NOT_FOUND",
+  );
+  await expectApiError(
+    () => createWorkspaceShareGrant(fixture.users.owner.userId, fixture.workspaceIds.primary, {
+      resourceType: "NOTE",
+      resourceId: fixture.notes.userGrant,
+      scope: "USER",
+      granteeUserId: fixture.users.owner.userId,
+      access: "VIEW",
+    }),
+    "WORKSPACE_SHARE_GRANT_TARGET_INVALID",
+  );
+  await expectApiError(
+    () => createWorkspaceShareGrant(fixture.users.owner.userId, fixture.workspaceIds.primary, {
+      resourceType: "NOTE",
+      resourceId: fixture.notes.userGrant,
+      scope: "WORKSPACE",
+      access: "COACH",
+    }),
+    "WORKSPACE_SHARE_GRANT_COACH_SCOPE_INVALID",
+  );
+  await expectApiError(
+    () => updateWorkspaceMemberRole(
+      fixture.users.owner.actor,
+      fixture.workspaceIds.primary,
+      fixture.memberships.member,
+      "VIEWER",
+      999,
+    ),
+    "WORKSPACE_MEMBERSHIP_CONFLICT",
+  );
+  await expectApiError(
+    () => updateOperatorAccountStatus(fixture.users.owner.actor, fixture.users.viewer.userId, {
+      status: "SUSPENDED",
+      expectedAuthRevision: 0,
+      reason: "SECURITY_REVIEW",
+    }),
+    "PLATFORM_ACCOUNT_NOT_FOUND",
+  );
+  const previousMultiUser = process.env.AUTH_MULTI_USER_ENABLED;
+  const previousRbac = process.env.AUTH_RBAC_ENABLED;
+  process.env.AUTH_MULTI_USER_ENABLED = "false";
+  process.env.AUTH_RBAC_ENABLED = "false";
+  try {
+    await expectApiError(
+      () => getWorkspaceCapabilities(fixture.users.owner.userId, fixture.workspaceIds.primary),
+      "RBAC_DISABLED",
+    );
+  } finally {
+    process.env.AUTH_MULTI_USER_ENABLED = previousMultiUser;
+    process.env.AUTH_RBAC_ENABLED = previousRbac;
+  }
+  checks.push({
+    id: "authorization_failure_matrix_and_feature_gate",
+    status: "pass",
+    details: {
+      outsiderDenied: true,
+      nonOwnerRoleDenied: true,
+      selfGrantDenied: true,
+      invalidCoachScopeDenied: true,
+      staleRevisionDenied: true,
+      operatorBoundaryDenied: true,
+      disabledGateDenied: true,
+    },
+  });
 }
 
 async function verifyRoleAndMemberStateInvalidation(fixture: RbacRuntimeFixture): Promise<void> {
