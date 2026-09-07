@@ -30,7 +30,7 @@ export async function assertSubjectExists(
 }
 
 export interface TaskCommandPreimage extends TaskCasPreimage {
-  ownerUserId: string | null;
+  ownerUserId: string;
   subjectId: string;
   syllabusNodeId: string | null;
   relatedSyllabusNodeIds: string[];

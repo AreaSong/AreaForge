@@ -20,7 +20,7 @@
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
 - `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
-- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产；v1.4-v1.8 默认关闭的本地候选已通过总门禁、一次性隔离 runtime，最近完成的 branch push CI 为 commit `13a2c86` / run `34041842361`。v1.9 已形成纯规则与持久排名通知基础，通用 worker/搜索/配额/MFA/观测等主体 runtime 与 v2.0 综合门禁仍未完成；候选 migration 尚未 apply 到共享测试库或生产，仍缺完整浏览器矩阵、受保护 PR/合并、Release/生产证据。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产；v1.4-v1.8 默认关闭的本地候选已通过总门禁、一次性隔离 runtime，commit `6566fab` 的 branch push CI run `34049447503` 已成功，六类身份 desktop/mobile 可见性与代表性写入矩阵已完成。当前 owner-required follow-up 仍待 Git 检查点；v1.9 已形成纯规则与持久排名通知基础，通用 worker/搜索/配额/MFA/观测等主体 runtime 与 v2.0 综合门禁仍未完成；候选 migration 尚未 apply 到共享测试库或生产，仍缺完整失败变体、受保护 PR/合并、Release/生产证据。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 

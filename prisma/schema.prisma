@@ -889,7 +889,7 @@ model SyllabusNodeProgress {
 
 model StudyTask {
   id                      String                         @id @default(cuid())
-  ownerUserId             String?
+  ownerUserId             String
   subjectId               String
   syllabusNodeId          String?
   parentTaskId            String?
@@ -907,7 +907,7 @@ model StudyTask {
   completedAt             DateTime?
   createdAt               DateTime                       @default(now())
   updatedAt               DateTime                       @updatedAt
-  owner                   User?                          @relation("StudyTaskOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  owner                   User                           @relation("StudyTaskOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   subject                 Subject                        @relation(fields: [subjectId], references: [id])
   syllabusNode            SyllabusNode?                  @relation(fields: [syllabusNodeId], references: [id])
   parent                  StudyTask?                     @relation("TaskTree", fields: [parentTaskId], references: [id], onDelete: SetNull)

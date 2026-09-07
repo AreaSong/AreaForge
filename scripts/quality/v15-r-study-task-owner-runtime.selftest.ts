@@ -24,11 +24,16 @@ const checkInMigrationSql = readFileSync(
   path.join(process.cwd(), "prisma/migrations/20260906105000_v15_r_check_in_owner/migration.sql"),
   "utf8",
 ).trim();
+const ownerRequiredMigrationSql = readFileSync(
+  path.join(process.cwd(), "prisma/migrations/20260907100000_v15_r_study_task_owner_required/migration.sql"),
+  "utf8",
+).trim();
 
 try {
   configureSyntheticEnvironment();
   await assertIsolatedDatabase();
   await verifyCheckInMigrationContract();
+  await verifyStudyTaskOwnerRequiredContract();
   await resetRbacRuntimeFixture();
   const fixture = await seedRbacRuntimeFixture("v15-r-owner");
   const plannedDate = new Date("2026-09-07T00:00:00.000Z");
@@ -137,6 +142,51 @@ async function verifyCheckInMigrationContract(): Promise<void> {
     () => applyCheckInMigrationFixture("v15_r_checkin_global", "ambiguous-global"),
     /cannot infer global CheckIn owner/,
   );
+}
+
+async function verifyStudyTaskOwnerRequiredContract(): Promise<void> {
+  const columns = await prisma.$queryRaw<Array<{ is_nullable: string }>>`
+    SELECT is_nullable
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'StudyTask'
+      AND column_name = 'ownerUserId'
+  `;
+  assert.equal(columns[0]?.is_nullable, "NO");
+
+  const schema = "v15_r_study_task_owner_required_fixture";
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+      await tx.$executeRawUnsafe(`CREATE TABLE "StudyTask" ("id" text PRIMARY KEY, "ownerUserId" text)`);
+      await tx.$executeRawUnsafe(`INSERT INTO "StudyTask" ("id", "ownerUserId") VALUES ('owned', 'owner')`);
+      await tx.$executeRawUnsafe(ownerRequiredMigrationSql);
+      const rows = await tx.$queryRawUnsafe<Array<{ is_nullable: string }>>(`
+        SELECT is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = '${schema}' AND table_name = 'StudyTask' AND column_name = 'ownerUserId'
+      `);
+      assert.equal(rows[0]?.is_nullable, "NO");
+    });
+  } finally {
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+  }
+
+  const rejectedSchema = "v15_r_study_task_owner_required_dirty_fixture";
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${rejectedSchema}" CASCADE`);
+  try {
+    await assert.rejects(prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`CREATE SCHEMA "${rejectedSchema}"`);
+      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${rejectedSchema}"`);
+      await tx.$executeRawUnsafe(`CREATE TABLE "StudyTask" ("id" text PRIMARY KEY, "ownerUserId" text)`);
+      await tx.$executeRawUnsafe(`INSERT INTO "StudyTask" ("id", "ownerUserId") VALUES ('ownerless', NULL)`);
+      await tx.$executeRawUnsafe(ownerRequiredMigrationSql);
+    }), /owner cleanup found ownerless rows/);
+  } finally {
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${rejectedSchema}" CASCADE`);
+  }
 }
 
 async function applyCheckInMigrationFixture(

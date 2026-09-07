@@ -9,6 +9,7 @@ const requiredMigrations = [
   "20260906130000_v18_private_ranking",
   "20260906140000_v18_ranking_appeals",
   "20260906150000_v19_user_notifications",
+  "20260907100000_v15_r_study_task_owner_required",
 ] as const;
 
 const requiredTables = [

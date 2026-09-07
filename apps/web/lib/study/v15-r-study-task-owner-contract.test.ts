@@ -39,13 +39,17 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
     readFile(path.join(webRoot, "lib/study/long-term-risk-service.ts"), "utf8"),
   ]);
 
-  assert.match(schema, /model StudyTask \{[\s\S]*?ownerUserId\s+String\?/);
-  assert.match(schema, /owner\s+User\?\s+@relation\("StudyTaskOwner"/);
+  assert.match(schema, /model StudyTask \{[\s\S]*?ownerUserId\s+String\s/);
+  assert.doesNotMatch(schema, /model StudyTask \{[\s\S]*?ownerUserId\s+String\?/);
+  assert.match(schema, /owner\s+User\s+@relation\("StudyTaskOwner"/);
   assert.match(migration, /ALTER TABLE "StudyTask" ADD COLUMN "ownerUserId" TEXT;/);
   assert.match(migration, /SET "ownerUserId" = workspace\."userId"/);
   assert.match(migration, /StudyTask_ownerUserId_fkey/);
   assert.match(migration, /StudyTask_ownerUserId_plannedDate_idx/);
   assert.doesNotMatch(migration, /\bDROP\s+(TABLE|COLUMN|INDEX)\b/i);
+  const ownerRequiredMigration = await readFile(path.join(repoRoot, "prisma/migrations/20260907100000_v15_r_study_task_owner_required/migration.sql"), "utf8");
+  assert.match(ownerRequiredMigration, /owner cleanup found ownerless rows/);
+  assert.match(ownerRequiredMigration, /ALTER COLUMN "ownerUserId" SET NOT NULL/);
 
   assert.match(inbox, /ownerUserId: actorId,[\s\S]*?subjectId,/);
   assert.match(inbox, /resolveDependencyRefs\(tx, workspace\.id, existing, actorId\)/);
@@ -54,6 +58,7 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
   assert.match(route, /requireApiUser\(request\)/);
   assert.match(route, /expectedRevision/);
   assert.match(taskCommands, /ownerUserId: actorId/);
+  assert.doesNotMatch(taskCommands, /existing\.ownerUserId \?\? actorId/);
   assert.match(taskCommands, /replay\.resultId, ownerUserId: actorId, subject:/);
   assert.match(taskCommands, /sourceResourceId, workspaceId: workspace\.id, ownerUserId: actorId/);
   assert.match(taskSupport, /planMilestone\.findFirst\(\{[\s\S]*?workspaceId, ownerUserId/);

@@ -472,7 +472,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
     assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
     const createdTask = await tx.studyTask.create({
       data: {
-        ownerUserId: existing.ownerUserId ?? actorId,
+        ownerUserId: existing.ownerUserId,
         subjectId: existing.subjectId,
         syllabusNodeId: existing.syllabusNodeId,
         planMilestoneId: existing.planMilestoneId,
