@@ -8,7 +8,7 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 const repoRoot = path.resolve(webRoot, "../..");
 
 test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () => {
-  const [schema, migration, inbox, route, taskCommands, taskSupport, simulation, review, debt, notes, syllabus, sessions, sessionSupport, sessionLifecycle, attachments, learningTree, bulkApply, bulkMutate, motivation, capacity, mistakes, duplicateQuery, recoveryState, recoveryCompleteRoute, recoveryCancelRoute, dashboard, actionCenter, longTermRisk] = await Promise.all([
+  const [schema, migration, inbox, route, taskCommands, taskSupport, simulation, review, debt, notes, syllabus, sessions, sessionSupport, sessionLifecycle, attachments, learningTree, bulkApply, bulkMutate, motivation, capacity, mistakes, duplicateQuery, recoveryState, recoveryCompleteRoute, recoveryCancelRoute, dashboard, actionCenter, longTermRisk, appShell, dailyReviewFacts] = await Promise.all([
     readFile(path.join(repoRoot, "prisma/schema.prisma"), "utf8"),
     readFile(path.join(repoRoot, "prisma/migrations/20260906100000_v15_r_study_task_owner/migration.sql"), "utf8"),
     readFile(path.join(webRoot, "lib/study/plan-inbox-service.ts"), "utf8"),
@@ -37,6 +37,8 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
     readFile(path.join(webRoot, "lib/study/dashboard-query-service.ts"), "utf8"),
     readFile(path.join(webRoot, "lib/study/action-center-service.ts"), "utf8"),
     readFile(path.join(webRoot, "lib/study/long-term-risk-service.ts"), "utf8"),
+    readFile(path.join(webRoot, "lib/study/app-shell-service.ts"), "utf8"),
+    readFile(path.join(webRoot, "lib/study/daily-review-facts-service.ts"), "utf8"),
   ]);
 
   assert.match(schema, /model StudyTask \{[\s\S]*?ownerUserId\s+String\s/);
@@ -112,4 +114,7 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
   assert.match(longTermRisk, /getStageInput\(workspace\.id, actorId, workspace\.targetExamDate, now\)/);
   assert.match(longTermRisk, /workspaceId,[\s\S]*?ownerUserId,[\s\S]*?actualScore: \{ not: null \}/);
   assert.match(longTermRisk, /where: \{ workspaceId, ownerUserId, status: "active" \}/);
+  assert.match(appShell, /reviewSchedule\.findMany\(\{[\s\S]*?workspaceId: workspace\.id,[\s\S]*?ownerUserId: actorId,[\s\S]*?status: "ACTIVE"/);
+  assert.match(appShell, /stagePlan\.findFirst\(\{[\s\S]*?workspaceId: workspace\.id,[\s\S]*?ownerUserId: actorId,[\s\S]*?status: \{ in:/);
+  assert.match(dailyReviewFacts, /reviewSchedule: \{ workspaceId: workspace\.id, ownerUserId: actorId \}/);
 });

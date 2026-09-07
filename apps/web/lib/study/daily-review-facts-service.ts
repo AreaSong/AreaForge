@@ -39,7 +39,7 @@ export async function getDailyReviewFacts(actorId: string, targetDate = new Date
       where: {
         learningDate: day.start,
         correctedEventId: null,
-        reviewSchedule: { workspaceId: workspace.id },
+        reviewSchedule: { workspaceId: workspace.id, ownerUserId: actorId },
       },
       select: { id: true },
     }),

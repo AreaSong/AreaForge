@@ -118,6 +118,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.reviewSchedule.findMany({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: "ACTIVE",
           dueDate: { lte: day.end },
         },
@@ -157,6 +158,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.stagePlan.findFirst({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: { in: ["ACTIVE", "active", "DRAFT", "draft"] },
         },
         orderBy: { updatedAt: "desc" },
