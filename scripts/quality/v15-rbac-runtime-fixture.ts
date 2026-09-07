@@ -49,13 +49,16 @@ export async function resetRbacRuntimeFixture(): Promise<void> {
   await prisma.$executeRawUnsafe('TRUNCATE TABLE "User" RESTART IDENTITY CASCADE');
 }
 
-export async function seedRbacRuntimeFixture(label = "default"): Promise<RbacRuntimeFixture> {
+export async function seedRbacRuntimeFixture(
+  label = "default",
+  options: { passwordHash?: string; operatorEmail?: string } = {},
+): Promise<RbacRuntimeFixture> {
   const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
-  const makeUser = async (role: string, email: string): Promise<RbacActor> => {
+  const makeUser = async (role: string, email: string, preserveEmail = false): Promise<RbacActor> => {
     const user = await prisma.user.create({
       data: {
-        email: `${email.replace("@", `-${suffix}@`)}`,
-        passwordHash: "v15-fixture-password-hash",
+        email: preserveEmail ? email : `${email.replace("@", `-${suffix}@`)}`,
+        passwordHash: options.passwordHash ?? "v15-fixture-password-hash",
         emailVerifiedAt: new Date(),
       },
     });
@@ -84,7 +87,7 @@ export async function seedRbacRuntimeFixture(label = "default"): Promise<RbacRun
   };
 
   const [operator, owner, admin, coach, member, viewer] = await Promise.all([
-    makeUser("operator", `operator-${label}@example.invalid`),
+    makeUser("operator", options.operatorEmail ?? `operator-${label}@example.invalid`, Boolean(options.operatorEmail)),
     makeUser("owner", `owner-${label}@example.invalid`),
     makeUser("admin", `admin-${label}@example.invalid`),
     makeUser("coach", `coach-${label}@example.invalid`),

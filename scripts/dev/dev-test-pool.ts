@@ -210,7 +210,7 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
   const source = path.join(root, "apps/web/.env.local");
   if (!existsSync(source)) throw new Error("apps/web/.env.local is required for the local test pool");
   const local = parseEnvFile(readFileSync(source, "utf8"));
-  const databaseUrl = local.DATABASE_URL;
+  const databaseUrl = (process.env.AREAFORGE_DEV_TEST_DATABASE_URL ?? local.DATABASE_URL)?.trim();
   if (!databaseUrl) throw new Error("apps/web/.env.local must define DATABASE_URL");
   const multiUserEnabled = (process.env.AUTH_MULTI_USER_ENABLED ?? local.AUTH_MULTI_USER_ENABLED ?? "false").trim();
   const rbacEnabled = (process.env.AUTH_RBAC_ENABLED ?? local.AUTH_RBAC_ENABLED ?? "false").trim();
@@ -237,7 +237,8 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
   };
   if (actionTokenSecret) environment.AUTH_ACTION_TOKEN_SECRET = actionTokenSecret;
   for (const key of ["AUTH_ADMIN_EMAIL", "AUTH_ADMIN_PASSWORD_HASH", "AI_CREDENTIALS_ENCRYPTION_KEY", "AI_PAYLOAD_BINDING_SECRET"] as const) {
-    if (local[key]) environment[key] = local[key];
+    const value = (process.env[key] ?? local[key])?.trim();
+    if (value) environment[key] = value;
   }
   return environment;
 }

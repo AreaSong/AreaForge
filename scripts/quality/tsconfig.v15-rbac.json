@@ -4,6 +4,7 @@
     "incremental": false
   },
   "include": [
+    "../ops/v15-rbac-browser-failure-matrix.ts",
     "v15-rbac-runtime-fixture.ts",
     "v15-rbac-runtime.selftest.ts"
   ],
