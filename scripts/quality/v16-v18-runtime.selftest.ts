@@ -227,6 +227,21 @@ try {
   const restoredNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "restore", dismissedNotification.revision);
   const unreadNotification = await updateUserNotification(fixture.users.member.userId, notification.id, "unread", restoredNotification.revision);
   assert.equal(unreadNotification.readAt, null);
+  await prisma.workspaceSelection.create({
+    data: { userId: fixture.users.member.userId, workspaceId: fixture.workspaceIds.primary },
+  });
+  await prisma.motivationReminderState.create({
+    data: { userId: fixture.users.member.userId, dailyCount: 1 },
+  });
+  await prisma.knowledgeGroup.create({
+    data: {
+      userId: fixture.users.member.userId,
+      workspaceId: fixture.workspaceIds.primary,
+      subjectId: fixture.subjects.primary,
+      stableKey: "member-export-context",
+      title: "成员导出上下文",
+    },
+  });
   const notificationExport = await requestDataLifecycleJob(fixture.users.member.actor, {
     kind: "EXPORT",
     scope: "ACCOUNT",
@@ -241,6 +256,10 @@ try {
   assert.equal(memberExportKinds.has("workspace"), true);
   assert.equal(memberExportKinds.has("workspaceMembership"), true);
   assert.equal(memberExportKinds.has("subject"), true);
+  assert.equal(memberExportKinds.has("workspaceSelection"), true);
+  assert.equal(memberExportKinds.has("motivationReminderState"), true);
+  assert.equal(memberExportKinds.has("knowledgeGroup"), true);
+  assert.equal(memberExportKinds.has("rankingPreference"), true);
   const [firstIdempotentNotification, replayedIdempotentNotification] = await prisma.$transaction(async (tx) => {
     const input = {
       actorUserId: fixture.users.owner.userId,
@@ -312,6 +331,7 @@ try {
       notificationExportIncluded: true,
       joinedWorkspaceContextIncluded: true,
       workspaceDataJobIsolation: true,
+      extendedInventoryRecordsIncluded: true,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

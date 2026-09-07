@@ -266,7 +266,7 @@
       "id": "AF-RISK-DATA-001",
       "type": "deferred-work",
       "reviewAt": "2026-10-21",
-      "currentImpact": "v1.6 本地候选已有数据任务、确定性内存 ZIP/真实字节 SHA-256、默认不可执行删除状态机、纯回收站协议和 deletion ledger/replay plan；账户 preview 已覆盖用户拥有或曾加入 Workspace 的上下文，Workspace preview 的 DataJob 已严格绑定当前 workspace。这些只证明纯规则和隔离 worker/descriptor 契约，仍缺真实导出临时存储/附件本体/下载流、数据库回收站、物理删除、附件清理、账本持久化/恢复后真实重放与完整账户导出",
+      "currentImpact": "v1.6 本地候选已有数据任务、确定性内存 ZIP/真实字节 SHA-256、默认不可执行删除状态机、纯回收站协议和 deletion ledger/replay plan；账户/Workspace preview 范围已收紧，89 个 Prisma model 已全部分类，其中 46 个已接入 preview、37 个待最小化接入、5 个安全排除、1 个派生重建。这些只证明纯规则和隔离 worker/descriptor 契约，仍缺真实导出临时存储/附件本体/下载流、数据库回收站、物理删除、附件清理、账本持久化/恢复后真实重放与完整账户导出",
       "executableNow": false,
       "closeCondition": "关闭：owner 鉴权/软归档/backup-restore/一次性导出临时资源释放 fixture 与 redaction matrix 齐备，且未来物理删除/撤销路线有单独确认包与实现证据后，方可人工关账。重开：缩短保留期、物理删除、备份副本同步删除、完整账户导出、扩大到 AI history、跨用户可见、或 confirm 落库策略变化",
       "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle 已确认）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close/reopen condition",

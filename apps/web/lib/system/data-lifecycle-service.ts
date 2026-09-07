@@ -15,6 +15,7 @@ import { requireFreshAccountSession } from "@/lib/auth/account-service";
 import type { CurrentUser } from "@/lib/auth/session";
 import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import { previewRankingDeletion } from "@/lib/ranking/deletion-preview-service";
+import { appendExtendedExportRecords } from "./data-export-inventory-records";
 
 /**
  * v1.6 is intentionally a local candidate.  The flag is read directly here
@@ -820,6 +821,7 @@ async function collectExportRecords(
     : { requestedByUserId: actorId }, {
     id: true, kind: true, scope: true, status: true, progress: true, attempt: true, errorCode: true, retryable: true, expiresAt: true, createdAt: true, updatedAt: true,
   });
+  await appendExtendedExportRecords(client, records, actorId, workspaceIds, scope, includeData);
   return records;
 }
 
