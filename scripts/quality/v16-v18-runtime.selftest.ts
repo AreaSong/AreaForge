@@ -33,6 +33,7 @@ import { enqueueRankingNotification } from "../../apps/web/lib/ranking/notificat
 import { rebuildChallengeProjection } from "../../apps/web/lib/ranking/projection-service";
 import { previewRankingDeletion } from "../../apps/web/lib/ranking/deletion-preview-service";
 import { listAuditEvents } from "../../apps/web/lib/system/audit-search-service";
+import { getPlatformCapacitySnapshot } from "../../apps/web/lib/system/platform-capacity-service";
 import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "./v15-rbac-runtime-fixture";
 
 const HASH = `sha256:${"a".repeat(64)}`;
@@ -164,6 +165,20 @@ try {
   assert.ok(rankingAuditEvents.length >= 3);
   assert.equal(rankingAuditEvents.some((event) => "reason" in event.metadata), false);
   assert.equal(rankingAuditEvents.some((event) => "requestHash" in event.metadata), false);
+  const capacityNow = new Date();
+  const [ownerCapacity, operatorCapacity] = await Promise.all([
+    getPlatformCapacitySnapshot(fixture.users.owner.actor, fixture.workspaceIds.primary, capacityNow),
+    getPlatformCapacitySnapshot(fixture.users.operator.actor, fixture.workspaceIds.primary, capacityNow),
+  ]);
+  assert.deepEqual(ownerCapacity.usage, operatorCapacity.usage);
+  assert.ok(ownerCapacity.usage.activeMemberCount >= 2);
+  assert.ok(ownerCapacity.usage.exportJobCount24h >= 1);
+  assert.equal(ownerCapacity.capacityState, "OBSERVED_ONLY");
+  assert.equal(ownerCapacity.enforcementEnabled, false);
+  await assert.rejects(
+    getPlatformCapacitySnapshot(fixture.users.member.actor, fixture.workspaceIds.primary, capacityNow),
+    /PLATFORM_CAPACITY_NOT_FOUND/,
+  );
   const appealReason = "隔离候选排名需要复核";
   const appeal = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
     participantId: invited.id,
@@ -392,6 +407,7 @@ try {
       rankingMemberDeletionPreview: "READY",
       rankingOwnerDeletionPreview: "BLOCKED",
       auditSearchEvents: rankingAuditEvents.length,
+      capacitySnapshot: "OBSERVED_ONLY",
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,
