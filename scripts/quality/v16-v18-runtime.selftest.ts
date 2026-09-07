@@ -54,6 +54,12 @@ try {
   const now = new Date();
   const afterMinutes = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
 
+  const secondaryExportJob = await requestDataLifecycleJob(fixture.users.owner.actor, {
+    kind: "EXPORT",
+    scope: "WORKSPACE",
+    workspaceId: fixture.workspaceIds.secondary,
+    idempotencyKey: "ab-export-secondary-20260906",
+  });
   const exportJob = await requestDataLifecycleJob(fixture.users.owner.actor, {
     kind: "EXPORT",
     scope: "WORKSPACE",
@@ -61,6 +67,9 @@ try {
     idempotencyKey: "ab-export-job-20260906",
   });
   assert.equal(exportJob.status, "QUEUED");
+  assert.equal(exportJob.preview && "entries" in exportJob.preview
+    ? exportJob.preview.entries.some((entry) => entry.kind === "dataJob" && entry.id === secondaryExportJob.id)
+    : true, false);
   const lease = await claimDataLifecycleJob({
     jobId: exportJob.id,
     workerId: "ab-worker",
@@ -226,6 +235,12 @@ try {
   assert.equal(notificationExport.preview && "entries" in notificationExport.preview
     ? notificationExport.preview.entries.some((entry) => entry.kind === "userNotification")
     : false, true);
+  const memberExportKinds = notificationExport.preview && "entries" in notificationExport.preview
+    ? new Set(notificationExport.preview.entries.map((entry) => entry.kind))
+    : new Set<string>();
+  assert.equal(memberExportKinds.has("workspace"), true);
+  assert.equal(memberExportKinds.has("workspaceMembership"), true);
+  assert.equal(memberExportKinds.has("subject"), true);
   const [firstIdempotentNotification, replayedIdempotentNotification] = await prisma.$transaction(async (tx) => {
     const input = {
       actorUserId: fixture.users.owner.userId,
@@ -295,6 +310,8 @@ try {
       ownerNotificationCount: ownerNotifications.length,
       memberNotificationCount: memberNotifications.length,
       notificationExportIncluded: true,
+      joinedWorkspaceContextIncluded: true,
+      workspaceDataJobIsolation: true,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

@@ -68,6 +68,12 @@ test("data inventory includes recipient-scoped notifications without internal ev
   assert.doesNotMatch(service, /userNotification[\s\S]{0,500}eventKey: true/);
 });
 
+test("account inventory keeps joined workspace context and workspace jobs scoped", async () => {
+  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  assert.match(service, /memberships: \{ some: \{ userId: actor\.id \} \}/);
+  assert.match(service, /scope === "WORKSPACE"[\s\S]*?requestedByUserId: actorId, workspaceId: \{ in: \[\.\.\.workspaceIds\] \}/);
+});
+
 test("download grant route never accepts a raw path or token hash", async () => {
   const source = await routeSource("app/api/system/data-jobs/[jobId]/download-grants/route.ts");
   assert.doesNotMatch(source, /objectKey|tokenHash|storedName|uri/i);

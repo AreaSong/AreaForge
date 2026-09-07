@@ -29,6 +29,8 @@ releaseRequired: true
 
 当前工作树已增加 v1.6 本地候选 Web 层：数据任务列表/创建、范围预览、幂等、取消/重试、下载 grant 撤销/兑换 descriptor，以及仅限平台 Operator 的 worker claim/heartbeat/complete/expire、行锁和 `updatedAt` CAS；导出不落盘，删除任务固定为 `PAUSED` preview-only，默认 flag 关闭。候选 schema/migration 仅在一次性隔离 PostgreSQL fixture 中验证过，未 apply 到共享测试库或生产，不提供物理删除或真实归档文件。隔离库结构回放入口为 `pnpm ops:ab:candidate-schema:selftest`，必须显式设置 `AREAFORGE_AB_CANDIDATE_ISOLATED_DB=1`。
 
+账户级 preview 已把用户拥有和曾建立 Membership 的 Workspace 合并为上下文集合，因此成员自有记录不会失去 workspace/membership/subject 解释信息；Workspace 级 preview 的 DataJob 严格同时绑定 requester 与当前 workspace，不再串入同一用户其他 Workspace 的任务。该范围由 `pnpm ops:ab:v16-v18:runtime:selftest` 在隔离库验证，仍只证明 manifest descriptor 范围，不证明真实归档或附件本体导出。
+
 ## 独立确认包
 
 - DATA-EXPORT：导出范围、脱敏、临时包、一次性下载和撤销。

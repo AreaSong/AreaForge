@@ -662,7 +662,16 @@ async function resolveScope(
   workspaceId?: string,
 ): Promise<{ workspaceIds: string[] }> {
   if (scope === "ACCOUNT") {
-    const workspaces = await tx.examWorkspace.findMany({ where: { userId: actor.id }, select: { id: true }, orderBy: { id: "asc" } });
+    const workspaces = await tx.examWorkspace.findMany({
+      where: {
+        OR: [
+          { userId: actor.id },
+          { memberships: { some: { userId: actor.id } } },
+        ],
+      },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
     return { workspaceIds: workspaces.map((workspace) => workspace.id) };
   }
   if (!workspaceId) throw new ApiError("DATA_WORKSPACE_REQUIRED", 400);
@@ -806,7 +815,9 @@ async function collectExportRecords(
   await appendRows(db, records, "auditEvent", "auditEvent", { actorId: actorId }, {
     id: true, actorId: true, action: true, entityType: true, entityId: true, createdAt: true,
   });
-  await appendRows(db, records, "dataJob", "dataJob", { requestedByUserId: actorId }, {
+  await appendRows(db, records, "dataJob", "dataJob", scope === "WORKSPACE"
+    ? { requestedByUserId: actorId, workspaceId: { in: [...workspaceIds] } }
+    : { requestedByUserId: actorId }, {
     id: true, kind: true, scope: true, status: true, progress: true, attempt: true, errorCode: true, retryable: true, expiresAt: true, createdAt: true, updatedAt: true,
   });
   return records;
