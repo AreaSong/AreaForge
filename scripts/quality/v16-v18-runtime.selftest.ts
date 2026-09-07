@@ -34,6 +34,7 @@ import { rebuildChallengeProjection } from "../../apps/web/lib/ranking/projectio
 import { previewRankingDeletion } from "../../apps/web/lib/ranking/deletion-preview-service";
 import { listAuditEvents } from "../../apps/web/lib/system/audit-search-service";
 import { getPlatformCapacitySnapshot } from "../../apps/web/lib/system/platform-capacity-service";
+import { searchWorkspace } from "../../apps/web/lib/system/workspace-search-service";
 import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "./v15-rbac-runtime-fixture";
 
 const HASH = `sha256:${"a".repeat(64)}`;
@@ -178,6 +179,39 @@ try {
   await assert.rejects(
     getPlatformCapacitySnapshot(fixture.users.member.actor, fixture.workspaceIds.primary, capacityNow),
     /PLATFORM_CAPACITY_NOT_FOUND/,
+  );
+  const searchPoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: fixture.users.member.userId,
+      workspaceId: fixture.workspaceIds.primary,
+      primarySubjectId: fixture.subjects.primary,
+      stableKey: `ab-member-search-${Date.now()}`,
+      title: "成员全局检索目标",
+    },
+  });
+  await prisma.workspaceShareGrant.create({
+    data: {
+      workspaceId: fixture.workspaceIds.primary,
+      resourceOwnerUserId: fixture.users.owner.userId,
+      grantedByUserId: fixture.users.owner.userId,
+      scope: "USER",
+      granteeUserId: fixture.users.member.userId,
+      resourceType: "NOTE",
+      resourceId: fixture.notes.userGrant,
+      access: "VIEW",
+    },
+  });
+  const [memberOwnedSearch, memberSharedSearch, ownerIsolationSearch] = await Promise.all([
+    searchWorkspace(fixture.users.member.userId, fixture.workspaceIds.primary, "成员全局检索目标"),
+    searchWorkspace(fixture.users.member.userId, fixture.workspaceIds.primary, "USER grant fixture"),
+    searchWorkspace(fixture.users.owner.userId, fixture.workspaceIds.primary, "成员全局检索目标"),
+  ]);
+  assert.equal(memberOwnedSearch.results.some((item) => item.id === searchPoint.id && item.visibility === "OWNER"), true);
+  assert.equal(memberSharedSearch.results.some((item) => item.id === fixture.notes.userGrant && item.visibility === "SHARED"), true);
+  assert.equal(ownerIsolationSearch.results.some((item) => item.id === searchPoint.id), false);
+  await assert.rejects(
+    searchWorkspace(fixture.users.member.userId, fixture.workspaceIds.secondary, "隔离英语"),
+    /WORKSPACE_RESOURCE_NOT_FOUND/,
   );
   const appealReason = "隔离候选排名需要复核";
   const appeal = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
@@ -408,6 +442,7 @@ try {
       rankingOwnerDeletionPreview: "BLOCKED",
       auditSearchEvents: rankingAuditEvents.length,
       capacitySnapshot: "OBSERVED_ONLY",
+      workspaceSearch: "OWNER_SHARED_SCOPED",
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,
