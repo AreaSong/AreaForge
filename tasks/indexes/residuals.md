@@ -33,7 +33,7 @@
 | AF-RISK-UX-001 | 已 closed-evidence：current-bound local UX review；本地证据不证明生产写入体验；重审时运行 `pnpm experience:review:validate` | `areaforge-product-experience` / `areaforge-qa-smoke` | 体验改动或 fingerprint 漂移后重审 |
 | AF-RISK-DATA-001 | v1.6 已有数据任务、确定性内存 ZIP、默认不可执行删除状态机、纯回收站协议和 deletion ledger/replay plan；账户/Workspace preview 隔离已补齐，89 个模型已全部分类，83 个接入 owner/actor-scoped preview、5 个安全排除、1 个派生重建，待接入项归零；真实导出、数据库回收站、物理删除、附件清理与账本执行仍未关 | `areaforge-security-governance` / `areaforge-file-storage-safety` | 关闭需 fixture+物理删除/撤销路线证据；重开见台账 closeCondition |
 | AF-RISK-DATA-002 | 多用户/Membership/RBAC 已有本地统一授权、敏感矩阵、跨租户负向、隔离 runtime/总门禁、脱敏 Operator 账户目录、六类身份 desktop/mobile 可见性、代表性浏览器写入、17 项浏览器失败矩阵、App Shell/每日复盘 actor/owner 查询隔离和 `StudyTask.ownerUserId` 非空收紧；runner 检查点 `6568c87` / branch CI `34119581102` 已通过；仍缺受保护 PR/合并、Release 与生产证据，保持 deferred-work | `areaforge-security-governance` / `areaforge-validation-driver` | v1.4-v1.5 PR/Release/生产证据齐全后 |
-| AF-RISK-DATA-003 | v1.8 本地候选已有 scoreVersion/opt-in/挑战 CRUD/反作弊/投影/持久申诉/成员与 Owner UI/持久排名通知/独立故障开关/删除预览，以及隔离 fixture、桌面/移动和跨会话通知证据；删除/导出完整联动、完整浏览器矩阵和生产证据仍缺，保持 deferred-work | `areaforge-product-experience` / `areaforge-security-governance` | RANKING 确认包和 v1.8 前置完成后 |
+| AF-RISK-DATA-003 | v1.8 本地候选已有 scoreVersion/opt-in/挑战 CRUD/反作弊/投影/持久申诉/成员与 Owner UI/持久排名通知/独立故障开关/删除预览；挑战、本人参与/申诉和通知已进入导出预览，成员 opt-out→投影清理→删除预览 READY 与 Owner 阻断已在隔离事务链验证；真实删除/完整归档、完整浏览器矩阵和生产证据仍缺，保持 deferred-work | `areaforge-product-experience` / `areaforge-security-governance` | RANKING 确认包和 v1.8 前置完成后 |
 | AF-RISK-OPS-009 | v1.7 本地候选已有白名单 intent/持久请求生命周期和隔离 fixture 证据；root-agent journal/reconciliation、真实 updater 和逐动作生产证据仍缺；任意 shell 永久禁止 | `areaforge-sre-ops` / `areaforge-security-governance` / `areaforge-supply-chain` | OPS 确认包和 v1.7 前置完成后 |
 
 ## Task Bindings

@@ -31,6 +31,7 @@ import {
 } from "../../apps/web/lib/ranking/challenge-service";
 import { enqueueRankingNotification } from "../../apps/web/lib/ranking/notification-service";
 import { rebuildChallengeProjection } from "../../apps/web/lib/ranking/projection-service";
+import { previewRankingDeletion } from "../../apps/web/lib/ranking/deletion-preview-service";
 import { resetRbacRuntimeFixture, seedRbacRuntimeFixture } from "./v15-rbac-runtime-fixture";
 
 const HASH = `sha256:${"a".repeat(64)}`;
@@ -330,6 +331,26 @@ try {
       projectionFingerprint: "b".repeat(64),
     },
   }), foreignKeyRejected);
+  const optedOut = await updateRankingPreference(fixture.users.member.actor, fixture.workspaceIds.primary, {
+    enabled: false,
+    timezone: "Asia/Shanghai",
+    authorizedFields: ["score"],
+  });
+  assert.equal(optedOut.enabled, false);
+  const exitedParticipant = await prisma.privateChallengeParticipant.findUniqueOrThrow({
+    where: { id: invited.id },
+  });
+  assert.equal(exitedParticipant.status, "LEFT");
+  assert.equal(await prisma.rankingProjection.count({ where: { participantId: invited.id } }), 0);
+  const [memberDeletionPreview, ownerDeletionPreview] = await Promise.all([
+    previewRankingDeletion({ userId: fixture.users.member.userId }),
+    previewRankingDeletion({ userId: fixture.users.owner.userId }),
+  ]);
+  assert.equal(memberDeletionPreview.canProceed, true);
+  assert.equal(memberDeletionPreview.cleanupRequired, false);
+  assert.equal(memberDeletionPreview.participationCount, 1);
+  assert.equal(ownerDeletionPreview.blocked, true);
+  assert.ok(ownerDeletionPreview.blockers.length >= 2);
   await assert.rejects(prisma.rankingAppeal.create({
     data: {
       challengeId: challenge.id,
@@ -358,6 +379,9 @@ try {
       workspaceDataJobIsolation: true,
       extendedInventoryRecordsIncluded: true,
       relatedInventoryRecordsIncluded: true,
+      rankingOptOutCleanup: "CLEAN",
+      rankingMemberDeletionPreview: "READY",
+      rankingOwnerDeletionPreview: "BLOCKED",
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,
