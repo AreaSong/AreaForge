@@ -16,6 +16,7 @@ import type { CurrentUser } from "@/lib/auth/session";
 import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import { previewRankingDeletion } from "@/lib/ranking/deletion-preview-service";
 import { appendExtendedExportRecords } from "./data-export-inventory-records";
+import { appendRelatedExportRecords } from "./data-export-inventory-related-records";
 
 /**
  * v1.6 is intentionally a local candidate.  The flag is read directly here
@@ -262,7 +263,7 @@ export async function previewDataLifecycle(
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
     const scope = await resolveScope(tx, actor, request.scope, request.workspaceId);
-    const records = await collectExportRecords(tx, actor.id, scope.workspaceIds, request.scope, request.kind === "EXPORT");
+    const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, request.kind === "EXPORT");
     if (request.kind === "EXPORT") return buildDataExportPreview(request.scope, records);
     const ranking = await previewRankingDeletion({ userId: actor.id, workspaceId: request.workspaceId });
     return {
@@ -291,7 +292,7 @@ export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifec
       }
 
       const scope = await resolveScope(tx, actor, request.scope, request.workspaceId);
-      const records = await collectExportRecords(tx, actor.id, scope.workspaceIds, request.scope, request.kind === "EXPORT");
+      const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, request.kind === "EXPORT");
       const preview = request.kind === "EXPORT"
         ? buildDataExportPreview(request.scope, records, now.toISOString())
         : {
@@ -698,11 +699,12 @@ async function assertJobScopeStillAuthorized(
 
 async function collectExportRecords(
   client: DbClient,
-  actorId: string,
+  actor: CurrentUser,
   workspaceIds: readonly string[],
   scope: DataJobScope,
   includeData: boolean,
 ): Promise<DataExportRecordInput[]> {
+  const actorId = actor.id;
   const records: DataExportRecordInput[] = [];
   const db = client as unknown as Record<string, Delegate>;
   const workspaceWhere = { workspaceId: { in: [...workspaceIds] } };
@@ -822,6 +824,7 @@ async function collectExportRecords(
     id: true, kind: true, scope: true, status: true, progress: true, attempt: true, errorCode: true, retryable: true, expiresAt: true, createdAt: true, updatedAt: true,
   });
   await appendExtendedExportRecords(client, records, actorId, workspaceIds, scope, includeData);
+  await appendRelatedExportRecords(client, records, actorId, actor.email, workspaceIds, scope, includeData);
   return records;
 }
 

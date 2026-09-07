@@ -31,7 +31,7 @@ releaseRequired: true
 
 账户级 preview 已把用户拥有和曾建立 Membership 的 Workspace 合并为上下文集合，因此成员自有记录不会失去 workspace/membership/subject 解释信息；Workspace 级 preview 的 DataJob 严格同时绑定 requester 与当前 workspace，不再串入同一用户其他 Workspace 的任务。该范围由 `pnpm ops:ab:v16-v18:runtime:selftest` 在隔离库验证，仍只证明 manifest descriptor 范围，不证明真实归档或附件本体导出。
 
-DATA-0 模型台账已覆盖当前 89 个 Prisma model：46 个已接入 owner/actor-scoped preview，37 个待继续最小化接入，5 个安全状态永久排除，`RankingProjection` 作为可重建派生排除。清单和实现由 `data-export-inventory-policy.test.ts` 双向校验，新增模型未分类、已包含模型缺 delegate 或误选密码/token/API key/objectKey/leaseToken 时失败。
+DATA-0 模型台账已覆盖当前 89 个 Prisma model：83 个已接入 owner/actor-scoped preview，5 个安全状态永久排除，`RankingProjection` 作为可重建派生排除，`PLANNED_MINIMIZED` 已归零。关系表通过任务、笔记、资料、复习排期、知识点、学习 session 或当前用户参与记录反向约束；Auth session、邀请、AI Provider 凭据、学习树 grant 与受控运维请求只选择最小生命周期字段，不选择 token/IP/User-Agent hash、加密 API Key、nonce、幂等指纹、objectKey、worker 或 lease 能力材料。清单和实现由 `data-export-inventory-policy.test.ts` 双向校验，新增模型未分类、已包含模型缺 delegate、重新出现待接入模型或误选上述敏感字段时失败；隔离 PostgreSQL runtime 已验证成员 session/挑战/参与/申诉与 Operator 自有受控请求进入 preview，且真实归档仍为 `NOT_CREATED`。
 
 ## 独立确认包
 

@@ -3,7 +3,7 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
-type Delegate = { findMany(args: unknown): Promise<unknown[]> };
+export type ExportRecordDelegate = { findMany(args: unknown): Promise<unknown[]> };
 type JsonRecord = Record<string, unknown>;
 type DataJobScope = "ACCOUNT" | "WORKSPACE";
 
@@ -15,7 +15,7 @@ export async function appendExtendedExportRecords(
   scope: DataJobScope,
   includeData: boolean,
 ): Promise<void> {
-  const db = client as unknown as Record<string, Delegate>;
+  const db = client as unknown as Record<string, ExportRecordDelegate>;
   const workspaceWhere = { workspaceId: { in: [...workspaceIds] } };
   const actorWorkspaceWhere = scope === "WORKSPACE" ? { userId: actorId, ...workspaceWhere } : { userId: actorId };
   const ownerWorkspaceWhere = scope === "WORKSPACE" ? { ownerUserId: actorId, ...workspaceWhere } : { ownerUserId: actorId };
@@ -142,8 +142,8 @@ export async function appendExtendedExportRecords(
   });
 }
 
-async function appendRows(
-  db: Record<string, Delegate>,
+export async function appendRows(
+  db: Record<string, ExportRecordDelegate>,
   records: DataExportRecordInput[],
   kind: string,
   delegateName: string,

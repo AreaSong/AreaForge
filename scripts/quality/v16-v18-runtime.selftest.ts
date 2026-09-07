@@ -242,6 +242,15 @@ try {
       title: "成员导出上下文",
     },
   });
+  const pendingInvitation = await prisma.workspaceInvitation.create({
+    data: {
+      workspaceId: fixture.workspaceIds.secondary,
+      emailNormalized: fixture.users.member.email,
+      tokenHash: `ab-member-pending-invitation-${Date.now()}`,
+      expiresAt: afterMinutes(30),
+      invitedByUserId: fixture.users.owner.userId,
+    },
+  });
   const notificationExport = await requestDataLifecycleJob(fixture.users.member.actor, {
     kind: "EXPORT",
     scope: "ACCOUNT",
@@ -260,6 +269,22 @@ try {
   assert.equal(memberExportKinds.has("motivationReminderState"), true);
   assert.equal(memberExportKinds.has("knowledgeGroup"), true);
   assert.equal(memberExportKinds.has("rankingPreference"), true);
+  assert.equal(memberExportKinds.has("authSession"), true);
+  assert.equal(notificationExport.preview && "entries" in notificationExport.preview
+    ? notificationExport.preview.entries.some((entry) => entry.kind === "workspaceInvitation" && entry.id === pendingInvitation.id)
+    : false, true);
+  assert.equal(memberExportKinds.has("privateChallenge"), true);
+  assert.equal(memberExportKinds.has("privateChallengeParticipant"), true);
+  assert.equal(memberExportKinds.has("rankingAppeal"), true);
+  const operatorExport = await requestDataLifecycleJob(fixture.users.operator.actor, {
+    kind: "EXPORT",
+    scope: "ACCOUNT",
+    idempotencyKey: "ab-operator-export-20260907",
+  });
+  const operatorExportKinds = operatorExport.preview && "entries" in operatorExport.preview
+    ? new Set(operatorExport.preview.entries.map((entry) => entry.kind))
+    : new Set<string>();
+  assert.equal(operatorExportKinds.has("controlledOperationRequest"), true);
   const [firstIdempotentNotification, replayedIdempotentNotification] = await prisma.$transaction(async (tx) => {
     const input = {
       actorUserId: fixture.users.owner.userId,
@@ -332,6 +357,7 @@ try {
       joinedWorkspaceContextIncluded: true,
       workspaceDataJobIsolation: true,
       extendedInventoryRecordsIncluded: true,
+      relatedInventoryRecordsIncluded: true,
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,
