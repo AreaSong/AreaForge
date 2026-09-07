@@ -4,7 +4,7 @@
 status: in-progress
 phase: implementation
 blockers:
-  - complete browser failure variants and the owner-required Git checkpoint remain
+  - complete browser failure variants remain
   - protected PR/CI, Release and production apply remain independent stages
 risk: high
 ownerSkill: areaforge-security-governance
@@ -39,7 +39,7 @@ releaseRequired: true
 - 全新隔离 PostgreSQL 的专项 runtime 已通过，覆盖迁移歧义拒绝、双 Workspace、五级角色、跨租户、grant 生命周期、Coach 确认链、PlanInbox lineage、成员移除/角色变化/账户暂停即时失效和 Operator 脱敏；Core/Web 当前专项验证通过，Prisma validate、typecheck、Web lint（0 error）和本地总门禁已通过，Release 层仍未开始。
 - v1.5-R 已新增 `StudyTask.ownerUserId` additive owner lineage：现有任务按 `Subject -> ExamWorkspace.userId` 回填，成员创建/拆分/模拟/复习桥接/债务拆小及 PlanInbox 转换均写入服务端 actor owner；成员 PlanInbox 接受 Coach 建议后可在 CAS、审计和幂等保护下显式转换为自己的正式任务。当前本地候选已增加 fail-closed 的 owner-required migration：发现任一 ownerless task 时整体中止，否则把 `ownerUserId` 收紧为非空；运行时不再用当前 actor 猜测填补未知 owner。
 - v1.5-R 隔离 runtime selftest 已验证成员 PlanInbox 显式转换后生成成员 owner 任务，成员可以读回，Workspace owner 不会在成员任务列表中串读；全新 49-migration 隔离库还验证了非空约束、ownerless fixture 拒绝、重复 deploy 以及 v1.6-v1.8 候选兼容性。共享测试库与 production migration/apply 均未执行。
-- Git 检查点 `6566fab` 已推送到 `codex/v15-rbac-foundation`，branch push CI run `34049447503` 成功；owner-required follow-up 仍待本轮独立 Git 检查点。尚未创建受保护 PR，也未合并、发布或 apply 到生产。
+- owner-required follow-up 已建立 Git 检查点 `eeb8699` 并推送到 `codex/v15-rbac-foundation`，branch push CI run `34112094833` 成功；尚未创建受保护 PR，也未合并、发布或 apply 到生产。
 - Release、生产 migration/apply、真实生产账户操作、物理删除和服务器动作仍需独立确认与证据。
 - 本轮补齐 v1.5-R 同 Workspace 成员隔离收口：复习目标、任务关系、session evidence、附件父对象/下载 fallback、学习树导入/批量私有对象、错题模拟失分来源、笔记资源选择、科目重复预览和容量入口均加入 actor/owner 条件；新增跨成员静态契约覆盖。
 - 协作 UI 已接通分享授权编辑、共享资源脱敏摘要、Coach 建议创建、成员真实角色显示、所有 active membership 切换与非 Owner 离开；本轮又补齐脱敏 Operator 账户目录 UI、无 Workspace Operator 的确认中心门禁、成员自有笔记候选读取和分享目标排除自己。六类身份 desktop/mobile 可见性矩阵与跨 Workspace 404 已通过，证据见 `output/playwright/v15-role-matrix/evidence.json`；代表性角色/邀请/grant/Coach/Operator 浏览器写入也已通过，证据见 `output/playwright/v15-write-matrix/evidence.json`。完整失败变体、受保护 PR/合并、Release 和生产证据仍缺。
