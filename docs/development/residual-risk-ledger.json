@@ -289,7 +289,7 @@
       "id": "AF-RISK-DATA-002",
       "type": "deferred-work",
       "reviewAt": "2026-11-15",
-      "currentImpact": "v1.4 AUTH 与 v1.5 RBAC 本地实施已确认并形成 additive migration、稳定资源 owner、统一授权层、五级角色/grant、跨租户负向、隔离 runtime、总门禁和 Git 检查点；commit eeb8699 的 branch push CI run 34112094833 成功。六类身份 desktop/mobile 可见性矩阵、脱敏 Operator 账户目录、跨 Workspace 404 和代表性浏览器写入已通过，证据见 output/playwright/v15-role-matrix/evidence.json 与 output/playwright/v15-write-matrix/evidence.json。当前本地 follow-up 已用 fail-closed migration 把 StudyTask.ownerUserId 收紧为非空，并通过 49-migration 隔离验证；仍缺完整失败变体、受保护 PR/合并、签名 Release 和生产迁移证据，当前不能开放生产多人协作",
+      "currentImpact": "v1.4 AUTH 与 v1.5 RBAC 本地实施已确认并形成 additive migration、稳定资源 owner、统一授权层、五级角色/grant、跨租户负向、隔离 runtime、总门禁和 Git 检查点；commit 33fc4ab 的 branch push CI run 34113486027 成功。六类身份 desktop/mobile 可见性矩阵、脱敏 Operator 账户目录、跨 Workspace 404 和代表性浏览器写入已通过，证据见 output/playwright/v15-role-matrix/evidence.json 与 output/playwright/v15-write-matrix/evidence.json。当前本地 follow-up 已用 fail-closed migration 把 StudyTask.ownerUserId 收紧为非空，并通过 49-migration 隔离验证；服务层/API 失败矩阵亦已覆盖，仍缺完整浏览器失败变体、受保护 PR/合并、签名 Release 和生产迁移证据，当前不能开放生产多人协作",
       "executableNow": true,
       "closeCondition": "AUTH/RBAC 独立确认包、additive migration、旧 owner 回填、统一授权层、角色/敏感资源矩阵、跨租户负向测试、会话撤销和生产迁移证据齐全后进入人工关闭复核",
       "requiredEvidence": "威胁模型、migration preimage、权限矩阵、敏感数据矩阵、IDOR/API/service/query 测试、浏览器验收、审计记录、Release/production evidence",
