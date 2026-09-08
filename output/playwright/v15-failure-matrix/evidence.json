@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "v15-rbac-browser-failure-matrix-v1",
+  "status": "pass",
+  "generatedAt": "2026-09-08T01:54:01.733Z",
+  "contentClassification": "synthetic-only",
+  "runtime": {
+    "database": "areaforge-test-v15rbac-browser-20260907-01",
+    "url": "http://127.0.0.1:43171",
+    "appVersion": "1.2.0",
+    "sourceGitCommit": "bd83a596cf80d4b166c409a2b27fe54e78e13496",
+    "sourceFingerprint": "sha256:86155d8a5cd612aa6c0a5040c3a130ea2f98c960ed40222bd4c55dd43202be50",
+    "buildId": "sha256:641f3506202c4da60560cfb8cdd896893efd09d571f815abb1e73e219927831e",
+    "runtimeMode": "production-build-test-pool"
+  },
+  "cases": [
+    {
+      "id": "anonymous-private-api",
+      "actor": "anonymous",
+      "status": 401,
+      "error": "UNAUTHORIZED"
+    },
+    {
+      "id": "non-operator-directory",
+      "actor": "owner",
+      "status": 404,
+      "error": "PLATFORM_OPERATOR_NOT_FOUND"
+    },
+    {
+      "id": "cross-workspace-capability",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "member-role-escalation",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "viewer-cannot-share-owner-note",
+      "actor": "viewer",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "self-grant-rejected",
+      "actor": "owner",
+      "status": 400,
+      "error": "WORKSPACE_SHARE_GRANT_TARGET_INVALID"
+    },
+    {
+      "id": "workspace-coach-grant-rejected",
+      "actor": "owner",
+      "status": 400,
+      "error": "WORKSPACE_SHARE_GRANT_COACH_SCOPE_INVALID"
+    },
+    {
+      "id": "stale-role-revision",
+      "actor": "owner",
+      "status": 409,
+      "error": "WORKSPACE_MEMBERSHIP_CONFLICT"
+    },
+    {
+      "id": "coach-without-grant",
+      "actor": "coach",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "member-cannot-list-invitations",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "stale-invitation-revoke",
+      "actor": "owner",
+      "status": 404,
+      "error": "WORKSPACE_INVITATION_NOT_FOUND"
+    },
+    {
+      "id": "role-change-invalidates-role-grant",
+      "actor": "coach",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "membership-removal-invalidates-session",
+      "actor": "viewer",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "revoked-grant-invalidates-read",
+      "actor": "member",
+      "status": 404,
+      "error": "WORKSPACE_RESOURCE_NOT_FOUND"
+    },
+    {
+      "id": "operator-self-action-rejected",
+      "actor": "operator",
+      "status": 409,
+      "error": "OPERATOR_SELF_ACTION_FORBIDDEN"
+    },
+    {
+      "id": "operator-stale-auth-revision",
+      "actor": "operator",
+      "status": 409,
+      "error": "AUTH_REVISION_CONFLICT"
+    },
+    {
+      "id": "suspension-invalidates-session",
+      "actor": "member",
+      "status": 401,
+      "error": "UNAUTHORIZED"
+    }
+  ],
+  "visualObservations": [
+    {
+      "id": "owner-desktop",
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "finalPath": "/settings/workspaces",
+      "horizontalOverflow": 0
+    },
+    {
+      "id": "member-mobile",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "finalPath": "/login",
+      "horizontalOverflow": 0
+    },
+    {
+      "id": "owner-search-desktop",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "finalPath": "/settings/exams",
+      "resultLabel": "RBAC 数学",
+      "resultKind": "SUBJECT",
+      "horizontalOverflow": 0,
+      "screenshot": "owner-search-desktop.png"
+    },
+    {
+      "id": "member-search-mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "finalPath": "/knowledge/points/cmts0n7nd000t96rtr79ad2d3",
+      "resultLabel": "成员搜索私有点",
+      "resultKind": "KNOWLEDGE_POINT",
+      "horizontalOverflow": 0,
+      "screenshot": "member-search-mobile.png"
+    }
+  ],
+  "telemetry": {
+    "expectedHttpFailureConsoleCount": 17,
+    "unexpectedConsoleErrors": [],
+    "pageErrors": []
+  },
+  "screenshots": [
+    "owner-failure-matrix-desktop.png",
+    "member-session-invalidated-mobile.png",
+    "owner-search-desktop.png",
+    "member-search-mobile.png"
+  ],
+  "safetyFacts": {
+    "isolatedDatabaseUsed": true,
+    "isolatedDatabaseCleaned": true,
+    "testPoolUsed": true,
+    "syntheticAccountsOnly": true,
+    "productionWriteAttempted": false,
+    "sharedDatabaseMigrationAttempted": false,
+    "physicalDeleteAttempted": false,
+    "serverCommandExecutionAttempted": false,
+    "secretValuePersisted": false
+  },
+  "doesNotProve": [
+    "protected PR merge or signed Release readiness",
+    "production migration, production feature enablement or production health",
+    "real SMTP delivery"
+  ]
+}

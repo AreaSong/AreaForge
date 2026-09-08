@@ -210,22 +210,35 @@ function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: stri
   const source = path.join(root, "apps/web/.env.local");
   if (!existsSync(source)) throw new Error("apps/web/.env.local is required for the local test pool");
   const local = parseEnvFile(readFileSync(source, "utf8"));
-  const databaseUrl = local.DATABASE_URL;
+  const databaseUrl = (process.env.AREAFORGE_DEV_TEST_DATABASE_URL ?? local.DATABASE_URL)?.trim();
   if (!databaseUrl) throw new Error("apps/web/.env.local must define DATABASE_URL");
+  const multiUserEnabled = (process.env.AUTH_MULTI_USER_ENABLED ?? local.AUTH_MULTI_USER_ENABLED ?? "false").trim();
+  const rbacEnabled = (process.env.AUTH_RBAC_ENABLED ?? local.AUTH_RBAC_ENABLED ?? "false").trim();
+  const actionTokenSecret = (process.env.AUTH_ACTION_TOKEN_SECRET ?? local.AUTH_ACTION_TOKEN_SECRET ?? "").trim();
+  if (multiUserEnabled === "true" && actionTokenSecret.length < 32) {
+    throw new Error("AUTH_ACTION_TOKEN_SECRET with at least 32 characters is required for a multi-user test-pool runtime");
+  }
+  if (rbacEnabled === "true" && multiUserEnabled !== "true") {
+    throw new Error("AUTH_RBAC_ENABLED requires AUTH_MULTI_USER_ENABLED for a test-pool runtime");
+  }
   const environment: Record<string, string> = {
     DATABASE_URL: localContainerDatabaseUrl(databaseUrl),
     APP_URL: `http://127.0.0.1:${port}`,
     APP_VERSION: appVersion,
     AUTH_SESSION_COOKIE_NAME: `af_dev_test_${slot}`,
     AUTH_SESSION_SECRET: requiredLocal(local, "AUTH_SESSION_SECRET"),
+    AUTH_MULTI_USER_ENABLED: multiUserEnabled,
+    AUTH_RBAC_ENABLED: rbacEnabled,
     AI_ENABLED: "false",
     AI_LOG_PROMPTS: "false",
     AI_ALLOW_SENSITIVE_CONTEXT: "false",
     UPLOAD_DIR: "/app/uploads",
     TRUST_PROXY: "false",
   };
+  if (actionTokenSecret) environment.AUTH_ACTION_TOKEN_SECRET = actionTokenSecret;
   for (const key of ["AUTH_ADMIN_EMAIL", "AUTH_ADMIN_PASSWORD_HASH", "AI_CREDENTIALS_ENCRYPTION_KEY", "AI_PAYLOAD_BINDING_SECRET"] as const) {
-    if (local[key]) environment[key] = local[key];
+    const value = (process.env[key] ?? local[key])?.trim();
+    if (value) environment[key] = value;
   }
   return environment;
 }

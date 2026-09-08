@@ -3,7 +3,7 @@ import { WorkspaceSettingsClient } from "@/components/workspace-settings-client"
 import { PageFrame } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
-  findActiveWorkspaceOrNull,
+  findSelectedMemberWorkspaceOrNull,
   listExamWorkspaces,
   listSubjectGroups,
   listWorkspaceSubjects,
@@ -26,15 +26,19 @@ export default async function SettingsExamsPage({
   const params = await searchParams;
   const [workspaces, active, takeover] = await Promise.all([
     listExamWorkspaces(user.id),
-    findActiveWorkspaceOrNull(user.id),
+    findSelectedMemberWorkspaceOrNull(user.id),
     previewWorkspaceTakeover(user.id).catch(() => null),
   ]);
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === active?.id) ?? null;
+  const canManageStructure = !activeWorkspace?.membershipRole
+    || activeWorkspace.membershipRole === "OWNER"
+    || activeWorkspace.membershipRole === "ADMIN";
   const [subjects, groups, duplicateSets, mergeOperations] = active
     ? await Promise.all([
         listWorkspaceSubjects(user.id, active.id),
         listSubjectGroups(user.id, active.id),
-        listSubjectDuplicatePreviews(user.id, active.id),
-        listRecentSubjectMergeOperations(user.id, active.id),
+        canManageStructure ? listSubjectDuplicatePreviews(user.id, active.id) : Promise.resolve([]),
+        canManageStructure ? listRecentSubjectMergeOperations(user.id, active.id) : Promise.resolve([]),
       ])
     : [[], [], [], []];
 

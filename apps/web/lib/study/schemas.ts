@@ -81,6 +81,7 @@ export const importSyllabusMarkdownSchema = z.object({
 
 export const updateSyllabusNodeSchema = z.object({
   expectedRevision: z.number().int().positive(),
+  expectedProgressRevision: z.number().int().min(0),
   parentId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(1).max(120).optional(),
   kind: z.enum(["subject", "chapter", "topic", "problem_type"]).optional(),
@@ -104,7 +105,12 @@ export const updateSyllabusNodeSchema = z.object({
     .optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
   targetMinutes: z.number().int().min(0).max(100000).optional(),
-});
+}).refine(
+  (value) => Object.entries(value).some(([key, item]) =>
+    key !== "expectedRevision" && key !== "expectedProgressRevision" && item !== undefined
+  ),
+  { message: "至少提供一个要更新的考纲字段" },
+);
 
 const masteryEvidenceTypeSchema = z.enum(["task", "session", "note", "mistake", "retest"]);
 const masteryRetestResultSchema = z.enum(["passed", "failed", "partial"]);

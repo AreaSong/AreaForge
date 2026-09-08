@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser, readJson } from "@/lib/api/auth";
 import { ApiError, apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
 import { createUpdateRequest } from "@/lib/system/update-center";
+import { requirePlatformOperator } from "@/lib/system/operator-policy";
 import {
   updateRequestCommandSchema,
   UpdateRequestV2Error,
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     const user = await requireApiUser(request);
     const parsed = updateRequestCommandSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
+    await requirePlatformOperator(user, { fresh: true });
 
     const updateRequest = await createUpdateRequest({
       command: parsed.data,

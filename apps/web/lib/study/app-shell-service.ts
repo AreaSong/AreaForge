@@ -5,7 +5,7 @@ import {
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { getStudyDayRange } from "./date";
-import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
+import { findSelectedMemberWorkspaceOrNull } from "./exam-workspace-service";
 import { listWorkspaceCheckIns } from "./check-in-service";
 import { getActiveStudySession } from "./session-query-service";
 import { getNotificationPreferences } from "./notification-preferences-service";
@@ -39,7 +39,7 @@ function serializeStatus(
 
 export async function getAppShellStatus(actorId: string): Promise<AppShellStatusDto> {
   const [workspace, notificationPreference] = await Promise.all([
-    findActiveWorkspaceOrNull(actorId),
+    findSelectedMemberWorkspaceOrNull(actorId),
     getNotificationPreferences(actorId),
   ]);
   if (!workspace) {
@@ -118,6 +118,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.reviewSchedule.findMany({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: "ACTIVE",
           dueDate: { lte: day.end },
         },
@@ -125,6 +126,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           reviewScheduleId: { not: null },
           status: { in: ["TODO", "IN_PROGRESS"] },
           subject: { workspaceId: workspace.id },
@@ -134,6 +136,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           subject: { workspaceId: workspace.id },
           status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] },
           OR: [
@@ -145,6 +148,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           subject: { workspaceId: workspace.id },
           status: { in: ["TODO", "IN_PROGRESS"] },
           plannedDate: { gte: day.start, lt: day.end },
@@ -154,15 +158,17 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.stagePlan.findFirst({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: { in: ["ACTIVE", "active", "DRAFT", "draft"] },
         },
         orderBy: { updatedAt: "desc" },
       }),
-      listWorkspaceCheckIns(workspace.id, day.start, day.end).catch(() => []),
+      listWorkspaceCheckIns(actorId, workspace.id, day.start, day.end).catch(() => []),
       prisma.dailyReview.findFirst({
         where: {
           reviewDate: { gte: day.start, lt: day.end },
           workspaceId: workspace.id,
+          ownerUserId: actorId,
         },
       }),
       prisma.subject.findFirst({
@@ -183,6 +189,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
       prisma.planInboxItem.findFirst({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: "OPEN",
           originType: "LOW_CONVERSION",
           supersededByItemId: null,
@@ -214,6 +221,7 @@ export async function getAppShellStatus(actorId: string): Promise<AppShellStatus
 
   const justCompleted = await prisma.studySession.findFirst({
     where: {
+      userId: actorId,
       status: "COMPLETED",
       endedAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
       subject: { workspaceId: workspace.id },

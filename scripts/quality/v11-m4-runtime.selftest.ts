@@ -112,6 +112,7 @@ async function seedWorkspace() {
   });
   const attachmentA = await prisma.attachment.create({
     data: {
+      ownerUserId: user.id,
       originalName: "a.pdf",
       storedName: `stored-${randomUUID()}`,
       mimeType: "application/pdf",
@@ -123,6 +124,7 @@ async function seedWorkspace() {
   });
   const attachmentB = await prisma.attachment.create({
     data: {
+      ownerUserId: user.id,
       originalName: "b.pdf",
       storedName: `stored-${randomUUID()}`,
       mimeType: "application/pdf",

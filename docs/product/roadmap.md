@@ -54,6 +54,8 @@ AreaForge 采用“阶段节点 + 终局节点”。
 | v1.9 | 平台化加固 | 后台任务扩展、通知、搜索、限流、观测、举报申诉、MFA/Passkey 候选、容量与灾备验收 | v1.8 |
 | v2.0 | 多人学习平台 | 个人和多人路径共同达到发布、生产、安全、隐私与体验门禁 | v1.9 |
 
+当前执行状态：v1.3 已完成本地实现和受保护 PR/CI，但尚缺独立 Release/production disposition；v1.4 AUTH 与 v1.5 RBAC 已形成主体代码、隔离 PostgreSQL runtime、本地总门禁、Git 检查点和 branch push CI，默认多人/RBAC 开关关闭，仍缺完整 desktop/mobile 浏览器矩阵、受保护 PR/合并、Release 和生产证据；v1.6 数据任务/删除预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影，以及 v1.9 的纯规则与持久通知基础已形成默认关闭的本地候选并在一次性隔离 fixture 验证，未 apply 到共享测试库或生产；v1.9 通用 worker/搜索/配额/MFA/观测等主体 runtime 与 v2.0 综合门禁仍未完成。
+
 ### 不变边界
 
 - 个人 Workspace 始终可独立使用，不强迫加入团队或排名。

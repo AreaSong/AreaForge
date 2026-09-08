@@ -255,6 +255,7 @@ export async function createBrowserFixtureSet(password: string): Promise<Browser
   }] : [])]);
   const tasks: Prisma.StudyTaskCreateManyInput[] = allAccounts.map((account) => ({
     id: account.taskId,
+    ownerUserId: account.userId,
     subjectId: account.subjectId,
     syllabusNodeId: account.syllabusNodeId,
     title: "合成最小任务",
@@ -267,6 +268,7 @@ export async function createBrowserFixtureSet(password: string): Promise<Browser
   }));
   const notes: Prisma.NoteCreateManyInput[] = allAccounts.flatMap((account) => account.noteId ? [{
     id: account.noteId,
+    ownerUserId: account.userId,
     subjectId: account.subjectId,
     syllabusNodeId: account.syllabusNodeId,
     taskId: account.taskId,

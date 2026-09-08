@@ -143,6 +143,8 @@ export function AppShell(props: {
           <GlobalTopBar
             pathname={pathname}
             userId={props.userId}
+            workspaceId={status.workspaceId}
+            hasWorkspace={Boolean(status.workspaceId)}
             statusTone={displayStatus.mobileTop.tone}
             statusSummary={displayStatus.mobileTop.summary}
             activeSession={status.activeSession}

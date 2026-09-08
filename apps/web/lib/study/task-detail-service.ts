@@ -6,7 +6,7 @@ import type {
   TaskRelationSummaryDto,
   TaskUpdateSnapshotDto,
 } from "@/lib/contracts/task";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { fromDbTaskStatus, serializeTask, type DbTaskStatus } from "./task-serializer";
 import type { TaskPriorityDto } from "@/lib/contracts";
 
@@ -40,7 +40,16 @@ interface TaskUpdateSnapshotRow {
 export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDetailDto> {
   const [task, auditEvents] = await Promise.all([
     prisma.studyTask.findFirst({
-      where: { id: taskId, subject: { workspace: { userId: actorId } } },
+      where: {
+        id: taskId,
+        ownerUserId: actorId,
+        subject: {
+          workspace: {
+            status: "ACTIVE",
+            memberships: { some: { userId: actorId, status: "ACTIVE" } },
+          },
+        },
+      },
       include: {
         subject: {
           include: {
@@ -65,15 +74,16 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
         },
         planMilestone: { select: { id: true, title: true, status: true, archivedAt: true } },
         reviewSchedule: { select: { id: true, status: true, dueDate: true, revision: true } },
-        parent: { select: { id: true, title: true, status: true } },
+        parent: { select: { id: true, title: true, status: true, ownerUserId: true } },
         children: {
-          select: { id: true, title: true, status: true },
+          select: { id: true, title: true, status: true, ownerUserId: true },
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           take: 50,
         },
         sessions: {
           select: {
             id: true,
+            userId: true,
             status: true,
             startedAt: true,
             endedAt: true,
@@ -92,7 +102,7 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
             toStatus: true,
             reason: true,
             createdAt: true,
-            relatedTask: { select: { id: true, title: true } },
+            relatedTask: { select: { id: true, title: true, ownerUserId: true } },
           },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 50,
@@ -138,9 +148,9 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
       archivedAt: syllabusNode.archivedAt?.toISOString() ?? null,
     })),
     knowledgePoints: task.knowledgePointLinks.map(({ knowledgePoint }) => knowledgePoint),
-    parentTask: task.parent ? serializeTaskRelation(task.parent) : null,
-    childTasks: task.children.map(serializeTaskRelation),
-    sessions: task.sessions.map((session) => ({
+    parentTask: task.parent?.ownerUserId === actorId ? serializeTaskRelation(task.parent) : null,
+    childTasks: task.children.filter((child) => child.ownerUserId === actorId).map(serializeTaskRelation),
+    sessions: task.sessions.filter((session) => session.userId === actorId).map((session) => ({
       id: session.id,
       status: session.status,
       startedAt: session.startedAt.toISOString(),
@@ -155,7 +165,9 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
       fromStatus: event.fromStatus,
       toStatus: event.toStatus,
       reason: event.reason,
-      relatedTask: event.relatedTask,
+      relatedTask: event.relatedTask?.ownerUserId === actorId
+        ? { id: event.relatedTask.id, title: event.relatedTask.title }
+        : null,
       createdAt: event.createdAt.toISOString(),
     })),
     auditEvents: auditEvents.map((event) => ({
@@ -167,8 +179,8 @@ export async function getStudyTaskDetail(actorId: string, taskId: string): Promi
 }
 
 export async function getTaskUpdateSnapshot(actorId: string, taskId: string): Promise<TaskUpdateSnapshotDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const snapshot = await loadTaskUpdateSnapshotForWorkspace(prisma, workspace.id, taskId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const snapshot = await loadTaskUpdateSnapshotForWorkspace(prisma, workspace.id, taskId, actorId);
   if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
   return snapshot;
 }
@@ -177,9 +189,10 @@ export async function loadTaskUpdateSnapshotForWorkspace(
   client: TaskDetailReadClient,
   workspaceId: string,
   taskId: string,
+  ownerUserId?: string,
 ): Promise<TaskUpdateSnapshotDto | null> {
   const task = await client.studyTask.findFirst({
-    where: { id: taskId, subject: { workspaceId } },
+    where: { id: taskId, ...(ownerUserId ? { ownerUserId } : {}), subject: { workspaceId } },
     select: {
       id: true,
       subjectId: true,
@@ -234,10 +247,11 @@ export async function listTaskDependencyCandidates(
   actorId: string,
   taskId: string,
 ): Promise<TaskDependencyCandidateDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const tasks = await prisma.studyTask.findMany({
     where: {
       id: { not: taskId },
+      ownerUserId: actorId,
       subject: { workspaceId: workspace.id, archivedAt: null },
     },
     select: { id: true, title: true, status: true, subject: { select: { name: true } } },

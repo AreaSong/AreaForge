@@ -1,13 +1,18 @@
 import { isNoteKind, normalizeRelatedNodeIds } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import type {
   NoteEditorOptionsDto,
   OwnedNoteDetailDto,
 } from "@/lib/contracts/knowledge-library";
 import { assertSyllabusNodeBelongsToSubject } from "./syllabus-service";
 import { serializeAttachment } from "./attachments-service";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  lockActiveWorkspaceForWrite,
+  resolveActiveWorkspace,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import { pauseScheduleOnTargetArchive } from "./review-schedule-service";
 import { fromDbTaskStatus } from "./task-serializer";
 import {
@@ -102,10 +107,11 @@ type NoteDetailRow = Prisma.NoteGetPayload<{ include: typeof noteDetailInclude }
 type NoteDbClient = typeof prisma | Prisma.TransactionClient;
 
 export async function listNotes(actorId: string, options?: { q?: string }): Promise<NoteDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const query = options?.q?.trim().slice(0, 120) || undefined;
   const notes = await prisma.note.findMany({
     where: {
+      ownerUserId: actorId,
       subject: { workspaceId: workspace.id },
       ...(query ? { title: { contains: query, mode: "insensitive" as const } } : {}),
     },
@@ -123,7 +129,7 @@ export async function getNoteById(noteId: string, actorId: string): Promise<Note
 
 export async function getOwnedNoteDetail(noteId: string, actorId: string): Promise<OwnedNoteDetailDto | null> {
   const note = await prisma.note.findFirst({
-    where: { id: noteId, subject: { workspace: { userId: actorId } } },
+    where: { id: noteId, ownerUserId: actorId, subject: { workspace: workspaceOwnerWhere(actorId) } },
     include: ownedNoteDetailInclude,
   });
   if (!note?.subject.workspace) return null;
@@ -145,7 +151,7 @@ export async function getNoteEditorOptions(actorId: string): Promise<NoteEditorO
       select: { id: true, name: true, archivedAt: true },
     }),
     prisma.studyTask.findMany({
-      where: { subject: { workspaceId: workspace.id } },
+      where: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       orderBy: [{ plannedDate: "desc" }, { createdAt: "desc" }],
       select: { id: true, subjectId: true, title: true, status: true },
       take: 500,
@@ -156,7 +162,7 @@ export async function getNoteEditorOptions(actorId: string): Promise<NoteEditorO
       select: { id: true, subjectId: true, title: true, archivedAt: true },
     }),
     prisma.studyResource.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, ownerUserId: actorId },
       orderBy: [{ updatedAt: "desc" }],
       select: { id: true, title: true, archivedAt: true },
       take: 500,
@@ -216,7 +222,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
     const replay = await findPersistentCreateReplay(tx, command);
     if (replay) {
       const storedNote = await tx.note.findFirst({
-        where: { id: replay.resultId, subject: { workspaceId: workspace.id } },
+        where: { id: replay.resultId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
         include: noteDetailInclude,
       });
       if (!storedNote) throw new ApiError("NOTE_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
@@ -228,7 +234,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
       await assertSyllabusNodeBelongsToSubject(input.syllabusNodeId, input.subjectId, tx, workspace.id);
     }
     if (input.taskId) {
-      await assertTaskBelongsToSubject(input.taskId, input.subjectId, workspace.id, tx);
+      await assertTaskBelongsToSubject(input.taskId, input.subjectId, workspace.id, actorId, tx);
     }
     if (relatedIds.length > 0 || input.syllabusNodeId) {
       const nodeIds = Array.from(new Set([...(input.syllabusNodeId ? [input.syllabusNodeId] : []), ...relatedIds]));
@@ -250,6 +256,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
 
     const created = await tx.note.create({
       data: {
+        ownerUserId: actorId,
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId ?? null,
         taskId: input.taskId ?? null,
@@ -280,7 +287,7 @@ export async function createNote(input: CreateNoteInput, actorId: string): Promi
 export async function updateNote(noteId: string, input: UpdateNoteInput, actorId: string): Promise<NoteDto> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadNote(workspace.id, noteId, tx);
+    const existing = await loadNote(workspace.id, actorId, noteId, tx);
     const latest = serializeNote(existing);
     if (existing.revision !== input.expectedRevision) {
       throwNoteRevisionConflict(input, latest);
@@ -310,13 +317,13 @@ export async function updateNote(noteId: string, input: UpdateNoteInput, actorId
       relatedSyllabusNodeIds: normalizedRelatedIds,
       existing,
     });
-    if (taskId) await assertTaskBelongsToSubject(taskId, subjectId, workspace.id, tx);
+    if (taskId) await assertTaskBelongsToSubject(taskId, subjectId, workspace.id, actorId, tx);
     if (input.resourceIds !== undefined) {
-      await assertNoteResourcesSelectable(tx, workspace.id, uniqueIds(input.resourceIds), existing);
+      await assertNoteResourcesSelectable(tx, workspace.id, actorId, uniqueIds(input.resourceIds), existing);
     }
 
     const changed = await tx.note.updateMany({
-      where: { id: noteId, revision: input.expectedRevision, archivedAt: null },
+      where: { id: noteId, ownerUserId: actorId, revision: input.expectedRevision, archivedAt: null },
       data: {
         subjectId: input.subjectId === undefined ? undefined : subjectId,
         syllabusNodeId: input.syllabusNodeId === undefined ? undefined : syllabusNodeId,
@@ -331,7 +338,7 @@ export async function updateNote(noteId: string, input: UpdateNoteInput, actorId
       },
     });
     if (changed.count !== 1) {
-      throwNoteRevisionConflict(input, serializeNote(await loadNote(workspace.id, noteId, tx)));
+      throwNoteRevisionConflict(input, serializeNote(await loadNote(workspace.id, actorId, noteId, tx)));
     }
 
     if (input.relatedSyllabusNodeIds !== undefined || input.syllabusNodeId !== undefined) {
@@ -368,7 +375,7 @@ export async function updateNote(noteId: string, input: UpdateNoteInput, actorId
         },
       },
     });
-    return serializeNote(await loadNote(workspace.id, noteId, tx));
+    return serializeNote(await loadNote(workspace.id, actorId, noteId, tx));
   });
 }
 
@@ -388,7 +395,7 @@ async function setNoteArchived(
 ): Promise<NoteDto> {
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await loadNote(workspace.id, noteId, tx);
+    const existing = await loadNote(workspace.id, actorId, noteId, tx);
     const latest = serializeNote(existing);
     if (existing.subject.archivedAt) {
       throw new ApiError("SUBJECT_ARCHIVED", 409, {
@@ -409,6 +416,7 @@ async function setNoteArchived(
     const changed = await tx.note.updateMany({
       where: {
         id: noteId,
+        ownerUserId: actorId,
         revision: expectedRevision,
         archivedAt: archived ? null : { not: null },
       },
@@ -419,7 +427,7 @@ async function setNoteArchived(
     });
     if (changed.count !== 1) {
       throw new ApiError("NOTE_REVISION_CONFLICT", 409, {
-        latest: serializeNote(await loadNote(workspace.id, noteId, tx)),
+        latest: serializeNote(await loadNote(workspace.id, actorId, noteId, tx)),
         conflictFields: ["revision", "archivedAt"],
         workbench: "/knowledge/cards",
       });
@@ -434,7 +442,7 @@ async function setNoteArchived(
         metadata: { previousRevision: expectedRevision, revision: expectedRevision + 1 },
       },
     });
-    return serializeNote(await loadNote(workspace.id, noteId, tx));
+    return serializeNote(await loadNote(workspace.id, actorId, noteId, tx));
   });
 }
 
@@ -465,11 +473,12 @@ function collectNoteConflictFields(input: UpdateNoteInput, latest: NoteDto): str
 
 async function loadNote(
   workspaceId: string,
+  actorId: string,
   noteId: string,
   client: NoteDbClient = prisma,
 ): Promise<NoteDetailRow> {
   const note = await client.note.findFirst({
-    where: { id: noteId, subject: { workspaceId } },
+    where: { id: noteId, ownerUserId: actorId, subject: { workspaceId } },
     include: noteDetailInclude,
   });
   if (!note) throw new ApiError("NOTE_NOT_FOUND", 404);
@@ -523,12 +532,13 @@ async function assertNoteNodeSelection(input: {
 async function assertNoteResourcesSelectable(
   tx: Prisma.TransactionClient,
   workspaceId: string,
+  ownerUserId: string,
   resourceIds: string[],
   existing: NoteDetailRow,
 ): Promise<void> {
   if (resourceIds.length === 0) return;
   const resources = await tx.studyResource.findMany({
-    where: { id: { in: resourceIds }, workspaceId },
+    where: { id: { in: resourceIds }, workspaceId, ownerUserId },
     select: { id: true, archivedAt: true },
   });
   if (resources.length !== resourceIds.length) throw new ApiError("NOTE_RESOURCE_NOT_FOUND", 404);
@@ -572,10 +582,11 @@ async function assertTaskBelongsToSubject(
   taskId: string,
   subjectId: string,
   workspaceId: string,
+  ownerUserId: string,
   client: Prisma.TransactionClient,
 ): Promise<void> {
   const task = await client.studyTask.findFirst({
-    where: { id: taskId, subject: { workspaceId } },
+    where: { id: taskId, ownerUserId, subject: { workspaceId } },
     select: { subjectId: true },
   });
 

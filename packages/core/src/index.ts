@@ -35,6 +35,19 @@ export * from "./knowledge-canvas";
 export * from "./motivation-library";
 export * from "./ai-draft";
 export * from "./foreground-notification";
+export * from "./rbac";
+export * from "./data-lifecycle";
+export * from "./data-export-archive";
+export * from "./data-deletion";
+export * from "./data-deletion-ledger";
+export * from "./data-trash";
+export * from "./platform-hardening";
+export * from "./user-notification";
+export * from "./data-jobs";
+export * from "./ranking-metrics";
+export * from "./ranking-policy";
+export * from "./controlled-operation-lifecycle";
+export * from "./workspace-policy";
 
 export type RiskState =
   | "rising"

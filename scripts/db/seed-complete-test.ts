@@ -101,12 +101,12 @@ async function seed(): Promise<void> {
   await prisma.stageGoalLink.create({ data: { stagePlanId: stage.id, terminalGoalId: terminalGoal.id, role: "PRIMARY" } });
 
   await prisma.studyTask.createMany({ data: [
-    { id: "test-task-today", subjectId: "test-subject-math", syllabusNodeId: "test-node-derivative", planMilestoneId: milestone.id, title: "完成导数综合题 10 道", type: "study", status: "TODO", priority: "CRITICAL", debtStatus: "NONE", plannedDate: day(0), estimatedMinutes: 90 },
-    { id: "test-task-progress", subjectId: "test-subject-ds", syllabusNodeId: "test-node-ds", title: "复盘 Dijkstra 与最短路径", type: "review", status: "IN_PROGRESS", priority: "HIGH", debtStatus: "ACCEPTABLE", plannedDate: day(0), estimatedMinutes: 60, actualMinutes: 20 },
-    { id: "test-task-done", subjectId: "test-subject-math", syllabusNodeId: "test-node-limit", title: "极限错题二刷", type: "review", status: "DONE", priority: "HIGH", debtStatus: "NONE", plannedDate: day(-1), estimatedMinutes: 45, actualMinutes: 52, completedAt: day(-1, 20) },
-    { id: "test-task-deferred", subjectId: "test-subject-english", syllabusNodeId: "test-node-english", title: "英语阅读精读两篇", type: "study", status: "DEFERRED", priority: "MEDIUM", debtStatus: "NEEDS_RECOVERY", plannedDate: day(-2), estimatedMinutes: 70, reviewText: "因数学专项超时，延期到本周补做。" },
-    { id: "test-task-skipped", subjectId: "test-subject-politics", title: "政治时政整理", type: "study", status: "SKIPPED", priority: "LOW", debtStatus: "STAGE_IMPACT", plannedDate: day(-3), estimatedMinutes: 30, reviewText: "本阶段主动降优先级。" },
-    { id: "test-task-child", subjectId: "test-subject-english", syllabusNodeId: "test-node-english", parentTaskId: "test-task-deferred", title: "只精读第一篇阅读", type: "study", status: "TODO", priority: "HIGH", debtStatus: "NONE", plannedDate: day(1), estimatedMinutes: 35 },
+    { id: "test-task-today", ownerUserId: user.id, subjectId: "test-subject-math", syllabusNodeId: "test-node-derivative", planMilestoneId: milestone.id, title: "完成导数综合题 10 道", type: "study", status: "TODO", priority: "CRITICAL", debtStatus: "NONE", plannedDate: day(0), estimatedMinutes: 90 },
+    { id: "test-task-progress", ownerUserId: user.id, subjectId: "test-subject-ds", syllabusNodeId: "test-node-ds", title: "复盘 Dijkstra 与最短路径", type: "review", status: "IN_PROGRESS", priority: "HIGH", debtStatus: "ACCEPTABLE", plannedDate: day(0), estimatedMinutes: 60, actualMinutes: 20 },
+    { id: "test-task-done", ownerUserId: user.id, subjectId: "test-subject-math", syllabusNodeId: "test-node-limit", title: "极限错题二刷", type: "review", status: "DONE", priority: "HIGH", debtStatus: "NONE", plannedDate: day(-1), estimatedMinutes: 45, actualMinutes: 52, completedAt: day(-1, 20) },
+    { id: "test-task-deferred", ownerUserId: user.id, subjectId: "test-subject-english", syllabusNodeId: "test-node-english", title: "英语阅读精读两篇", type: "study", status: "DEFERRED", priority: "MEDIUM", debtStatus: "NEEDS_RECOVERY", plannedDate: day(-2), estimatedMinutes: 70, reviewText: "因数学专项超时，延期到本周补做。" },
+    { id: "test-task-skipped", ownerUserId: user.id, subjectId: "test-subject-politics", title: "政治时政整理", type: "study", status: "SKIPPED", priority: "LOW", debtStatus: "STAGE_IMPACT", plannedDate: day(-3), estimatedMinutes: 30, reviewText: "本阶段主动降优先级。" },
+    { id: "test-task-child", ownerUserId: user.id, subjectId: "test-subject-english", syllabusNodeId: "test-node-english", parentTaskId: "test-task-deferred", title: "只精读第一篇阅读", type: "study", status: "TODO", priority: "HIGH", debtStatus: "NONE", plannedDate: day(1), estimatedMinutes: 35 },
   ] });
   await Promise.all([
     prisma.studyTaskStageLink.create({ data: { taskId: "test-task-today", stagePlanId: stage.id } }),
@@ -150,7 +150,7 @@ async function seed(): Promise<void> {
 
   for (let offset = -6; offset <= 0; offset += 1) {
     await prisma.checkIn.create({ data: {
-      workspaceId: workspace.id, studyDate: day(offset, 0), completedMinimumAction: offset !== -4,
+      ownerUserId: user.id, workspaceId: workspace.id, studyDate: day(offset, 0), completedMinimumAction: offset !== -4,
       totalMinutes: offset === -4 ? 15 : 70 + (offset + 6) * 8, effectiveMinutes: offset === -4 ? 5 : 55 + (offset + 6) * 6,
       effectiveSessionCount: offset === -4 ? 0 : 2, taskCompletionRate: offset === -4 ? 0.2 : 0.7,
       reviewSubmitted: offset < 0, lowEfficiency: offset === -4, lowConversionCount: offset === -2 ? 1 : 0,
@@ -159,8 +159,8 @@ async function seed(): Promise<void> {
     } });
   }
   await prisma.dailyReview.createMany({ data: [
-    { workspaceId: workspace.id, reviewDate: day(-1, 22), totalMinutes: 112, effectiveMinutes: 87, summary: "数学复测完成，408 推进稳定。", lostControl: "英语精读被压缩。", keepAction: "保持先做高价值输出。", tomorrowMinimum: "完成导数综合题 5 道。", mood: "steady" },
-    { workspaceId: workspace.id, reviewDate: day(-2, 22), totalMinutes: 76, effectiveMinutes: 41, summary: "完成基础投入但转化偏低。", lostControl: "长难句停留过久。", keepAction: "及时拆小。", tomorrowMinimum: "精读一篇并形成卡片。", mood: "tired" },
+    { workspaceId: workspace.id, ownerUserId: user.id, reviewDate: day(-1, 22), totalMinutes: 112, effectiveMinutes: 87, summary: "数学复测完成，408 推进稳定。", lostControl: "英语精读被压缩。", keepAction: "保持先做高价值输出。", tomorrowMinimum: "完成导数综合题 5 道。", mood: "steady" },
+    { workspaceId: workspace.id, ownerUserId: user.id, reviewDate: day(-2, 22), totalMinutes: 76, effectiveMinutes: 41, summary: "完成基础投入但转化偏低。", lostControl: "长难句停留过久。", keepAction: "及时拆小。", tomorrowMinimum: "精读一篇并形成卡片。", mood: "tired" },
   ] });
   await prisma.recoveryState.create({ data: {
     workspaceId: workspace.id, userId: user.id, status: "COMPLETED", triggerType: "RULE", startedAt: day(-5), endedAt: day(-4),
@@ -169,17 +169,17 @@ async function seed(): Promise<void> {
   } });
 
   const note = await prisma.note.create({ data: {
-    id: "test-note-limit", subjectId: "test-subject-math", syllabusNodeId: "test-node-limit", taskId: "test-task-done",
+    id: "test-note-limit", ownerUserId: user.id, subjectId: "test-subject-math", syllabusNodeId: "test-node-limit", taskId: "test-task-done",
     kind: "CONCEPT", studyDate: day(-1), stableKey: "limit-checklist", title: "极限判定方法清单",
     content: "先看结构，再判断等价替换、洛必达或夹逼；最后检查适用条件。", masteryStatus: "mastered", nextReviewAt: day(14),
   } });
   const mistake = await prisma.mistake.create({ data: {
-    id: "test-mistake-english", subjectId: "test-subject-english", syllabusNodeId: "test-node-english", title: "长难句主干判断错误",
+    id: "test-mistake-english", ownerUserId: user.id, subjectId: "test-subject-english", syllabusNodeId: "test-node-english", title: "长难句主干判断错误",
     source: "英语阅读训练", cause: "WRONG_APPROACH", correctIdea: "先识别谓语，再排除插入与修饰成分。", nextReviewAt: day(1),
   } });
   await prisma.noteRelatedSyllabusNode.create({ data: { noteId: note.id, syllabusNodeId: "test-node-derivative" } });
   const resource = await prisma.studyResource.create({ data: {
-    id: "test-resource-link", workspaceId: workspace.id, stableKey: "mit-calculus", title: "微积分公开课参考",
+    id: "test-resource-link", workspaceId: workspace.id, ownerUserId: user.id, stableKey: "mit-calculus", title: "微积分公开课参考",
     category: "COURSE", sourceType: "LINK", subjectId: "test-subject-math", externalUrl: "https://ocw.mit.edu/", displayHost: "ocw.mit.edu", actorId: user.id,
   } });
   await Promise.all([
@@ -242,8 +242,8 @@ async function seed(): Promise<void> {
   ] });
 
   await prisma.planInboxItem.createMany({ data: [
-    { id: "test-inbox-open", workspaceId: workspace.id, stableKey: "next-graph-retest", originKey: "weekly-report", originVersion: 1, originType: "REPORT", originSnapshot: { reportDecisionId: report.id }, status: "OPEN", title: "安排最短路径专项复测", subjectId: "test-subject-ds", plannedDate: day(2), estimatedMinutes: 50, priority: "HIGH", type: "review", planMilestoneId: milestone.id, primaryNodeId: "test-node-ds", relatedNodeIds: [], actorId: user.id },
-    { id: "test-inbox-converted", workspaceId: workspace.id, stableKey: "split-english-reading", originKey: "recovery", originVersion: 1, originType: "RECOVERY", originSnapshot: { recoveryState: "completed" }, status: "CONVERTED", title: "拆小英语阅读任务", subjectId: "test-subject-english", plannedDate: day(1), estimatedMinutes: 35, priority: "HIGH", type: "study", convertedTaskId: "test-task-child", convertedAt: now, actorId: user.id },
+    { id: "test-inbox-open", workspaceId: workspace.id, ownerUserId: user.id, stableKey: "next-graph-retest", originKey: "weekly-report", originVersion: 1, originType: "REPORT", originSnapshot: { reportDecisionId: report.id }, status: "OPEN", title: "安排最短路径专项复测", subjectId: "test-subject-ds", plannedDate: day(2), estimatedMinutes: 50, priority: "HIGH", type: "review", planMilestoneId: milestone.id, primaryNodeId: "test-node-ds", relatedNodeIds: [], actorId: user.id },
+    { id: "test-inbox-converted", workspaceId: workspace.id, ownerUserId: user.id, stableKey: "split-english-reading", originKey: "recovery", originVersion: 1, originType: "RECOVERY", originSnapshot: { recoveryState: "completed" }, status: "CONVERTED", title: "拆小英语阅读任务", subjectId: "test-subject-english", plannedDate: day(1), estimatedMinutes: 35, priority: "HIGH", type: "study", convertedTaskId: "test-task-child", convertedAt: now, actorId: user.id },
   ] });
   await prisma.planInboxDependencyRef.create({ data: { inboxItemId: "test-inbox-open", targetType: "TASK", dependencyType: "SOFT", taskId: "test-task-progress" } });
 
@@ -256,7 +256,7 @@ async function seed(): Promise<void> {
   ] });
   const motivation = await prisma.motivationItem.create({ data: { id: "test-motivation", userId: user.id, type: "QUOTE", title: "稳定推进比短期爆发更重要", body: "把今天的最小行动做实。", tags: ["恢复", "长期主义"], sortOrder: 10, actorId: user.id } });
   await Promise.all([
-    prisma.motivationVault.create({ data: { whyStarted: "为了获得更扎实的专业能力与选择空间。", neverReturnTo: "不再回到只收藏资料、不做输出的状态。", futureSelf: "能够稳定学习、清楚判断掌握边界的人。", messageToFuture: "先完成今天的最小行动。", firstSimulationDiary: "第一次模拟暴露问题，但也给出了清晰路线。" } }),
+    prisma.motivationVault.create({ data: { userId: user.id, whyStarted: "为了获得更扎实的专业能力与选择空间。", neverReturnTo: "不再回到只收藏资料、不做输出的状态。", futureSelf: "能够稳定学习、清楚判断掌握边界的人。", messageToFuture: "先完成今天的最小行动。", firstSimulationDiary: "第一次模拟暴露问题，但也给出了清晰路线。" } }),
     prisma.motivationReminderState.create({ data: { userId: user.id, lastAutoShowAt: day(-1), learningDay: day(0, 0), dailyCount: 1, recentItemIds: [motivation.id] } }),
     prisma.notificationPreference.create({ data: { userId: user.id, quietHoursStart: 23, quietHoursEnd: 7 } }),
     prisma.aiDraftOperation.create({ data: { operationId: "test-ai-stage-draft", actorId: user.id, workspaceId: workspace.id, endpoint: "/api/ai/stage-adjustment", purpose: "TEST_FIXTURE", requestFingerprint: sha256("test-ai-stage-draft"), nonce: "test-ai-nonce", projectionVersion: "v1", status: "SUCCEEDED", resultReference: "test-stage-draft-pending", expiresAt: day(1), consumedAt: now } }),

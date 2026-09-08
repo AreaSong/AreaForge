@@ -848,6 +848,7 @@ async function requestRaw(path: string, options: RequestOptions = {}): Promise<R
     const headers = new Headers(options.headers);
     if (options.cookie) headers.set("Cookie", options.cookie);
     if (options.body) headers.set("Content-Type", "application/json");
+    if ((options.method ?? "GET") !== "GET") headers.set("Origin", new URL(baseUrl).origin);
     const response = await fetch(new URL(path, baseUrl), {
       method: options.method ?? "GET",
       headers,

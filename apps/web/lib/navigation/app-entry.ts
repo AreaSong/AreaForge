@@ -9,9 +9,11 @@ type ActiveEntrySession = Pick<
 
 export function selectAuthenticatedEntryRoute(input: {
   hasWorkspace: boolean;
+  hasOwnedWorkspace: boolean;
   activeSession: ActiveEntrySession | null;
 }): string {
   if (!input.hasWorkspace) return "/settings/exams?setup=1";
   if (input.activeSession) return activitySourcePath(input.activeSession);
+  if (!input.hasOwnedWorkspace) return "/settings/workspaces";
   return ROOT_ROUTES.app;
 }

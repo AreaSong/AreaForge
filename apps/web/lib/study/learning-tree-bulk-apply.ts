@@ -177,6 +177,7 @@ async function bulkCards(
       if (!subjectId) throw new ApiError("LEARNING_TREE_SUBJECT_MISSING", 400);
       const primaryNodeId = resolveCardNode(card.subjectKey, card.primaryNode, context);
       return {
+        ownerUserId: context.actorId,
         subjectId,
         title: card.title,
         content: card.bodyMarkdown,
@@ -223,6 +224,7 @@ async function bulkResources(
         if (!subjectId) throw new ApiError("LEARNING_TREE_SUBJECT_MISSING", 400);
         return {
           workspaceId: context.workspaceId,
+          ownerUserId: context.actorId,
           stableKey: resource.stableKey,
           title: resource.title,
           sourceType: "LINK" as const,
@@ -247,7 +249,7 @@ async function bulkPlans(
   const milestoneKeys = Array.from(new Set(plans.flatMap((plan) => plan.milestoneKey ? [plan.milestoneKey] : [])));
   const milestones = milestoneKeys.length
     ? await context.tx.planMilestone.findMany({
-        where: { workspaceId: context.workspaceId, stableKey: { in: milestoneKeys }, archivedAt: null },
+        where: { workspaceId: context.workspaceId, ownerUserId: context.actorId, stableKey: { in: milestoneKeys }, archivedAt: null },
         select: { id: true, stableKey: true },
       })
     : [];
@@ -260,6 +262,7 @@ async function bulkPlans(
         if (!subjectId) throw new ApiError("LEARNING_TREE_SUBJECT_MISSING", 400);
         return {
           workspaceId: context.workspaceId,
+          ownerUserId: context.actorId,
           stableKey: plan.batchRef,
           originKey: learningTreePlanOriginKey(plan.subjectKey, plan.stableKey),
           originVersion: plan.originVersion,

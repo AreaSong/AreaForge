@@ -26,7 +26,7 @@ test("runtime facts: countdowns and stage windows use workspace data instead of 
   assert.match(dashboard, /targetExamDate: workspace\.targetExamDate/);
   assert.match(dashboard, /simulationDate: nextSimulationExam\?\.examDate \?\? null/);
   assert.match(stage, /optionalDaysUntil\(workspace\.targetExamDate, now\)/);
-  assert.match(risk, /where: \{ workspaceId, status: \{ not: "CONFIRMED" \}/);
+  assert.match(risk, /where: \{ workspaceId, ownerUserId, status: \{ not: "CONFIRMED" \}/);
   assert.match(risk, /examDate: \{ gte: getStudyDayRange\(now\)\.start \}/);
   assert.match(schemas, /examDate: z\.string\(\)\.datetime\(\)/);
 });

@@ -44,6 +44,7 @@ export interface DynamicIslandHubProps {
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   commands: readonly GlobalCommandDefinition[];
+  searchStatus?: "idle" | "loading" | "ready" | "error";
   selectedIndex: number;
   onSelectIndex: (idx: number) => void;
   onExecuteCommand: (cmd: GlobalCommandDefinition) => void;
@@ -64,6 +65,7 @@ function HubActivePanel(
   const {
     viewMode,
     commands,
+    searchStatus,
     selectedIndex,
     onSelectIndex,
     onExecuteCommand,
@@ -87,6 +89,7 @@ function HubActivePanel(
     return (
       <HubCommandPaletteList
         commands={commands}
+        searchStatus={searchStatus}
         selectedIndex={selectedIndex}
         onSelectIndex={onSelectIndex}
         onExecuteCommand={onExecuteCommand}

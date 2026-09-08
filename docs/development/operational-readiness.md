@@ -21,7 +21,7 @@
 - 更新模式：Web 版本中心提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚。
 - 默认自动策略：`AREAFORGE_AUTO_APPLY=none`
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
-- A -> B 后续路线：`AF-RISK-DATA-002`、`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 已登记为不可执行的 `deferred-work`，分别承接多用户/RBAC、私有挑战排名和受控运维扩面；它们不是当前生产能力，也不提供 migration、数据共享、删除或服务器动作授权。
+- A -> B 后续路线：`AF-RISK-DATA-002` 已由 active v1.4 任务承接并可在已确认范围内继续本地验证；`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 仍是不可执行的 `deferred-work`。三者都不是当前生产能力，也不提供 RBAC、生产 migration/apply、数据删除、排名共享或服务器动作授权。
 
 ## 运营状态
 

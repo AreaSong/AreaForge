@@ -4,7 +4,8 @@ import { ApiError } from "@/lib/api/responses";
 import { getStudyDayRange } from "./date";
 import { applySessionCas, applyTaskCas } from "./concurrency";
 import { createTaskDebtEvent } from "./task-debt-event-service";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
+import { incrementMemberSyllabusActualMinutes } from "./syllabus-progress";
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
 import {
   buildPersistentCreateFingerprint,
@@ -336,7 +337,9 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
         debtStatus: shouldCompleteTask ? "NONE" : undefined,
         completedAt: shouldCompleteTask ? now : null,
       });
-      const updatedTask = await tx.studyTask.findUnique({ where: { id: linkedTask.id } });
+      const updatedTask = await tx.studyTask.findFirst({
+        where: { id: linkedTask.id, ownerUserId: actorId },
+      });
       if (!updatedTask) throw new ApiError("TASK_STATE_CONFLICT", 409);
       if (shouldCompleteTask) {
         await createTaskDebtEvent({
@@ -363,13 +366,16 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     }
 
     if (existing.syllabusNodeId && effectiveMinutes > 0) {
-      await tx.syllabusNode.update({
-        where: { id: existing.syllabusNodeId },
-        data: {
-          actualMinutes: {
-            increment: effectiveMinutes,
-          },
-        },
+      const sessionWorkspace = await tx.examWorkspace.findUnique({
+        where: { id: workspaceId },
+        select: { userId: true },
+      });
+      if (!sessionWorkspace) throw new ApiError("SESSION_WORKSPACE_REQUIRED", 409, { conflictFields: ["workspaceId"] });
+      await incrementMemberSyllabusActualMinutes(tx, {
+        syllabusNodeId: existing.syllabusNodeId,
+        ownerUserId: actorId,
+        workspaceOwnerUserId: sessionWorkspace.userId,
+        minutes: effectiveMinutes,
       });
     }
 
@@ -386,7 +392,7 @@ export async function endStudySession(id: string, input: EndSessionInput, actorI
     const sessionDay = getStudyDayRange(existing.startedAt);
     const sessionCheckIn = refreshedCheckIns.get(sessionDay.start.getTime());
     if (sessionCheckIn) {
-      const workspace = await resolveActiveWorkspace(actorId, tx);
+      const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
       await applyRecoveryV2CheckInProgressInTx(tx, actorId, workspace.id, {
         studyDate: sessionDay.start,
         effectiveSessionMinutes: sessionCheckIn.effectiveMinutes,
@@ -415,9 +421,9 @@ export async function linkStudySessionEvidence(
   });
 
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const session = await tx.studySession.findFirst({
-      where: { id: sessionId, subject: { workspaceId: workspace.id } },
+      where: { id: sessionId, userId: actorId, workspaceId: workspace.id, subject: { workspaceId: workspace.id } },
       include: { subject: true, task: true, syllabusNode: true },
     });
     if (!session) throw new ApiError("SESSION_NOT_FOUND", 404);
@@ -452,7 +458,7 @@ export async function linkStudySessionEvidence(
       };
     }
 
-    const receipt = await validateSessionEvidence(tx, workspace.id, session, input);
+    const receipt = await validateSessionEvidence(tx, actorId, workspace.id, session, input);
     const updated = await tx.studySession.update({
       where: { id: session.id },
       data: {

@@ -1,11 +1,15 @@
 import { Database, Download, FileInput, HardDrive, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DataJobCenterClient } from "@/components/data-job-center-client";
+import { RankingChallengeClient } from "@/components/ranking-challenge-client";
+import { UserNotificationInboxClient } from "@/components/user-notification-inbox-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRouteMetadata } from "@/lib/navigation/app-navigation";
+import { listExamWorkspaces } from "@/lib/study/exam-workspace-service";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/settings/data");
@@ -13,6 +17,10 @@ export const metadata = getRouteMetadata("/settings/data");
 export default async function SettingsDataPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const dataLifecycleEnabled = process.env.DATA_LIFECYCLE_ENABLED === "true";
+  const rankingEnabled = process.env.RANKING_ENABLED === "true";
+  const platformNotificationsEnabled = process.env.PLATFORM_NOTIFICATIONS_ENABLED === "true";
+  const workspaces = dataLifecycleEnabled || rankingEnabled ? await listExamWorkspaces(user.id) : [];
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
@@ -149,6 +157,39 @@ export default async function SettingsDataPage() {
               </div>
             </div>
           </Card>
+
+          <section aria-labelledby="data-job-center-title" className="space-y-3">
+            <div className="border-b border-white/10 pb-3">
+              <h2 id="data-job-center-title" className="text-base font-semibold text-white">数据任务中心</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">v1.6 候选能力：预览、提交和观察任务；删除与归档边界仍保持关闭。</p>
+            </div>
+            <DataJobCenterClient
+              enabled={dataLifecycleEnabled}
+              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({
+                id: workspace.id,
+                name: workspace.name,
+                role: workspace.membershipRole,
+              }))}
+            />
+          </section>
+          <section aria-labelledby="ranking-center-title" className="space-y-3">
+            <div className="border-b border-white/10 pb-3">
+              <h2 id="ranking-center-title" className="text-base font-semibold text-white">成长指标与私有挑战</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">排名候选默认关闭；仅主动加入的成员参与，且不读取学习正文。</p>
+            </div>
+            <RankingChallengeClient
+              enabled={rankingEnabled}
+              currentUserId={user.id}
+              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({ id: workspace.id, name: workspace.name }))}
+            />
+          </section>
+          <section aria-labelledby="notification-inbox-title" className="space-y-3">
+            <div className="border-b border-white/10 pb-3">
+              <h2 id="notification-inbox-title" className="text-base font-semibold text-white">成员与排名通知</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">通知按账户和 Workspace 隔离，支持跨设备已读、隐藏和恢复。</p>
+            </div>
+            <UserNotificationInboxClient enabled={platformNotificationsEnabled} />
+          </section>
         </main>
       </div>
     </PageFrame>

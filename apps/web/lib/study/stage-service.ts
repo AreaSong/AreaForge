@@ -19,7 +19,7 @@ import type {
   StageAdjustmentTaskActionDto,
   StagePlanDto,
 } from "@/lib/contracts";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -54,10 +54,10 @@ export interface CreateStageAdjustmentDraftInput {
   stagePlanId?: string | null;
 }
 
-export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> {
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+export async function listStagePlans(actorId: string): Promise<StagePlanDto[]> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const plans = await prisma.stagePlan.findMany({
-    where: workspace ? { workspaceId: workspace.id } : undefined,
+    where: { workspaceId: workspace.id, ownerUserId: actorId },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
     take: 50,
   });
@@ -66,9 +66,9 @@ export async function listStagePlans(actorId?: string): Promise<StagePlanDto[]> 
 }
 
 export async function getCurrentStagePlan(actorId: string): Promise<StagePlanDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const plan = await prisma.stagePlan.findFirst({
-    where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+    where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["active", "draft"] } },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
   });
   return plan ? serializeStagePlan(plan) : null;
@@ -87,7 +87,7 @@ export async function createStagePlan(input: SaveStagePlanInput, actorId: string
   });
   try {
     return await prisma.$transaction(async (tx) => {
-      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
       const command = {
         actorId,
         workspaceId: workspace.id,
@@ -101,13 +101,13 @@ export async function createStagePlan(input: SaveStagePlanInput, actorId: string
       if (replay) {
         const snapshot = parseStagePlanSnapshot(replay.resultSnapshot);
         if (snapshot) return snapshot;
-        const storedPlan = await tx.stagePlan.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id } });
+        const storedPlan = await tx.stagePlan.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id, ownerUserId: actorId } });
         if (!storedPlan) throw new ApiError("STAGE_PLAN_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
         return serializeStagePlan(storedPlan);
       }
 
       const current = await tx.stagePlan.findFirst({
-        where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+        where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["active", "draft"] } },
         orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
       });
       if (current) {
@@ -121,6 +121,7 @@ export async function createStagePlan(input: SaveStagePlanInput, actorId: string
       const created = await tx.stagePlan.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           name: input.name,
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
@@ -153,17 +154,37 @@ export async function updateStagePlan(
   input: Partial<SaveStagePlanInput> & { expectedRevision: number },
   actorId: string,
 ): Promise<StagePlanDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
   const plan = await prisma.$transaction(async (tx) => {
-    const existing = await tx.stagePlan.findFirst({ where: { id, workspaceId: workspace.id } });
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    const existing = await tx.stagePlan.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
     if (!existing) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
 
     const nextStartDate = input.startDate ? new Date(input.startDate) : existing.startDate;
     const nextEndDate = input.endDate ? new Date(input.endDate) : existing.endDate;
     if (nextEndDate.getTime() < nextStartDate.getTime()) throw new ApiError("STAGE_PLAN_DATE_RANGE_INVALID", 400);
 
+    const nextStatus = input.status ?? existing.status;
+    if (nextStatus === "active" || nextStatus === "draft") {
+      const competingPlan = await tx.stagePlan.findFirst({
+        where: {
+          id: { not: id },
+          workspaceId: workspace.id,
+          ownerUserId: actorId,
+          status: { in: ["active", "draft"] },
+        },
+        orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
+      });
+      if (competingPlan) {
+        throw new ApiError("STAGE_PLAN_BASE_REVISION_CONFLICT", 409, {
+          latest: stagePlanConflictLatest(serializeStagePlan(competingPlan)),
+          conflictFields: ["status", "plan.revision"],
+          workbench: stageWorkbench,
+        });
+      }
+    }
+
     const changed = await tx.stagePlan.updateMany({
-      where: { id, workspaceId: workspace.id, revision: input.expectedRevision },
+      where: { id, workspaceId: workspace.id, ownerUserId: actorId, revision: input.expectedRevision },
       data: {
         name: input.name,
         startDate: input.startDate ? nextStartDate : undefined,
@@ -175,14 +196,14 @@ export async function updateStagePlan(
       },
     });
     if (changed.count !== 1) {
-      const latest = await tx.stagePlan.findUnique({ where: { id } });
+      const latest = await tx.stagePlan.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
       throw new ApiError("STAGE_PLAN_REVISION_CONFLICT", 409, {
         latest: stagePlanConflictLatest(latest ? serializeStagePlan(latest) : null),
         conflictFields: ["revision"],
         workbench: stageWorkbench,
       });
     }
-    const updated = await tx.stagePlan.findUniqueOrThrow({ where: { id } });
+    const updated = await tx.stagePlan.findFirstOrThrow({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
 
     await audit(tx, actorId, "STAGE_PLAN_UPDATED", "StagePlan", id, createStagePlanChangeMetadata(existing, updated));
     return updated;
@@ -191,10 +212,10 @@ export async function updateStagePlan(
   return serializeStagePlan(plan);
 }
 
-export async function listStageAdjustmentDrafts(actorId?: string): Promise<StageAdjustmentDraftRecordDto[]> {
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
+export async function listStageAdjustmentDrafts(actorId: string): Promise<StageAdjustmentDraftRecordDto[]> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const drafts = await prisma.stageAdjustmentDraft.findMany({
-    where: workspace ? { workspaceId: workspace.id } : undefined,
+    where: { workspaceId: workspace.id, ownerUserId: actorId },
     orderBy: [{ createdAt: "desc" }],
     take: 50,
   });
@@ -203,8 +224,8 @@ export async function listStageAdjustmentDrafts(actorId?: string): Promise<Stage
 }
 
 export async function getStageAdjustmentDraft(id: string, actorId: string): Promise<StageAdjustmentDraftRecordDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  const draft = await prisma.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id } });
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const draft = await prisma.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
   if (!draft) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
   return serializeStageAdjustmentDraft(draft);
 }
@@ -212,9 +233,9 @@ export async function getStageAdjustmentDraft(id: string, actorId: string): Prom
 export async function getLatestStageAdjustmentDecisionResult(
   actorId: string,
 ): Promise<StageAdjustmentDecisionReplay | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const terminalDrafts = await prisma.stageAdjustmentDraft.findMany({
-    where: { workspaceId: workspace.id, status: { in: ["applied", "rejected"] } },
+    where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["applied", "rejected"] } },
     orderBy: { createdAt: "desc" },
   });
   if (terminalDrafts.length === 0) return null;
@@ -247,11 +268,11 @@ export async function createStageAdjustmentDraft(
   now = new Date(),
 ): Promise<StageAdjustmentDraftRecordDto> {
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const [analytics, latestExam, stagePlan] = await Promise.all([
     getAnalyticsSummary(now, actorId),
-    getLatestSimulationExamScoreRate(workspace.id),
-    resolveStagePlan(input.stagePlanId, workspace.id),
+    getLatestSimulationExamScoreRate(workspace.id, actorId),
+    resolveStagePlan(input.stagePlanId, workspace.id, actorId),
   ]);
   const adjustment = draftStageAdjustment({
     stageGoal: stagePlan?.goal ?? workspace.stageSummary?.trim() ?? "当前考试目标",
@@ -272,7 +293,7 @@ export async function createStageAdjustmentDraft(
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const activeWorkspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const activeWorkspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
       if (activeWorkspace.id !== workspace.id) {
         throw new ApiError("ACTIVE_WORKSPACE_CHANGED", 409, {
           latest: { workspaceId: activeWorkspace.id },
@@ -293,7 +314,7 @@ export async function createStageAdjustmentDraft(
         const snapshot = parseStageAdjustmentDraftSnapshot(replay.resultSnapshot);
         if (snapshot) return snapshot;
         const storedDraft = await tx.stageAdjustmentDraft.findFirst({
-          where: { id: replay.resultId, workspaceId: workspace.id },
+          where: { id: replay.resultId, workspaceId: workspace.id, ownerUserId: actorId },
         });
         if (!storedDraft) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
         return serializeStageAdjustmentDraft(storedDraft);
@@ -302,6 +323,7 @@ export async function createStageAdjustmentDraft(
       const created = await tx.stageAdjustmentDraft.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           stagePlanId: stagePlan?.id ?? null,
           originVersion: null,
           sourceReportDecisionId: null,
@@ -363,11 +385,12 @@ function parseStageAdjustmentDraftSnapshot(
 }
 
 export async function confirmStageAdjustmentDraft(id: string, expectedRevision: number, actorId: string): Promise<StageAdjustmentDecisionResult> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id }, include: { stagePlan: true } });
+      const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId }, include: { stagePlan: true } });
       if (!existing) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
+      if (existing.stagePlan && existing.stagePlan.ownerUserId !== actorId) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
       if (existing.status === "applied") {
         const inboxResult = await readAppliedStageInboxResult(tx, existing.id);
         if (!inboxResult) throw stageDecisionResultUnavailable(existing);
@@ -395,6 +418,7 @@ export async function confirmStageAdjustmentDraft(id: string, expectedRevision: 
       const newerDraft = await tx.stageAdjustmentDraft.findFirst({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         stagePlanId: existing.stagePlan.id,
         status: "draft",
         createdAt: { gt: existing.createdAt },
@@ -413,11 +437,11 @@ export async function confirmStageAdjustmentDraft(id: string, expectedRevision: 
       }
 
       const claimed = await tx.stageAdjustmentDraft.updateMany({
-      where: { id, workspaceId: workspace.id, status: "draft", revision: expectedRevision },
+      where: { id, workspaceId: workspace.id, ownerUserId: actorId, status: "draft", revision: expectedRevision },
       data: { status: "applied", appliedAt: new Date(), actorId, revision: { increment: 1 } },
     });
       if (claimed.count !== 1) {
-        const latest = await tx.stageAdjustmentDraft.findUnique({ where: { id } });
+        const latest = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
         if (latest?.status === "applied") {
           const inboxResult = await readAppliedStageInboxResult(tx, latest.id);
           if (!inboxResult) throw stageDecisionResultUnavailable(latest);
@@ -443,7 +467,7 @@ export async function confirmStageAdjustmentDraft(id: string, expectedRevision: 
       },
     });
       if (planUpdate.count !== 1) {
-        const latest = await tx.stagePlan.findUnique({ where: { id: existing.stagePlan.id } });
+        const latest = await tx.stagePlan.findFirst({ where: { id: existing.stagePlan.id, workspaceId: workspace.id, ownerUserId: actorId } });
         throw new ApiError("STAGE_PLAN_REVISION_CONFLICT", 409, {
           latest: stageAdjustmentConflictLatest(
             serializeStageAdjustmentDraft(existing),
@@ -454,13 +478,13 @@ export async function confirmStageAdjustmentDraft(id: string, expectedRevision: 
         });
       }
       const [updatedPlan, updatedDraft] = await Promise.all([
-      tx.stagePlan.findUniqueOrThrow({ where: { id: existing.stagePlan.id } }),
-      tx.stageAdjustmentDraft.findUniqueOrThrow({ where: { id } }),
+      tx.stagePlan.findFirstOrThrow({ where: { id: existing.stagePlan.id, workspaceId: workspace.id, ownerUserId: actorId } }),
+      tx.stageAdjustmentDraft.findFirstOrThrow({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } }),
     ]);
       const actions = parseStringArray(existing.taskAdjustmentActions);
       const inboxWrites: PlanInboxWriteResult[] = [];
       const sourceReport = existing.sourceReportDecisionId
-      ? await tx.periodicReportDecision.findFirst({ where: { id: existing.sourceReportDecisionId, workspaceId: workspace.id } })
+      ? await tx.periodicReportDecision.findFirst({ where: { id: existing.sourceReportDecisionId, workspaceId: workspace.id, ownerUserId: actorId } })
       : null;
       for (const [index, action] of actions.entries()) {
       const originKey = sourceReport
@@ -509,11 +533,12 @@ export async function confirmStageAdjustmentDraft(id: string, expectedRevision: 
 }
 
 export async function rejectStageAdjustmentDraft(id: string, expectedRevision: number, actorId: string): Promise<StageAdjustmentDecisionResult> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id }, include: { stagePlan: true } });
+      const existing = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId }, include: { stagePlan: true } });
       if (!existing) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
+      if (existing.stagePlan && existing.stagePlan.ownerUserId !== actorId) throw new ApiError("STAGE_ADJUSTMENT_DRAFT_NOT_FOUND", 404);
       if (existing.status === "rejected") {
         return { draft: serializeStageAdjustmentDraft(existing), stageDraftId: existing.id, inboxResult: emptyInboxResult() };
       }
@@ -537,11 +562,11 @@ export async function rejectStageAdjustmentDraft(id: string, expectedRevision: n
       }
 
       const changed = await tx.stageAdjustmentDraft.updateMany({
-      where: { id, workspaceId: workspace.id, status: "draft", revision: expectedRevision },
+      where: { id, workspaceId: workspace.id, ownerUserId: actorId, status: "draft", revision: expectedRevision },
       data: { status: "rejected", actorId, revision: { increment: 1 } },
     });
       if (changed.count !== 1) {
-        const latest = await tx.stageAdjustmentDraft.findUnique({ where: { id } });
+        const latest = await tx.stageAdjustmentDraft.findFirst({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
         if (latest?.status === "rejected") {
           return { draft: serializeStageAdjustmentDraft(latest), stageDraftId: latest.id, inboxResult: emptyInboxResult() };
         }
@@ -554,7 +579,7 @@ export async function rejectStageAdjustmentDraft(id: string, expectedRevision: n
           workbench: stageWorkbench,
         });
       }
-      const rejected = await tx.stageAdjustmentDraft.findUniqueOrThrow({ where: { id } });
+      const rejected = await tx.stageAdjustmentDraft.findFirstOrThrow({ where: { id, workspaceId: workspace.id, ownerUserId: actorId } });
 
       await audit(tx, actorId, "STAGE_ADJUSTMENT_DRAFT_REJECTED", "StageAdjustmentDraft", id, {
       stagePlanId: rejected.stagePlanId,
@@ -601,20 +626,21 @@ async function loadStageAdjustmentConflictLatest(
   actorId: string,
   stagePlanId: string | null,
 ): Promise<StageAdjustmentConflictLatest> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const [draft, stagePlan] = await Promise.all([
     prisma.stageAdjustmentDraft.findFirst({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         status: "draft",
         ...(stagePlanId ? { stagePlanId } : {}),
       },
       orderBy: { createdAt: "desc" },
     }),
     stagePlanId
-      ? prisma.stagePlan.findFirst({ where: { id: stagePlanId, workspaceId: workspace.id } })
+      ? prisma.stagePlan.findFirst({ where: { id: stagePlanId, workspaceId: workspace.id, ownerUserId: actorId } })
       : prisma.stagePlan.findFirst({
-          where: { workspaceId: workspace.id, status: { in: ["active", "draft"] } },
+          where: { workspaceId: workspace.id, ownerUserId: actorId, status: { in: ["active", "draft"] } },
           orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
         }),
   ]);
@@ -633,9 +659,9 @@ async function enrichStageAdjustmentConflict(error: unknown, actorId: string, dr
       workbench: stageWorkbench,
     });
   }
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const draft = await prisma.stageAdjustmentDraft.findFirst({
-    where: { id: draftId, workspaceId: workspace.id },
+    where: { id: draftId, workspaceId: workspace.id, ownerUserId: actorId },
     include: { stagePlan: true },
   });
   return new ApiError(error.code, 409, {
@@ -714,7 +740,7 @@ function summarizeInboxWrites(writes: PlanInboxWriteResult[]): PlanInboxWriteSum
 }
 
 export async function createDefaultStagePlan(actorId: string, now = new Date()): Promise<StagePlanDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   if (!workspace.targetExamDate) throw new ApiError("TARGET_EXAM_DATE_REQUIRED", 400);
   const range = getStudyDayRange(now);
   return createStagePlan(
@@ -732,23 +758,27 @@ export async function createDefaultStagePlan(actorId: string, now = new Date()):
   );
 }
 
-async function resolveStagePlan(stagePlanId: string | null | undefined, workspaceId: string): Promise<{ id: string; goal: string } | null> {
+async function resolveStagePlan(
+  stagePlanId: string | null | undefined,
+  workspaceId: string,
+  ownerUserId: string,
+): Promise<{ id: string; goal: string } | null> {
   if (stagePlanId) {
-    const plan = await prisma.stagePlan.findFirst({ where: { id: stagePlanId, workspaceId }, select: { id: true, goal: true } });
+    const plan = await prisma.stagePlan.findFirst({ where: { id: stagePlanId, workspaceId, ownerUserId }, select: { id: true, goal: true } });
     if (!plan) throw new ApiError("STAGE_PLAN_NOT_FOUND", 404);
     return plan;
   }
 
   return prisma.stagePlan.findFirst({
-    where: { workspaceId, status: { in: ["active", "draft"] } },
+    where: { workspaceId, ownerUserId, status: { in: ["active", "draft"] } },
     orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
     select: { id: true, goal: true },
   });
 }
 
-async function getLatestSimulationExamScoreRate(workspaceId: string): Promise<number | null> {
+async function getLatestSimulationExamScoreRate(workspaceId: string, ownerUserId: string): Promise<number | null> {
   const exam = await prisma.simulationExam.findFirst({
-    where: { workspaceId, actualScore: { not: null }, targetScore: { not: null }, subjectResults: { some: {} } },
+    where: { workspaceId, ownerUserId, actualScore: { not: null }, targetScore: { not: null }, subjectResults: { some: {} } },
     orderBy: [{ examDate: "desc" }, { updatedAt: "desc" }],
     select: { actualScore: true, targetScore: true },
   });

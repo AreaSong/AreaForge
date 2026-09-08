@@ -2,7 +2,7 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getNextStudyDayStart, getStudyDayRange } from "./date";
 import { applyTaskCas } from "./concurrency";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   buildPersistentCreateFingerprint,
   findPersistentCreateReplay,
@@ -64,7 +64,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
     estimatedMinutes: input.estimatedMinutes,
   });
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -79,7 +79,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
       const snapshot = parseStudyTaskSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
       const storedTask = await tx.studyTask.findFirst({
-        where: { id: replay.resultId, subject: { workspaceId: workspace.id } },
+        where: { id: replay.resultId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
         include: {
           subject: true,
           syllabusNode: true,
@@ -92,7 +92,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
     }
     await assertSubjectExists(input.subjectId, workspace.id, tx);
     const sourceResource = input.sourceResourceId ? await tx.studyResource.findFirst({
-      where: { id: input.sourceResourceId, workspaceId: workspace.id },
+      where: { id: input.sourceResourceId, workspaceId: workspace.id, ownerUserId: actorId },
       select: { id: true, subjectId: true, archivedAt: true, revision: true },
     }) : null;
     if (input.sourceResourceId && !sourceResource) throw new ApiError("STUDY_RESOURCE_NOT_FOUND", 404);
@@ -110,14 +110,15 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
         workbench: "/knowledge/resources",
       });
     }
-    await assertActiveTaskRelations(tx, workspace.id, input.subjectId, {
+    await assertActiveTaskRelations(tx, workspace.id, input.subjectId, actorId, {
       syllabusNodeIds: [input.syllabusNodeId, ...relatedSyllabusNodeIds].filter((id): id is string => Boolean(id)),
       planMilestoneId: input.planMilestoneId ?? null,
       stagePlanIds,
     });
-    await assertActiveTaskKnowledgePoints(tx, workspace.id, input.subjectId, knowledgePointIds);
+    await assertActiveTaskKnowledgePoints(tx, workspace.id, input.subjectId, actorId, knowledgePointIds);
     const createdTask = await tx.studyTask.create({
       data: {
+        ownerUserId: actorId,
         subjectId: input.subjectId,
         syllabusNodeId: input.syllabusNodeId ?? null,
         planMilestoneId: input.planMilestoneId ?? null,
@@ -156,6 +157,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
         where: {
           id: sourceResource.id,
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           archivedAt: null,
           revision: sourceResource.revision,
         },
@@ -169,7 +171,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
       }
     }
 
-    const result = serializeTask(await getUpdatedTaskForResponse(tx, createdTask.id));
+    const result = serializeTask(await getUpdatedTaskForResponse(tx, createdTask.id, actorId));
     await recordPersistentCreateResult(tx, command, createdTask.id, {
       resultSnapshot: result as unknown as Prisma.InputJsonObject,
     });
@@ -193,7 +195,7 @@ export async function createStudyTask(input: CreateTaskInput, actorId: string): 
 export async function updateStudyTask(id: string, input: UpdateTaskInput, actorId: string): Promise<StudyTaskDto> {
   const task = await prisma.$transaction(async (tx) => {
     const existing = await getTaskCommandPreimage(tx, id, actorId);
-    const workspace = await resolveActiveWorkspace(actorId, tx);
+    const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
     await assertTaskUpdateExpectation(tx, workspace.id, existing, input);
     assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
 
@@ -220,11 +222,11 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
 
     assertTaskSyllabusRelationsDistinct(resolvedSyllabusNodeId, resolvedRelatedNodeIds);
     if (existing.reviewScheduleId && subjectChanged) {
-      throw await taskUpdateConflict(tx, workspace.id, id, ["subjectId", "reviewScheduleId"]);
+      throw await taskUpdateConflict(tx, workspace.id, id, ["subjectId", "reviewScheduleId"], actorId);
     }
     await assertSubjectExists(resolvedSubjectId, workspace.id, tx);
     try {
-      await assertActiveTaskRelations(tx, workspace.id, resolvedSubjectId, {
+      await assertActiveTaskRelations(tx, workspace.id, resolvedSubjectId, actorId, {
         syllabusNodeIds: [
           ...(subjectChanged || primaryNodeChanged ? [resolvedSyllabusNodeId] : []),
           ...(subjectChanged || relatedNodesChanged ? resolvedRelatedNodeIds : []),
@@ -234,15 +236,15 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        throw await taskUpdateConflict(tx, workspace.id, id, error.details?.conflictFields ?? ["relations"]);
+      throw await taskUpdateConflict(tx, workspace.id, id, error.details?.conflictFields ?? ["relations"], actorId);
       }
       throw error;
     }
     try {
-      await assertActiveTaskKnowledgePoints(tx, workspace.id, resolvedSubjectId, resolvedKnowledgePointIds);
+      await assertActiveTaskKnowledgePoints(tx, workspace.id, resolvedSubjectId, actorId, resolvedKnowledgePointIds);
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        throw await taskUpdateConflict(tx, workspace.id, id, error.details?.conflictFields ?? ["knowledgePointIds"]);
+      throw await taskUpdateConflict(tx, workspace.id, id, error.details?.conflictFields ?? ["knowledgePointIds"], actorId);
       }
       throw error;
     }
@@ -262,7 +264,7 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        throw await taskUpdateConflict(tx, workspace.id, id, ["status", "updatedAt"]);
+      throw await taskUpdateConflict(tx, workspace.id, id, ["status", "updatedAt"], actorId);
       }
       throw error;
     }
@@ -290,7 +292,7 @@ export async function updateStudyTask(id: string, input: UpdateTaskInput, actorI
         });
       }
     }
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_UPDATED", "StudyTask", updatedTask.id, tx);
     if (input.plannedDate) {
@@ -320,7 +322,7 @@ export async function completeStudyTask(id: string, reviewText: string | undefin
       reviewText,
       completedAt,
     });
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_COMPLETED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -359,7 +361,7 @@ export async function deferStudyTask(id: string, plannedDate: string | undefined
       plannedDate: targetPlannedDate,
       reviewText,
     });
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_DEFERRED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -395,7 +397,7 @@ export async function dropStudyTask(id: string, actorId: string): Promise<StudyT
       status: "SKIPPED",
       debtStatus: "NONE",
     });
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_DROPPED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -432,7 +434,7 @@ export async function recoverStudyTask(id: string, input: RecoverTaskInput, acto
       reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "补做：拉回今天作为恢复任务"),
       completedAt: null,
     });
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_RECOVERED", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({
@@ -470,6 +472,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
     assertTaskSourceStatus(existing, ["TODO", "IN_PROGRESS", "DEFERRED"]);
     const createdTask = await tx.studyTask.create({
       data: {
+        ownerUserId: existing.ownerUserId,
         subjectId: existing.subjectId,
         syllabusNodeId: existing.syllabusNodeId,
         planMilestoneId: existing.planMilestoneId,
@@ -510,7 +513,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
       debtStatus: "ACCEPTABLE",
       reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, `拆小：生成「${input.title}」作为最小推进任务`),
     });
-    const updatedOriginal = await getUpdatedTaskForResponse(tx, id);
+    const updatedOriginal = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_SPLIT_LIGHTWEIGHT", "StudyTask", createdTask.id, tx);
     await createTaskDebtEvent({
@@ -535,7 +538,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
     }, tx);
     await refreshWorkspaceCheckInsForDates(actorId, [existing.plannedDate, createdTask.plannedDate], tx);
 
-    const updatedChild = await getUpdatedTaskForResponse(tx, createdTask.id);
+    const updatedChild = await getUpdatedTaskForResponse(tx, createdTask.id, actorId);
     return [updatedOriginal, updatedChild];
   });
 
@@ -562,7 +565,7 @@ export async function convertStudyTaskToReview(
       reviewText: mergeTaskReviewText(existing.reviewText, input.reviewText, "改成复习任务：先复盘产出，再决定是否继续原任务"),
       completedAt: null,
     });
-    const updatedTask = await getUpdatedTaskForResponse(tx, id);
+    const updatedTask = await getUpdatedTaskForResponse(tx, id, actorId);
 
     await audit(actorId, "STUDY_TASK_CONVERTED_TO_REVIEW", "StudyTask", updatedTask.id, tx);
     await createTaskDebtEvent({

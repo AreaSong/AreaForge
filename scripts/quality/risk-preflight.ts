@@ -1968,15 +1968,12 @@ function checkPackageBBatchBoundaries(): void {
       ),
     },
     {
-      label: "Mastery schema fields and unique condition key",
-      ok: [
-        "@@unique([syllabusNodeId, condition])",
-        "evidenceType",
-        "testedAt",
-        "result",
-        "nextReviewAt",
-        "actorId",
-      ].every((token) => schema.includes(token)),
+      label: "Mastery schema fields and owner-scoped unique condition key",
+      ok: (
+        (schema.includes("@@unique([syllabusNodeId, condition])")
+          || schema.includes("@@unique([syllabusNodeId, ownerUserId, condition])"))
+        && ["evidenceType", "testedAt", "result", "nextReviewAt", "actorId"].every((token) => schema.includes(token))
+      ),
     },
     {
       label: "service explicit mastery records and fallback",

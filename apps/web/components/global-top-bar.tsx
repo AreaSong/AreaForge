@@ -28,6 +28,8 @@ const toneClass: Record<string, string> = {
 export interface GlobalTopBarProps {
   pathname?: string | null;
   userId: string;
+  workspaceId?: string | null;
+  hasWorkspace: boolean;
   statusTone: string;
   statusSummary: string;
   activeSession: StudySessionDto | null;
@@ -102,6 +104,7 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
           <DynamicIsland
             pathname={props.pathname}
             userId={props.userId}
+            workspaceId={props.workspaceId}
             activeSession={props.activeSession}
             offlineSession={props.offlineSession}
             quickReviewClaim={props.quickReviewClaim}
@@ -116,7 +119,7 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
         </div>
 
         <div className="col-start-2 row-start-1 flex min-w-0 shrink-0 items-center justify-end gap-1 max-[359px]:col-span-1 max-[359px]:col-start-2 max-[359px]:row-start-2 sm:gap-1.5 lg:col-start-3 lg:row-start-1">
-          <GlobalConfirmationCenter pathname={props.pathname ?? ""} userId={props.userId} />
+          {props.hasWorkspace ? <GlobalConfirmationCenter pathname={props.pathname ?? ""} userId={props.userId} /> : null}
           <GlobalAiAssistant userId={props.userId} placement="header" />
           <Button
             type="button"

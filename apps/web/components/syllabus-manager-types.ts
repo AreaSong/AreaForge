@@ -41,11 +41,12 @@ export type UpdateNodeBody = Partial<{
 }>;
 export type SyllabusUpdateBaseline = Pick<
   SyllabusNodeDto,
-  "id" | "revision" | "parentId" | "title" | "kind" | "status" | "masteryLevel" | "masteryConditions" | "sortOrder" | "targetMinutes"
+  "id" | "revision" | "progressRevision" | "parentId" | "title" | "kind" | "status" | "masteryLevel" | "masteryConditions" | "sortOrder" | "targetMinutes"
 >;
 export type SyllabusUpdateSubmission = {
   nodeId: string;
   expectedRevision: number;
+  expectedProgressRevision: number;
   baseline: SyllabusUpdateBaseline;
   body: UpdateNodeBody;
 };

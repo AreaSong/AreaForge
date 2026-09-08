@@ -9,5 +9,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      status: user.status,
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      currentSessionId: user.sessionId,
+      reauthenticatedAt: user.reauthenticatedAt?.toISOString() ?? null,
+    },
+  });
 }

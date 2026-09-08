@@ -17,6 +17,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；Release workflow、签名资产与不可变镜像 digest 已严格验证。
 - 当前 checkout 的 package version 为 `1.2.0`，`v1.2.0` annotated tag 和稳定 Release 已发布；production apply 尚未执行。
 - 当前生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；`v1.2.0` 发布未触发 production apply。
+- 当前分支的 v1.4 AUTH、v1.5 RBAC/Coach、v1.6 数据任务/删除预览、v1.7 受控运维请求和 v1.8 私有挑战/排名投影已形成默认关闭的本地候选，并通过总门禁与一次性隔离 fixture；commit `5816338` 的 branch push CI run `34021752169` 成功。敏感学习正文只允许资源 owner 或有效 grant 读取；候选 migration 尚未 apply 到共享测试库或生产，完整浏览器矩阵、受保护 PR/合并、Release 和生产证据仍缺。
 - Package A-E 和 docs 100% 当前证据已闭环。
 - Web 版本中心只能提交受控检查、应用、回退或策略请求；服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。

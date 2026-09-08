@@ -31,6 +31,8 @@ export const KNOWLEDGE_TAB_ITEMS = [
 
 export const SETTINGS_TAB_ITEMS = [
   { id: "overview", href: "/settings", label: "设置总览" },
+  { id: "account", href: "/settings/account", label: "账户安全" },
+  { id: "workspaces", href: "/settings/workspaces", label: "工作区与成员" },
   { id: "exams", href: "/settings/exams", label: "考试与科目" },
   { id: "profile", href: "/settings/profile", label: "个人与恢复" },
   { id: "learning", href: "/settings/learning", label: "学习与提醒" },

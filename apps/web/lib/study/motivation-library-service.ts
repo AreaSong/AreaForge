@@ -8,6 +8,7 @@ import {
 } from "@areaforge/core";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { findActiveWorkspaceOrNull } from "./exam-workspace-service";
 import type {
   MotivationItemDto,
   MotivationNextDto,
@@ -128,7 +129,7 @@ export async function createMotivationItem(
     if (input.type === "VAULT_EXCERPT" && input.vaultSourceId) {
       if (!input.vaultField) throw new ApiError("MOTIVATION_VAULT_FIELD_REQUIRED", 400);
       const vault = await tx.motivationVault.findFirst({
-        where: { id: input.vaultSourceId },
+        where: { id: input.vaultSourceId, userId },
       });
       if (!vault) throw new ApiError("MOTIVATION_VAULT_SOURCE_NOT_FOUND", 404);
       const selected = vault[input.vaultField]?.trim() ?? "";
@@ -348,10 +349,10 @@ export async function getMotivationNext(
     await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${motivationLockNamespace}, hashtext(${userId}))`;
     const now = new Date();
     const learningDay = getStudyDayRange(now).start;
-    const workspace = await tx.examWorkspace.findFirst({ where: { userId, status: "ACTIVE" }, select: { id: true } });
+    const workspace = await findActiveWorkspaceOrNull(userId, tx);
     if (!workspace) return blockedMotivationNext("no_trigger");
     const activeSession = await tx.studySession.findFirst({
-      where: { subject: { workspaceId: workspace.id }, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+      where: { userId, workspaceId: workspace.id, subject: { workspaceId: workspace.id }, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
       select: { id: true },
     });
     if (activeSession) return blockedMotivationNext("active_activity");
@@ -369,6 +370,7 @@ export async function getMotivationNext(
       tx.planInboxItem.findFirst({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: userId,
           status: "OPEN",
           originType: "LOW_CONVERSION",
           supersededByItemId: null,

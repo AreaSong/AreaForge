@@ -66,6 +66,20 @@ pnpm dev
 http://localhost:3000
 ```
 
+## v1.4 身份与 Workspace 本地验证
+
+v1.4 多人功能默认关闭。开发者只有在全新或明确隔离的 PostgreSQL 已应用当前 migration、设置独立的 `AUTH_ACTION_TOKEN_SECRET`，并确认测试邮件使用 memory transport 或安全 SMTP 后，才可设置 `AUTH_MULTI_USER_ENABLED=true`。专项 runtime 还要求精确数据库名、loopback host 和显式 isolation flag；脚本会清空该隔离库的业务表，禁止指向默认开发库或生产库。
+
+```bash
+DATABASE_URL=<精确隔离数据库 URL> \
+AREAFORGE_V14_AUTH_ISOLATED_DB=1 \
+AREAFORGE_V14_AUTH_EXPECTED_DATABASE=<精确数据库名> \
+AUTH_MULTI_USER_ENABLED=true \
+pnpm ops:v14:auth:runtime:selftest
+```
+
+浏览器验收使用共享测试池 `pnpm dev:test:refresh` 和 `pnpm dev:test:latest -- --json` 返回的 URL，不另起长期容器。
+
 ## 检查
 
 ```bash

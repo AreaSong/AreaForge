@@ -1797,17 +1797,240 @@ pnpm ops:ops-001:preflight
 
 **确认状态（2026-09-04）**：用户已确认上述本地实施范围。2026-09-05 当前工作树已实现严格 preview/confirm/undo、单事务全引用迁移、知识点确定性去重、模拟补救来源重建、来源软归档、4 MiB 精确 preimage 和 24 小时撤销；全新临时 PostgreSQL 17 应用当前 36 个 migration 后，10 组专项 runtime 检查通过。该状态不授权或证明生产 migration、production apply、Release/tag、物理删除、账户导出、AUTH/RBAC 或服务器命令；共享测试池现有 latest 可用，但仍待以最终源码刷新并完成桌面/移动验收。
 
+## v1.4 AUTH 身份、Workspace 与 Membership 本地实施确认包（已确认）
+
+本确认包覆盖 v1.4 `AUTH-0` 至 `AUTH-5` 的本地代码、一条或多条按顺序执行的 additive/constraint-relaxing migration、全新隔离 PostgreSQL 验证和本地浏览器验收。它不授权 v1.5 RBAC/对象分享、完整账户导出、物理删除、Release/tag、生产 migration/apply 或服务器命令。
+
+### 实施前 preimage（历史快照）
+
+- `User` 当前只有 `id/email/passwordHash/createdAt/updatedAt`；普通 seed 明确拒绝多个用户。
+- `AuthSession` 当前只有 token hash、7 天绝对过期、lastSeen/revoked 时间和 user 关联；没有账户状态、设备会话管理、重新验证或全局 session revision。
+- 登录限流只保存在单个 Web 进程的 Map，重启或多实例不会共享状态。
+- `ExamWorkspace.userId` 同时承担 owner 与访问边界；`ExamWorkspace_one_active_per_user_idx` 把生命周期和当前选择耦合，切换会归档原 Workspace。
+- 当前没有 Membership、Invitation、WorkspaceSelection、邮箱验证、密码重置 token 或多人 IDOR 矩阵。多数业务 service 仍按 `workspace.userId === actorId` 断言 owner。
+
+### 数据模型与 migration 范围
+
+1. `User` 新增 `status=ACTIVE|SUSPENDED`、`emailVerifiedAt`、`passwordChangedAt`、`authRevision`；既有用户确定性回填为 ACTIVE、已验证、revision 1。
+2. `AuthSession` 新增创建时 `authRevision`、`deviceLabel`、`ipHash`、`userAgentHash`、`reauthenticatedAt`、`revokedReason`；既有未过期 session 回填当前 user revision，不读取或存储原始 IP/User-Agent。
+3. 新增 `AuthActionToken`：`EMAIL_VERIFICATION|PASSWORD_RESET` purpose、token hash、user、expiry、consumed/revoked 时间和审计时间；token hash 全局唯一，数据库不保存明文 token。
+4. 新增 `WorkspaceMembership`：`workspaceId + userId` 唯一，初始角色只允许 `OWNER|MEMBER`，状态为 `ACTIVE|LEFT|REMOVED`，包含 revision、invitedBy、joined/left/removed 时间。
+5. 新增 `WorkspaceInvitation`：规范化目标邮箱、MEMBER 角色、token hash、`PENDING|ACCEPTED|REVOKED`、expiry、inviter/acceptor、revision 和生命周期时间；数据库 partial unique 保证同 Workspace/邮箱最多一个 PENDING 邀请。
+6. 新增 `WorkspaceSelection`：每用户唯一选择一个 Workspace，带 revision；它不构成授权。
+7. 新增 `AuthThrottleBucket`：按用途与脱敏 key 保存固定窗口、失败次数和锁定时间，替代进程内 Map。
+8. 为每个现有 `ExamWorkspace.userId` 精确回填一条 ACTIVE OWNER Membership；为每个用户的当前 ACTIVE Workspace 回填 Selection。回填前后 user/workspace/owner 数量和映射必须逐项一致，发现孤儿或多个 ACTIVE preimage 立即阻断。
+9. WorkspaceSelection 和双读稳定后，在同一确认范围的后续 migration 中移除 `ExamWorkspace_one_active_per_user_idx`，使 ACTIVE/ARCHIVED 只表达生命周期；删除 `ExamWorkspace.userId`、旧 owner compatibility 或历史字段不在本包。
+
+### 身份、邀请与会话策略
+
+- 只允许邀请制开户，不增加公开注册。现有账户登录必须继续可用。
+- 邀请 token、邮箱验证 token 和重置 token 使用至少 256 bit 随机值与 purpose-separated HMAC；邀请 72 小时、邮箱验证 24 小时、密码重置 30 分钟、敏感操作重新验证 10 分钟、session 绝对有效期继续 7 天。
+- 已存在用户接受邀请前必须登录且规范化邮箱一致；新用户从有效邀请设置密码后创建账户并原子消费邀请。并发接受、过期、撤销和重复使用均 fail closed。
+- 登录、邀请、忘记密码和重置响应不泄露邮箱、账户状态或 token 是否存在；账户 SUSPENDED、`authRevision` 不匹配、session revoked/expired 时下一请求立即失效。
+- 密码修改/重置递增 `authRevision`，撤销其他 session；当前 session 只有在重新签发相同 revision 后保留。冻结账户和撤销全部 session 使用同一即时失效机制。
+- 高风险成员操作必须检查当前 session 在 10 分钟内重新验证密码；客户端不能自报 actor、session 或目标角色。
+
+### 邮件投递与依赖准入
+
+- 引入 `nodemailer@10.0.0` 作为可替换的服务端 SMTP adapter：MIT-0、Node `>=20`、自带类型、无声明的 runtime dependencies；只加入 Web/server 包，不进入客户端 bundle。
+- 新增 server-only SMTP 配置，密码不得通过 Web 输入或回显；生产未完整配置 SMTP 时邮件发送 fail closed。开发/测试可以使用 memory transport 捕获合成邮件，不打印完整 token URL。
+- 邮件只包含一次性邀请/验证/重置链接和最小产品文案，不包含成员列表、学习正文、附件、内部路径、数据库信息或 Provider secret。
+- 若 lockfile、registry metadata、构建脚本或 audit 结果与上述准入事实不一致，停止依赖写入并重新确认。
+
+### Workspace 与成员生命周期
+
+- 创建 Workspace 时在同一事务创建 OWNER Membership 和当前 Selection；重命名、归档、恢复和切换使用 revision/CAS。
+- v1.4 邀请只创建 MEMBER，不开放 Admin/Coach/Viewer 或任意自定义角色；角色分配与对象级授权由 v1.5 RBAC 包承接。
+- 成员可查看自己的 Membership、邀请状态和最小 Workspace 摘要，可接受/拒绝邀请、主动离开；Owner 可邀请、撤销邀请、移除成员和转移所有权。
+- 最后一名 Owner 不得离开、被移除或降级。所有权转移必须在 serializable transaction 内同时更新 `ExamWorkspace.userId` 兼容指针、双方 Membership、Selection 影响和审计。
+- Membership 本身不自动开放动机、情绪、完整复盘、私有笔记/附件、AI 输入、Provider 配置或导出文件；现有业务正文保持 owner-only，直到 v1.5 policy/grant 明确授权。
+- 当前 Workspace 选择不构成访问权；每个 API/service/query 都从 session actor 和服务端 Membership 重新判定。非成员、跨 Workspace 和不存在对象使用一致的 404 语义。
+
+### API、页面和代码范围
+
+- `packages/auth`：purpose-separated action token、密码/session revision 与纯函数测试。
+- `packages/config`、`.env.example`：功能开关、action-token secret 和 server-only SMTP 配置；不新增 `NEXT_PUBLIC_*` secret。
+- `prisma/schema.prisma` 与新 migration：上述 enum、字段、表、索引、owner/selection backfill 和后续单 ACTIVE 约束放宽。
+- `apps/web/lib/auth/**`：`CurrentActor`、账户状态/session revision、持久限流、重新验证、邮件 adapter 和同源 mutation 校验。
+- `apps/web/lib/workspace/**` 与统一访问服务：Membership/Selection/owner compatibility；业务 service 在 v1.4 保持 owner-only，不凭 Membership 自动扩大正文访问。
+- API：登录/注销/当前账户、设备 session 列表/撤销、重新验证、修改密码、忘记/重置/验证邮箱；Workspace CRUD/选择；邀请创建/列表/撤销/接受/拒绝；成员列表/移除/离开/所有权转移。
+- UI：`/settings/account`、`/settings/workspaces`、邀请接受、忘记密码和重置密码流程；桌面/移动均显示当前 Workspace、账户状态、设备 session 和失败恢复。
+- `scripts/db/seed.ts`：允许已有管理员之外存在邀请用户；只在零用户时创建配置的 bootstrap admin，已有多用户时不静默创建第二个管理员或覆盖密码。
+
+### 验证
+
+- `pnpm db:validate`、`pnpm db:generate`，以及全新一次性 PostgreSQL 按现有 36 条 + v1.4 migration 顺序 apply、repeat deploy、空库/单 owner/多 Workspace/legacy nullable fixture。
+- 精确校验 owner Membership、Selection、账户状态/session revision 回填的 before/after count、映射 hash、唯一索引和 rollback floor；不得连接共享开发库或生产库。
+- auth/core 单测：token purpose/expiry/replay、密码修改、session revision、持久限流、枚举防泄露、SMTP memory transport、同源 mutation。
+- API/集成：邀请创建/撤销/接受/拒绝、并发消费、已有/新用户、设备 session、重新验证、密码重置、账户冻结、最后 Owner、离开/移除/转移、Workspace CRUD/选择和 IDOR 矩阵。
+- 两用户/两 Workspace 浏览器旅程；390×844 与 1440×900；刷新、跨标签、过期 token、邮件失败、离线/重试和可访问性状态。
+- 客户端 bundle/日志/审计扫描；不得出现密码 hash、session/invite/reset 明文 token、SMTP 密码、数据库 URL、附件路径或私有正文。
+- 运行 Web/core/auth 测试与 typecheck、Web lint/build、`pnpm audit:prod`、`pnpm governance:preflight`、`pnpm risk:preflight`、`pnpm check` 和 `git diff --check`。
+
+### 回滚与中止
+
+- 默认 `AUTH_MULTI_USER_ENABLED=false`；migration 和本地验证通过后才在隔离 runtime 开启。关闭开关时邀请、成员和多 Workspace 入口全部 fail closed，现有 owner 登录与个人 Workspace 路径继续工作。
+- migration 失败只删除本轮精确命名的临时数据库；应用回滚保留 additive 表、nullable 字段和审计，不 DROP、不猜测反向回填。
+- 放宽单 ACTIVE 约束并产生多个 ACTIVE Workspace 后，rollback floor 必须是理解 WorkspaceSelection 的 v1.4 compatibility build，不得直接回滚到 v1.3 二进制；生产启用前另行固定该 build/digest。
+- token、Membership、owner 或 Selection 任一回填不一致，跨租户测试失败，或 SMTP/日志暴露 secret 时立即停止，不开放功能。
+- 不执行生产 migration、生产 SMTP key smoke、Release/tag、production apply、backup/restore、账户导出、物理删除、RBAC/grant/Coach、公开注册、SSO/SCIM、服务器命令或 residual 关闭。
+
+明确确认句（已确认）：
+
+> 确认执行 v1.4 AUTH 身份、Workspace 与 Membership 本地实施：按上述 preimage 新增 User 状态/authRevision、设备 AuthSession、purpose-separated AuthActionToken、WorkspaceMembership/Invitation/Selection、PostgreSQL 持久限流和 nodemailer 10 server-only SMTP adapter；精确回填现有 owner Membership 与当前 Workspace Selection，在隔离验证后放宽单 ACTIVE Workspace 索引；实现邀请制开户、邮箱验证/密码重置、会话撤销/重新验证、Workspace CRUD/切换、邀请/成员/离开/移除/所有权转移及双用户双 Workspace IDOR 验收；默认不开启多人功能，不扩大现有学习正文可见性，不执行 RBAC/对象分享、账户导出、物理删除、生产 migration/SMTP key smoke、Release/tag、production apply、备份恢复、服务器命令或 residual 关闭。
+
+**确认状态（2026-09-05）**：用户已明确同意按上述边界完成 v1.4 本地实现。当前工作树已形成 schema/migration、账户安全、邀请制身份、Workspace/Membership 生命周期、默认关闭开关、最小成员可见性和隔离 PostgreSQL runtime；最终标准 pnpm 门禁、共享测试池浏览器验收、文档/Git 检查点仍在收口。本确认不授权或证明 v1.5 RBAC、完整账户导出、物理删除、Release/tag、生产 migration/apply、生产 SMTP smoke、备份恢复、服务器命令或 residual 关闭。
+
 ## A -> B 后续高风险确认包登记（未确认）
 
 本节只是下一轮确认包的登记和最低字段，不是实施授权。每个包必须在对应版本开始前，根据当时的 schema、API、数据清单和生产基线补全精确文件/表/API/页面、migration preimage、测试命令、回滚开关和确认句；一个包的确认不得替代另一个包，也不得替代生产 migration/apply 的独立确认。
 
 | 确认包 | 进入版本 | 实施前必须冻结 | 最低验证 | 失败/回滚边界 | 当前状态 |
 |---|---|---|---|---|---|
-| `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 未确认 |
-| `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 未确认 |
+| `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 本地实施已确认；Release/生产未确认 |
+| `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 本地实施已确认；Release/生产未确认 |
 | `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 未确认 |
 | `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 未确认 |
 | `OPS` | v1.7 | 白名单 operation catalog、参数 schema、风险等级、审批、expected-before/TTL/nonce/hash、请求状态机、root-agent journal | 任意命令/路径/env 拒绝、重放/漂移/超时/崩溃/取消/重试/hold/reconciliation、逐动作生产证据 | agent 进入 hold，按 phase journal 和固定 rollback target 恢复；Web 永不接管执行 | 未确认 |
 | `RANKING` | v1.8 | 指标、`scoreVersion`、窗口/时区/并列、隐私字段禁区、opt-in、挑战状态机、反作弊/申诉、退出/删除联动 | 重算确定性、异常/重复 session、跨租户、挑战 CRUD/参与者/所有权、退出/删除重建 | 关闭挑战与排名投影并重建，不改写个人学习源事实 | 未确认 |
 
 这些包对应 `AF-RISK-DATA-001`、`AF-RISK-DATA-002`、`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009`。只有专项实现、Release、生产和人工 residual 复核证据分别成立后，才可改变相应状态。
+
+**本轮授权边界（2026-09-06）**：用户明确要求“可以，全部，全部完成”。本轮将其解释为允许继续完成上述包的本地代码、隔离数据库/fixture 和测试实现；不等价于生产 migration/apply、真实账户操作、物理删除、备份/恢复、Release 发布或服务器命令授权。每个包仍须在进入不可逆或生产阶段前补齐本表的精确确认句、回滚和 live evidence。
+
+## v1.5 RBAC、隐私授权与 Coach 协作精确实施确认包（已确认）
+
+本包只授权 v1.5 的本地 additive migration、服务端授权、管理 UI、隔离 PostgreSQL 和浏览器验收。它不授权 v1.6 数据导出/删除、v1.7 运维执行、v1.8 排名、GitHub Release、生产 migration/apply、真实生产账户操作或 residual 关闭。当前工作树中的 v1.5 原型是待审查素材，不是本包的既定实现；确认后必须按本节重新收敛，不能用原型现状扩大范围。
+
+### 实施前 preimage
+
+- 基线 commit 为 v1.4 本地候选 `fd41920a0131b8d54284cf404cd8487aeb0e69f7`：`WorkspaceMembershipRole` 只有 `OWNER`、`MEMBER`，没有 `WorkspaceShareGrant`、Coach 草稿或平台账户管理 API。
+- v1.4 的 Membership 只证明成员归属，不自动开放学习正文；普通成员不能读取 Workspace Owner 的科目、笔记、错题、附件、动机、复盘或 AI 草稿。
+- `ExamWorkspace.userId` 仍是兼容 owner 指针；v1.5 必须同时要求该指针和 ACTIVE OWNER Membership 一致，发现漂移时 fail closed 并由 doctor 报告，不得在读取路径猜测修复。
+- 平台 Operator 与 Workspace 角色是两条权限轴；Workspace Owner/Admin/Coach 不能因此获得平台账户管理权，平台 Operator 也不能因此读取学习正文。
+- 当前多人功能由 `AUTH_MULTI_USER_ENABLED` 控制。关闭时所有角色、grant、共享发现、Coach 和平台账户写入口必须在服务端拒绝；只隐藏 UI 不合格。
+
+### 固定角色与 capability 矩阵
+
+v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定义角色、任意 capability 或表达式策略。
+
+| 能力 | OWNER | ADMIN | COACH | MEMBER | VIEWER |
+|---|---:|---:|---:|---:|---:|
+| 查看 Workspace 最小结构 | 是 | 是 | 是 | 是 | 是 |
+| 修改 Workspace 名称/结构 | 是 | 是 | 否 | 否 | 否 |
+| 查看最小成员目录 | 是 | 是 | 是 | 仅本人 | 仅本人 |
+| 邀请/撤销邀请 | 是 | 是 | 否 | 否 | 否 |
+| 移除非 Owner 成员 | 是 | 是，但不能移除 Owner/Admin | 否 | 否 | 否 |
+| 调整成员角色 | 是 | 否 | 否 | 否 | 否 |
+| 转移所有权 | 是 | 否 | 否 | 否 | 否 |
+| 管理自己资源的分享 | 是 | 是 | 是 | 是 | 是 |
+| 读取他人私有正文 | 仅有效 grant | 仅有效 grant | 仅有效 grant | 仅有效 grant | 仅有效 grant |
+| 基于授权证据创建 Coach 草稿 | 仅 `COACH` access grant | 否（需先调整为 COACH） | 是 | 否 | 否 |
+| 查看脱敏 Workspace 审计 | 是 | 是 | 否 | 否 | 否 |
+
+- Workspace Owner 不是成员个人数据的超级管理员；角色只授予结构和成员管理能力，不能替代对象级 grant。
+- `share:manage` 必须同时满足“当前 actor 是资源 owner/author”和 Workspace capability；Owner/Admin 不能分享其他成员的私有对象。
+- 邀请在 v1.5 仍默认创建 `MEMBER`。邀请时直接指定 Admin/Coach/Viewer 不在本包内；接受后由 Owner 单独调整角色。
+- 所有角色变更、分享变更、敏感读取、拒绝和 Coach 决策写入脱敏 `AuditEvent`；metadata 不记录正文、附件路径、邮件 token、session token、prompt 或原始响应。
+
+### 数据模型与 migration
+
+允许在 `prisma/schema.prisma` 和一条全新 v1.5 migration 中做以下 additive 变化：
+
+1. 向 `WorkspaceMembershipRole` 增加 `ADMIN`、`COACH`、`VIEWER`；不改写现有 OWNER/MEMBER 数据。
+2. 新增 `WorkspaceShareGrantScope = USER | ROLE | WORKSPACE`。
+3. 新增 `WorkspaceShareGrantAccess = VIEW | COACH`。
+4. 新增 `WorkspaceShareGrantResource = NOTE | MISTAKE | ATTACHMENT | DAILY_REVIEW | MOTIVATION | AI_DRAFT`。
+5. 新增 `WorkspaceShareGrant`：`workspaceId`、`resourceOwnerUserId`、`grantedByUserId`、`scope`、可空 `granteeUserId`、可空 `granteeRole`、`resourceType`、`resourceId`、`access`、`expiresAt`、`revokedAt`、`revokedByUserId`、`revision`、时间字段。
+6. grant 约束必须保证：USER scope 只允许 `granteeUserId`；ROLE scope 只允许 `granteeRole` 且仅可为 `COACH`；WORKSPACE scope 两者都为空；`COACH` access 只允许 USER/ROLE scope 且实际读取者具有 ACTIVE COACH Membership。
+7. active grant 唯一性按 Workspace、资源、scope、目标和 access 固定；撤销记录保留审计，重新分享创建新 grant 或使用带 expectedRevision 的显式恢复协议，禁止无条件 upsert 清除 `revokedAt`。
+8. 新增 `CoachSuggestion`：`workspaceId`、`authorUserId`、`recipientUserId`、`sourceGrantId`、`sourceResourceType`、`sourceResourceId`、`sourceSnapshotHash`、结构化建议 payload、`PENDING | ACCEPTED | REJECTED | REVOKED`、`revision`、决策/时间字段。
+9. `CoachSuggestion` 接受时只创建带 `COACH_SUGGESTION` 来源和 lineage 的 `PlanInboxItem`；不得直接创建/修改 `StudyTask`、`StagePlan`、`DailyReview`、`Note` 或其他正式学习记录。
+10. migration 增加必要 FK、CHECK、复合/部分唯一索引和查询索引；不得 DROP 现有列、重写正文或回填任何默认分享。
+11. 为 `Note`、`Mistake`、`DailyReview`、`Attachment`、`StudyResource` 与 `PlanInboxItem` 增加稳定 `ownerUserId`；先按现有 Workspace owner、资源创建 actor 或父对象 owner 做可证明回填，再收紧为非空。任何孤立、空 actor、跨 Workspace 或无法唯一推导 owner 的 preimage 必须让 migration 中止，不得静默归给 Workspace Owner。
+12. 新写入路径必须从服务端 session actor 持久化 owner；所有权转移不改写既有资源 owner。账户删除时的 FK 与物理删除顺序由 v1.6 `DATA-DELETE` 独立确认，本包只建立 `RESTRICT`/显式先删依赖的安全底座。
+
+现有未确认原型只有 `granteeUserId` 且用 upsert 复活 grant，不满足本节 schema，必须替换；不能直接沿用该 migration 进入数据库。
+
+### 资源可见性与脱敏矩阵
+
+| 资源 | VIEW 可见 | COACH 可用 | 永不暴露 |
+|---|---|---|---|
+| NOTE | 标题、受限 Markdown 正文、关联知识点最小摘要 | 同 VIEW，加可引用证据摘要 | 附件内部 URI、其他私有关联、作者其他笔记 |
+| MISTAKE | 题目最小摘要、原因/掌握字段、授权的复测事实 | 同 VIEW，加结构化建议上下文 | 其他笔记、未授权附件、跨对象私有关系 |
+| ATTACHMENT | 鉴权下载响应 | 仅在源对象也获授权且显式允许时引用文件名/类型；本包不把文件内容发给 AI | `uri`、`storedName`、绝对路径、未授权文件体 |
+| DAILY_REVIEW | 仅显式授权的单条复盘及允许字段 | 只允许最小结构化摘要生成建议 | 其他日期复盘、完整情绪历史、动机档案 |
+| MOTIVATION | 仅显式授权的单条内容 | 本包禁止用于 Coach/AI 建议 | 其他动机条目、唤醒历史 |
+| AI_DRAFT | 结构化草稿结果与来源摘要 | 本包禁止二次外呼 Provider | prompt、raw response、Provider secret、token/cost trace |
+
+- 每种资源在 grant 创建前必须检查 ACTIVE/READY/未归档状态和精确 Workspace/owner 归属。
+- 第一批先完成 NOTE/MISTAKE/ATTACHMENT 的“创建授权 → 与我分享 → 查询级只读 → 撤销即时失效”闭环；DAILY_REVIEW/MOTIVATION/AI_DRAFT 只有对应 redaction DTO、详情消费者、负向测试和 UI 同批完成后才能开放，否则必须从 API allowlist 和 UI 隐藏。
+- 附件下载的 actor 必须是必填参数；所有生产调用者均从服务端 session 传入，不保留省略 actor 的授权旁路。
+- 查询必须把授权谓词下推到数据库；禁止先读取正文或文件 metadata，再在应用层判断权限。
+
+### Grant 与 Membership 生命周期
+
+- ACTIVE Membership、ACTIVE account、未撤销且未到期 grant 三者同时成立才可访问。
+- 成员离开、被移除、账户暂停或 Workspace 归档后，新请求立即失效；长操作提交前重新授权。
+- USER scope grant 在成员离开/移除时于同一事务撤销；重新接受邀请或恢复账户不会复活旧 grant。
+- ROLE/WORKSPACE scope 每次读取都重新验证当前 ACTIVE Membership 和当前角色；角色变化不依赖缓存自然过期。
+- grant PATCH 必须带 `expectedRevision`，只允许修改 access/到期时间；目标、资源和 scope 变化必须撤销旧 grant 后新建。
+- 列表、修改、撤销和读取在同一事务/查询中完成授权与使用，避免检查后使用时差；批量读取使用相同 policy builder，不能绕过单对象规则。
+- 非成员、跨 Workspace、资源不存在和无权读取统一使用不泄露存在性的 404；已知自身 grant 的 revision 冲突使用 409；限流使用 429。
+
+### Platform Operator 最小账户管理面
+
+- v1.5 Operator 只来自服务端配置的 bootstrap operator 身份，不从 Workspace 角色推导，也不新增客户端可编辑 operator 角色。
+- `GET /api/system/accounts` 仅返回脱敏账户目录：id、掩码邮箱、status、emailVerified、Membership 数、活动 session 数和时间字段；不返回密码 hash、Provider 配置、学习正文或完整审计 metadata。
+- `PATCH /api/system/accounts/[userId]/status` 只允许 `ACTIVE ↔ SUSPENDED`，要求当前 Operator 重新验证、expected auth revision 和原因代码；暂停时递增 authRevision 并撤销活动 session。
+- `POST /api/system/accounts/[userId]/sessions/revoke` 只撤销目标账户活动 session，要求重新验证和审计；不得返回 token/hash/IP/User-Agent 原值。
+- Operator 不能暂停自己、最后可用 bootstrap operator 或通过账户 API修改 Workspace 角色；账户物理删除进入 v1.6 DATA-DELETE。
+
+### API 与页面范围
+
+- 角色：`PATCH /api/exam-workspaces/[id]/members/[membershipId]/role`。
+- grant：`GET|POST /api/exam-workspaces/[id]/share-grants`、`PATCH|DELETE /api/exam-workspaces/[id]/share-grants/[grantId]`。
+- 共享发现：`GET /api/shared-with-me` 和按资源类型的鉴权详情读取；不得要求接收者预先知道资源 ID。
+- Coach：`GET|POST /api/coach/suggestions`、`GET|PATCH /api/coach/suggestions/[id]`；PATCH 只允许 recipient 带 revision 执行 accept/reject，或 author 在未决策前 revoke。
+- Operator：上述脱敏账户目录、账户状态和 session revoke API。
+- `/settings/workspaces`：角色、分享和成员管理；权限来自服务端 capability DTO，不在组件内按角色字符串猜测。
+- 确认中心：增加 Coach 建议待确认/已接受/已驳回/已撤销视图；接受后展示计划收件箱接力，不出现“已自动应用”。
+- 新增“与我分享”发现入口及空、加载、过期、撤销、无权限和网络错误状态；桌面与移动都可恢复。
+
+### 代码边界
+
+- `packages/core`：纯 capability/状态转换、grant scope 校验和 CoachSuggestion 状态机，不依赖 Prisma/Next/环境变量。
+- `packages/db`：Prisma client 与数据库访问；页面和组件不直接调用 Prisma。
+- `apps/web/lib/workspace/**`：统一 policy/grant/role service；所有调用从服务端 session 获得 actor。
+- `apps/web/lib/study/**`：资源查询使用 policy builder；不得复制角色矩阵。
+- `apps/web/lib/system/**`：Operator policy 和脱敏账户管理；不得导入学习正文 service。
+- `apps/web/lib/contracts/**`：capability、grant、共享详情和 Coach DTO；客户端不接收内部路径或权限推导原料。
+- `AUTH_MULTI_USER_ENABLED=false` 时，v1.5 所有写 API 和共享读取 API 服务端 fail closed；个人 owner 学习路径继续工作。
+
+### 验证
+
+- `pnpm db:generate`、`pnpm db:validate`；全新精确命名 `v15rbac` PostgreSQL 应用 v1.4 基线 + v1.5 migration、repeat deploy 和 migration ledger/hash 核对。
+- Core 测试：角色/capability 矩阵、grant scope exact-one、到期/撤销、CoachSuggestion 状态机、不可自动应用。
+- 隔离数据库矩阵：两个 Workspace、至少五个角色、成员离开/移除/重新加入、账户暂停/恢复、角色变化、到期、撤销、Workspace 归档和资源归档。
+- 负向测试：跨租户、伪造 actor/user/workspace、批量查询、IDOR、grant 重放、revision 冲突、TOCTOU、并发撤销/读取、并发角色变更/Coach 提交。
+- 资源闭环：NOTE/MISTAKE/ATTACHMENT 的 owner、USER/ROLE/WORKSPACE scope、VIEW/COACH、共享发现、详情、下载、撤销即时失效；其余三类若开放必须达到同等证据。
+- Operator：目录脱敏、非 Operator 404、重新验证、暂停/恢复、session revoke、自操作和学习正文隔离。
+- Coach：授权证据 → 草稿 → accept/reject/revoke → PlanInbox lineage；任务、阶段、复盘和原始资源 before/after count/hash 不变。
+- 默认 Web test glob 必须覆盖 `lib/workspace/**`、`lib/system/**` 和 Coach 测试；不能只跑手工定向测试。
+- Web typecheck/lint、UI primitive/client/shared-boundary、自定义组件复杂度门禁、`pnpm check`、`pnpm governance:preflight`、`pnpm risk:preflight`、`pnpm secrets:scan` 和 `git diff --check`。
+- 共享测试池 desktop 1440×900、mobile 390×844：Owner 管理、Member/Viewer 分享、Coach 草稿、撤销失效、Operator 脱敏账户管理和关闭多人开关旅程。
+- 浏览器/API/数据库证据只证明本地候选；受保护 PR/CI、签名 Release 和 production apply 分别另行形成证据。
+
+### 回滚、中止与不包含
+
+- 默认关闭 v1.5 角色、分享、Coach 与 Operator 写入口；应用回滚保留 additive enum/table/audit，不 DROP、不物理删除 grant 或 Coach 历史。
+- 任一跨 Workspace 读取、附件 actor 旁路、旧 grant 复活、Operator 读取正文、Coach 直接改正式记录、关闭 feature flag 后 API 仍写入、迁移 ledger/hash 不一致或 secret/路径泄露时立即中止。
+- 不包含账户/Workspace 导出、回收站、物理删除、备份 deletion ledger、任意 shell、root agent、挑战/排名、公开注册、SSO/SCIM、计费、生产 migration/apply、Release/tag、真实生产账户暂停或 residual 关闭。
+
+明确确认句（已确认）：
+
+> 确认执行 v1.5 RBAC、隐私授权与 Coach 协作本地实施：以 `fd41920a0131b8d54284cf404cd8487aeb0e69f7` 的 v1.4 身份/Workspace/Membership 为 preimage，additive 增加 Admin/Coach/Viewer、固定 capability 矩阵、稳定资源 owner、USER/ROLE/WORKSPACE 对象 grant、NOTE/MISTAKE/ATTACHMENT 完整共享闭环、其余资源按同等 redaction/消费者门禁开放、脱敏 Platform Operator 账户管理和 `授权证据 → Coach 草稿 → 成员确认/驳回 → PlanInbox → 显式应用`；修复关闭多人开关仍可写、成员重入复活 grant、附件可选 actor、Owner 双重语义、TOCTOU/CAS 和默认测试未覆盖问题；只在全新隔离 PostgreSQL 与本地测试池验证，不执行 DATA-EXPORT、DATA-DELETE、生产 migration/apply、Release/tag、备份恢复、服务器命令、排名或 residual 关闭。
+
+**确认状态（2026-09-05）**：用户在收到包含稳定资源 owner、grant、Coach、Operator、验证、Release/生产分层与回滚边界的完整 A → B 计划后明确回复“可以，全部，全部完成”，确认按上述范围实施 v1.5 本地候选。本确认不替代 v1.6 DATA-EXPORT/DATA-DELETE、v1.7 OPS、v1.8 RANKING、GitHub Release、生产 migration/apply、真实账户暂停、备份恢复、服务器命令或 residual 关闭的独立确认。
+
+**总体路线推进口径（2026-09-06）**：用户要求继续完整推进 A → B 下一轮计划；本轮将“全部推进”解释为可以继续编写本地代码、候选 migration、隔离 PostgreSQL fixture、契约/负向测试、文档和共享测试池验证。该口径不授权生产 migration/apply、真实账户操作、物理删除/附件清理、备份 deletion ledger、服务器命令、root-agent 执行、GitHub Release/tag 或 residual 关闭；上述动作仍须对应版本的独立确认包和回滚证据。

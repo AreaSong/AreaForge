@@ -2,9 +2,9 @@
 
 ```yaml
 status: in-progress
-phase: local-verified
+phase: awaiting-signed-release
 blockers:
-  - protected PR/CI, Release, and production apply remain separate stages
+  - signed Release and production apply remain separate stages
 risk: medium
 ownerSkill: areaforge-product-experience
 validation:
@@ -41,7 +41,8 @@ releaseRequired: true
 - 空库旅程发现任务编辑能读回阶段关联、任务详情却显示“未关联”；已让详情查询加载阶段名称，重建后浏览器确认显示“系统强化期（空库验收）”，并补充回归契约测试。
 - 390×844 移动端与 1440×900 桌面端的今日/考试科目页面均完成截图检查，`documentElement.scrollWidth === innerWidth`，未发现页面级横向溢出。
 - `pnpm check` 已通过架构/Web 治理、全包 typecheck/test、Prisma validate 和 production build；docs/readiness/completion、risk、governance、tasks、residual 与 `git diff --check` 收口门禁均通过。
-- M0 已完成并合并到 `main`。本任务本地总门禁已完成，仍缺 v1.3 独立 PR/CI、Release 和 production apply；本地验证不替代后续层级。
+- PR #56 的 push 与 pull_request 两个 `ci/verify` 均通过，并于 2026-09-05 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`；随后 main push CI run `33906942919` 也成功。
+- M0 已完成并合并到 `main`。本任务本地总门禁与受保护 PR/CI 已完成，仍缺 v1.3 独立签名 Release 和 production apply；本地/CI 验证不替代后续层级。
 
 ## 高风险边界
 

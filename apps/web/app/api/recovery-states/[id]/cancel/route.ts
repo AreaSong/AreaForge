@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await requireApiUser(request);
+    const user = await requireApiUser(request);
     const { id } = await context.params;
     const parsed = finishRecoveryStateSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
-    return NextResponse.json({ recoveryState: await cancelRecoveryState(id, parsed.data) });
+    return NextResponse.json({ recoveryState: await cancelRecoveryState(id, user.id, parsed.data) });
   } catch (error) {
     return apiErrorResponse(error);
   }

@@ -98,22 +98,22 @@ try {
   const other = await seedOwner("other");
 
   const ownTask = await prisma.studyTask.create({
-    data: { subjectId: own.subjectId, title: "own task", type: "focus", plannedDate: new Date() },
+    data: { ownerUserId: own.userId, subjectId: own.subjectId, title: "own task", type: "focus", plannedDate: new Date() },
   });
   const otherTask = await prisma.studyTask.create({
-    data: { subjectId: other.subjectId, title: "other task", type: "focus", plannedDate: new Date() },
+    data: { ownerUserId: other.userId, subjectId: other.subjectId, title: "other task", type: "focus", plannedDate: new Date() },
   });
   const ownNote = await prisma.note.create({
-    data: { subjectId: own.subjectId, title: "own note", content: "own" },
+    data: { ownerUserId: own.userId, subjectId: own.subjectId, title: "own note", content: "own" },
   });
   const otherNote = await prisma.note.create({
-    data: { subjectId: other.subjectId, title: "other note", content: "private" },
+    data: { ownerUserId: other.userId, subjectId: other.subjectId, title: "other note", content: "private" },
   });
   const ownMistake = await prisma.mistake.create({
-    data: { subjectId: own.subjectId, title: "own mistake", cause: "UNKNOWN" },
+    data: { ownerUserId: own.userId, subjectId: own.subjectId, title: "own mistake", cause: "UNKNOWN" },
   });
   const otherMistake = await prisma.mistake.create({
-    data: { subjectId: other.subjectId, title: "other mistake", cause: "UNKNOWN" },
+    data: { ownerUserId: other.userId, subjectId: other.subjectId, title: "other mistake", cause: "UNKNOWN" },
   });
   const ownNode = await prisma.syllabusNode.create({
     data: { subjectId: own.subjectId, title: "own node", kind: "TOPIC" },
@@ -164,7 +164,7 @@ try {
     resourceIds: [],
   }, own.userId), "NOTE_NOT_FOUND");
   const otherResource = await prisma.studyResource.create({
-    data: { workspaceId: other.workspaceId, subjectId: other.subjectId, stableKey: `other-resource-${randomUUID()}`, title: "other resource", sourceType: "LINK", externalUrl: "https://example.com/other" },
+    data: { workspaceId: other.workspaceId, ownerUserId: other.userId, subjectId: other.subjectId, stableKey: `other-resource-${randomUUID()}`, title: "other resource", sourceType: "LINK", externalUrl: "https://example.com/other" },
   });
   await rejectsApi(() => updateMistakeLinks(ownCompleteMistake.id, {
     expectedUpdatedAt: ownCompleteMistake.updatedAt,
@@ -361,8 +361,9 @@ try {
   const supersededInbox = await prisma.planInboxItem.findUniqueOrThrow({ where: { id: inbox.id } });
   const updatedInbox = await prisma.planInboxItem.findUniqueOrThrow({
     where: {
-      workspaceId_originKey_originVersion: {
+      workspaceId_ownerUserId_originKey_originVersion: {
         workspaceId: own.workspaceId,
+        ownerUserId: own.userId,
         originKey: inbox.originKey,
         originVersion: updatedReview.revision,
       },
@@ -767,13 +768,14 @@ async function verifyHistoricalWorkspaceReadsAndWrites(actorId: string, otherAct
     where: { workspaceId: oldWorkspace.id, archivedAt: null },
   });
   const oldTask = await prisma.studyTask.create({
-    data: { subjectId: oldSubject.id, title: "historical task", type: "focus", plannedDate: new Date() },
+    data: { ownerUserId: actorId, subjectId: oldSubject.id, title: "historical task", type: "focus", plannedDate: new Date() },
   });
   const oldNote = await prisma.note.create({
-    data: { subjectId: oldSubject.id, title: "historical note", content: "historical content" },
+    data: { ownerUserId: actorId, subjectId: oldSubject.id, title: "historical note", content: "historical content" },
   });
   const oldMistake = await prisma.mistake.create({
     data: {
+      ownerUserId: actorId,
       subjectId: oldSubject.id,
       title: "historical mistake",
       cause: "CONCEPT_CONFUSION",
@@ -787,10 +789,11 @@ async function verifyHistoricalWorkspaceReadsAndWrites(actorId: string, otherAct
     data: { workspaceId: workspace.id, stableKey: `historical-${randomUUID()}`, name: "historical subject", color: "#64748b" },
   });
   const node = await prisma.syllabusNode.create({ data: { subjectId: subject.id, title: "historical node", kind: "TOPIC" } });
-  const mistake = await prisma.mistake.create({ data: { subjectId: subject.id, title: "historical mistake", cause: "UNKNOWN" } });
+  const mistake = await prisma.mistake.create({ data: { ownerUserId: actorId, subjectId: subject.id, title: "historical mistake", cause: "UNKNOWN" } });
   const resource = await prisma.studyResource.create({
     data: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       stableKey: `historical-${randomUUID()}`,
       title: "historical resource",
       category: "OTHER",

@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/responses";
 import type { PlanRollingDayDto, PlanRollingDto } from "@/lib/contracts/planning";
 import type { StudyTaskDto } from "@/lib/contracts/task";
 import { getStudyDayRange } from "./date";
-import { findActiveWorkspaceOrNull, resolveActiveWorkspace } from "./exam-workspace-service";
+import { findSelectedMemberWorkspaceOrNull, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { serializeTask } from "./task-serializer";
 
 export type { PlanRollingDayDto, PlanRollingDto } from "@/lib/contracts/planning";
@@ -16,7 +16,7 @@ export async function getPlanRolling(
   actorId: string,
   options?: { date?: string; subjectId?: string; status?: string; q?: string },
 ): Promise<PlanRollingDto> {
-  const workspace = await findActiveWorkspaceOrNull(actorId);
+  const workspace = await findSelectedMemberWorkspaceOrNull(actorId);
   if (!workspace) {
     return {
       days: [],
@@ -36,6 +36,7 @@ export async function getPlanRolling(
   const [taskRows, debtRows, inboxCount] = await Promise.all([
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id },
         plannedDate: { gte: anchor, lt: rangeEnd },
         ...(options?.subjectId ? { subjectId: options.subjectId } : {}),
@@ -56,6 +57,7 @@ export async function getPlanRolling(
     }),
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id },
         status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] },
         OR: [{ plannedDate: { lt: day.start } }, { debtStatus: { not: "NONE" } }],
@@ -71,6 +73,7 @@ export async function getPlanRolling(
     prisma.planInboxItem.count({
       where: {
         workspaceId: workspace.id,
+        ownerUserId: actorId,
         status: "OPEN",
         supersededByItemId: null,
       },
@@ -105,10 +108,11 @@ export async function getPlanRolling(
 }
 
 export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const task = await prisma.studyTask.findFirst({
     where: {
       id: taskId,
+      ownerUserId: actorId,
       subject: { workspaceId: workspace.id },
     },
     include: {

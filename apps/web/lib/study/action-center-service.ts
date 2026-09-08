@@ -13,7 +13,7 @@ import { ApiError } from "@/lib/api/responses";
 import { quickReviewRunRoute, studyTaskDetailRoute } from "@/lib/navigation/route-helpers";
 import { getStudyDayRange, parseStudyDayKey } from "./date";
 import {
-  findActiveWorkspaceOrNull,
+  findSelectedMemberWorkspaceOrNull,
 } from "./exam-workspace-service";
 import { listWorkspaceCheckIns } from "./check-in-service";
 import { getActiveRecoveryV2 } from "./recovery-v2-service";
@@ -71,7 +71,7 @@ export async function getActionCenterToday(
 ): Promise<ActionCenterTodayDto> {
   const todayRange = getStudyDayRange();
   const selectedDate = parseStudyDayKey(requestedStudyDate) ?? todayRange.start;
-  const workspace = await findActiveWorkspaceOrNull(actorId);
+  const workspace = await findSelectedMemberWorkspaceOrNull(actorId);
   if (!workspace) {
     return {
       studyDate: getStudyDayRange(selectedDate).key,
@@ -123,6 +123,7 @@ export async function getActionCenterToday(
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           subject: { workspaceId: workspace.id, archivedAt: null },
           status: { in: ["TODO", "IN_PROGRESS"] },
           plannedDate: { lte: day.end },
@@ -137,6 +138,7 @@ export async function getActionCenterToday(
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           subject: { workspaceId: workspace.id, archivedAt: null },
           plannedDate: { gte: day.start, lt: day.end },
         },
@@ -144,6 +146,7 @@ export async function getActionCenterToday(
       }),
       prisma.studyTask.findMany({
         where: {
+          ownerUserId: actorId,
           subject: { workspaceId: workspace.id, archivedAt: null },
           status: { in: ["TODO", "IN_PROGRESS"] },
         },
@@ -160,15 +163,17 @@ export async function getActionCenterToday(
       prisma.reviewSchedule.findMany({
         where: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           status: "ACTIVE",
           dueDate: { lte: day.end },
         },
         orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
       }),
-      listWorkspaceCheckIns(workspace.id, day.start, day.end),
+      listWorkspaceCheckIns(actorId, workspace.id, day.start, day.end),
       getActiveRecoveryV2(actorId).catch(() => null),
       prisma.studySession.findMany({
         where: {
+          userId: actorId,
           subject: { workspaceId: workspace.id, archivedAt: null },
           startedAt: { gte: day.start, lt: day.end },
           status: "COMPLETED",
@@ -189,6 +194,7 @@ export async function getActionCenterToday(
       }),
       prisma.studySession.findFirst({
         where: {
+          userId: actorId,
           subject: { workspaceId: workspace.id, archivedAt: null },
           status: "COMPLETED",
           activityMode: "FREE_STUDY",
@@ -203,7 +209,7 @@ export async function getActionCenterToday(
           nextAction: true,
           endedAt: true,
           subject: { select: { name: true } },
-          task: { select: { id: true, title: true, status: true, subjectId: true } },
+          task: { select: { id: true, title: true, status: true, subjectId: true, ownerUserId: true } },
         },
       }),
       prisma.auditEvent.findMany({
@@ -219,6 +225,7 @@ export async function getActionCenterToday(
 
   const sessionsLast7 = await prisma.studySession.findMany({
     where: {
+      userId: actorId,
       status: "COMPLETED",
       startedAt: { gte: last7Start, lt: day.end },
       subjectId: { in: subjects.map((subject) => subject.id) },
@@ -457,6 +464,7 @@ export async function getActionCenterToday(
     0,
   );
   const continuationTask = latestContinuationSession?.task
+    && latestContinuationSession.task.ownerUserId === actorId
     && latestContinuationSession.task.subjectId === latestContinuationSession.subjectId
     && (latestContinuationSession.task.status === "TODO" || latestContinuationSession.task.status === "IN_PROGRESS")
     ? latestContinuationSession.task

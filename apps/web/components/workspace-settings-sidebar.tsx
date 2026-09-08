@@ -84,10 +84,10 @@ export function WorkspaceSettingsSidebar(props: {
           <ul className="space-y-2">
             {props.workspaces.map((workspace) => (
               <li key={workspace.id} className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/[0.02] p-2">
-                <span className="truncate font-medium text-zinc-300">{workspace.name}</span>
-                {workspace.id !== props.activeId ? (
+                <span className="min-w-0 truncate font-medium text-zinc-300">{workspace.name}</span>
+                {workspace.id !== props.activeId && workspace.status === "ACTIVE" ? (
                   <Button type="button" size="sm" variant="secondary" disabled={props.pending} onClick={() => props.onActivate(workspace)}>设为当前</Button>
-                ) : <Badge tone="success">使用中</Badge>}
+                ) : workspace.id === props.activeId ? <Badge tone="success">使用中</Badge> : <Badge>已归档</Badge>}
               </li>
             ))}
           </ul>

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   calculateMasteryConfidence,
   knowledgeMasteryStatusView,
@@ -80,11 +80,12 @@ export async function listKnowledgePoints(
   actorId: string,
   options?: { subjectId?: string; q?: string; masteryState?: KnowledgeMasteryStateDto; masteryStatus?: MasteryStatus },
 ): Promise<KnowledgePointDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const query = options?.q?.trim().slice(0, 120) || undefined;
   const rows = await prisma.knowledgePoint.findMany({
     where: {
       workspaceId: workspace.id,
+      userId: actorId,
       archivedAt: null,
       ...(options?.subjectId ? { primarySubjectId: options.subjectId } : {}),
       ...(options?.masteryStatus
@@ -102,9 +103,9 @@ export async function listKnowledgePoints(
 }
 
 export async function getKnowledgePoint(actorId: string, id: string): Promise<KnowledgePointDetailDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const row = await prisma.knowledgePoint.findFirst({
-    where: { id, workspaceId: workspace.id, archivedAt: null },
+    where: { id, workspaceId: workspace.id, userId: actorId, archivedAt: null },
     include: detailInclude,
   });
   return row ? serializeDetail(row) : null;
@@ -124,7 +125,7 @@ export async function createKnowledgePoint(actorId: string, input: CreateKnowled
   });
 
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const command = {
       actorId,
       workspaceId: workspace.id,
@@ -138,17 +139,17 @@ export async function createKnowledgePoint(actorId: string, input: CreateKnowled
     if (replay) {
       const snapshot = parsePointSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
-      const stored = await tx.knowledgePoint.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id, archivedAt: null }, include: baseInclude });
+      const stored = await tx.knowledgePoint.findFirst({ where: { id: replay.resultId, workspaceId: workspace.id, userId: actorId, archivedAt: null }, include: baseInclude });
       if (!stored) throw new ApiError("KNOWLEDGE_POINT_IDEMPOTENCY_RESULT_UNAVAILABLE", 409);
       return serializeBase(stored);
     }
 
     await assertSubject(tx, input.subjectId, workspace.id);
-    if (input.primaryGroupId) await assertGroup(tx, input.primaryGroupId, workspace.id);
+    if (input.primaryGroupId) await assertGroup(tx, input.primaryGroupId, workspace.id, actorId);
     await assertRelatedSubjects(tx, relatedSubjectIds, workspace.id);
 
     const stableKey = normalizeStableKey(input.stableKey, input.subjectId, title);
-    const duplicate = await tx.knowledgePoint.findFirst({ where: { workspaceId: workspace.id, stableKey } });
+    const duplicate = await tx.knowledgePoint.findFirst({ where: { workspaceId: workspace.id, userId: actorId, stableKey } });
     if (duplicate) throw new ApiError("KNOWLEDGE_POINT_STABLE_KEY_CONFLICT", 409, { conflictFields: ["stableKey"] });
 
     const created = await tx.knowledgePoint.create({
@@ -176,16 +177,16 @@ export async function createKnowledgePoint(actorId: string, input: CreateKnowled
 
 export async function updateKnowledgePoint(actorId: string, id: string, input: UpdateKnowledgePointInput): Promise<KnowledgePointDetailDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    const existing = await tx.knowledgePoint.findFirst({ where: { id, workspaceId: workspace.id, archivedAt: null }, include: detailInclude });
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    const existing = await tx.knowledgePoint.findFirst({ where: { id, workspaceId: workspace.id, userId: actorId, archivedAt: null }, include: detailInclude });
     if (!existing) throw new ApiError("KNOWLEDGE_POINT_NOT_FOUND", 404);
     if (existing.revision !== input.expectedRevision) {
       throw new ApiError("KNOWLEDGE_POINT_REVISION_CONFLICT", 409, { latest: serializeDetail(existing), conflictFields: ["revision"] });
     }
-    if (input.primaryGroupId) await assertGroup(tx, input.primaryGroupId, workspace.id);
+    if (input.primaryGroupId) await assertGroup(tx, input.primaryGroupId, workspace.id, actorId);
 
     const changed = await tx.knowledgePoint.updateMany({
-      where: { id, workspaceId: workspace.id, archivedAt: null, revision: input.expectedRevision },
+      where: { id, workspaceId: workspace.id, userId: actorId, archivedAt: null, revision: input.expectedRevision },
       data: {
         title: input.title?.trim(),
         boundary: input.boundary === undefined ? undefined : input.boundary?.trim() || null,
@@ -195,9 +196,9 @@ export async function updateKnowledgePoint(actorId: string, id: string, input: U
         revision: { increment: 1 },
       },
     });
-    if (changed.count !== 1) throw new ApiError("KNOWLEDGE_POINT_REVISION_CONFLICT", 409, { latest: serializeDetail(await findDetail(tx, id, workspace.id)), conflictFields: ["revision"] });
+    if (changed.count !== 1) throw new ApiError("KNOWLEDGE_POINT_REVISION_CONFLICT", 409, { latest: serializeDetail(await findDetail(tx, id, workspace.id, actorId)), conflictFields: ["revision"] });
 
-    const updated = await findDetail(tx, id, workspace.id);
+    const updated = await findDetail(tx, id, workspace.id, actorId);
     await tx.auditEvent.create({
       data: {
         actorId,
@@ -211,8 +212,8 @@ export async function updateKnowledgePoint(actorId: string, id: string, input: U
   });
 }
 
-async function findDetail(client: Prisma.TransactionClient, id: string, workspaceId: string): Promise<DetailRow> {
-  const row = await client.knowledgePoint.findFirst({ where: { id, workspaceId, archivedAt: null }, include: detailInclude });
+async function findDetail(client: Prisma.TransactionClient, id: string, workspaceId: string, userId: string): Promise<DetailRow> {
+  const row = await client.knowledgePoint.findFirst({ where: { id, workspaceId, userId, archivedAt: null }, include: detailInclude });
   if (!row) throw new ApiError("KNOWLEDGE_POINT_NOT_FOUND", 404);
   return row;
 }
@@ -222,8 +223,8 @@ async function assertSubject(client: Pick<Prisma.TransactionClient, "subject">, 
   if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
 }
 
-async function assertGroup(client: Pick<Prisma.TransactionClient, "knowledgeGroup">, groupId: string, workspaceId: string): Promise<void> {
-  const group = await client.knowledgeGroup.findFirst({ where: { id: groupId, workspaceId, archivedAt: null }, select: { id: true } });
+async function assertGroup(client: Pick<Prisma.TransactionClient, "knowledgeGroup">, groupId: string, workspaceId: string, userId: string): Promise<void> {
+  const group = await client.knowledgeGroup.findFirst({ where: { id: groupId, workspaceId, userId, archivedAt: null }, select: { id: true } });
   if (!group) throw new ApiError("KNOWLEDGE_GROUP_NOT_FOUND", 404);
 }
 

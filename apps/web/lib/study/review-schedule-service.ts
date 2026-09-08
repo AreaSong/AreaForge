@@ -12,7 +12,10 @@ import {
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getStudyDayRange } from "./date";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import {
+  lockSelectedMemberWorkspaceForWrite,
+  resolveSelectedMemberWorkspace,
+} from "./exam-workspace-service";
 import { refreshWorkspaceCheckInSnapshotForDate } from "./check-in-service";
 import { applyRecoveryV2CheckInProgressInTx } from "./recovery-v2-service";
 import { persistMistakeAttemptInTx } from "./mistake-attempt-service";
@@ -109,10 +112,11 @@ export async function listReviewSchedules(
   actorId: string,
   options?: { status?: "ACTIVE" | "PAUSED"; dueBefore?: Date; excludeBridged?: boolean },
 ): Promise<ReviewScheduleDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.reviewSchedule.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       ...(options?.status ? { status: options.status } : {}),
       ...(options?.dueBefore
         ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" }
@@ -130,10 +134,11 @@ export async function listReviewQueueItems(
   actorId: string,
   options?: { status?: "ACTIVE" | "PAUSED"; dueBefore?: Date; excludeBridged?: boolean },
 ): Promise<ReviewQueueItemDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.reviewSchedule.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       ...(options?.status ? { status: options.status } : {}),
       ...(options?.dueBefore ? { dueDate: { lt: options.dueBefore }, status: "ACTIVE" } : {}),
       ...(options?.excludeBridged
@@ -150,10 +155,11 @@ export async function getReviewWorkbenchSummary(
   actorId: string,
   now = new Date(),
 ): Promise<ReviewWorkbenchSummaryDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const today = getStudyDayRange(now);
   const executableWhere: Prisma.ReviewScheduleWhereInput = {
     workspaceId: workspace.id,
+    ownerUserId: actorId,
     status: "ACTIVE",
     bridgeTasks: { none: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
   };
@@ -162,7 +168,7 @@ export async function getReviewWorkbenchSummary(
     prisma.reviewSchedule.count({ where: { ...executableWhere, dueDate: { gte: today.start, lt: today.end } } }),
     prisma.reviewEvent.aggregate({
       where: {
-        reviewSchedule: { workspaceId: workspace.id },
+        reviewSchedule: { workspaceId: workspace.id, ownerUserId: actorId },
         confirmedAt: { gte: today.start, lte: today.end },
       },
       _count: { id: true },
@@ -178,10 +184,11 @@ export async function getReviewWorkbenchSummary(
 }
 
 export async function listBridgedReviewSchedules(actorId: string): Promise<BridgedReviewScheduleDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.reviewSchedule.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       bridgeTasks: { some: { status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } } },
     },
     include: {
@@ -223,9 +230,9 @@ function fromDbBridgeTaskStatus(
 }
 
 export async function listRecentReviewEvents(actorId: string, limit = 12): Promise<RecentReviewEventDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const rows = await prisma.reviewEvent.findMany({
-    where: { reviewSchedule: { workspaceId: workspace.id } },
+    where: { reviewSchedule: { workspaceId: workspace.id, ownerUserId: actorId } },
     include: { reviewSchedule: { include: reviewQueueTargetInclude } },
     orderBy: [{ confirmedAt: "desc" }, { id: "desc" }],
     take: Math.max(1, Math.min(limit, 30)),
@@ -277,11 +284,12 @@ export async function getNextDueReviewScheduleId(
   actorId: string,
   currentScheduleId: string,
 ): Promise<string | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const today = getStudyDayRange(new Date());
   const next = await prisma.reviewSchedule.findFirst({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       id: { not: currentScheduleId },
       status: "ACTIVE",
       dueDate: { lt: today.end },
@@ -294,18 +302,18 @@ export async function getNextDueReviewScheduleId(
 }
 
 export async function getReviewSchedule(actorId: string, scheduleId: string): Promise<ReviewScheduleDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const row = await prisma.reviewSchedule.findFirst({
-    where: { id: scheduleId, workspaceId: workspace.id },
+    where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
   });
   if (!row) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
   return serializeSchedule(row);
 }
 
 export async function listReviewEvents(actorId: string, scheduleId: string): Promise<ReviewEventDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const schedule = await prisma.reviewSchedule.findFirst({
-    where: { id: scheduleId, workspaceId: workspace.id },
+    where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     select: { id: true },
   });
   if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
@@ -350,13 +358,14 @@ async function materializeReviewScheduleLocked(
   dueDate: Date,
 ): Promise<ReviewScheduleDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
-    await assertTargetOwned(tx, workspace.id, input);
-    const existing = await findExistingSchedule(tx, workspace.id, input);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
+    await assertTargetOwned(tx, actorId, workspace.id, input);
+    const existing = await findExistingSchedule(tx, actorId, workspace.id, input);
     if (!existing) {
       const created = await tx.reviewSchedule.create({
         data: {
           workspaceId: workspace.id,
+          ownerUserId: actorId,
           targetType: input.targetType,
           noteId: input.noteId ?? null,
           mistakeId: input.mistakeId ?? null,
@@ -377,7 +386,7 @@ async function materializeReviewScheduleLocked(
 
     await lockSchedule(tx, existing.id);
     const current = await tx.reviewSchedule.findFirst({
-      where: { id: existing.id, workspaceId: workspace.id },
+      where: { id: existing.id, workspaceId: workspace.id, ownerUserId: actorId },
     });
     if (!current) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
     if (current.status === "ACTIVE") return serializeSchedule(current);
@@ -387,7 +396,7 @@ async function materializeReviewScheduleLocked(
         conflictFields: ["status", "pausedReason"],
       });
     }
-    await assertTargetNotArchived(tx, current);
+    await assertTargetNotArchived(tx, current, actorId);
     const resumed = await tx.reviewSchedule.update({
       where: { id: current.id },
       data: { status: "ACTIVE", dueDate, pausedReason: null, revision: { increment: 1 } },
@@ -412,13 +421,13 @@ export async function rescheduleReview(
 ): Promise<ReviewScheduleDto> {
   const dueDate = getStudyDayRange(new Date(input.dueDate)).start;
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockSchedule(tx, scheduleId);
     const existing = await tx.reviewSchedule.findFirst({
-      where: { id: scheduleId, workspaceId: workspace.id },
+      where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     });
     if (!existing) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
-    await assertTargetNotArchived(tx, existing);
+    await assertTargetNotArchived(tx, existing, actorId);
     if (existing.status !== "ACTIVE") {
       throw new ApiError("REVIEW_SCHEDULE_PAUSED", 409, {
         latest: serializeSchedule(existing),
@@ -446,13 +455,13 @@ export async function pauseReviewSchedule(
   input: { expectedRevision: number; reason: string },
 ): Promise<ReviewScheduleDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockSchedule(tx, scheduleId);
     const existing = await tx.reviewSchedule.findFirst({
-      where: { id: scheduleId, workspaceId: workspace.id },
+      where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     });
     if (!existing) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
-    await assertTargetNotArchived(tx, existing);
+    await assertTargetNotArchived(tx, existing, actorId);
     if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
       throw new ApiError("REVIEW_SCHEDULE_REVISION_CONFLICT", 409, {
         latest: serializeSchedule(existing),
@@ -480,10 +489,10 @@ export async function resumeReviewSchedule(
   input: { expectedRevision: number; dueDate: string },
 ): Promise<ReviewScheduleDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockSchedule(tx, scheduleId);
     const existing = await tx.reviewSchedule.findFirst({
-      where: { id: scheduleId, workspaceId: workspace.id },
+      where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     });
     if (!existing) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
     if (assertExpectedRevision({ currentRevision: existing.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
@@ -498,7 +507,7 @@ export async function resumeReviewSchedule(
         conflictFields: ["status"],
       });
     }
-    await assertTargetNotArchived(tx, existing);
+    await assertTargetNotArchived(tx, existing, actorId);
 
     const updated = await tx.reviewSchedule.update({
       where: { id: existing.id },
@@ -539,7 +548,7 @@ async function confirmReviewEventInTx(
 
   await lockSchedule(tx, scheduleId);
   const schedule = await tx.reviewSchedule.findFirst({
-    where: { id: scheduleId, workspaceId },
+    where: { id: scheduleId, workspaceId, ownerUserId: actorId },
   });
   if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
   const nextPass = nextConsecutivePassCount({
@@ -585,10 +594,11 @@ async function confirmReviewEventInTx(
     };
   }
 
-  await assertTargetNotArchived(tx, schedule);
+  await assertTargetNotArchived(tx, schedule, actorId);
 
   const activeSession = await tx.studySession.findFirst({
     where: {
+      userId: actorId,
       subject: { workspaceId },
       status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
     },
@@ -620,7 +630,7 @@ async function confirmReviewEventInTx(
       conflictFields: ["status"],
     });
   }
-  await assertReviewTargetComplete(tx, schedule);
+  await assertReviewTargetComplete(tx, schedule, actorId);
   if (schedule.targetType === "MISTAKE") {
     if (!input.answerMode) throw new ApiError("MISTAKE_ATTEMPT_MODE_REQUIRED", 400);
     if (input.answerMode === "TEXT" && !input.answerText?.trim()) throw new ApiError("MISTAKE_ATTEMPT_ANSWER_REQUIRED", 400);
@@ -677,7 +687,7 @@ async function confirmReviewEventInTx(
     });
   }
 
-  const checkIn = await refreshWorkspaceCheckInSnapshotForDate(workspaceId, learningDay.start, tx);
+  const checkIn = await refreshWorkspaceCheckInSnapshotForDate(actorId, workspaceId, learningDay.start, tx);
   await applyRecoveryV2CheckInProgressInTx(tx, actorId, workspaceId, {
     studyDate: learningDay.start,
     effectiveSessionMinutes: checkIn.effectiveMinutes,
@@ -715,7 +725,7 @@ export async function confirmReviewEvent(
     throw new ApiError("REVIEW_INVALID_DURATION", 400);
   }
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     return confirmReviewEventInTx(tx, actorId, workspace.id, scheduleId, input);
   });
 }
@@ -732,12 +742,16 @@ export async function correctReviewEvent(
   },
 ): Promise<{ schedule: ReviewScheduleDto; event: ReviewEventDto; reused: boolean }> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const original = await tx.reviewEvent.findFirst({
       where: { id: eventId },
       include: { reviewSchedule: true },
     });
-    if (!original || original.reviewSchedule.workspaceId !== workspace.id) {
+    if (
+      !original
+      || original.reviewSchedule.workspaceId !== workspace.id
+      || original.reviewSchedule.ownerUserId !== actorId
+    ) {
       throw new ApiError("REVIEW_EVENT_NOT_FOUND", 404);
     }
 
@@ -774,7 +788,7 @@ export async function correctReviewEvent(
       return { schedule: serializeSchedule(schedule), event: serializeEvent(existing), reused: true };
     }
 
-    await assertTargetNotArchived(tx, schedule);
+    await assertTargetNotArchived(tx, schedule, actorId);
 
     const allEvents = await tx.reviewEvent.findMany({
       where: { reviewScheduleId: schedule.id },
@@ -862,7 +876,7 @@ export async function correctReviewEvent(
       },
     });
 
-    await refreshWorkspaceCheckInSnapshotForDate(workspace.id, original.learningDate, tx);
+    await refreshWorkspaceCheckInSnapshotForDate(actorId, workspace.id, original.learningDate, tx);
 
     await tx.auditEvent.create({
       data: {
@@ -890,15 +904,17 @@ export async function createBridgeTask(
 ): Promise<{ taskId: string; schedule: ReviewScheduleDto }> {
   try {
     return await prisma.$transaction(async (tx) => {
-      const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+      const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
       const schedule = await getBridgableReviewScheduleInTx(
         tx,
+        actorId,
         workspace.id,
         input.reviewScheduleId,
         input.subjectId,
       );
       const task = await tx.studyTask.create({
         data: {
+          ownerUserId: actorId,
           subjectId: input.subjectId,
           title: input.title.trim(),
           type: input.type ?? "review",
@@ -920,12 +936,13 @@ export async function createBridgeTask(
 
 export async function getBridgableReviewScheduleInTx(
   tx: Prisma.TransactionClient,
+  ownerUserId: string,
   workspaceId: string,
   reviewScheduleId: string,
   subjectId: string,
 ) {
   const schedule = await tx.reviewSchedule.findFirst({
-    where: { id: reviewScheduleId, workspaceId },
+    where: { id: reviewScheduleId, workspaceId, ownerUserId },
     include: {
       note: { select: { subjectId: true, archivedAt: true } },
       mistake: { select: { subjectId: true, archivedAt: true } },
@@ -965,15 +982,18 @@ export async function completeBridgeTaskWithReview(
     throw new ApiError("REVIEW_INVALID_DURATION", 400);
   }
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const task = await tx.studyTask.findFirst({
-      where: { id: taskId },
+      where: { id: taskId, ownerUserId: actorId },
       include: { reviewSchedule: true },
     });
     if (!task?.reviewScheduleId || !task.reviewSchedule) {
       throw new ApiError("REVIEW_BRIDGE_REQUIRED", 400);
     }
-    if (task.reviewSchedule.workspaceId !== workspace.id) {
+    if (
+      task.reviewSchedule.workspaceId !== workspace.id
+      || task.reviewSchedule.ownerUserId !== actorId
+    ) {
       throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
     }
     const existingEvent = await tx.reviewEvent.findUnique({
@@ -1013,6 +1033,7 @@ export async function completeBridgeTaskWithReview(
     const cas = await tx.studyTask.updateMany({
       where: {
         id: task.id,
+        ownerUserId: actorId,
         status: task.status,
         updatedAt: task.updatedAt,
         reviewScheduleId: task.reviewScheduleId,
@@ -1037,12 +1058,16 @@ export async function deferBridgeTask(
   input: { expectedScheduleRevision: number; plannedDate: string },
 ): Promise<{ taskId: string; schedule: ReviewScheduleDto }> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const task = await tx.studyTask.findFirst({
-      where: { id: taskId },
+      where: { id: taskId, ownerUserId: actorId },
       include: { reviewSchedule: true },
     });
-    if (!task?.reviewSchedule || task.reviewSchedule.workspaceId !== workspace.id) {
+    if (
+      !task?.reviewSchedule
+      || task.reviewSchedule.workspaceId !== workspace.id
+      || task.reviewSchedule.ownerUserId !== actorId
+    ) {
       throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
     }
     if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(task.status)) {
@@ -1050,7 +1075,7 @@ export async function deferBridgeTask(
     }
     await lockSchedule(tx, task.reviewSchedule.id);
     const schedule = await tx.reviewSchedule.findUniqueOrThrow({ where: { id: task.reviewSchedule.id } });
-    await assertTargetNotArchived(tx, schedule);
+    await assertTargetNotArchived(tx, schedule, actorId);
     if (
       assertExpectedRevision({
         currentRevision: schedule.revision,
@@ -1066,6 +1091,7 @@ export async function deferBridgeTask(
     const taskCas = await tx.studyTask.updateMany({
       where: {
         id: task.id,
+        ownerUserId: actorId,
         status: task.status,
         updatedAt: task.updatedAt,
         reviewScheduleId: task.reviewScheduleId,
@@ -1083,21 +1109,26 @@ export async function deferBridgeTask(
 
 export async function abandonBridgeTask(actorId: string, taskId: string): Promise<ReviewScheduleDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     const task = await tx.studyTask.findFirst({
-      where: { id: taskId },
+      where: { id: taskId, ownerUserId: actorId },
       include: { reviewSchedule: true },
     });
-    if (!task?.reviewSchedule || task.reviewSchedule.workspaceId !== workspace.id) {
+    if (
+      !task?.reviewSchedule
+      || task.reviewSchedule.workspaceId !== workspace.id
+      || task.reviewSchedule.ownerUserId !== actorId
+    ) {
       throw new ApiError("STUDY_TASK_NOT_FOUND", 404);
     }
     if (!["TODO", "IN_PROGRESS", "DEFERRED"].includes(task.status)) {
       throw new ApiError("TASK_STATE_CONFLICT", 409);
     }
-    await assertTargetNotArchived(tx, task.reviewSchedule);
+    await assertTargetNotArchived(tx, task.reviewSchedule, actorId);
     const taskCas = await tx.studyTask.updateMany({
       where: {
         id: task.id,
+        ownerUserId: actorId,
         status: task.status,
         updatedAt: task.updatedAt,
         reviewScheduleId: task.reviewScheduleId,
@@ -1118,7 +1149,7 @@ export async function pauseScheduleOnTargetArchive(
     syllabusNodeId?: string;
   },
 ): Promise<void> {
-  const schedule = await tx.reviewSchedule.findFirst({
+  await tx.reviewSchedule.updateMany({
     where: {
       OR: [
         input.noteId ? { noteId: input.noteId } : undefined,
@@ -1128,10 +1159,6 @@ export async function pauseScheduleOnTargetArchive(
       ].filter(Boolean) as Prisma.ReviewScheduleWhereInput[],
       status: "ACTIVE",
     },
-  });
-  if (!schedule) return;
-  await tx.reviewSchedule.update({
-    where: { id: schedule.id },
     data: {
       status: "PAUSED",
       dueDate: null,
@@ -1157,6 +1184,7 @@ async function createSyllabusRetest(
   const retest = await tx.masteryRetest.create({
     data: {
       syllabusNodeId: input.syllabusNodeId,
+      ownerUserId: input.actorId,
       testedAt: input.confirmedAt,
       result: retestResult,
       nextReviewAt: input.nextDueDate,
@@ -1168,6 +1196,7 @@ async function createSyllabusRetest(
     await tx.masteryEvidence.create({
       data: {
         syllabusNodeId: input.syllabusNodeId,
+        ownerUserId: input.actorId,
         evidenceType: "retest",
         retestId: retest.id,
         actorId: input.actorId,
@@ -1178,6 +1207,7 @@ async function createSyllabusRetest(
 
 async function assertTargetOwned(
   client: Tx,
+  ownerUserId: string,
   workspaceId: string,
   input: {
     targetType: ReviewTargetType;
@@ -1189,7 +1219,7 @@ async function assertTargetOwned(
 ) {
   if (input.targetType === "NOTE" && input.noteId) {
     const note = await client.note.findFirst({
-      where: { id: input.noteId, subject: { workspaceId } },
+      where: { id: input.noteId, ownerUserId, subject: { workspaceId } },
       select: { archivedAt: true, subject: { select: { archivedAt: true } } },
     });
     if (!note || note.archivedAt) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
@@ -1198,7 +1228,7 @@ async function assertTargetOwned(
   }
   if (input.targetType === "MISTAKE" && input.mistakeId) {
     const mistake = await client.mistake.findFirst({
-      where: { id: input.mistakeId, subject: { workspaceId } },
+      where: { id: input.mistakeId, ownerUserId, subject: { workspaceId } },
       select: {
         archivedAt: true,
         questionText: true,
@@ -1216,7 +1246,7 @@ async function assertTargetOwned(
   }
   if (input.targetType === "STUDY_RESOURCE" && input.studyResourceId) {
     const resource = await client.studyResource.findFirst({
-      where: { id: input.studyResourceId, workspaceId },
+      where: { id: input.studyResourceId, workspaceId, ownerUserId },
       select: { archivedAt: true, subject: { select: { archivedAt: true } } },
     });
     if (!resource || resource.archivedAt) throw new ApiError("REVIEW_TARGET_NOT_FOUND", 404);
@@ -1238,6 +1268,7 @@ async function assertTargetOwned(
 async function assertTargetNotArchived(
   tx: Tx,
   schedule: Parameters<typeof serializeSchedule>[0],
+  ownerUserId: string,
 ) {
   const archivedError = () => new ApiError("REVIEW_TARGET_ARCHIVED", 409, {
     latest: { schedule: serializeSchedule(schedule), target: { archived: true } },
@@ -1246,25 +1277,25 @@ async function assertTargetNotArchived(
   if (schedule.noteId) {
     const note = await tx.note.findUnique({
       where: { id: schedule.noteId },
-      select: { archivedAt: true, subject: { select: { archivedAt: true } } },
+      select: { ownerUserId: true, archivedAt: true, subject: { select: { archivedAt: true } } },
     });
-    if (!note || note.archivedAt) throw archivedError();
+    if (!note || note.ownerUserId !== ownerUserId || note.archivedAt) throw archivedError();
     if (note.subject.archivedAt) throw subjectArchivedReviewError(schedule);
   }
   if (schedule.mistakeId) {
     const mistake = await tx.mistake.findUnique({
       where: { id: schedule.mistakeId },
-      select: { archivedAt: true, subject: { select: { archivedAt: true } } },
+      select: { ownerUserId: true, archivedAt: true, subject: { select: { archivedAt: true } } },
     });
-    if (!mistake || mistake.archivedAt) throw archivedError();
+    if (!mistake || mistake.ownerUserId !== ownerUserId || mistake.archivedAt) throw archivedError();
     if (mistake.subject.archivedAt) throw subjectArchivedReviewError(schedule);
   }
   if (schedule.studyResourceId) {
     const resource = await tx.studyResource.findUnique({
       where: { id: schedule.studyResourceId },
-      select: { archivedAt: true, subject: { select: { archivedAt: true } } },
+      select: { ownerUserId: true, archivedAt: true, subject: { select: { archivedAt: true } } },
     });
-    if (!resource || resource.archivedAt) throw archivedError();
+    if (!resource || resource.ownerUserId !== ownerUserId || resource.archivedAt) throw archivedError();
     if (resource.subject?.archivedAt) throw subjectArchivedReviewError(schedule);
   }
   if (schedule.syllabusNodeId) {
@@ -1292,13 +1323,14 @@ function subjectArchivedReviewError(
 async function assertReviewTargetComplete(
   tx: Tx,
   schedule: Parameters<typeof serializeSchedule>[0],
+  ownerUserId: string,
 ): Promise<void> {
   if (!schedule.mistakeId) return;
   const mistake = await tx.mistake.findUnique({
     where: { id: schedule.mistakeId },
-    select: { questionText: true, cause: true, correctIdea: true },
+    select: { ownerUserId: true, questionText: true, cause: true, correctIdea: true },
   });
-  if (!mistake || !mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
+  if (mistake?.ownerUserId !== ownerUserId || !mistake || !mistake.questionText?.trim() || mistake.cause === "UNKNOWN" || !mistake.correctIdea?.trim()) {
     throw new ApiError("REVIEW_TARGET_INCOMPLETE", 409, {
       latest: {
         schedule: serializeSchedule(schedule),
@@ -1311,6 +1343,7 @@ async function assertReviewTargetComplete(
 
 async function findExistingSchedule(
   client: Tx,
+  ownerUserId: string,
   workspaceId: string,
   input: {
     noteId?: string;
@@ -1322,6 +1355,7 @@ async function findExistingSchedule(
   return client.reviewSchedule.findFirst({
     where: {
       workspaceId,
+      ownerUserId,
       OR: [
         input.noteId ? { noteId: input.noteId } : undefined,
         input.mistakeId ? { mistakeId: input.mistakeId } : undefined,

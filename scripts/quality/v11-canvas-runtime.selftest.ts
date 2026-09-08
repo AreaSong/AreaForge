@@ -70,6 +70,7 @@ try {
   });
   await prisma.note.createMany({
     data: Array.from({ length: bulkNoteCount }, (_, index) => ({
+      ownerUserId: user.id,
       subjectId: subject.id,
       stableKey: `canvas-note-${String(index).padStart(4, "0")}`,
       title: `Canvas Note ${String(index).padStart(4, "0")}`,
@@ -99,6 +100,7 @@ try {
   });
   const predecessor = await prisma.studyTask.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       syllabusNodeId: rootNode.id,
       planMilestoneId: milestone.id,
@@ -110,6 +112,7 @@ try {
   });
   const successor = await prisma.studyTask.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       syllabusNodeId: leafNode.id,
       parentTaskId: predecessor.id,
@@ -125,6 +128,7 @@ try {
   });
   const relatedNote = await prisma.note.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       syllabusNodeId: leafNode.id,
       taskId: successor.id,
@@ -136,6 +140,7 @@ try {
   });
   const archivedNote = await prisma.note.create({
     data: {
+      ownerUserId: user.id,
       subjectId: subject.id,
       stableKey: "canvas-archived-note",
       title: "已归档关系笔记",
@@ -144,11 +149,12 @@ try {
     },
   });
   const mistake = await prisma.mistake.create({
-    data: { subjectId: subject.id, syllabusNodeId: leafNode.id, title: "线性表边界条件错题" },
+    data: { ownerUserId: user.id, subjectId: subject.id, syllabusNodeId: leafNode.id, title: "线性表边界条件错题" },
   });
   const resource = await prisma.studyResource.create({
     data: {
       workspaceId: workspace.id,
+      ownerUserId: user.id,
       stableKey: "canvas-resource",
       title: "线性表讲义",
       sourceType: "LINK",
@@ -165,6 +171,7 @@ try {
   const archivedResource = await prisma.studyResource.create({
     data: {
       workspaceId: workspace.id,
+      ownerUserId: user.id,
       stableKey: "canvas-archived-resource",
       title: "已归档关系资料",
       sourceType: "LINK",

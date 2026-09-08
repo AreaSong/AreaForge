@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   aggregateReviewMetrics,
   buildDailyCheckInSnapshot,
@@ -39,6 +40,7 @@ interface CheckInRecord {
 export type { CheckInV2Dto } from "@/lib/contracts/check-in";
 
 export async function refreshCheckInSnapshotForDate(
+  actorId: string,
   targetDate: Date,
   client: CheckInWriteClient,
 ): Promise<CheckInSnapshotSummary> {
@@ -50,6 +52,7 @@ export async function refreshCheckInSnapshotForDate(
         lt: day.end,
       },
       status: "COMPLETED",
+      userId: actorId,
     },
     select: {
       effectiveMinutes: true,
@@ -65,6 +68,7 @@ export async function refreshCheckInSnapshotForDate(
         gte: day.start,
         lt: day.end,
       },
+      ownerUserId: actorId,
     },
     select: {
       status: true,
@@ -74,6 +78,7 @@ export async function refreshCheckInSnapshotForDate(
     where: {
       reviewDate: day.start,
       workspaceId: null,
+      ownerUserId: actorId,
     },
     select: {
       id: true,
@@ -95,6 +100,7 @@ export async function refreshCheckInSnapshotForDate(
     where: {
       studyDate: day.start,
       workspaceId: null,
+      ownerUserId: actorId,
     },
   });
   const record = existing
@@ -116,6 +122,7 @@ export async function refreshCheckInSnapshotForDate(
         data: {
           studyDate: day.start,
           workspaceId: null,
+          ownerUserId: actorId,
           completedMinimumAction: snapshot.completedMinimumAction,
           totalMinutes: snapshot.totalMinutes,
           effectiveMinutes: snapshot.effectiveMinutes,
@@ -133,13 +140,15 @@ export async function refreshCheckInSnapshotForDate(
 
 /** Workspace-scoped CheckIn v2 rebuild. Touched days upgrade to sourceVersion=2. */
 export async function refreshWorkspaceCheckInSnapshotForDate(
+  actorId: string,
   workspaceId: string,
   targetDate: Date,
   client: CheckInWriteClient,
 ): Promise<CheckInV2Dto> {
   const day = getStudyDayRange(targetDate);
-  const lockKey = Number(day.key.replaceAll("-", ""));
-  await client.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${checkInLockNamespace}, ${lockKey})`;
+  const lockTarget = getCheckInLockTargets(actorId, [day.start])[0];
+  if (!lockTarget) throw new Error("CheckIn lock target is required");
+  await client.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${lockTarget.lockKey})`;
 
   const subjectIds = (
     await client.subject.findMany({
@@ -152,6 +161,7 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
     ? await client.studySession.findMany({
         where: {
           subjectId: { in: subjectIds },
+          userId: actorId,
           startedAt: { gte: day.start, lt: day.end },
           status: "COMPLETED",
         },
@@ -169,6 +179,7 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
     ? await client.studyTask.findMany({
         where: {
           subjectId: { in: subjectIds },
+          ownerUserId: actorId,
           plannedDate: { gte: day.start, lt: day.end },
         },
         select: { status: true },
@@ -176,13 +187,14 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
     : [];
 
   const dailyReview = await client.dailyReview.findFirst({
-    where: { reviewDate: day.start, workspaceId },
+    where: { reviewDate: day.start, workspaceId, ownerUserId: actorId },
     select: { id: true },
   });
 
   const reviewEvents = await client.reviewEvent.findMany({
     where: {
       learningDate: day.start,
+      actorId,
       reviewSchedule: { workspaceId },
     },
     select: {
@@ -247,7 +259,7 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
   };
 
   const existing = await client.checkIn.findFirst({
-    where: { studyDate: day.start, workspaceId },
+    where: { studyDate: day.start, workspaceId, ownerUserId: actorId },
   });
   const record = existing
     ? await client.checkIn.update({ where: { id: existing.id }, data })
@@ -255,6 +267,7 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
         data: {
           studyDate: day.start,
           workspaceId,
+          ownerUserId: actorId,
           ...data,
         },
       });
@@ -263,26 +276,28 @@ export async function refreshWorkspaceCheckInSnapshotForDate(
 }
 
 export async function refreshCheckInSnapshotsForDates(
+  actorId: string,
   targetDates: Array<Date | null | undefined>,
   client: CheckInWriteClient,
 ): Promise<CheckInSnapshotSummary[]> {
-  const lockTargets = getCheckInLockTargets(targetDates);
+  const lockTargets = getCheckInLockTargets(actorId, targetDates);
   for (const target of lockTargets) {
-    await client.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${checkInLockNamespace}, ${target.lockKey})`;
+    await client.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${target.lockKey})`;
   }
 
   const snapshots: CheckInSnapshotSummary[] = [];
   for (const target of lockTargets) {
-    snapshots.push(await refreshCheckInSnapshotForDate(target.start, client));
+    snapshots.push(await refreshCheckInSnapshotForDate(actorId, target.start, client));
   }
 
   return snapshots;
 }
 
 export function getCheckInLockTargets(
+  actorId: string,
   targetDates: Array<Date | null | undefined>,
-): Array<{ studyDayKey: string; start: Date; lockKey: number }> {
-  const uniqueDays = new Map<number, { studyDayKey: string; start: Date; lockKey: number }>();
+): Array<{ studyDayKey: string; start: Date; lockKey: bigint }> {
+  const uniqueDays = new Map<number, { studyDayKey: string; start: Date; lockKey: bigint }>();
 
   for (const targetDate of targetDates) {
     if (!targetDate) continue;
@@ -290,14 +305,22 @@ export function getCheckInLockTargets(
     uniqueDays.set(day.start.getTime(), {
       studyDayKey: day.key,
       start: day.start,
-      lockKey: Number(day.key.replaceAll("-", "")),
+      lockKey: createCheckInLockKey(actorId, day.key),
     });
   }
 
   return Array.from(uniqueDays.values()).sort((left, right) => left.start.getTime() - right.start.getTime());
 }
 
+function createCheckInLockKey(actorId: string, studyDayKey: string): bigint {
+  const digest = createHash("sha256")
+    .update(`${checkInLockNamespace}:${actorId}:${studyDayKey}`)
+    .digest();
+  return digest.readBigInt64BE(0);
+}
+
 export async function findCheckInSnapshotForDate(
+  actorId: string,
   targetDate: Date,
   client: CheckInDbClient = prisma,
 ): Promise<CheckInSnapshotSummary | null> {
@@ -306,6 +329,7 @@ export async function findCheckInSnapshotForDate(
     where: {
       studyDate: day.start,
       workspaceId: null,
+      ownerUserId: actorId,
     },
   });
 
@@ -313,6 +337,7 @@ export async function findCheckInSnapshotForDate(
 }
 
 export async function listCheckInSnapshotsInRange(
+  actorId: string,
   start: Date,
   end: Date,
   client: CheckInDbClient = prisma,
@@ -325,6 +350,7 @@ export async function listCheckInSnapshotsInRange(
         lt: end,
       },
       workspaceId,
+      ownerUserId: actorId,
     },
     orderBy: {
       studyDate: "asc",
@@ -335,6 +361,7 @@ export async function listCheckInSnapshotsInRange(
 }
 
 export async function listWorkspaceCheckIns(
+  actorId: string,
   workspaceId: string,
   from: Date,
   to: Date,
@@ -344,6 +371,7 @@ export async function listWorkspaceCheckIns(
   const records = await prisma.checkIn.findMany({
     where: {
       workspaceId,
+      ownerUserId: actorId,
       studyDate: { gte: fromDay, lt: toDay },
     },
     orderBy: { studyDate: "asc" },

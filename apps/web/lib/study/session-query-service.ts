@@ -1,6 +1,6 @@
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { parseSessionEvidenceReceipt } from "./session-evidence-contract";
 import { serializeSession } from "./session-serializer";
 import type { StudySessionDto, StudySessionEvidenceReceiptDto } from "@/lib/contracts";
@@ -18,7 +18,7 @@ const sessionInclude = {
 } as const;
 
 export async function getActiveStudySession(actorId: string): Promise<StudySessionDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const session = await prisma.studySession.findFirst({
     where: {
       userId: actorId,
@@ -34,7 +34,7 @@ export async function getActiveStudySession(actorId: string): Promise<StudySessi
 }
 
 export async function getStudySessionById(id: string, actorId: string): Promise<StudySessionDto | null> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const session = await prisma.studySession.findFirst({
     where: { id, userId: actorId, workspaceId: workspace.id },
     include: sessionInclude,
@@ -46,9 +46,9 @@ export async function listStudySessionEvidenceReceipts(
   sessionId: string,
   actorId: string,
 ): Promise<StudySessionEvidenceReceiptDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const ownedSession = await prisma.studySession.findFirst({
-    where: { id: sessionId, subject: { workspaceId: workspace.id } },
+    where: { id: sessionId, userId: actorId, subject: { workspaceId: workspace.id } },
     select: { id: true },
   });
   if (!ownedSession) throw new ApiError("SESSION_NOT_FOUND", 404);

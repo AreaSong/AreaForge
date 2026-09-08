@@ -1,5 +1,6 @@
 import { prisma } from "@areaforge/db";
 import { formatBytes } from "@/lib/formatters";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
 
 import type { WorkspaceCapacityMetrics } from "@/lib/contracts";
 
@@ -14,6 +15,13 @@ export async function getWorkspaceCapacityMetrics(
   }
 
   try {
+    // Capacity is an aggregate of private learning records.  Do not let a
+    // member infer another member's volume merely by passing a workspace id.
+    const ownedWorkspace = await prisma.examWorkspace.findFirst({
+      where: { id: workspaceId, ...workspaceOwnerWhere(actorId) },
+      select: { id: true },
+    });
+    if (!ownedWorkspace) return createEmptyCapacityMetrics();
     const [
       activeSubjectCount,
       syllabusNodeCount,

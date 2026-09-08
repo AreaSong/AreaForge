@@ -10,10 +10,12 @@ import {
   type TaskStatus,
 } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
+import { ApiError } from "@/lib/api/responses";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
 import { listStageAdjustmentDrafts, listStagePlans } from "./stage-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
+import { resolveMemberSyllabusProgress } from "./syllabus-progress";
 import { aggregateActivityBreakdown, activityBucket } from "./activity-metrics";
 import { summarizeReviewCoverage } from "./study-day-metrics";
 import type { PlanInboxWriteSummaryDto } from "@/lib/contracts";
@@ -44,6 +46,7 @@ type PeriodicSnapshotWithTaskSample = CheckInSnapshotSummary & { taskCount: numb
 type DbSyllabusNodeStatus = "NOT_STARTED" | "LEARNING" | "COVERED" | "NEEDS_REVIEW" | "MASTERED" | "WEAK" | "DEFERRED";
 
 export async function getPeriodicReports(now = new Date(), actorId?: string): Promise<PeriodicReportsDto> {
+  if (!actorId) throw new ApiError("AUTH_REQUIRED", 401);
   const [week, month] = await Promise.all([
     getPeriodicReport("week", now, actorId),
     getPeriodicReport("month", now, actorId),
@@ -53,9 +56,11 @@ export async function getPeriodicReports(now = new Date(), actorId?: string): Pr
 }
 
 export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date(), actorId?: string): Promise<PeriodicReportDto> {
+  if (!actorId) throw new ApiError("AUTH_REQUIRED", 401);
   const range = kind === "week" ? getWeekRange(now) : getMonthRange(now);
-  const workspace = actorId ? await resolveActiveWorkspace(actorId) : null;
-  const subjectScope = workspace ? { subject: { workspaceId: workspace.id } } : {};
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const subjectScope = { subject: { workspaceId: workspace.id } };
+  const ownedSubjectScope = { ...subjectScope, ownerUserId: actorId };
   const [
     subjects,
     sessions,
@@ -71,12 +76,13 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     existingDecision,
   ] = await Promise.all([
     prisma.subject.findMany({
-      where: workspace ? { workspaceId: workspace.id } : undefined,
+      where: { workspaceId: workspace.id, archivedAt: null },
       orderBy: { sortOrder: "asc" },
     }),
     // 报表只做区间聚合，按实际消费字段 select，不携带 subject/syllabusNode 关联行。
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         startedAt: {
           gte: range.start,
           lt: range.end,
@@ -100,7 +106,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
-        ...subjectScope,
+        ...ownedSubjectScope,
       },
       select: {
         plannedDate: true,
@@ -109,6 +115,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     }),
     prisma.dailyReview.findMany({
       where: {
+        ownerUserId: actorId,
         reviewDate: {
           gte: range.start,
           lt: range.end,
@@ -141,7 +148,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
             },
           },
         ],
-        ...subjectScope,
+        ...ownedSubjectScope,
       },
       select: {
         subjectId: true,
@@ -155,7 +162,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
           gte: range.start,
           lt: range.end,
         },
-        ...subjectScope,
+        ...ownedSubjectScope,
       },
     }),
     prisma.studyTask.findMany({
@@ -166,7 +173,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
         status: {
           notIn: ["DONE", "SKIPPED"],
         },
-        ...subjectScope,
+        ...ownedSubjectScope,
       },
       include: {
         subject: true,
@@ -177,31 +184,27 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     prisma.syllabusNode.findMany({
       where: {
         OR: [
-          { status: "WEAK" },
-          { status: "NEEDS_REVIEW" },
+          { progresses: { some: { ownerUserId: actorId, status: { in: ["WEAK", "NEEDS_REVIEW"] } } } },
           {
             mistakes: {
-              some: {},
+              some: { ownerUserId: actorId },
             },
           },
         ],
-        ...(workspace ? { subject: { workspaceId: workspace.id } } : {}),
+        subject: { workspaceId: workspace.id, archivedAt: null },
       },
       include: {
         subject: true,
-        _count: {
-          select: {
-            tasks: true,
-            sessions: true,
-            notes: true,
-            mistakes: true,
-          },
-        },
+        progresses: { where: { ownerUserId: actorId }, take: 1 },
+        tasks: { where: { ownerUserId: actorId }, select: { id: true } },
+        sessions: { where: { userId: actorId }, select: { id: true } },
+        notes: { where: { ownerUserId: actorId }, select: { id: true } },
+        mistakes: { where: { ownerUserId: actorId }, select: { id: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
       take: 10,
     }),
-    listCheckInSnapshotsInRange(range.start, range.end, prisma, workspace?.id ?? null),
+    listCheckInSnapshotsInRange(actorId, range.start, range.end, prisma, workspace?.id ?? null),
     listStagePlans(actorId),
     listStageAdjustmentDrafts(actorId),
     prisma.periodicReportDecision.findFirst({
@@ -210,6 +213,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
         rangeStart: range.start,
         rangeEnd: range.end,
         workspaceId: workspace?.id ?? null,
+        ownerUserId: actorId,
       },
     }),
   ]);
@@ -233,21 +237,31 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
     debtTasks: debtTasks.map((task) => ({
       subjectName: task.subject.name,
     })),
-    weakNodes: weakNodes.map((node) => ({
-      title: node.title,
-      status: toCoreWeaknessNodeStatus(node.status),
-      subjectName: node.subject.name,
-      mistakeCount: node._count.mistakes,
-      noteCount: node._count.notes,
-      sessionCount: node._count.sessions,
-    })),
+    weakNodes: weakNodes.map((node) => {
+      const progress = resolveMemberSyllabusProgress({
+        status: node.status,
+        masteryLevel: node.masteryLevel,
+        targetMinutes: node.targetMinutes,
+        actualMinutes: node.actualMinutes,
+        revision: node.revision,
+        progresses: node.progresses,
+      });
+      return {
+        title: node.title,
+        status: toCoreWeaknessNodeStatus(progress.status),
+        subjectName: node.subject.name,
+        mistakeCount: node.mistakes.length,
+        noteCount: node.notes.length,
+        sessionCount: node.sessions.length,
+      };
+    }),
     lowConversionCount,
   });
   if (workspace) {
     const losses = await prisma.simulationLossItem.findMany({
       where: {
         archivedAt: null,
-        simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, examDate: { gte: range.start, lt: range.end } } },
+        simulationSubjectResult: { simulationExam: { workspaceId: workspace.id, ownerUserId: actorId, examDate: { gte: range.start, lt: range.end } } },
       },
       include: { syllabusNode: true, simulationSubjectResult: { include: { subject: true } } },
     });
@@ -339,7 +353,7 @@ export async function getPeriodicReport(kind: PeriodicReportKind, now = new Date
   };
 
   const persistedDecisionContext = existingDecision && workspace
-    ? await getPeriodicReportDecisionContext(existingDecision.id, workspace.id, kind, range.start)
+    ? await getPeriodicReportDecisionContext(existingDecision.id, workspace.id, kind, range.start, actorId)
     : null;
 
   return {
@@ -414,16 +428,18 @@ export async function getPeriodicReportDecisionContext(
   workspaceId: string,
   kind: PeriodicReportKind,
   rangeStart: Date,
+  ownerUserId: string,
 ): Promise<{ stageDraftId: string | null; inboxResult: PlanInboxWriteSummaryDto }> {
   const originPrefix = `report:${kind}:${rangeStart.toISOString()}:`;
   const [stageDraft, inboxItems] = await Promise.all([
     prisma.stageAdjustmentDraft.findFirst({
-      where: { sourceReportDecisionId: decisionId, workspaceId },
+      where: { sourceReportDecisionId: decisionId, workspaceId, ownerUserId },
       select: { id: true },
     }),
     prisma.planInboxItem.findMany({
       where: {
         workspaceId,
+        ownerUserId,
         originType: { in: ["PERIODIC_REPORT", "STAGE_ADJUSTMENT"] },
         originKey: { startsWith: originPrefix },
       },

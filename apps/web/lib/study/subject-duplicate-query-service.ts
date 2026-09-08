@@ -7,7 +7,10 @@ import {
   type SubjectDuplicateCandidate,
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
+import { getAuthEnv } from "@/lib/auth/env";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceOwnerWhere } from "@/lib/workspace/access-service";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import type {
   SubjectDuplicateSetDto,
   SubjectReferenceCountDto,
@@ -30,17 +33,17 @@ export async function listSubjectDuplicatePreviewsWithClient(
   client: SubjectPreviewClient,
 ): Promise<SubjectDuplicateSetDto[]> {
   const workspace = await assertOwnedWorkspace(actorId, workspaceId, client);
-  const rows = await loadSubjectPreviewRows(client, workspaceId);
+  const rows = await loadSubjectPreviewRows(client, workspaceId, actorId);
   if (rows.length < 2) return [];
 
-  const referencesById = await buildReferenceCounts(client, workspaceId, rows);
+  const referencesById = await buildReferenceCounts(client, workspaceId, actorId, rows);
   const sets = findSubjectDuplicateSets(buildCandidates(rows, referencesById));
   return Promise.all(sets.map(async (set, index) => {
     const targetId = set.recommendedTargetId;
     const sourceIds = set.subjectIds.filter((subjectId) => subjectId !== targetId);
     const [conflictPreview, primaryKnowledgePoints] = await Promise.all([
-      previewSubjectMergeConflicts(client, workspaceId, targetId, sourceIds),
-      countPrimaryKnowledgePoints(client, sourceIds),
+      previewSubjectMergeConflicts(client, workspaceId, actorId, targetId, sourceIds),
+      countPrimaryKnowledgePoints(client, actorId, sourceIds),
     ]);
     const { simulationOriginInboxItems, ...conflictCounts } = conflictPreview;
     const subjects = joinSubjects(set.subjectIds, rows, referencesById);
@@ -106,25 +109,25 @@ export function buildSubjectDuplicateSnapshotHash(input: {
   return `sha256:${createHash("sha256").update(canonical, "utf8").digest("hex")}`;
 }
 
-async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId: string) {
+async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId: string, actorId: string) {
   return client.subject.findMany({
     where: { workspaceId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       _count: {
         select: {
-          tasks: true,
-          sessions: true,
+          tasks: { where: { ownerUserId: actorId } },
+          sessions: { where: { userId: actorId } },
           syllabusNodes: true,
-          notes: true,
-          mistakes: true,
-          simulationSubjectResults: true,
-          planMilestones: true,
-          studyResources: true,
-          primaryKnowledgePoints: true,
-          relatedKnowledgePoints: true,
-          knowledgeGroups: true,
-          learningArrangements: true,
+          notes: { where: { ownerUserId: actorId } },
+          mistakes: { where: { ownerUserId: actorId } },
+          simulationSubjectResults: { where: { simulationExam: { ownerUserId: actorId } } },
+          planMilestones: { where: { ownerUserId: actorId } },
+          studyResources: { where: { ownerUserId: actorId } },
+          primaryKnowledgePoints: { where: { userId: actorId } },
+          relatedKnowledgePoints: { where: { knowledgePoint: { userId: actorId } } },
+          knowledgeGroups: { where: { userId: actorId } },
+          learningArrangements: { where: { userId: actorId } },
         },
       },
     },
@@ -134,16 +137,17 @@ async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId:
 async function buildReferenceCounts(
   client: SubjectPreviewClient,
   workspaceId: string,
+  actorId: string,
   rows: SubjectPreviewRow[],
 ): Promise<Map<string, SubjectReferenceCountDto>> {
   const subjectIds = rows.map((row) => row.id);
   const [activeSessions, inboxItems] = await Promise.all([
     client.studySession.findMany({
-      where: { subjectId: { in: subjectIds }, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+      where: { subjectId: { in: subjectIds }, userId: actorId, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
       select: { subjectId: true },
     }),
     client.planInboxItem.findMany({
-      where: { workspaceId, subjectId: { in: subjectIds } },
+      where: { workspaceId, ownerUserId: actorId, subjectId: { in: subjectIds } },
       select: { subjectId: true },
     }),
   ]);
@@ -212,6 +216,7 @@ function joinSubjects(
 async function previewSubjectMergeConflicts(
   client: SubjectPreviewClient,
   workspaceId: string,
+  actorId: string,
   targetId: string,
   sourceIds: string[],
 ): Promise<SubjectDuplicateSetDto["conflictCounts"] & { simulationOriginInboxItems: number }> {
@@ -222,16 +227,17 @@ async function previewSubjectMergeConflicts(
       select: { subjectId: true, stableKey: true },
     }),
     client.simulationSubjectResult.findMany({
-      where: { subjectId: { in: candidateIds } },
+      where: { subjectId: { in: candidateIds }, simulationExam: { ownerUserId: actorId } },
       select: { subjectId: true, simulationExamId: true },
     }),
     client.knowledgePointSubject.findMany({
-      where: { subjectId: { in: candidateIds } },
+      where: { subjectId: { in: candidateIds }, knowledgePoint: { userId: actorId } },
       select: { subjectId: true, knowledgePointId: true },
     }),
     client.planInboxItem.findMany({
       where: {
         workspaceId,
+        ownerUserId: actorId,
         originType: "SIMULATION_LOSS",
         subjectId: { in: candidateIds },
       },
@@ -302,10 +308,10 @@ function deriveMergedSimulationOriginKey(
     : null;
 }
 
-async function countPrimaryKnowledgePoints(client: SubjectPreviewClient, sourceIds: string[]): Promise<number> {
+async function countPrimaryKnowledgePoints(client: SubjectPreviewClient, actorId: string, sourceIds: string[]): Promise<number> {
   return sourceIds.length === 0
     ? 0
-    : client.knowledgePoint.count({ where: { primarySubjectId: { in: sourceIds } } });
+    : client.knowledgePoint.count({ where: { primarySubjectId: { in: sourceIds }, userId: actorId } });
 }
 
 export function countCrossSubjectKeys<T extends { subjectId: string }>(
@@ -351,8 +357,14 @@ async function assertOwnedWorkspace(
   workspaceId: string,
   client: SubjectPreviewClient,
 ): Promise<{ id: string; revision: number }> {
+  if (getAuthEnv().AUTH_RBAC_ENABLED) {
+    await requireWorkspacePolicy(client, actorId, workspaceId, "workspace:manage");
+    const managed = await client.examWorkspace.findFirst({ where: { id: workspaceId, status: "ACTIVE" }, select: { id: true, revision: true } });
+    if (!managed) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+    return managed;
+  }
   const workspace = await client.examWorkspace.findFirst({
-    where: { id: workspaceId, userId: actorId },
+    where: { id: workspaceId, ...workspaceOwnerWhere(actorId) },
     select: { id: true, revision: true },
   });
   if (!workspace) throw new ApiError("WORKSPACE_NOT_FOUND", 404);

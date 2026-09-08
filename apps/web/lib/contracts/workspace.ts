@@ -10,6 +10,15 @@ export interface ExamWorkspaceDto {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  current?: boolean;
+  membershipRole?: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
+  selectionRevision?: number;
+}
+
+export interface WorkspaceCapabilitiesDto {
+  workspaceId: string;
+  role: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
+  capabilities: string[];
 }
 
 export interface SubjectGroupDto {

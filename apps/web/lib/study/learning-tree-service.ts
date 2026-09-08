@@ -24,6 +24,7 @@ import {
 } from "@areaforge/auth";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { requireWorkspaceOwner, workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import { getAuthEnv } from "@/lib/auth/env";
 import type {
   LearningTreeConfirmResultDto,
@@ -74,7 +75,7 @@ export async function exportActiveLearningTreeMarkdown(
         orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
       },
       notes: {
-        where: { archivedAt: null },
+        where: { ownerUserId: actorId, archivedAt: null },
         orderBy: [{ title: "asc" }, { id: "asc" }],
         include: {
           syllabusNode: { select: { id: true, stableKey: true } },
@@ -84,7 +85,7 @@ export async function exportActiveLearningTreeMarkdown(
         },
       },
       studyResources: {
-        where: { archivedAt: null, sourceType: "LINK" },
+        where: { ownerUserId: actorId, archivedAt: null, sourceType: "LINK" },
         orderBy: [{ title: "asc" }, { id: "asc" }],
         include: {
           syllabusNodeLinks: { select: { syllabusNodeId: true } },
@@ -130,6 +131,7 @@ export async function exportActiveLearningTreeMarkdown(
   const plans = await prisma.planInboxItem.findMany({
     where: {
       workspaceId: workspace.id,
+      ownerUserId: actorId,
       status: "OPEN",
       supersededByItemId: null,
       originType: "learning_tree_plan",
@@ -464,12 +466,12 @@ export async function previewLearningTreeImport(
   const parseOk = parsed.ok && errors.length === 0;
   const sourceSha256 = sha256Hex(input.markdown);
   const canonicalPlanHash = parsed.canonicalMarkdown ? sha256Hex(parsed.canonicalMarkdown) : "";
-  const existing = parseOk ? await loadExistingRefs(workspace.id) : [];
+  const existing = parseOk ? await loadExistingRefs(workspace.id, actorId) : [];
   if (parseOk) prepareLearningTreePlans(parsed.objects, existing, sourceSha256, canonicalPlanHash);
   const items = parseOk ? buildLearningTreeDiff({ incoming: parsed.objects, existing }) : [];
   protectBranchRootMove(items, parsed.objects, existing, input.scope ?? parsed.frontmatter?.scope);
   const missingMilestoneKeys = parseOk
-    ? await findMissingPlanMilestoneKeys(workspace.id, parsed.objects)
+    ? await findMissingPlanMilestoneKeys(workspace.id, actorId, parsed.objects)
     : [];
   if (missingMilestoneKeys.length) {
     markMissingPlanMilestones(items, parsed.objects, missingMilestoneKeys);
@@ -539,6 +541,7 @@ type LearningTreeReadClient = Pick<
 
 async function loadExistingRefs(
   workspaceId: string,
+  ownerUserId: string,
   client: LearningTreeReadClient = prisma,
 ): Promise<LearningTreeExistingRef[]> {
   const groups = await client.subjectGroup.findMany({
@@ -551,6 +554,7 @@ async function loadExistingRefs(
       group: { select: { stableKey: true } },
       syllabusNodes: true,
       notes: {
+        where: { ownerUserId },
         include: {
           syllabusNode: { select: { id: true, stableKey: true } },
           relatedSyllabusNodes: {
@@ -561,7 +565,7 @@ async function loadExistingRefs(
     },
   });
   const resources = await client.studyResource.findMany({
-    where: { workspaceId },
+    where: { workspaceId, ownerUserId },
     select: {
       id: true,
       title: true,
@@ -575,7 +579,7 @@ async function loadExistingRefs(
     },
   });
   const plans = await client.planInboxItem.findMany({
-    where: { workspaceId, originType: "learning_tree_plan" },
+    where: { workspaceId, ownerUserId, originType: "learning_tree_plan" },
     orderBy: [{ originVersion: "desc" }, { updatedAt: "desc" }],
     include: {
       planMilestone: { select: { stableKey: true } },
@@ -950,7 +954,7 @@ export async function confirmLearningTreeImport(
   }
 
   const claimedWorkspace = await prisma.examWorkspace.findFirst({
-    where: { id: claims.workspaceId, userId: actorId },
+    where: { id: claims.workspaceId, ...workspaceOwnerWhere(actorId) },
     select: { id: true, stableKey: true, status: true, revision: true },
   });
   if (!claimedWorkspace) {
@@ -1065,15 +1069,15 @@ export async function confirmLearningTreeImport(
     return await prisma.$transaction(async (tx) => {
       const lockedRows = await tx.$queryRaw<Array<{ revision: number }>>`
         SELECT revision FROM "ExamWorkspace"
-        WHERE id = ${workspace.id} AND "userId" = ${actorId} AND status = 'ACTIVE'
+        WHERE id = ${workspace.id} AND status = 'ACTIVE'
         FOR UPDATE
       `;
-      const prior = await tx.learningTreeImportBatch.findUnique({
+      await requireWorkspaceOwner(tx, actorId, workspace.id, { active: true });
+      const prior = await tx.learningTreeImportBatch.findFirst({
         where: {
-          workspaceId_idempotencyKey: {
-            workspaceId: workspace.id,
-            idempotencyKey: input.idempotencyKey,
-          },
+          workspaceId: workspace.id,
+          idempotencyKey: input.idempotencyKey,
+          ...learningTreeImportActorWhere(actorId),
         },
       });
       if (prior) return reuseLearningTreeImport(prior, requestFingerprint);
@@ -1107,11 +1111,11 @@ export async function confirmLearningTreeImport(
         );
       }
 
-      const existing = await loadExistingRefs(workspace.id, tx);
+      const existing = await loadExistingRefs(workspace.id, actorId, tx);
       prepareLearningTreePlans(parsed.objects, existing, sourceSha256, canonicalPlanHash);
       const diffItems = buildLearningTreeDiff({ incoming: parsed.objects, existing });
       protectBranchRootMove(diffItems, parsed.objects, existing, claims.scope);
-      const missingMilestoneKeys = await findMissingPlanMilestoneKeys(workspace.id, parsed.objects, tx);
+      const missingMilestoneKeys = await findMissingPlanMilestoneKeys(workspace.id, actorId, parsed.objects, tx);
       markMissingPlanMilestones(diffItems, parsed.objects, missingMilestoneKeys);
       const currentDiffSnapshotHash = createLearningTreeDiffSnapshotHash(diffItems, existing);
       if (currentDiffSnapshotHash !== claims.diffSnapshotHash) {
@@ -1316,7 +1320,7 @@ export async function confirmLearningTreeImport(
       }
 
       const revisionChanged = await tx.examWorkspace.updateMany({
-        where: { id: workspace.id, userId: actorId, status: "ACTIVE", revision: claims.rootRevision },
+        where: { id: workspace.id, ...workspaceOwnerWhere(actorId), status: "ACTIVE", revision: claims.rootRevision },
         data: { revision: { increment: 1 } },
       });
       if (revisionChanged.count !== 1) {
@@ -1384,7 +1388,7 @@ export async function confirmLearningTreeImport(
     if (error instanceof ApiError) {
       if (error.status !== 409) throw error;
       const latestWorkspace = await prisma.examWorkspace.findFirst({
-        where: { id: workspace.id, userId: actorId },
+        where: { id: workspace.id, ...workspaceOwnerWhere(actorId) },
         select: { id: true, status: true, revision: true },
       });
       throw completeLearningTreeConfirmConflict(error, {
@@ -1395,12 +1399,11 @@ export async function confirmLearningTreeImport(
     }
     const retryable = isRetryableTransactionError(error);
     if (isUnique(error) || retryable) {
-      const raced = await prisma.learningTreeImportBatch.findUnique({
+      const raced = await prisma.learningTreeImportBatch.findFirst({
         where: {
-          workspaceId_idempotencyKey: {
-            workspaceId: workspace.id,
-            idempotencyKey: input.idempotencyKey,
-          },
+          workspaceId: workspace.id,
+          idempotencyKey: input.idempotencyKey,
+          ...learningTreeImportActorWhere(actorId),
         },
       });
       if (raced) return reuseLearningTreeImport(raced, requestFingerprint);
@@ -1634,6 +1637,7 @@ function isRetryableTransactionError(error: unknown): boolean {
 
 async function findMissingPlanMilestoneKeys(
   workspaceId: string,
+  ownerUserId: string,
   objects: LearningTreeObject[],
   client: Pick<Prisma.TransactionClient, "planMilestone"> = prisma,
 ): Promise<string[]> {
@@ -1642,7 +1646,7 @@ async function findMissingPlanMilestoneKeys(
   )));
   if (!keys.length) return [];
   const existing = await client.planMilestone.findMany({
-    where: { workspaceId, stableKey: { in: keys }, archivedAt: null },
+    where: { workspaceId, ownerUserId, stableKey: { in: keys }, archivedAt: null },
     select: { stableKey: true },
   });
   const existingKeys = new Set(existing.map((milestone) => milestone.stableKey));
@@ -1672,7 +1676,8 @@ export async function listLearningTreeImports(
 ): Promise<LearningTreeImportBatchSummaryDto[]> {
   const rows = await prisma.learningTreeImportBatch.findMany({
     where: {
-      workspace: { userId: actorId },
+      ...learningTreeImportActorWhere(actorId),
+      workspace: workspaceOwnerWhere(actorId),
       archivedAt: options?.includeArchived ? undefined : null,
     },
     orderBy: [{ confirmedAt: "desc" }],
@@ -1705,7 +1710,7 @@ export async function getLearningTreeImport(
   batchId: string,
 ): Promise<LearningTreeImportBatchDetailDto> {
   const row = await prisma.learningTreeImportBatch.findFirst({
-    where: { id: batchId, workspace: { userId: actorId } },
+    where: { id: batchId, ...learningTreeImportActorWhere(actorId), workspace: workspaceOwnerWhere(actorId) },
     include: {
       workspace: { select: { status: true, revision: true } },
       items: { orderBy: [{ createdAt: "asc" }] },
@@ -1753,7 +1758,7 @@ export async function setLearningTreeImportArchived(
   return prisma.$transaction(async (tx) => {
     const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
     const row = await tx.learningTreeImportBatch.findFirst({
-      where: { id: batchId, workspaceId: workspace.id },
+      where: { id: batchId, workspaceId: workspace.id, ...learningTreeImportActorWhere(actorId) },
       include: {
         workspace: { select: { status: true, revision: true } },
         _count: { select: { items: true } },
@@ -1788,7 +1793,7 @@ export async function exportLearningTreeImportCanonical(
   batchId: string,
 ): Promise<{ markdown: string; filename: string; workspaceId: string }> {
   const row = await prisma.learningTreeImportBatch.findFirst({
-    where: { id: batchId, workspace: { userId: actorId } },
+    where: { id: batchId, ...learningTreeImportActorWhere(actorId), workspace: workspaceOwnerWhere(actorId) },
     select: {
       id: true,
       workspaceId: true,
@@ -1806,6 +1811,12 @@ export async function exportLearningTreeImportCanonical(
 
 function isUnique(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function learningTreeImportActorWhere(actorId: string): { actorId?: string } {
+  // Legacy single-user imports may have a null actorId.  Once multi-user is
+  // enabled, null/other-actor history is intentionally fail-closed.
+  return getAuthEnv().AUTH_MULTI_USER_ENABLED ? { actorId } : {};
 }
 
 function serializeLearningTreeImportSummary(row: {

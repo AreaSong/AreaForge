@@ -15,6 +15,7 @@ import {
 } from "./recovery-state-contract";
 import type { FinishRecoveryStateInput, StartManualRecoveryStateInput } from "./study-service-contracts";
 import { normalizeOptionalText } from "./study-text";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import type { RecoveryStateDto, StudyTaskDto, TodayDashboardDto } from "@/lib/contracts";
 
 const recoveryStateLockKey = 2026070703;
@@ -24,11 +25,14 @@ export async function startManualRecoveryState(
   actorId: string,
 ): Promise<RecoveryStateDto> {
   const state = await prisma.$transaction(async (tx) => {
+    const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
     await lockRecoveryState(tx);
-    const activeState = await findActiveRecoveryState(tx);
+    const activeState = await findActiveRecoveryState(actorId, workspace.id, tx);
     if (activeState) return activeState;
     return tx.recoveryState.create({
       data: {
+        userId: actorId,
+        workspaceId: workspace.id,
         status: "active",
         triggerType: "manual",
         targetMinutes: normalizeRecoveryTargetMinutes(input.targetMinutes, 30),
@@ -43,12 +47,12 @@ export async function startManualRecoveryState(
   return serializeRecoveryState(state);
 }
 
-export async function completeRecoveryState(id: string, input: FinishRecoveryStateInput): Promise<RecoveryStateDto> {
-  return finishRecoveryState(id, "completed", input.exitCondition, "用户标记恢复完成");
+export async function completeRecoveryState(id: string, actorId: string, input: FinishRecoveryStateInput): Promise<RecoveryStateDto> {
+  return finishRecoveryState(id, actorId, "completed", input.exitCondition, "用户标记恢复完成");
 }
 
-export async function cancelRecoveryState(id: string, input: FinishRecoveryStateInput): Promise<RecoveryStateDto> {
-  return finishRecoveryState(id, "canceled", input.exitCondition, "用户取消恢复状态");
+export async function cancelRecoveryState(id: string, actorId: string, input: FinishRecoveryStateInput): Promise<RecoveryStateDto> {
+  return finishRecoveryState(id, actorId, "canceled", input.exitCondition, "用户取消恢复状态");
 }
 
 export async function createRuleRecoveryState(input: {
@@ -63,7 +67,9 @@ export async function createRuleRecoveryState(input: {
 }): Promise<RecoveryStateRecord> {
   return prisma.$transaction(async (tx) => {
     await lockRecoveryState(tx);
-    const activeState = await findActiveRecoveryState(tx);
+    const activeState = input.actorId
+      ? await findActiveRecoveryState(input.actorId, null, tx)
+      : null;
     if (activeState) return activeState;
     return tx.recoveryState.create({
       data: {
@@ -73,6 +79,7 @@ export async function createRuleRecoveryState(input: {
         visibleTaskLimit: normalizeRecoveryVisibleTaskLimit(input.plan.visibleTaskLimit, 1),
         reason: input.plan.reason,
         actorId: input.actorId,
+        userId: input.actorId,
         metadata: {
           source: "dashboard_rule",
           action: input.plan.action,
@@ -89,8 +96,26 @@ export async function createRuleRecoveryState(input: {
   });
 }
 
-export async function findActiveRecoveryState(client: PrismaClientLike = prisma): Promise<RecoveryStateRecord | null> {
-  return client.recoveryState.findFirst({ where: { status: "active" }, orderBy: { startedAt: "desc" } });
+export async function findActiveRecoveryState(
+  actorId: string,
+  workspaceId: string | null,
+  client: PrismaClientLike = prisma,
+): Promise<RecoveryStateRecord | null> {
+  return client.recoveryState.findFirst({
+    where: {
+      status: { in: ["active", "ACTIVE"] },
+      OR: workspaceId
+        ? [
+            { userId: actorId, workspaceId },
+            { actorId, userId: null, workspaceId: null },
+          ]
+        : [
+            { userId: actorId },
+            { actorId, userId: null },
+          ],
+    },
+    orderBy: { startedAt: "desc" },
+  });
 }
 
 export async function lockRecoveryState(client: Prisma.TransactionClient): Promise<void> {
@@ -140,15 +165,25 @@ export function createDashboardRecoveryFromState(
 
 async function finishRecoveryState(
   id: string,
+  actorId: string,
   status: Exclude<RecoveryStateStatus, "active">,
   exitCondition: string | undefined,
   fallbackExitCondition: string,
 ): Promise<RecoveryStateDto> {
   const state = await prisma.$transaction(async (tx) => {
+    const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
     await lockRecoveryState(tx);
-    const existing = await tx.recoveryState.findUnique({ where: { id } });
+    const existing = await tx.recoveryState.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId: actorId, workspaceId: workspace.id },
+          { actorId, userId: null, workspaceId: null },
+        ],
+      },
+    });
     if (!existing) throw new ApiError("RECOVERY_STATE_NOT_FOUND", 404);
-    if (existing.status !== "active") {
+    if (existing.status !== "active" && existing.status !== "ACTIVE") {
       if (existing.status === status) return existing;
       throw new ApiError("RECOVERY_STATE_ALREADY_FINISHED", 409);
     }

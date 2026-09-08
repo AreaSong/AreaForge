@@ -1,17 +1,18 @@
 import { prisma, type Prisma } from "@areaforge/db";
 import type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 import { getStudyDayRange } from "./date";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import type { StudySessionEvidenceReceiptDto, StudySessionEvidenceTypeDto } from "@/lib/contracts";
 
 export type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 
 export async function getDailyReviewFacts(actorId: string, targetDate = new Date()): Promise<DailyReviewFactsDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const day = getStudyDayRange(targetDate);
   const [sessions, tasks, reviewEvents] = await Promise.all([
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         status: "COMPLETED",
         startedAt: { gte: day.start, lt: day.end },
@@ -28,6 +29,7 @@ export async function getDailyReviewFacts(actorId: string, targetDate = new Date
     }),
     prisma.studyTask.findMany({
       where: {
+        ownerUserId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         plannedDate: { gte: day.start, lt: day.end },
       },
@@ -37,7 +39,7 @@ export async function getDailyReviewFacts(actorId: string, targetDate = new Date
       where: {
         learningDate: day.start,
         correctedEventId: null,
-        reviewSchedule: { workspaceId: workspace.id },
+        reviewSchedule: { workspaceId: workspace.id, ownerUserId: actorId },
       },
       select: { id: true },
     }),

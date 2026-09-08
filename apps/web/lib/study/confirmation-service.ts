@@ -8,7 +8,7 @@ import { getPeriodicReport } from "./reports-service";
 import { listSimulationExams } from "./simulation-service";
 import { listStageAdjustmentDrafts } from "./stage-service";
 import { listKnowledgeRetests } from "./knowledge-retest-service";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import {
   aiConfirmationCapability,
   isSimulationReadyForConfirmation,
@@ -31,7 +31,7 @@ export type {
 } from "@/lib/contracts/confirmation";
 
 export async function listConfirmationItems(actorId: string, filter: ConfirmationFilter): Promise<ConfirmationItemDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const [week, month, stageDrafts, simulations, retests, aiOperations] = await Promise.all([
     getPeriodicReport("week", new Date(), actorId),
     getPeriodicReport("month", new Date(), actorId),

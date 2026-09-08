@@ -1,6 +1,6 @@
 # 认证与安全边界
 
-第一版采用单管理员账号，不引入多用户、OAuth 或复杂 RBAC。
+稳定 Release/生产采用单管理员账号，不引入 OAuth 或复杂 RBAC。v1.4 本地候选在默认关闭的功能开关后增加邀请制账户、Workspace/Membership 和账户安全；v1.5 才承接复杂 RBAC。
 
 ## 第一版认证方案
 
@@ -31,13 +31,23 @@ Cookie 要求：
 - `Path: /`。
 - 第一版有效期默认 7 天。
 
-注销时必须删除当前 Cookie，并删除或失效数据库中的当前会话记录。
+注销时必须删除当前 Cookie，并撤销数据库中的当前会话记录，同时保留不含 token 的撤销原因用于账户安全审计。
 
 ## 登录限速
 
-- 第一版提供基础限速，按 IP + email 维度限制连续失败登录。
-- 限速实现可以先使用进程内存；后续多实例部署时再提升到数据库或 Redis。
+- 稳定第一版提供基础限速；v1.4 本地候选已改为 PostgreSQL 持久 bucket，按 session/account/IP 或 email/IP 多维预占登录、邀请、重置、重新验证和密码修改尝试，多实例重启不会清空防护。
 - 登录失败日志不记录密码、明文 session token 或完整请求体。
+
+## v1.4 本地候选
+
+- 只允许邀请制开户，不提供公开注册。
+- `User.status/authRevision`、session revision、撤销和密码变更共同保证冻结、重置或撤销后的旧 session 在下一请求失效。
+- 邀请、邮箱验证和密码重置使用至少 256 bit 随机 token；数据库只保存 purpose-separated hash，链接使用 URL fragment 并由客户端读取后清理。
+- `/settings/account` 管理账户状态、邮箱验证、设备会话、重新验证和密码修改；修改密码撤销旧当前会话并签发新 token。
+- `WorkspaceMembership` 在 v1.4 只有 OWNER/MEMBER；`WorkspaceSelection` 只是导航状态。学习正文继续 owner-only，直到 v1.5 policy/grant 明确授权。
+- 身份邮件只由 server-only SMTP adapter 投递；生产配置不完整时 fail closed，587 端口强制 STARTTLS。
+- 忘记密码对有效与未知账户保持相同响应，并使用统一最小时延和随机抖动降低枚举时间差；SMTP 长尾仍由未来持久后台邮件任务进一步隔离。
+- 默认 `AUTH_MULTI_USER_ENABLED=false`。当前实现与隔离验证不等于新 Release 或生产启用。
 
 ## 审计
 

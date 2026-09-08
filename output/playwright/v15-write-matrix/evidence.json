@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "v15-rbac-browser-write-matrix-v1",
+  "status": "pass",
+  "generatedAt": "2026-09-07T01:34:13+08:00",
+  "contentClassification": "synthetic-only",
+  "runtime": {
+    "database": "areaforge_v15rbac_write_matrix_20260907_01",
+    "url": "http://127.0.0.1:43214",
+    "runtimeMode": "production-build",
+    "sourceGitCommit": "511ca34e9cb6e26b3e4b13098977e8cbdc87559c",
+    "sourceFingerprint": "sha256:912ba6a620d9ce979b3f4934ff678e15a24d3112afde45faecfedfe6cf55882d"
+  },
+  "flows": {
+    "owner": [
+      "member role MEMBER→VIEWER→MEMBER",
+      "invitation create→revoke",
+      "USER grant create→COACH→revoke",
+      "all mutations required reauthentication",
+      "audit rows written"
+    ],
+    "coach": [
+      "Coach creates suggestion from explicit COACH grant",
+      "suggestion appears PENDING",
+      "owner later accepts in same isolated fixture"
+    ],
+    "operator": [
+      "target account suspend→restore",
+      "suspend invalidates active sessions and increments authRevision",
+      "target session revoke",
+      "two-step UI confirmation and reauthentication"
+    ]
+  },
+  "databaseReadback": {
+    "memberRole": "MEMBER",
+    "memberRevision": 3,
+    "invitationStatus": "REVOKED",
+    "grantAccess": "COACH",
+    "grantRevoked": true,
+    "suggestionStatus": "ACCEPTED",
+    "planInboxCreated": true,
+    "planInboxOwnerMatches": true,
+    "viewerStatus": "ACTIVE",
+    "viewerAuthRevision": 3,
+    "memberActiveSessions": 0,
+    "viewerActiveSessions": 0,
+    "auditActionsVerified": [
+      "WORKSPACE_MEMBER_ROLE_CHANGED",
+      "WORKSPACE_INVITATION_CREATED",
+      "WORKSPACE_INVITATION_REVOKED",
+      "WORKSPACE_SHARE_GRANT_CREATED",
+      "WORKSPACE_SHARE_GRANT_UPDATED",
+      "WORKSPACE_SHARE_GRANT_REVOKED",
+      "COACH_SUGGESTION_CREATED",
+      "COACH_SUGGESTION_ACCEPTED",
+      "PLATFORM_ACCOUNT_STATUS_CHANGED",
+      "PLATFORM_ACCOUNT_SESSIONS_REVOKED"
+    ]
+  },
+  "browserEvidence": {
+    "desktopViewport": "1280x900",
+    "mobileViewport": "390x844",
+    "consoleErrors": 0,
+    "screenshots": [
+      "owner-write-flow.png",
+      "operator-write-flow.png",
+      "coach-write-flow.png"
+    ]
+  },
+  "safetyFacts": {
+    "isolatedDatabaseUsed": true,
+    "isolatedDatabaseCleaned": true,
+    "browserSessionsCleaned": true,
+    "oneShotRuntimeCleaned": true,
+    "productionWriteAttempted": false,
+    "sharedDatabaseMigrationAttempted": false,
+    "physicalDeleteAttempted": false,
+    "serverCommandExecutionAttempted": false,
+    "realEmailDelivered": false
+  },
+  "doesNotProve": [
+    "production migration or production feature enablement",
+    "protected PR/merge or signed Release",
+    "real SMTP delivery",
+    "full browser matrix for every invite/role/grant failure variant"
+  ]
+}

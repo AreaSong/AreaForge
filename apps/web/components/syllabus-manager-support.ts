@@ -35,6 +35,7 @@ export function createSyllabusUpdateBaseline(node: SyllabusNodeDto): SyllabusUpd
   return {
     id: node.id,
     revision: node.revision,
+    progressRevision: node.progressRevision,
     parentId: node.parentId,
     title: node.title,
     kind: node.kind,
@@ -49,6 +50,7 @@ export function createSyllabusUpdateBaseline(node: SyllabusNodeDto): SyllabusUpd
 export function buildSyllabusConflictComparisons(conflict: SyllabusConflict): ConflictComparison[] {
   const fields = Array.from(new Set([
     "revision",
+    "progressRevision",
     ...conflict.conflictFields,
     ...Object.keys(conflict.submission.body),
   ]));
@@ -58,6 +60,8 @@ export function buildSyllabusConflictComparisons(conflict: SyllabusConflict): Co
     baseline: readSyllabusConflictValue(conflict.baseline, field),
     local: field === "revision"
       ? conflict.submission.expectedRevision
+      : field === "progressRevision"
+        ? conflict.submission.expectedProgressRevision
       : conflict.submission.body[field as keyof UpdateNodeBody]
         ?? readSyllabusConflictValue(conflict.baseline, field),
     server: readSyllabusConflictValue(conflict.latest, field),
@@ -65,7 +69,7 @@ export function buildSyllabusConflictComparisons(conflict: SyllabusConflict): Co
 }
 
 export function collectClientConflictFields(body: UpdateNodeBody, latest: SyllabusNodeDto): string[] {
-  const fields = ["revision"];
+  const fields = ["revision", "progressRevision"];
   for (const [field, value] of Object.entries(body)) {
     const latestValue = readSyllabusConflictValue(latest, field);
     if (JSON.stringify(value) !== JSON.stringify(latestValue)) fields.push(field);
@@ -83,6 +87,7 @@ function readSyllabusConflictValue(
 function labelSyllabusConflictField(field: string): string {
   const labels: Record<string, string> = {
     revision: "版本",
+    progressRevision: "个人进度版本",
     parentId: "父节点",
     title: "标题",
     kind: "类型",
@@ -143,6 +148,8 @@ export function isSyllabusUpdateSubmission(value: unknown): value is SyllabusUpd
   return typeof value.nodeId === "string"
     && Number.isInteger(value.expectedRevision)
     && value.expectedRevision as number > 0
+    && Number.isInteger(value.expectedProgressRevision)
+    && value.expectedProgressRevision as number >= 0
     && typeof value.baseline.id === "string"
     && Number.isInteger(value.baseline.revision);
 }
@@ -151,6 +158,7 @@ export function isSyllabusNodeDto(value: unknown): value is SyllabusNodeDto {
   return isRecord(value)
     && typeof value.id === "string"
     && Number.isInteger(value.revision)
+    && Number.isInteger(value.progressRevision)
     && typeof value.title === "string"
     && syllabusNodeStatuses.includes(value.status as SyllabusNodeStatusDto)
     && Array.isArray(value.masteryConditions);

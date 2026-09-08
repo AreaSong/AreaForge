@@ -1,16 +1,16 @@
 import { prisma } from "@areaforge/db";
 import { listCheckInSnapshotsInRange } from "./check-in-service";
 import { getStudyDayRange } from "./date";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { getEffectiveStudyStreak } from "./study-day-metrics";
 import { serializeSubject } from "./subject-serializer";
 import { serializeTask } from "./task-serializer";
 import type { FocusLauncherSummaryDto, StudyTaskDto, SubjectDto } from "@/lib/contracts";
 
 export async function listStudyTasks(actorId: string): Promise<StudyTaskDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const tasks = await prisma.studyTask.findMany({
-    where: { subject: { workspaceId: workspace.id } },
+    where: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
     include: {
       subject: true,
       syllabusNode: true,
@@ -25,7 +25,7 @@ export async function listStudyTasks(actorId: string): Promise<StudyTaskDto[]> {
 }
 
 export async function listSubjects(actorId: string): Promise<SubjectDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const subjects = await prisma.subject.findMany({
     where: { workspaceId: workspace.id, archivedAt: null },
     orderBy: { sortOrder: "asc" },
@@ -38,7 +38,7 @@ export async function getFocusLauncherSummary(
   actorId: string,
   now = new Date(),
 ): Promise<FocusLauncherSummaryDto> {
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const day = getStudyDayRange(now);
   const weeklyStart = new Date(day.start.getTime() - 6 * 24 * 60 * 60 * 1000);
   const recentStart = new Date(day.start.getTime() - 60 * 24 * 60 * 60 * 1000);
@@ -46,6 +46,7 @@ export async function getFocusLauncherSummary(
   const [todaySessions, weeklySessions, checkInSnapshots] = await Promise.all([
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: { gte: day.start, lt: day.end },
         status: "COMPLETED",
@@ -55,6 +56,7 @@ export async function getFocusLauncherSummary(
     }),
     prisma.studySession.findMany({
       where: {
+        userId: actorId,
         subject: { workspaceId: workspace.id, archivedAt: null },
         startedAt: { gte: weeklyStart, lt: day.end },
         status: "COMPLETED",
@@ -62,7 +64,7 @@ export async function getFocusLauncherSummary(
       select: { id: true, subjectId: true, effectiveMinutes: true, startedAt: true },
       orderBy: { startedAt: "desc" },
     }),
-    listCheckInSnapshotsInRange(recentStart, day.end, prisma, workspace.id),
+    listCheckInSnapshotsInRange(actorId, recentStart, day.end, prisma, workspace.id),
   ]);
 
   const subjectWeeklyStats: FocusLauncherSummaryDto["subjectWeeklyStats"] = {};

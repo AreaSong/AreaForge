@@ -66,6 +66,7 @@ export interface UpdateExamWorkspaceInput {
   name?: string;
   targetExamDate?: string | null;
   stageSummary?: string | null;
+  archived?: boolean;
 }
 
 export interface CreateWorkspaceSubjectInput {
@@ -121,10 +122,11 @@ export function updateExamWorkspace(
 export function activateExamWorkspace(
   workspaceId: string,
   expectedRevision: number,
+  expectedSelectionRevision?: number,
 ): Promise<ApiResult<WorkspaceMutationResponse>> {
   return requestApiResult(
     `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/activate`,
-    createJsonRequest("POST", { expectedRevision }),
+    createJsonRequest("POST", { expectedRevision, expectedSelectionRevision }),
   );
 }
 

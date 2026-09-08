@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-07-31（生产运行 `v1.1.0` / commit `4dbdb31a96498487af09aa7f90275bfc549448f3`；仓库 package version 为 `1.1.1`，正在验证尚未发布或部署的发布后产品化修复）
+快照日期：2026-09-06（生产运行 `v1.1.1`；最新稳定 Release `v1.2.0` 已发布但尚未 production apply；当前 A→B v1.3 已合并，v1.4-v1.8 为默认关闭的本地候选）
 
 ## 四态与映射
 
@@ -61,10 +61,10 @@
 | `module.motivation-vault` | 动机封存 | done | `MotivationVault`、`/api/motivation-vault` | AI 默认不读取动机档案 |
 | `module.stage-levels` | 阶段称号 | done | `packages/core` 阶段规则 | 与模拟成绩联动已由第二阶段完成 |
 | `module.analytics` | 基础统计 | done | `packages/core/analytics-summary.ts`、`/api/analytics/summary` | CheckIn 快照 + 长期风险 DTO 已接入 |
-| `module.persistence` | 数据持久化 | done | `prisma/schema.prisma`（23 model / 9 enum） | PostgreSQL 主状态源；生产备份/恢复/回滚证据已闭环 |
-| `scope.multi-user` | 多用户系统 | wont | feature-scope 暂缓表 | 单管理员自用定位，明确不做 |
-| `scope.ranking` | 排名系统 | wont | 同上 | 不符合个人备考定位 |
-| `scope.rbac` | 复杂权限系统 | wont | 同上 | 单管理员阶段不引入 RBAC |
+| `module.persistence` | 数据持久化 | done | `prisma/schema.prisma`（以当前 Prisma schema 为准） | PostgreSQL 主状态源；生产备份/恢复/回滚证据以对应 Release/ops 记录为准 |
+| `scope.multi-user` | 多用户系统 | partial | `workflow/versions/v1.3-v2.0-platform-evolution.md`、`tasks/active/0040-multi-user-rbac.md` | A→B 路线中的邀请制多人能力已进入 v1.4 本地实现；Release/生产证据仍缺，不能按稳定能力开放 |
+| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`apps/web/lib/notifications/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊、投影、持久申诉、成员/Owner 申诉 UI、持久排名通知和删除预览已进入默认关闭的本地候选；完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
+| `scope.rbac` | 复杂权限系统 | partial | `tasks/active/0044-rbac-privacy-collaboration.md`、`output/playwright/v15-role-matrix/evidence.json`、`output/playwright/v15-write-matrix/evidence.json`、`output/playwright/v15-failure-matrix/evidence.json` | v1.5 预设角色、对象分享、Coach 协作、成员 PlanInbox 转 actor-owned 任务、脱敏 Operator 账户目录、六类身份可见性、代表性浏览器写入、17 项浏览器失败矩阵、App Shell/每日复盘 actor/owner 查询隔离和 `StudyTask.ownerUserId` 非空收紧已进入本地候选；runner 检查点 `6568c87` / branch CI `34119581102` 已通过；受保护 PR/合并与 Release/生产证据仍缺 |
 
 ## 3. 第二阶段长期闭环
 
@@ -87,15 +87,15 @@
 | `loop.motivation-wake` | 动机唤醒机制 | done | `packages/core` `evaluateMotivationWake` | 只展示唤醒信号，不进 AI 默认上下文 |
 | `loop.stage-plan` | 持久阶段计划与调整草稿 | done | `StagePlan/StageAdjustmentDraft`、confirm/reject API | 草稿确认边界持久化 |
 | `loop.report-auto-apply` | 报告驱动自动任务/阶段应用 | planned | traceability「后续承接」列 | 明确不进当前范围；启动需单独高风险确认 |
-| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；首次设置、科目管理和核心页面产品化修复已形成 `v1.1.1` Release，尚未 production apply |
-| `future.knowledge-canvas` | 全局知识关联画布 | done | `/knowledge/canvas`、`tasks/done/0032-v11-batch8-canvas-knowledge.md` | 派生关系、分层加载、个人布局和等价列表已进入 `v1.1.0` 生产；当前导航与视觉收敛仍待修复 Release |
+| `future.v1.1` | v1.1 学习行动中心 | done | `workflow/versions/v1.1-learning-action-center.md`、`docs/development/feature-traceability.md` | Batch 3–11 已形成 `v1.1.0` Release 并进入生产；`v1.1.1` 已于 2026-08-01 受控 apply 到生产；后续 `v1.2.0` 已发布但尚未 apply |
+| `future.knowledge-canvas` | 全局知识关联画布 | done | `/knowledge/canvas`、`tasks/done/0032-v11-batch8-canvas-knowledge.md` | 派生关系、分层加载、个人布局和等价列表已进入 `v1.1.1` 生产；后续体验收敛随新 Release 处理 |
 
 ## 4. AI 边界
 
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `ai.provider` | OpenAI-compatible provider 接入 | done | `packages/ai/src/index.ts`、`AI_ENABLED` | 普通首页 SSR 不触发外呼 |
-| `ai.browser-opt-in` | 外部 Provider 当前浏览器偏好 | done | `/settings/ai`、`GET|PATCH /api/ai/preferences`、八条鉴权 AI POST route | 已随 `v1.1.0` 进入生产；HttpOnly 当前浏览器偏好默认关闭，八条鉴权显式 POST 路径统一 gate |
+| `ai.browser-opt-in` | 外部 Provider 当前浏览器偏好 | done | `/settings/ai`、`GET|PATCH /api/ai/preferences`、八条鉴权 AI POST route | 已随 `v1.1.1` 进入生产；HttpOnly 当前浏览器偏好默认关闭，八条鉴权显式 POST 路径统一 gate |
 | `ai.discipline` | 鞭策文案 | done | `/api/ai/discipline` | 配置完整时显式外呼，首页仍展示本地规则 |
 | `ai.daily-review` | AI 复盘建议 | done | `/api/ai/daily-review` | 只发送聚合字段，不发完整复盘正文 |
 | `ai.tomorrow-plan` | AI 明日任务建议 | done | `/api/ai/tomorrow-plan` | 任务标题默认脱敏后不进入外呼 |
@@ -155,7 +155,7 @@
 | `ops.alerting` | 告警策略与演练 | partial | `pnpm ops:alert:preview`、`AF-RISK-OPS-004` | 演练记录达 ready；外部告警接收人与 dashboard 未产品化 |
 | `ops.evidence-chain` | 运营证据链工具族 | done | `ops:status/handoff/evidence:bundle/long-term:gate\|snapshot` | 只读聚合与校验，不等于执行 |
 | `ops.post-release-obs` | 发布后 D14/D30 观察 | done | `post-release-observation-*` | UTC 日历日精确计算；不自动关闭 residual |
-| `ops.v018-release` | v0.1.8 发布候选 | planned | `workflow/versions/v0.1.8-long-term-operability.md` | 维护者决定搁置；生产仍运行 v0.1.7 |
+| `ops.v018-release` | v0.1.8 发布候选 | historical | `workflow/versions/v0.1.8-long-term-operability.md` | 历史上由维护者决定搁置；当前生产身份以本文件顶部与 `operational-readiness.md` 为准，不沿用当时的 v0.1.7 叙述 |
 | `scope.web-exec` | Web runtime 直接执行服务器命令 | wont | AGENTS.md 高风险边界 | 永久禁区；受控请求 + 服务器侧 updater 是替代方案 |
 
 ## 8. 仓库治理约定

@@ -11,12 +11,14 @@ import { parseMotivationVaultSnapshot, serializeMotivationVault } from "./motiva
 import type { SaveMotivationVaultInput } from "./study-service-contracts";
 import type { MotivationVaultDto } from "@/lib/contracts";
 
-export async function getMotivationVault(): Promise<MotivationVaultDto | null> {
-  const vault = await prisma.motivationVault.findFirst({ orderBy: { createdAt: "asc" } });
+export async function getMotivationVault(actorId: string): Promise<MotivationVaultDto | null> {
+  const vault = await prisma.motivationVault.findUnique({ where: { userId: actorId } });
   return vault ? serializeMotivationVault(vault) : null;
 }
 
-export const getMotivationVaultShared = cache(async (): Promise<MotivationVaultDto | null> => getMotivationVault());
+export const getMotivationVaultShared = cache(
+  async (actorId: string): Promise<MotivationVaultDto | null> => getMotivationVault(actorId),
+);
 
 export async function saveMotivationVault(
   input: SaveMotivationVaultInput,
@@ -36,7 +38,7 @@ export async function saveMotivationVault(
   });
 
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(8197, 1101)`;
+    await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(8197, hashtext(${actorId}))`;
     const command = {
       actorId,
       workspaceId: `user-global:${actorId}`,
@@ -50,12 +52,12 @@ export async function saveMotivationVault(
     if (replay) {
       const snapshot = parseMotivationVaultSnapshot(replay.resultSnapshot);
       if (snapshot) return snapshot;
-      const existingResult = await tx.motivationVault.findUnique({ where: { id: replay.resultId } });
+      const existingResult = await tx.motivationVault.findFirst({ where: { id: replay.resultId, userId: actorId } });
       if (!existingResult) throw new ApiError("MOTIVATION_VAULT_IDEMPOTENCY_RESULT_NOT_FOUND", 409);
       return serializeMotivationVault(existingResult);
     }
 
-    const existing = await tx.motivationVault.findFirst({ orderBy: { createdAt: "asc" } });
+    const existing = await tx.motivationVault.findUnique({ where: { userId: actorId } });
     const currentUpdatedAt = existing?.updatedAt.toISOString() ?? null;
     if (currentUpdatedAt !== input.expectedUpdatedAt) {
       throw new ApiError("MOTIVATION_VAULT_REVISION_CONFLICT", 409, {
@@ -66,7 +68,7 @@ export async function saveMotivationVault(
     }
     const vault = existing
       ? await tx.motivationVault.update({ where: { id: existing.id }, data })
-      : await tx.motivationVault.create({ data });
+      : await tx.motivationVault.create({ data: { ...data, userId: actorId } });
     const result = serializeMotivationVault(vault);
     await recordPersistentCreateResult(tx, command, vault.id, {
       resultSnapshot: result as unknown as Prisma.InputJsonObject,

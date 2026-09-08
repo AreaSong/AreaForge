@@ -641,6 +641,7 @@ async function requestRaw(path: string, options: { method?: "GET" | "POST"; body
       method: options.method ?? "GET",
       headers: {
         Accept: "application/json",
+        ...((options.method ?? "GET") !== "GET" ? { Origin: new URL(baseUrl).origin } : {}),
         ...(options.body ? { "Content-Type": "application/json" } : {}),
         ...(options.cookie ? { Cookie: options.cookie } : {}),
       },

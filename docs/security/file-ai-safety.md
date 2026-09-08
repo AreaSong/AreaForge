@@ -100,7 +100,7 @@ AI 不允许：
 - 导入 confirm 的数据生命周期边界已确认，允许隔离验证；`AF-RISK-DATA-001` 仍保持 `deferred-work`，不因候选实现或发布自动关闭。
 - LINK 资料不得由服务端 fetch/redirect；通知默认隐藏具体标题。
 - AI 草稿仍禁止附件、未选择正文与完整动机/复盘外呼。
-- 物理删除资料或导入历史、备份副本同步删除、用户迁移与完整账户导出不在当前范围。
+- v1.6 纯 Core 候选只在内存中构造已脱敏的确定性 ZIP，并用真实字节 SHA-256 绑定 manifest；写出必须经显式注入 sink，不能读取 `UPLOAD_DIR`、数据库、备份或网络。删除状态机默认不可执行，只演练重新验证、冷静期、冻结、范围 fingerprint、kill-point 和补偿重试；deletion ledger 只生成不可变哈希链和 `executionAllowed=false` 的恢复重放计划。物理删除资料或导入历史、账本持久化/执行、备份副本同步删除、用户迁移与完整账户导出服务仍不在当前可执行范围。
 
 权威规格见 `workflow/versions/v1.1-learning-action-center.md`。
 

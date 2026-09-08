@@ -9,7 +9,7 @@ import { prisma } from "@areaforge/db";
 import type { LongTermRiskSummaryDto } from "@/lib/contracts/analytics";
 import { getAnalyticsSummaryShared } from "./analytics-service";
 import { getStudyDayRange, optionalDaysUntil } from "./date";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { getTodayDashboardShared } from "./dashboard-query-service";
 import { getSyllabusMapOverviewShared } from "./syllabus-service";
 import type { SyllabusNodeDto } from "@/lib/contracts";
@@ -20,13 +20,13 @@ export async function getLongTermRiskSummary(actorId: string): Promise<LongTermR
   // 走请求级共享副本：与页面主查询及 AI 建议复用同一份 dashboard/analytics/考纲地图。
   // dashboard/analytics 共享副本内部各自取当前时间，这里的 now 只喂给模拟与阶段子查询。
   const now = new Date();
-  const workspace = await resolveActiveWorkspace(actorId);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const [analytics, dashboard, syllabusMap, latestSimulation, stage] = await Promise.all([
     getAnalyticsSummaryShared(actorId),
     getTodayDashboardShared(actorId),
     getSyllabusMapOverviewShared(actorId),
-    getLatestSimulationInput(workspace.id, now),
-    getStageInput(workspace.id, workspace.targetExamDate, now),
+    getLatestSimulationInput(workspace.id, actorId, now),
+    getStageInput(workspace.id, actorId, workspace.targetExamDate, now),
   ]);
 
   return ensureLongTermRiskDtoContract(summarizeLongTermRisks({
@@ -49,11 +49,12 @@ export async function getLongTermRiskSummary(actorId: string): Promise<LongTermR
   }));
 }
 
-async function getLatestSimulationInput(workspaceId: string, now: Date) {
+async function getLatestSimulationInput(workspaceId: string, ownerUserId: string, now: Date) {
   const [exam, nextSimulation] = await Promise.all([
     prisma.simulationExam.findFirst({
       where: {
         workspaceId,
+        ownerUserId,
         actualScore: { not: null },
         targetScore: { not: null },
         subjectResults: { some: {} },
@@ -66,7 +67,7 @@ async function getLatestSimulationInput(workspaceId: string, now: Date) {
       orderBy: [{ examDate: "desc" }, { updatedAt: "desc" }],
     }),
     prisma.simulationExam.findFirst({
-      where: { workspaceId, status: { not: "CONFIRMED" }, examDate: { gte: getStudyDayRange(now).start } },
+      where: { workspaceId, ownerUserId, status: { not: "CONFIRMED" }, examDate: { gte: getStudyDayRange(now).start } },
       orderBy: [{ examDate: "asc" }, { createdAt: "asc" }],
       select: { examDate: true },
     }),
@@ -88,18 +89,23 @@ async function getLatestSimulationInput(workspaceId: string, now: Date) {
   };
 }
 
-async function getStageInput(workspaceId: string, targetExamDate: Date | null, now: Date): Promise<LongTermRiskStageInput | null> {
+async function getStageInput(
+  workspaceId: string,
+  ownerUserId: string,
+  targetExamDate: Date | null,
+  now: Date,
+): Promise<LongTermRiskStageInput | null> {
   const [activePlan, draftPlan, activeDraftCount] = await Promise.all([
     prisma.stagePlan.findFirst({
-      where: { workspaceId, status: "active" },
+      where: { workspaceId, ownerUserId, status: "active" },
       orderBy: [{ endDate: "asc" }, { updatedAt: "desc" }],
     }),
     prisma.stagePlan.findFirst({
-      where: { workspaceId, status: "draft" },
+      where: { workspaceId, ownerUserId, status: "draft" },
       orderBy: [{ startDate: "asc" }, { updatedAt: "desc" }],
     }),
     prisma.stageAdjustmentDraft.count({
-      where: { workspaceId, status: "draft" },
+      where: { workspaceId, ownerUserId, status: "draft" },
     }),
   ]);
   const plan = activePlan ?? draftPlan;

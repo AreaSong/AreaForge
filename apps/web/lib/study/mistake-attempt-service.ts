@@ -5,7 +5,7 @@ import {
   buildPersistentCreateFingerprint,
   normalizeIdempotencyKey,
 } from "./persistent-idempotency";
-import { lockActiveWorkspaceForWrite } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite } from "./exam-workspace-service";
 import type { MistakeAttemptDto } from "@/lib/contracts";
 
 export interface CreateMistakeAttemptInput {
@@ -23,7 +23,7 @@ export async function createMistakeAttempt(
   actorId: string,
 ): Promise<MistakeAttemptDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     return persistMistakeAttemptInTx(tx, actorId, workspace.id, id, input, null);
   });
 }
@@ -37,7 +37,7 @@ export async function persistMistakeAttemptInTx(
   reviewEventId: string | null,
 ): Promise<MistakeAttemptDto> {
   const mistake = await tx.mistake.findFirst({
-    where: { id: mistakeId, subject: { workspaceId } },
+    where: { id: mistakeId, ownerUserId: actorId, subject: { workspaceId } },
     select: { id: true, archivedAt: true },
   });
   if (!mistake) throw new ApiError("MISTAKE_NOT_FOUND", 404);

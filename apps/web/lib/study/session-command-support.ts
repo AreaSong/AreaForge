@@ -1,7 +1,7 @@
 import { type Prisma } from "@areaforge/db";
 import { createHash } from "node:crypto";
 import { ApiError } from "@/lib/api/responses";
-import { resolveActiveWorkspace } from "./exam-workspace-service";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 import { serializeSession } from "./session-serializer";
 import { audit } from "./study-audit";
 import type {
@@ -35,13 +35,14 @@ export function toCloseoutEfficiency(isEffective: boolean, qualityScore?: number
 
 export async function validateSessionEvidence(
   tx: Prisma.TransactionClient,
+  actorId: string,
   workspaceId: string,
   session: { subjectId: string; taskId: string | null; syllabusNodeId: string | null },
   input: LinkSessionEvidenceInput,
 ): Promise<StudySessionEvidenceReceiptDto> {
   if (input.evidenceType === "note") {
     const note = await tx.note.findFirst({
-      where: { id: input.evidenceId, subject: { workspaceId } },
+      where: { id: input.evidenceId, ownerUserId: actorId, subject: { workspaceId } },
       select: { id: true, title: true, subjectId: true, taskId: true, syllabusNodeId: true },
     });
     if (!note) throw new ApiError("NOTE_NOT_FOUND", 404);
@@ -50,7 +51,7 @@ export async function validateSessionEvidence(
   }
   if (input.evidenceType === "mistake") {
     const mistake = await tx.mistake.findFirst({
-      where: { id: input.evidenceId, subject: { workspaceId } },
+      where: { id: input.evidenceId, ownerUserId: actorId, subject: { workspaceId } },
       select: { id: true, title: true, subjectId: true, syllabusNodeId: true },
     });
     if (!mistake) throw new ApiError("MISTAKE_NOT_FOUND", 404);
@@ -61,7 +62,7 @@ export async function validateSessionEvidence(
     throw new ApiError("SESSION_RETEST_REQUIRES_SYLLABUS_NODE", 409, { conflictFields: ["syllabusNodeId"] });
   }
   const retest = await tx.masteryRetest.findFirst({
-    where: { id: input.evidenceId, syllabusNode: { subject: { workspaceId } } },
+    where: { id: input.evidenceId, ownerUserId: actorId, syllabusNode: { subject: { workspaceId } } },
     select: { id: true, result: true, syllabusNodeId: true },
   });
   if (!retest) throw new ApiError("MASTERY_RETEST_NOT_FOUND", 404);
@@ -147,7 +148,7 @@ export async function assertActivitySourceBelongsToWorkspace(
   if (input.activityMode === "FREE_STUDY") return;
   if (input.activityMode === "KNOWLEDGE_REVIEW") {
     const schedule = await tx.reviewSchedule.findFirst({
-      where: { id: input.reviewScheduleId ?? "", workspaceId, OR: [{ actorId: null }, { actorId }] },
+      where: { id: input.reviewScheduleId ?? "", workspaceId, ownerUserId: actorId },
       select: { id: true },
     });
     if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
@@ -165,7 +166,7 @@ export async function assertActivitySourceBelongsToWorkspace(
     return;
   }
   const exam = await tx.simulationExam.findFirst({
-    where: { id: input.simulationExamId ?? "", workspaceId },
+    where: { id: input.simulationExamId ?? "", workspaceId, ownerUserId: actorId },
     select: { id: true, status: true },
   });
   if (!exam) throw new ApiError("SIMULATION_EXAM_NOT_FOUND", 404);
@@ -195,7 +196,7 @@ export async function getSessionCommandPreimage(
   id: string,
   actorId: string,
 ) {
-  const workspace = await resolveActiveWorkspace(actorId, tx);
+  const workspace = await resolveSelectedMemberWorkspace(actorId, tx);
   const session = await tx.studySession.findFirst({
     where: { id, userId: actorId, workspaceId: workspace.id, subject: { workspaceId: workspace.id } },
   });

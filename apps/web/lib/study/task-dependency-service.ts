@@ -8,7 +8,7 @@ import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type { TaskDependencyDto } from "@/lib/contracts/task";
 import { fromDbTaskStatus, type DbTaskStatus } from "./task-serializer";
-import { lockActiveWorkspaceForWrite, resolveActiveWorkspace } from "./exam-workspace-service";
+import { lockSelectedMemberWorkspaceForWrite, resolveSelectedMemberWorkspace } from "./exam-workspace-service";
 
 export type { TaskDependencyDto } from "@/lib/contracts/task";
 
@@ -49,10 +49,11 @@ async function assertTaskInActiveWorkspaceScope(
   client: DependencyReadClient,
   taskId: string,
   workspaceId: string,
+  ownerUserId?: string,
   requireActiveSubject = true,
 ) {
   const task = await client.studyTask.findFirst({
-    where: { id: taskId, subject: { workspaceId } },
+    where: { id: taskId, ...(ownerUserId ? { ownerUserId } : {}), subject: { workspaceId } },
     include: { subject: { select: { workspaceId: true, archivedAt: true } } },
   });
   if (!task) throw new ApiError("TASK_NOT_FOUND", 404);
@@ -68,28 +69,29 @@ export async function lockWorkspaceDependencyGraph(
 }
 
 export async function listTaskDependencies(actorId: string, taskId: string): Promise<TaskDependencyDto[]> {
-  const workspace = await resolveActiveWorkspace(actorId);
-  await assertTaskInActiveWorkspaceScope(prisma, taskId, workspace.id, false);
-  return loadTaskDependencies(taskId, workspace.id);
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  await assertTaskInActiveWorkspaceScope(prisma, taskId, workspace.id, actorId, false);
+  return loadTaskDependencies(taskId, workspace.id, actorId);
 }
 
 export async function listOwnedTaskDependencies(actorId: string, taskId: string): Promise<TaskDependencyDto[]> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
   const task = await prisma.studyTask.findFirst({
-    where: { id: taskId, subject: { workspace: { userId: actorId } } },
+    where: { id: taskId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
     select: { subject: { select: { workspaceId: true } } },
   });
   const workspaceId = task?.subject.workspaceId;
   if (!workspaceId) throw new ApiError("TASK_NOT_FOUND", 404);
-  return loadTaskDependencies(taskId, workspaceId);
+  return loadTaskDependencies(taskId, workspaceId, actorId);
 }
 
-async function loadTaskDependencies(taskId: string, workspaceId: string): Promise<TaskDependencyDto[]> {
+async function loadTaskDependencies(taskId: string, workspaceId: string, ownerUserId?: string): Promise<TaskDependencyDto[]> {
   const rows = await prisma.taskDependency.findMany({
     where: {
       AND: [
         { OR: [{ predecessorId: taskId }, { successorId: taskId }] },
-        { predecessor: { subject: { workspaceId } } },
-        { successor: { subject: { workspaceId } } },
+        { predecessor: { ...(ownerUserId ? { ownerUserId } : {}), subject: { workspaceId } } },
+        { successor: { ...(ownerUserId ? { ownerUserId } : {}), subject: { workspaceId } } },
       ],
     },
     include: {
@@ -110,16 +112,16 @@ export async function createTaskDependency(
   },
 ): Promise<TaskDependencyDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockWorkspaceDependencyGraph(tx, workspace.id);
 
-    await assertTaskInActiveWorkspaceScope(tx, input.predecessorId, workspace.id);
-    await assertTaskInActiveWorkspaceScope(tx, input.successorId, workspace.id);
+    await assertTaskInActiveWorkspaceScope(tx, input.predecessorId, workspace.id, actorId);
+    await assertTaskInActiveWorkspaceScope(tx, input.successorId, workspace.id, actorId);
 
     const existing = await tx.taskDependency.findMany({
       where: {
-        predecessor: { subject: { workspaceId: workspace.id } },
-        successor: { subject: { workspaceId: workspace.id } },
+        predecessor: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
+        successor: { ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       },
       select: { predecessorId: true, successorId: true, type: true },
     });
@@ -169,12 +171,12 @@ export async function updateTaskDependencyType(
   input: { type: TaskDependencyType; expectedRevision: number },
 ): Promise<TaskDependencyDto> {
   return prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockWorkspaceDependencyGraph(tx, workspace.id);
     const existing = await tx.taskDependency.findFirst({ where: { id: dependencyId } });
     if (!existing) throw new ApiError("DEPENDENCY_NOT_FOUND", 404);
-    await assertTaskInActiveWorkspaceScope(tx, existing.predecessorId, workspace.id);
-    await assertTaskInActiveWorkspaceScope(tx, existing.successorId, workspace.id);
+    await assertTaskInActiveWorkspaceScope(tx, existing.predecessorId, workspace.id, actorId);
+    await assertTaskInActiveWorkspaceScope(tx, existing.successorId, workspace.id, actorId);
     if (existing.revision !== input.expectedRevision) {
       throw new ApiError("DEPENDENCY_REVISION_CONFLICT", 409, {
         latest: serialize(existing),
@@ -200,12 +202,12 @@ export async function deleteTaskDependency(
   expectedRevision: number,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    const workspace = await lockActiveWorkspaceForWrite(tx, actorId);
+    const workspace = await lockSelectedMemberWorkspaceForWrite(tx, actorId);
     await lockWorkspaceDependencyGraph(tx, workspace.id);
     const existing = await tx.taskDependency.findFirst({ where: { id: dependencyId } });
     if (!existing) throw new ApiError("DEPENDENCY_NOT_FOUND", 404);
-    await assertTaskInActiveWorkspaceScope(tx, existing.predecessorId, workspace.id);
-    await assertTaskInActiveWorkspaceScope(tx, existing.successorId, workspace.id);
+    await assertTaskInActiveWorkspaceScope(tx, existing.predecessorId, workspace.id, actorId);
+    await assertTaskInActiveWorkspaceScope(tx, existing.successorId, workspace.id, actorId);
     if (existing.revision !== expectedRevision) {
       throw new ApiError("DEPENDENCY_REVISION_CONFLICT", 409, {
         latest: serialize(existing),
