@@ -4,6 +4,13 @@ import { abortableJobPreparation, DataJobHandlerError, type DataJobHandler } fro
 
 export type DataJobExecutionResult = "SUCCEEDED" | "FAILED" | "PAUSED" | "CANCELLED" | "LEASE_LOST";
 
+class DataJobControlError extends Error {
+  constructor(readonly status: "PAUSED" | "CANCELLED") {
+    super(`DATA_JOB_${status}`);
+    this.name = "DataJobControlError";
+  }
+}
+
 export async function executeDataJob(input: {
   client: DataQueueClient;
   lease: DataJobLease;
@@ -42,7 +49,7 @@ function createHeartbeat(input: { client: DataQueueClient; lease: DataJobLease; 
     const operation = tail.then(async () => {
       controller.signal.throwIfAborted();
       const status = await heartbeatQueuedDataJob(input.client, { lease: input.lease, leaseMs: input.leaseMs, progress });
-      if (status !== "RUNNING") throw new DataJobHandlerError(`DATA_JOB_${status}`, false);
+      if (status !== "RUNNING") throw new DataJobControlError(status);
     }).catch((error: unknown) => { controller.abort(error); throw error; });
     tail = operation.catch(() => undefined);
     return operation;
@@ -61,8 +68,7 @@ async function keepLeaseAlive(heartbeat: () => Promise<void>, leaseMs: number, c
 }
 
 async function settleExecutionFailure(input: { client: DataQueueClient; lease: DataJobLease }, error: unknown): Promise<DataJobExecutionResult> {
-  if (error instanceof DataJobHandlerError && error.code === "DATA_JOB_PAUSED") return "PAUSED";
-  if (error instanceof DataJobHandlerError && error.code === "DATA_JOB_CANCELLED") return "CANCELLED";
+  if (error instanceof DataJobControlError) return error.status;
   if (error instanceof DataJobQueueError && error.code === "DATA_JOB_LEASE_LOST") return "LEASE_LOST";
   const code = error instanceof DataJobHandlerError || error instanceof DataJobQueueError ? error.code : "DATA_JOB_HANDLER_FAILED";
   const retryable = error instanceof DataJobHandlerError ? error.retryable : !(error instanceof DataJobQueueError);

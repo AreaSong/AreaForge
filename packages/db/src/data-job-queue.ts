@@ -5,27 +5,37 @@ import { assertQueueScope, auditQueuedDataJob, partitionWhere, queueClock, queue
 
 export async function enqueueDataJob(client: DataQueueClient, input: EnqueueDataJobInput) {
   validateEnqueue(input);
-  const identity = { requestedByUserId: input.requestedByUserId, idempotencyKey: input.idempotencyKey };
   try {
-    return await client.$transaction(async (tx) => {
-      await assertQueueScope(tx, input);
-      const existing = await tx.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: identity } });
-      if (existing) return assertSameRequest(existing, input);
-      const now = await queueClock(tx);
-      if (input.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
-      const row = await tx.dataJob.create({ data: {
-        ...input, maxAttempts: input.maxAttempts ?? 5, queueVersion: DATA_JOB_QUEUE_VERSION,
-        nextAttemptAt: now, status: "QUEUED",
-      } });
-      await auditQueuedDataJob(tx, row, "DATA_JOB_ENQUEUED");
-      return row;
-    });
+    return await client.$transaction((tx) => enqueueDataJobInTransaction(tx, input));
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+    const identity = { requestedByUserId: input.requestedByUserId, idempotencyKey: input.idempotencyKey };
     const existing = await client.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: identity } });
     if (!existing) throw error;
     return assertSameRequest(existing, input);
   }
+}
+
+/** Enqueue inside an existing business transaction; no nested transaction is opened. */
+export async function enqueueDataJobInTransaction(
+  tx: DataQueueTransaction,
+  input: EnqueueDataJobInput,
+) {
+  validateEnqueue(input);
+  const { payloadJson, ...queueInput } = input;
+  const identity = { requestedByUserId: input.requestedByUserId, idempotencyKey: input.idempotencyKey };
+  await assertQueueScope(tx, input);
+  const existing = await tx.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: identity } });
+  if (existing) return assertSameRequest(existing, input);
+  const now = await queueClock(tx);
+  if (input.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
+  const row = await tx.dataJob.create({ data: {
+    ...queueInput, maxAttempts: input.maxAttempts ?? 5, queueVersion: DATA_JOB_QUEUE_VERSION,
+    nextAttemptAt: now, status: "QUEUED",
+    resultJson: payloadJson,
+  } });
+  await auditQueuedDataJob(tx, row, "DATA_JOB_ENQUEUED");
+  return row;
 }
 
 function validateEnqueue(input: EnqueueDataJobInput): void {

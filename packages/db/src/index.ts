@@ -100,7 +100,7 @@ export const prisma = new Proxy({} as PrismaClient, {
 export type { PrismaClient };
 export type { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
-export { enqueueDataJob, claimQueuedDataJob } from "./data-job-queue";
+export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from "./data-job-queue";
 export { heartbeatQueuedDataJob, commitQueuedDataJob, failQueuedDataJob } from "./data-job-queue-lease";
 export { controlQueuedDataJob, type DataJobQueueControl } from "./data-job-queue-control";
 export { recoverQueuedDataJobs, getDataJobQueueSnapshot } from "./data-job-queue-recovery";

@@ -1,7 +1,7 @@
 import type { DataJobKind } from "@areaforge/core";
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
 
-export type DataQueueClient = PrismaClient;
+export type DataQueueClient = Pick<PrismaClient, "dataJob" | "$queryRaw" | "$transaction" | "auditEvent" | "user" | "examWorkspace" | "workspaceMembership">;
 export type DataQueueTransaction = Prisma.TransactionClient;
 export type QueuedDataJob = Awaited<ReturnType<DataQueueTransaction["dataJob"]["findUniqueOrThrow"]>>;
 
@@ -20,6 +20,7 @@ export interface DataJobLease {
   leaseVersion: number;
   attempt: number;
   leaseExpiresAt: Date;
+  payloadJson: unknown;
 }
 
 export interface EnqueueDataJobInput {
@@ -31,6 +32,7 @@ export interface EnqueueDataJobInput {
   requestFingerprint: string;
   expiresAt: Date;
   maxAttempts?: number;
+  payloadJson?: Prisma.InputJsonValue;
 }
 
 export interface ClaimDataJobInput {

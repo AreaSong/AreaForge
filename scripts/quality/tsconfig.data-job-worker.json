@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true },
-  "include": ["../workers/data-job-*.ts", "data-job-worker*.ts"]
+  "include": ["../workers/data-job-*.ts", "../workers/ranking-notification-handler.ts", "../workers/data-job-handlers.ts", "data-job-worker*.ts"]
 }

@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "tsx --test src/*.test.ts ../../scripts/quality/data-job-worker.selftest.ts",
+    "test": "tsx --test src/*.test.ts ../../scripts/quality/data-job-worker.selftest.ts ../../scripts/quality/ranking-notification-handler.selftest.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

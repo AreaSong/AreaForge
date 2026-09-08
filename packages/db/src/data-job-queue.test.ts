@@ -7,6 +7,7 @@ const now = new Date("2026-09-08T00:00:00Z");
 const lease: DataJobLease = {
   jobId: "job-1", kind: "NOTIFICATION", scope: "WORKSPACE", requestedByUserId: "user-1", workspaceId: "workspace-1",
   workerId: "worker-1", leaseVersion: 2, attempt: 2, leaseExpiresAt: new Date(now.getTime() + 30_000),
+  payloadJson: null,
 };
 const row = {
   id: lease.jobId, kind: lease.kind, scope: lease.scope, requestedByUserId: lease.requestedByUserId, workspaceId: lease.workspaceId,

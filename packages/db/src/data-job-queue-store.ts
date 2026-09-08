@@ -67,6 +67,7 @@ export function toDataJobLease(row: QueuedDataJob): DataJobLease {
     jobId: row.id, kind: row.kind, scope: row.scope, requestedByUserId: row.requestedByUserId,
     workspaceId: row.workspaceId, workerId: row.leaseOwner, leaseVersion: row.leaseVersion,
     attempt: row.attempt, leaseExpiresAt: row.leaseExpiresAt,
+    payloadJson: row.resultJson,
   };
 }
 

@@ -32,6 +32,7 @@ export const serverEnvSchema = z.object({
   RANKING_ENABLED: booleanFromString.default(false),
   RANKING_PROJECTION_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),
+  PLATFORM_NOTIFICATION_QUEUE_ENABLED: booleanFromString.default(false),
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),
@@ -81,6 +82,13 @@ export const serverEnvSchema = z.object({
       code: "custom",
       path: ["AUTH_RBAC_ENABLED"],
       message: "AUTH_RBAC_ENABLED requires AUTH_MULTI_USER_ENABLED",
+    });
+  }
+  if (env.PLATFORM_NOTIFICATION_QUEUE_ENABLED && !env.PLATFORM_NOTIFICATIONS_ENABLED) {
+    context.addIssue({
+      code: "custom",
+      path: ["PLATFORM_NOTIFICATION_QUEUE_ENABLED"],
+      message: "PLATFORM_NOTIFICATION_QUEUE_ENABLED requires PLATFORM_NOTIFICATIONS_ENABLED",
     });
   }
   if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {

@@ -6,8 +6,10 @@ import {
   prisma, claimQueuedDataJob, commitQueuedDataJob, controlQueuedDataJob, failQueuedDataJob,
   getDataJobQueueSnapshot, heartbeatQueuedDataJob, recoverQueuedDataJobs, type DataJobLease,
 } from "../../packages/db/src/index";
+import { hashDataExportValue } from "../../packages/core/src/index";
 import { executeDataJob } from "../workers/data-job-execution";
 import { runDataJobWorker } from "../workers/data-job-runner";
+import { createRankingNotificationHandler } from "../workers/ranking-notification-handler";
 import {
   fixtureJob, makeFixtureLeaseStale, makeFixtureRetryDue, requireDataJobWorkerFixture,
   seedDataJobWorkerFixture, syntheticQueueEffect, verifyDataJobWorkerMigrations, waitForFixture, type WorkerFixture,
@@ -261,6 +263,44 @@ async function verifyAccountArchiveAndCommitDeadline(fixture: WorkerFixture) {
   assert.equal((await read(deadline.id)).status, "RUNNING");
 }
 
+async function verifyQueuedRankingNotification(fixture: WorkerFixture) {
+  await prisma.workspaceMembership.create({ data: { workspaceId: fixture.workspaceA.id, userId: fixture.other.id, role: "MEMBER" } });
+  const payload = {
+    recipientUserId: fixture.other.id,
+    workspaceId: fixture.workspaceA.id,
+    kind: "RANKING_APPEAL_STATUS" as const,
+    sourceEntityType: "RANKING_APPEAL" as const,
+    sourceEntityId: `${fixture.prefix}_appeal`,
+    eventKey: `${fixture.prefix}:ranking:appeal-status:1`,
+  };
+  const requestFingerprint = hashDataExportValue(payload);
+  const job = await fixtureJob(fixture, "ranking-notification", {
+    requestedByUserId: fixture.owner.id,
+    requestFingerprint,
+    idempotencyKey: `${fixture.prefix}_ranking-notification-${requestFingerprint.slice(7)}`,
+    payloadJson: payload,
+  });
+  const lease = await leaseFor(fixture, "notification-worker");
+  const result = await executeDataJob({
+    client: prisma,
+    lease,
+    leaseMs: 30_000,
+    signal: new AbortController().signal,
+    handler: createRankingNotificationHandler(),
+  });
+  assert.equal(result, "SUCCEEDED");
+  const notification = await prisma.userNotification.findUnique({ where: { recipientUserId_eventKey: { recipientUserId: fixture.other.id, eventKey: payload.eventKey } } });
+  assert.equal(notification?.sourceEntityId, payload.sourceEntityId);
+  assert.equal(notification?.kind, payload.kind);
+  assert.equal((await read(job.id)).status, "SUCCEEDED");
+  const replay = await fixtureJob(fixture, "ranking-notification-replay", { requestedByUserId: fixture.owner.id, requestFingerprint, idempotencyKey: `${fixture.prefix}_ranking-notification-replay-${requestFingerprint.slice(7)}`, payloadJson: payload });
+  const replayLease = await claim(fixture, "notification-worker-replay");
+  assert.equal(replayLease?.jobId, replay.id);
+  const replayResult = await executeDataJob({ client: prisma, lease: replayLease!, leaseMs: 30_000, signal: new AbortController().signal, handler: createRankingNotificationHandler() });
+  assert.equal(replayResult, "SUCCEEDED");
+  assert.equal(await prisma.userNotification.count({ where: { recipientUserId: fixture.other.id, eventKey: payload.eventKey } }), 1);
+}
+
 function startFixtureProcess(fixture: WorkerFixture, crash: "prepare" | "commit" | false): ChildProcess {
   return spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("./data-job-worker-runtime-child.ts", import.meta.url))], {
     stdio: ["ignore", "ignore", "ignore", "ipc"], env: {
@@ -316,14 +356,14 @@ try {
   const cases = [verifyClaimsAndIdempotency, verifySkipLockedAndPartition, verifyRecoveryAndFencing,
     verifyDeadLetterAndReplay, verifyPauseAndCancel, verifyTransactionalRollback, verifyRevocationAndExpiry,
     verifyHeartbeatAndAbort, verifyRealProcessCrash, verifyLegacyProtocolAndScopeChecks,
-    verifyRunnerControls, verifyAccountArchiveAndCommitDeadline];
+    verifyRunnerControls, verifyAccountArchiveAndCommitDeadline, verifyQueuedRankingNotification];
   for (const verify of cases) {
     await verify(await seedDataJobWorkerFixture());
     console.log(`PASS ${verify.name}`);
   }
   console.log(JSON.stringify({ status: "pass", migrations, cases: cases.length, evidenceClass: "isolated-runtime",
     productionTouched: false, sharedDatabaseTouched: false, realArchiveCreated: false, physicalDeletionAttempted: false,
-    doesNotProve: ["domain EXPORT/DELETE/RANKING/NOTIFICATION handlers", "shared or production migration", "Release or production apply", "browser acceptance"],
+    doesNotProve: ["ranking rebuild, EXPORT or DELETE handlers", "shared or production migration", "Release or production apply", "browser acceptance"],
   }));
 } finally {
   await prisma.$disconnect();

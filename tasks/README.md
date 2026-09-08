@@ -18,7 +18,7 @@
 - `v1.2.0` 发布准备第一阶段已由 `tasks/done/0037-v12-release-preparation.md` 完成；第二阶段已从 fresh readback 的 `main` commit 创建 annotated tag、完成 Release workflow 和 strict 供应链资产校验，证据见 `docs/development/release-v1.2.0-record.md` 与 `docs/development/release-supply-chain-v1.2.0.md`。production apply 仍需后续独立确认。
 - A -> B 平台演进的 M0 已归档；v1.3 已由 PR #56 合并但等待独立 Release/production disposition，v1.4-v1.9 默认关闭候选已由 PR #57 合并 `main` commit `b04ba98`。六类身份 desktop/mobile、代表性写入和 17 项失败矩阵已有隔离证据；`0045` 后续承接持久 worker 的域处理器、搜索/配额/MFA/观测，`0046` 承接 v2.0 综合门禁。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据；任务进入 active 不等于执行授权。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
-- `0045` 的持久 worker 首批已形成新协议队列、租约代次、退避/死信与独立子进程恢复候选，并通过 50 条 migration 与 12 组隔离 runtime；真实域处理器、共享/生产启用和 v2.0 门禁仍未完成。已合并的 PR #57 不再作为候选代码合并阻塞。
+- `0045` 的持久 worker 首批已形成新协议队列、租约代次、退避/死信、独立子进程恢复和受控排名通知处理器候选，并通过 50 条 migration 与 13 组隔离 runtime；排名重建、导出/删除处理器、共享/生产启用和 v2.0 门禁仍未完成。已合并的 PR #57 不再作为候选代码合并阻塞。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
 ## 使用规则

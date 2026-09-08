@@ -40,6 +40,8 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `RANKING_ENABLED` | `false` | v1.8 私有挑战/排名候选闸门；默认关闭，不开放公开榜或通知外呼 |
 | `RANKING_PROJECTION_ENABLED` | `false` | 独立排名投影故障开关；关闭时挑战/个人学习主链仍可用，但投影读取与重建 fail closed |
 | `PLATFORM_NOTIFICATIONS_ENABLED` | `false` | v1.8/v1.9 持久通知中心开关；关闭时排名流程不读写 `UserNotification`，不影响既有前台浏览器提醒 |
+| `PLATFORM_NOTIFICATION_QUEUE_ENABLED` | `false` | 本地候选：将排名通知写入持久 `DataJob` 队列；需要独立 worker 处理器，默认关闭，不改变生产通知路径 |
+| `PLATFORM_NOTIFICATION_QUEUE_ENABLED` | `false` | 本地候选：将排名通知写入持久 `DataJob` 队列；需要独立 worker 处理器，默认关闭，不改变生产通知路径 |
 | `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
 | `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
 | `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |

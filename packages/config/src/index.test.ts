@@ -39,6 +39,7 @@ test("multi-user and SMTP secrets fail closed when configuration is incomplete",
     AUTH_ACTION_TOKEN_SECRET: "synthetic-action-token-secret-at-least-32-characters",
   }));
   assert.throws(() => parseServerEnv({ ...baseEnv, AUTH_RBAC_ENABLED: "true" }));
+  assert.throws(() => parseServerEnv({ ...baseEnv, PLATFORM_NOTIFICATION_QUEUE_ENABLED: "true" }));
   assert.doesNotThrow(() => parseServerEnv({
     ...baseEnv,
     AUTH_MULTI_USER_ENABLED: "true",
@@ -55,6 +56,7 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   assert.equal(defaults.RANKING_ENABLED, false);
   assert.equal(defaults.RANKING_PROJECTION_ENABLED, false);
   assert.equal(defaults.PLATFORM_NOTIFICATIONS_ENABLED, false);
+  assert.equal(defaults.PLATFORM_NOTIFICATION_QUEUE_ENABLED, false);
 
   const enabled = parseServerEnv({
     ...baseEnv,
@@ -62,9 +64,11 @@ test("local candidate feature gates are parsed centrally and default closed", ()
     RANKING_ENABLED: "true",
     RANKING_PROJECTION_ENABLED: "true",
     PLATFORM_NOTIFICATIONS_ENABLED: "true",
+    PLATFORM_NOTIFICATION_QUEUE_ENABLED: "true",
   });
   assert.equal(enabled.DATA_LIFECYCLE_ENABLED, true);
   assert.equal(enabled.RANKING_ENABLED, true);
   assert.equal(enabled.RANKING_PROJECTION_ENABLED, true);
   assert.equal(enabled.PLATFORM_NOTIFICATIONS_ENABLED, true);
+  assert.equal(enabled.PLATFORM_NOTIFICATION_QUEUE_ENABLED, true);
 });

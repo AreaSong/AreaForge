@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { DataQueueClient } from "../../packages/db/src/index";
 import { abortableJobPreparation, DataJobHandlerError, type DataJobHandler } from "../workers/data-job-handler";
@@ -28,4 +31,11 @@ test("未响应 abort 的准备任务也不能交出晚到的提交函数", asyn
 test("处理器错误只能携带有界代码，不能把异常正文落库", () => {
   assert.equal(new DataJobHandlerError("WORK_FAILED", true).retryable, true);
   assert.throws(() => new DataJobHandlerError("private user data", true), /DATA_JOB_ERROR_CODE_INVALID/);
+});
+
+test("暂停/取消结果只能由受信任的队列心跳产生", async () => {
+  const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../workers/data-job-execution.ts"), "utf8");
+  assert.match(source, /class DataJobControlError/);
+  assert.match(source, /if \(error instanceof DataJobControlError\)/);
+  assert.doesNotMatch(source, /error instanceof DataJobHandlerError && error\.code === "DATA_JOB_(PAUSED|CANCELLED)"/);
 });

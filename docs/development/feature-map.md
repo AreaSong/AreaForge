@@ -121,7 +121,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
-| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`tasks/backlog/0045-platform-hardening.md` | 协议隔离、fencing、退避/死信、控制与事务提交已有 12 组隔离证据；域处理器、正式运维入口与共享/生产启用仍缺 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/ranking-notification-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 协议隔离、fencing、退避/死信、控制与事务提交已有 13 组隔离证据；通知处理器已验证，排名重建/导出/删除域处理器、正式运维入口与共享/生产启用仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |
