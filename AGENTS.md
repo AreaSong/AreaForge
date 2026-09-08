@@ -18,6 +18,8 @@
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
 - 只读 `ops:data-integrity:doctor` 已用于发现重复活跃计时、task/session 状态矛盾和附件 reconciliation 缺口；它不修复数据。`AF-RISK-OPS-006` 的 partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已在生产 migration、controlled probe、before/after doctor 与 smoke 账号 write-smoke 中验证，并随 Phase B 关账记为 `closed-evidence`。
 
+- v2.0 首批持久 worker 已进入本地候选：`DataJob` 协议隔离、持久退避/死信、租约代次、暂停/取消/重放、事务副作用与独立子进程恢复已有实现；内核最新通过 15 组隔离回归；排名通知处理器仅有历史合成样例，现待独立域级确认，详见 `tasks/backlog/0045-platform-hardening.md`。这不包含排名重建、导出/删除处理器，不证明共享或生产 migration、Release 或 v2.0 综合门禁完成。
+
 ## 源事实
 
 - 产品定位与功能边界：`docs/product/**`。

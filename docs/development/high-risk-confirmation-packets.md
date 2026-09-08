@@ -2034,3 +2034,29 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 **确认状态（2026-09-05）**：用户在收到包含稳定资源 owner、grant、Coach、Operator、验证、Release/生产分层与回滚边界的完整 A → B 计划后明确回复“可以，全部，全部完成”，确认按上述范围实施 v1.5 本地候选。本确认不替代 v1.6 DATA-EXPORT/DATA-DELETE、v1.7 OPS、v1.8 RANKING、GitHub Release、生产 migration/apply、真实账户暂停、备份恢复、服务器命令或 residual 关闭的独立确认。
 
 **总体路线推进口径（2026-09-06）**：用户要求继续完整推进 A → B 下一轮计划；本轮将“全部推进”解释为可以继续编写本地代码、候选 migration、隔离 PostgreSQL fixture、契约/负向测试、文档和共享测试池验证。该口径不授权生产 migration/apply、真实账户操作、物理删除/附件清理、备份 deletion ledger、服务器命令、root-agent 执行、GitHub Release/tag 或 residual 关闭；上述动作仍须对应版本的独立确认包和回滚证据。
+
+## v2.0 持久 worker 首批本地实施确认包
+
+**确认状态（2026-09-08）**：用户在收到首批实施范围、风险、验证、回退与禁止事项后明确回复“可以，现在直至完成至100%”。本次确认覆盖该首批，不替代其他独立确认包，也不降低 v2.0 的最终完成条件。
+
+- 影响：基于现有 `DataJob` 增加兼容的队列协议、下一次执行时间、尝试预算、租约代次、暂停请求和死信字段；实现独立 worker、租约/CAS、重试、死信、暂停/取消/恢复，并隔离旧手工预览协议。
+- 允许：本仓库代码与对应文档、必要 additive migration、新建 loopback PostgreSQL 与合成数据/本批测试资源、静态/事务/子进程故障测试；验证后按原请求提交并推送 `codex/v19-platform-hardening`。不混入用户原有治理改动及截图。
+- 风险：重复执行、旧 worker 越过新租约、跨 Workspace 处理、取消与成功竞争、异常正文入日志，以及副作用与任务状态不同步。
+- 验证：完整 canonical migration ledger/hash、并发领取、旧代次拒绝、持久退避/死信/人工重放、scope 撤销、暂停/取消、过期恢复、事务回滚及真实进程 kill-point；运行 Core/DB/Web 对应检查、完整 `pnpm check`、文档/风险/治理与 secret 门禁。
+- 回退：停止 worker 与新协议生产者；回退至保留协议隔离的应用，保留兼容字段、任务和审计，不 DROP 或清理历史数据。
+- 不包含：共享/生产数据库写入、真实账户与附件操作、正式导出下载、物理删除、备份删除账本、root-agent/服务器执行、Release/tag、production apply、生产备份恢复、自动应用策略或 residual 关闭。业务处理器注册与真实执行仍须各域独立确认。
+
+## 排名通知队列域本地实施确认包（待确认）
+
+状态：待确认。`ad3f719` 已存在的通知处理器和合成写入不在前述首批内核确认范围内；本轮停止域级扩展与启用，不以历史实现、CI 或测试结果追认授权。
+
+自动 goal continuation 只重放既有目标，不是对本包的新批准。续跑中对该消息的错误解释已纠正，未提交的通知域实现及错误状态文案已撤回；仍保留 `ad3f719` 的默认关闭候选，等待维护者对本节明确确认。本轮未执行共享库/生产写入、发布或真实数据删除。
+
+- 影响与目标：仅在 `codex/v19-platform-hardening` 收敛现有排名通知候选；业务事件与 `DataJob` 原子入队，独立 worker 把受控事件写入 `UserNotification`。不新增通知渠道或学习正文读取。
+- 数据边界：payload 只保留 recipient/Workspace、既有 `RANKING_*` 种类、三类源实体 ID、正整数 `eventVersion` 与由其重算的 eventKey；拒绝未知字段、自由路径、正文及 kind/source/version 不匹配。消费前绑定持久任务 scope/请求者/收件人/源实体与指纹，不能凭 payload 自报另一个 Workspace。
+- 权限与生命周期：入队和提交检查 ACTIVE 账户、Workspace/Membership 与合法事件来源；撤销、移除、归档与投递使用一致锁顺序和事务，重复事件不复活已读/隐藏状态。总开关与队列开关必须在生产者和处理器均生效，注册时开关检查不替代执行时检查。
+- 允许的执行环境（确认后）：新建或复用本任务自有 `areaforge_v20_worker_*` loopback 合成库，测试账号与合成通知；静态/mock、数据库/子进程、API 契约与相关文档检查。允许完成验证后提交推送本分支；只清理本批明确创建的合成资源，不触碰用户原有改动。
+- 风险：异步期间权限漂移、跨 Workspace payload、重复或丢失通知、开关关闭后继续写、私密字段进入任务/审计，以及通知失败阻断学习主链。
+- 验证：源业务回滚不留下 job、重复入队/执行只形成一次通知、同 eventKey 异 scope/source 全拒绝、收件人移除/恢复不复活旧权限、开关关闭、kill-point/重试/死信、脱敏和租约代次；运行 Core/DB/Config/Web 检查、完整 `pnpm check`、docs/risk/governance/secrets 与隔离通知回归。
+- 回退：停止通知消费及新队列生产，保持 `PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`，保留任务/审计；未排队的新事件可走既有直接事务路径，已排队事件只能经事件键对账后受控恢复，不批量删除或盲目重放。
+- 不包含：真实用户数据、共享/生产数据库、排名重建/导出/物理删除、MFA/配额、外部通知投递、root-agent/服务器操作、Release/tag、production apply、备份恢复和 residual 关闭；这些仍需各自精确确认。
