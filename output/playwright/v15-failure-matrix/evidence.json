@@ -1,15 +1,15 @@
 {
   "schemaVersion": "v15-rbac-browser-failure-matrix-v1",
   "status": "pass",
-  "generatedAt": "2026-09-07T12:10:12.452Z",
+  "generatedAt": "2026-09-08T01:54:01.733Z",
   "contentClassification": "synthetic-only",
   "runtime": {
-    "database": "areaforge_test_v15rbac_browser_failure_20260907_01",
-    "url": "http://127.0.0.1:43172",
+    "database": "areaforge-test-v15rbac-browser-20260907-01",
+    "url": "http://127.0.0.1:43171",
     "appVersion": "1.2.0",
-    "sourceGitCommit": "6568c87e2de5959227af60d840af2c19cfad0a45",
-    "sourceFingerprint": "sha256:10faedcf7d4fd37490904287e06f2dce469b12f7f12ceba8519bc91534aaf725",
-    "buildId": "sha256:a118082ee7f69da2ce9fc12e586fb7698e2ca6b53b31a7173a3a55c47f40c887",
+    "sourceGitCommit": "bd83a596cf80d4b166c409a2b27fe54e78e13496",
+    "sourceFingerprint": "sha256:86155d8a5cd612aa6c0a5040c3a130ea2f98c960ed40222bd4c55dd43202be50",
+    "buildId": "sha256:641f3506202c4da60560cfb8cdd896893efd09d571f815abb1e73e219927831e",
     "runtimeMode": "production-build-test-pool"
   },
   "cases": [
@@ -130,6 +130,30 @@
       "scrollWidth": 390,
       "finalPath": "/login",
       "horizontalOverflow": 0
+    },
+    {
+      "id": "owner-search-desktop",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "finalPath": "/settings/exams",
+      "resultLabel": "RBAC 数学",
+      "resultKind": "SUBJECT",
+      "horizontalOverflow": 0,
+      "screenshot": "owner-search-desktop.png"
+    },
+    {
+      "id": "member-search-mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "finalPath": "/knowledge/points/cmts0n7nd000t96rtr79ad2d3",
+      "resultLabel": "成员搜索私有点",
+      "resultKind": "KNOWLEDGE_POINT",
+      "horizontalOverflow": 0,
+      "screenshot": "member-search-mobile.png"
     }
   ],
   "telemetry": {
@@ -139,14 +163,14 @@
   },
   "screenshots": [
     "owner-failure-matrix-desktop.png",
-    "member-session-invalidated-mobile.png"
+    "member-session-invalidated-mobile.png",
+    "owner-search-desktop.png",
+    "member-search-mobile.png"
   ],
   "safetyFacts": {
     "isolatedDatabaseUsed": true,
     "isolatedDatabaseCleaned": true,
-    "isolatedDatabaseDropped": true,
     "testPoolUsed": true,
-    "testPoolInstanceCleaned": true,
     "syntheticAccountsOnly": true,
     "productionWriteAttempted": false,
     "sharedDatabaseMigrationAttempted": false,

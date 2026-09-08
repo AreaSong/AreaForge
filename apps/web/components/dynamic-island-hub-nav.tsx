@@ -78,7 +78,7 @@ export function HubViewModeTabs(props: {
     icon: React.ReactNode;
     badge?: React.ReactNode;
   }> = [
-    { id: "search", label: "命令搜索", icon: <Search size={12} /> },
+    { id: "search", label: "全局搜索", icon: <Search size={12} /> },
     {
       id: "overview",
       label: "督战全景",
@@ -148,6 +148,7 @@ export function HubCommandPaletteList(props: {
   selectedIndex: number;
   onSelectIndex: (idx: number) => void;
   onExecuteCommand: (cmd: GlobalCommandDefinition) => void;
+  searchStatus?: "idle" | "loading" | "ready" | "error";
   auraTheme?: DynamicIslandAuraTheme;
 }) {
   const {
@@ -155,6 +156,7 @@ export function HubCommandPaletteList(props: {
     selectedIndex,
     onSelectIndex,
     onExecuteCommand,
+    searchStatus = "idle",
     auraTheme = "silver",
   } = props;
 
@@ -215,9 +217,15 @@ export function HubCommandPaletteList(props: {
         })
       ) : (
         <div className="py-6 text-center text-xs text-zinc-500">
-          未找到匹配的结果或命令
+          {searchStatus === "loading" ? "正在搜索当前工作区…" : "未找到匹配的结果或命令"}
         </div>
       )}
+      {commands.length > 0 && searchStatus === "loading" ? (
+        <div className="px-3 py-1 text-[11px] text-zinc-500" role="status" aria-live="polite">正在搜索当前工作区…</div>
+      ) : null}
+      {searchStatus === "error" ? (
+        <div className="px-3 py-1 text-[11px] text-amber-300" role="status" aria-live="polite">工作区搜索暂时不可用，命令仍可使用</div>
+      ) : null}
     </div>
   );
 }

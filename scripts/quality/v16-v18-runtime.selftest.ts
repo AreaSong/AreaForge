@@ -213,6 +213,19 @@ try {
     searchWorkspace(fixture.users.member.userId, fixture.workspaceIds.secondary, "隔离英语"),
     /WORKSPACE_RESOURCE_NOT_FOUND/,
   );
+  process.env.AUTH_MULTI_USER_ENABLED = "false";
+  process.env.AUTH_RBAC_ENABLED = "false";
+  try {
+    const singleUserSearch = await searchWorkspace(
+      fixture.users.owner.userId,
+      fixture.workspaceIds.primary,
+      "RBAC 数学",
+    );
+    assert.equal(singleUserSearch.results.some((item) => item.id === fixture.subjects.primary), true);
+  } finally {
+    process.env.AUTH_MULTI_USER_ENABLED = "true";
+    process.env.AUTH_RBAC_ENABLED = "true";
+  }
   const appealReason = "隔离候选排名需要复核";
   const appeal = await submitRankingAppeal(fixture.users.member.actor, challenge.id, {
     participantId: invited.id,
@@ -443,6 +456,7 @@ try {
       auditSearchEvents: rankingAuditEvents.length,
       capacitySnapshot: "OBSERVED_ONLY",
       workspaceSearch: "OWNER_SHARED_SCOPED",
+      singleUserSearchFallback: "OWNER_SCOPED",
     },
     safetyFacts: {
       isolatedDatabaseRequired: true,

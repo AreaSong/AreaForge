@@ -22,6 +22,7 @@ const outputDirectory = path.join(root, "output/playwright/v15-failure-matrix");
 const results: BrowserResult[] = [];
 const consoleErrors: string[] = [];
 const pageErrors: string[] = [];
+const httpFailureResponses: Array<{ status: number; path: string }> = [];
 let fixtureSeeded = false;
 
 try {
@@ -45,13 +46,18 @@ try {
     const operator = await authenticatedContext(browser, fixture.users.operator.email, password, { width: 1280, height: 900 });
     const contexts = [anonymous, owner, coach, member, viewer, operator];
     try {
-      await runMatrix({ anonymous, owner, coach, member, viewer, operator }, fixture);
-      const visualObservations = await captureScreenshots(owner, member);
+      const searchVisualObservations = await runMatrix({ anonymous, owner, coach, member, viewer, operator }, fixture);
+      const visualObservations = [...await captureScreenshots(owner, member), ...searchVisualObservations];
       assert.equal(results.length, 17);
       assert.equal(results.every((result) => result.status >= 400), true);
       const unexpectedConsoleErrors = consoleErrors.filter((message) => !isExpectedHttpFailureConsole(message));
       const expectedHttpFailureConsoleCount = consoleErrors.length - unexpectedConsoleErrors.length;
-      assert.equal(expectedHttpFailureConsoleCount, results.length);
+      assert.equal(
+        httpFailureResponses.length,
+        results.length,
+        `unexpected HTTP failure responses: ${JSON.stringify(httpFailureResponses)}`,
+      );
+      assert.equal(expectedHttpFailureConsoleCount, httpFailureResponses.length);
       assert.deepEqual(unexpectedConsoleErrors, []);
       assert.deepEqual(pageErrors, []);
       const health = await fetch(`${baseUrl.origin}/api/health`).then((response) => response.json()) as {
@@ -82,7 +88,12 @@ try {
           unexpectedConsoleErrors,
           pageErrors,
         },
-        screenshots: ["owner-failure-matrix-desktop.png", "member-session-invalidated-mobile.png"],
+        screenshots: [
+          "owner-failure-matrix-desktop.png",
+          "member-session-invalidated-mobile.png",
+          "owner-search-desktop.png",
+          "member-search-mobile.png",
+        ],
         safetyFacts: {
           isolatedDatabaseUsed: true,
           isolatedDatabaseCleaned: true,
@@ -115,7 +126,7 @@ try {
 async function runMatrix(
   contexts: Record<"anonymous" | "owner" | "coach" | "member" | "viewer" | "operator", BrowserContext>,
   fixture: Awaited<ReturnType<typeof seedRbacRuntimeFixture>>,
-): Promise<void> {
+): Promise<readonly SearchVisualObservation[]> {
   await expectBrowserError(contexts.anonymous, "anonymous", "anonymous-private-api", "/api/system/accounts", "GET", undefined, 401, "UNAUTHORIZED");
   await expectBrowserError(contexts.owner, "owner", "non-operator-directory", "/api/system/accounts", "GET", undefined, 404, "PLATFORM_OPERATOR_NOT_FOUND");
   await expectBrowserError(contexts.member, "member", "cross-workspace-capability", `/api/exam-workspaces/${fixture.workspaceIds.secondary}/capabilities`, "GET", undefined, 404, "WORKSPACE_RESOURCE_NOT_FOUND");
@@ -157,10 +168,139 @@ async function runMatrix(
 
   await expectBrowserError(contexts.operator, "operator", "operator-self-action-rejected", `/api/system/accounts/${fixture.users.operator.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: 1, reason: "SECURITY_REVIEW" }, 409, "OPERATOR_SELF_ACTION_FORBIDDEN");
   await expectBrowserError(contexts.operator, "operator", "operator-stale-auth-revision", `/api/system/accounts/${fixture.users.viewer.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: 999, reason: "SECURITY_REVIEW" }, 409, "AUTH_REVISION_CONFLICT");
+  const searchVisualObservations = await runWorkspaceSearchSmoke(contexts.owner, contexts.member, fixture);
   const memberBefore = await prisma.user.findUniqueOrThrow({ where: { id: fixture.users.member.userId }, select: { authRevision: true } });
   const suspended = await browserRequest(contexts.operator, `/api/system/accounts/${fixture.users.member.userId}/status`, "PATCH", { status: "SUSPENDED", expectedAuthRevision: memberBefore.authRevision, reason: "SECURITY_REVIEW" });
   assert.equal(suspended.status, 200);
   await expectBrowserError(contexts.member, "member", "suspension-invalidates-session", "/api/auth/me", "GET", undefined, 401, "UNAUTHORIZED");
+  return searchVisualObservations;
+}
+
+interface SearchVisualObservation {
+  id: "owner-search-desktop" | "member-search-mobile";
+  viewport: { width: number; height: number };
+  finalPath: string;
+  resultLabel: string;
+  resultKind: string;
+  horizontalOverflow: number;
+  screenshot: string;
+}
+
+async function runWorkspaceSearchSmoke(
+  owner: BrowserContext,
+  member: BrowserContext,
+  fixture: Awaited<ReturnType<typeof seedRbacRuntimeFixture>>,
+): Promise<readonly SearchVisualObservation[]> {
+  const memberPoint = await prisma.knowledgePoint.create({
+    data: {
+      userId: fixture.users.member.userId,
+      workspaceId: fixture.workspaceIds.primary,
+      primarySubjectId: fixture.subjects.primary,
+      stableKey: `browser-search-${randomBytes(8).toString("hex")}`,
+      title: "成员搜索私有点",
+    },
+  });
+  const ownerPage = await visiblePage(owner, "/today");
+  await selectWorkspaceForSearch(ownerPage, fixture.workspaceIds.primary);
+  await ensurePath(ownerPage, "/today");
+  const ownerSearch = ownerPage.getByLabel("全局灵动岛搜索与命令输入框");
+  assert.equal(await ownerSearch.count(), 1);
+  await ownerSearch.waitFor({ state: "visible", timeout: 5_000 });
+  await ownerSearch.fill("RBAC 数学");
+  const ownerResult = ownerPage.getByRole("option").filter({ hasText: "RBAC 数学" });
+  await ownerResult.waitFor({ state: "visible", timeout: 5_000 });
+  assert.equal(await ownerResult.count(), 1, "owner search result count");
+  const ownerOverflow = await ownerPage.evaluate(() => Math.max(0, document.documentElement.scrollWidth - window.innerWidth));
+  assert.equal(ownerOverflow, 0, "owner search desktop horizontal overflow");
+  await ownerPage.screenshot({ path: path.join(outputDirectory, "owner-search-desktop.png"), fullPage: false });
+  await ownerSearch.press("ArrowDown");
+  assert.equal(await ownerResult.getAttribute("aria-selected"), "true", "owner keyboard selected search result");
+  await ownerSearch.press("Enter");
+  await waitForPath(ownerPage, "/settings/exams");
+  await assertVisibleHeading(ownerPage, "考试与科目");
+
+  const memberPage = await visiblePage(member, "/today");
+  await selectWorkspaceForSearch(memberPage, fixture.workspaceIds.primary);
+  await ensurePath(memberPage, "/today");
+  const memberSearch = memberPage.getByLabel("全局灵动岛搜索与命令输入框");
+  await memberSearch.waitFor({ state: "visible", timeout: 5_000 });
+  await memberSearch.fill("成员搜索私有点");
+  const memberResult = memberPage.getByRole("option").filter({ hasText: "成员搜索私有点" });
+  await memberResult.waitFor({ state: "visible", timeout: 5_000 });
+  assert.equal(await memberResult.count(), 1, "member search result count");
+  const memberOverflow = await memberPage.evaluate(() => Math.max(0, document.documentElement.scrollWidth - window.innerWidth));
+  assert.equal(memberOverflow, 0, "member search mobile horizontal overflow");
+  await memberPage.screenshot({ path: path.join(outputDirectory, "member-search-mobile.png"), fullPage: false });
+  await memberSearch.press("ArrowDown");
+  assert.equal(await memberResult.getAttribute("aria-selected"), "true", "member keyboard selected search result");
+  await memberSearch.press("Enter");
+  await waitForPath(memberPage, `/knowledge/points/${memberPoint.id}`);
+  await assertVisibleHeading(memberPage, "成员搜索私有点");
+  await prisma.knowledgePoint.delete({ where: { id: memberPoint.id } });
+  return [
+    {
+      id: "owner-search-desktop",
+      viewport: { width: 1280, height: 900 },
+      finalPath: "/settings/exams",
+      resultLabel: "RBAC 数学",
+      resultKind: "SUBJECT",
+      horizontalOverflow: ownerOverflow,
+      screenshot: "owner-search-desktop.png",
+    },
+    {
+      id: "member-search-mobile",
+      viewport: { width: 390, height: 844 },
+      finalPath: `/knowledge/points/${memberPoint.id}`,
+      resultLabel: "成员搜索私有点",
+      resultKind: "KNOWLEDGE_POINT",
+      horizontalOverflow: memberOverflow,
+      screenshot: "member-search-mobile.png",
+    },
+  ];
+}
+
+async function selectWorkspaceForSearch(page: Page, workspaceId: string): Promise<void> {
+  const response = await page.evaluate(async (id) => {
+    const listResponse = await fetch("/api/exam-workspaces");
+    const listBody = await listResponse.json().catch(() => null) as { workspaces?: Array<{ id: string; revision: number; current?: boolean; selectionRevision?: number }> } | null;
+    const target = listBody?.workspaces?.find((workspace) => workspace.id === id);
+    if (!target) return { status: 404, body: null };
+    const result = await fetch("/api/exam-workspaces/" + encodeURIComponent(id) + "/activate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        expectedRevision: target.revision,
+        ...(target.selectionRevision ? { expectedSelectionRevision: target.selectionRevision } : {}),
+      }),
+    });
+    return { status: result.status, body: await result.json().catch(() => null) };
+  }, workspaceId);
+  assert.equal(response.status, 200, "workspace selection for search");
+  await page.reload({ waitUntil: "networkidle" });
+}
+
+async function ensurePath(page: Page, pathname: string): Promise<void> {
+  if (new URL(page.url()).pathname === pathname) return;
+  await page.goto(`${baseUrl.origin}${pathname}`, { waitUntil: "networkidle" });
+  assert.equal(new URL(page.url()).pathname, pathname, `workspace search starting path ${pathname}`);
+}
+
+async function waitForPath(page: Page, pathname: string): Promise<void> {
+  if (new URL(page.url()).pathname !== pathname) {
+    await page.waitForURL((url) => url.pathname === pathname, { timeout: 5_000 });
+  }
+  assert.equal(new URL(page.url()).pathname, pathname, `workspace search final path ${pathname}`);
+}
+
+async function assertVisibleHeading(page: Page, name: string): Promise<void> {
+  try {
+    await page.getByRole("heading", { name, level: 1 }).waitFor({ state: "visible", timeout: 5_000 });
+  } catch (error) {
+    const visibleText = (await page.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 500);
+    throw new Error(`workspace search target heading missing at ${new URL(page.url()).pathname}: ${visibleText}`, {
+      cause: error,
+    });
+  }
 }
 
 async function authenticatedContext(
@@ -238,6 +378,11 @@ function instrumentContext(context: BrowserContext): BrowserContext {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("response", (response) => {
+      if (response.status() >= 400) {
+        httpFailureResponses.push({ status: response.status(), path: new URL(response.url()).pathname });
+      }
+    });
   };
   context.on("page", attach);
   context.pages().forEach(attach);

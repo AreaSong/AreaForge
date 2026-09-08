@@ -34,3 +34,4 @@ export type * from "@/lib/contracts/review-target";
 export type * from "@/lib/contracts/simulation";
 export type * from "@/lib/contracts/study-resource";
 export type * from "@/lib/contracts/task";
+export type * from "@/lib/contracts/search";

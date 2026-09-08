@@ -28,6 +28,7 @@ const toneClass: Record<string, string> = {
 export interface GlobalTopBarProps {
   pathname?: string | null;
   userId: string;
+  workspaceId?: string | null;
   hasWorkspace: boolean;
   statusTone: string;
   statusSummary: string;
@@ -103,6 +104,7 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
           <DynamicIsland
             pathname={props.pathname}
             userId={props.userId}
+            workspaceId={props.workspaceId}
             activeSession={props.activeSession}
             offlineSession={props.offlineSession}
             quickReviewClaim={props.quickReviewClaim}

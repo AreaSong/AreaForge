@@ -104,6 +104,7 @@ import {
 } from "./dynamic-island-helpers";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
 import type { StudySessionDto } from "@/lib/contracts";
+import { useWorkspaceSearchCommands } from "./use-workspace-search-commands";
 import {
   type DynamicIslandCapsuleKind,
   type DynamicIslandStateKind,
@@ -171,6 +172,7 @@ export const DYNAMIC_ISLAND_SEARCH_PLACEHOLDER = "搜索或输入命令… ⌘K"
 
 export interface DynamicIslandProps {
   userId: string;
+  workspaceId?: string | null;
   activeSession: StudySessionDto | null;
   offlineSession: StudySessionDto | null;
   quickReviewClaim: QuickReviewActivityClaim | null;
@@ -351,7 +353,13 @@ export function DynamicIsland(props: DynamicIslandProps) {
   const currentItem =
     dualTask.satellite || swappedPrimaryKind ? dualTask.dominant || ticker.currentItem : ticker.currentItem;
 
-  const commands = useMemo(() => filterGlobalCommands(query, props.commands ?? GLOBAL_COMMANDS), [props.commands, query]);
+  const localCommands = useMemo(() => filterGlobalCommands(query, props.commands ?? GLOBAL_COMMANDS), [props.commands, query]);
+  const resetSearchSelection = useCallback(() => setActiveIndex(0), []);
+  const workspaceSearch = useWorkspaceSearchCommands(props.workspaceId, query, resetSearchSelection);
+  const commands = useMemo(
+    () => [...workspaceSearch.commands, ...localCommands],
+    [workspaceSearch.commands, localCommands],
+  );
   const selectedIndex = clampCommandIndex(activeIndex, commands.length);
   const { executeCommand, handleInputKeyDown } = useDynamicIslandHandlers(
     query, setQuery, commands, selectedIndex, setActiveIndex, setIsOpen, setViewMode, inputRef, props.onOpenAction
@@ -448,6 +456,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
             searchQuery: query,
             onSearchChange: setQuery,
             commands,
+            searchStatus: workspaceSearch.status,
             selectedIndex,
             onSelectIndex: setActiveIndex,
             onExecuteCommand: executeCommand,

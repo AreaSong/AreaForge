@@ -1,26 +1,10 @@
-import { filterWorkspaceSearchCandidates, type WorkspaceSearchCandidate } from "@areaforge/core";
+import { filterWorkspaceSearchCandidates, listWorkspaceCapabilities, type WorkspaceSearchCandidate } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
-import { grantAllowsActor, requireWorkspacePolicy } from "@/lib/workspace/policy-service";
-
-export type WorkspaceSearchResultKind = "SUBJECT" | "TASK" | "KNOWLEDGE_POINT" | "NOTE" | "MISTAKE" | "RESOURCE";
-
-export interface WorkspaceSearchResultDto {
-  id: string;
-  kind: WorkspaceSearchResultKind;
-  label: string;
-  href: string;
-  visibility: "WORKSPACE" | "OWNER" | "SHARED";
-}
-
-export interface WorkspaceSearchResponseDto {
-  contractVersion: "workspace-search-v1";
-  workspaceId: string;
-  query: string;
-  results: WorkspaceSearchResultDto[];
-  truncated: boolean;
-  indexed: false;
-}
+import { getAuthEnv } from "@/lib/auth/env";
+import type { WorkspaceSearchResponseDto, WorkspaceSearchResultKind } from "@/lib/contracts/search";
+import { requireWorkspaceOwner } from "@/lib/workspace/access-service";
+import { grantAllowsActor, requireWorkspacePolicy, type WorkspacePolicyContext } from "@/lib/workspace/policy-service";
 
 interface SearchRow extends WorkspaceSearchCandidate {
   kind: WorkspaceSearchResultKind;
@@ -39,7 +23,7 @@ export async function searchWorkspace(
   const query = normalizeQuery(queryInput);
   const limit = normalizeLimit(limitInput);
   if (!Number.isFinite(now.getTime())) throw new ApiError("WORKSPACE_SEARCH_QUERY_INVALID", 400);
-  const context = await requireWorkspacePolicy(prisma, actorId, workspaceId, "workspace:read");
+  const context = await resolveSearchContext(actorId, workspaceId);
   const grants = await prisma.workspaceShareGrant.findMany({
     where: {
       workspaceId,
@@ -130,10 +114,30 @@ function candidate(
   visibility: SearchRow["visibility"],
   sharedActorId?: string,
 ): SearchRow {
+  const normalizedLabel = label.trim().slice(0, 240);
   return {
-    id, kind, label, href, ownerUserId, workspaceId, visibility,
+    id, kind, label: normalizedLabel || "未命名对象", href, ownerUserId, workspaceId, visibility,
     ...(visibility === "SHARED" && sharedActorId ? { sharedWithUserIds: [sharedActorId] } : {}),
   };
+}
+
+async function resolveSearchContext(actorId: string, workspaceId: string): Promise<WorkspacePolicyContext> {
+  const env = getAuthEnv();
+  if (env.AUTH_MULTI_USER_ENABLED && env.AUTH_RBAC_ENABLED) {
+    return requireWorkspacePolicy(prisma, actorId, workspaceId, "workspace:read");
+  }
+  try {
+    const workspace = await requireWorkspaceOwner(prisma, actorId, workspaceId, { active: true });
+    return {
+      actorId,
+      workspaceId,
+      ownerUserId: workspace.userId,
+      role: "OWNER",
+      capabilities: listWorkspaceCapabilities("OWNER"),
+    };
+  } catch {
+    throw new ApiError("WORKSPACE_RESOURCE_NOT_FOUND", 404);
+  }
 }
 
 function compareResults(a: SearchRow, b: SearchRow, query: string): number {
