@@ -61,7 +61,7 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 ## 产品边界
 
 v2.0 首批持久后台任务执行内核已形成本地候选：持久退避/死信、租约代次、暂停/取消/重放、事务提交及独立进程恢复。
-13 组隔离 runtime 与完整 migration ledger 检查见 `tasks/backlog/0045-platform-hardening.md`；导出/删除/排名重建域处理器、共享与生产启用仍未完成。
+最新 15 组内核隔离 runtime 与完整 migration ledger 检查见 `tasks/backlog/0045-platform-hardening.md`；通知候选仍待独立域级确认，导出/删除/排名重建及共享与生产启用未完成。
 
 - 稳定 Release 和当前生产仍是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；已合并 `main` 但默认关闭的 v1.4-v1.5 候选提供邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
 - PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。

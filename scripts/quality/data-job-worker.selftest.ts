@@ -35,7 +35,8 @@ test("处理器错误只能携带有界代码，不能把异常正文落库", ()
 
 test("暂停/取消结果只能由受信任的队列心跳产生", async () => {
   const source = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../workers/data-job-execution.ts"), "utf8");
-  assert.match(source, /class DataJobControlError/);
+  const heartbeatSource = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../workers/data-job-heartbeat.ts"), "utf8");
+  assert.match(heartbeatSource, /class DataJobControlError/);
   assert.match(source, /if \(error instanceof DataJobControlError\)/);
   assert.doesNotMatch(source, /error instanceof DataJobHandlerError && error\.code === "DATA_JOB_(PAUSED|CANCELLED)"/);
 });

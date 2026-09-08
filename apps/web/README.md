@@ -9,7 +9,7 @@
 v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作以及 v1.6-v1.9 数据任务预览、受控运维请求、私有挑战/排名投影与持久排名通知候选，已由 PR #57 在两套 `verify` 成功后合并 `main` commit `b04ba98`。后续分支已补独立通知路由、顶部栏入口、动态运行态和受控通知 worker 处理器本地候选。默认 `AUTH_MULTI_USER_ENABLED=false`、`AUTH_RBAC_ENABLED=false`、`DATA_LIFECYCLE_ENABLED=false`、`RANKING_ENABLED=false`、`PLATFORM_NOTIFICATIONS_ENABLED=false`、`PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`；候选 migration 未 apply 到共享测试库或生产，新 Release 与 production apply 证据仍缺，敏感学习正文仍只允许资源 owner 或持有有效 grant 的成员读取。
 
 持久 worker 首批候选通过 `queueVersion` 与现有数据预览接口隔离，Web 不启动后台进程。
-独立执行内核和隔离子进程验证见 `docs/modules/background-jobs.md`；域处理器、共享/生产迁移与正式上线尚未交付。
+独立执行内核与隔离回归见 `docs/modules/background-jobs.md`；排名通知候选的域级确认、其余域处理器及共享/生产交付尚未完成。
 
 ## Getting Started
 

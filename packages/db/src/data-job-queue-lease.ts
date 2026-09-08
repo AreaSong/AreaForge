@@ -44,13 +44,15 @@ export async function commitQueuedDataJob(client: DataQueueClient, input: {
   }, { timeout: 15_000 });
 }
 
-export async function failQueuedDataJob(client: DataQueueClient, input: { lease: DataJobLease; errorCode: string; retryable: boolean }): Promise<void> {
+export async function failQueuedDataJob(client: DataQueueClient, input: { lease: DataJobLease; errorCode: string; retryable: boolean }): Promise<"FAILED" | "PAUSED" | "CANCELLED"> {
   return client.$transaction(async (tx) => {
     const row = await lockQueuedDataJob(tx, input.lease.jobId);
     const now = await queueClock(tx);
     assertQueueLease(row, input.lease, now);
-    if (await settleQueueControl(tx, row)) return;
+    const stopped = await settleQueueControl(tx, row);
+    if (stopped) return stopped;
     await persistQueueFailure(tx, row, { errorCode: input.errorCode, retryable: input.retryable, now });
+    return "FAILED";
   });
 }
 

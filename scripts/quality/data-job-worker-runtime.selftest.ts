@@ -10,6 +10,7 @@ import { hashDataExportValue } from "../../packages/core/src/index";
 import { executeDataJob } from "../workers/data-job-execution";
 import { runDataJobWorker } from "../workers/data-job-runner";
 import { createRankingNotificationHandler } from "../workers/ranking-notification-handler";
+import { verifyCommitHeartbeatBoundary, verifyFailureControlResult, verifyHandlerCannotForgeControl } from "./data-job-worker-execution-runtime";
 import {
   fixtureJob, makeFixtureLeaseStale, makeFixtureRetryDue, requireDataJobWorkerFixture,
   seedDataJobWorkerFixture, syntheticQueueEffect, verifyDataJobWorkerMigrations, waitForFixture, type WorkerFixture,
@@ -338,7 +339,10 @@ async function verifyCrashPoint(fixture: WorkerFixture, point: "prepare" | "comm
   assert.equal((await read(job.id)).status, "RUNNING");
   assert.equal(await effectCount(job.id), 0);
   await waitForFixture(async () => (await read(job.id)).leaseExpiresAt!.getTime() <= Date.now());
-  await recover(fixture);
+  await waitForFixture(async () => {
+    await recover(fixture);
+    return (await read(job.id)).status === "FAILED";
+  });
   assert.equal((await read(job.id)).status, "FAILED");
   await makeFixtureRetryDue(job.id);
   const successor = startFixtureProcess(fixture, false);
@@ -356,14 +360,19 @@ try {
   const cases = [verifyClaimsAndIdempotency, verifySkipLockedAndPartition, verifyRecoveryAndFencing,
     verifyDeadLetterAndReplay, verifyPauseAndCancel, verifyTransactionalRollback, verifyRevocationAndExpiry,
     verifyHeartbeatAndAbort, verifyRealProcessCrash, verifyLegacyProtocolAndScopeChecks,
-    verifyRunnerControls, verifyAccountArchiveAndCommitDeadline, verifyQueuedRankingNotification];
+    verifyRunnerControls, verifyAccountArchiveAndCommitDeadline,
+    verifyFailureControlResult, verifyHandlerCannotForgeControl, verifyCommitHeartbeatBoundary];
+  // 域处理器验证需要独立授权，不能随内核回归隐式执行。
+  const notificationFixtureEnabled = process.env.AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB === "1";
+  if (notificationFixtureEnabled) cases.push(verifyQueuedRankingNotification);
   for (const verify of cases) {
     await verify(await seedDataJobWorkerFixture());
     console.log(`PASS ${verify.name}`);
   }
   console.log(JSON.stringify({ status: "pass", migrations, cases: cases.length, evidenceClass: "isolated-runtime",
+    notificationFixtureEnabled,
     productionTouched: false, sharedDatabaseTouched: false, realArchiveCreated: false, physicalDeletionAttempted: false,
-    doesNotProve: ["ranking rebuild, EXPORT or DELETE handlers", "shared or production migration", "Release or production apply", "browser acceptance"],
+    doesNotProve: ["full notification domain authorization", "ranking rebuild, EXPORT or DELETE handlers", "shared or production migration", "Release or production apply", "browser acceptance"],
   }));
 } finally {
   await prisma.$disconnect();

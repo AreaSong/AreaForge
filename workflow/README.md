@@ -24,7 +24,7 @@
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 后续持久 worker 首批已有兼容队列字段、退避/死信、租约代次、事务副作用、独立子进程恢复和受控排名通知处理器候选；完整 50 条 migration 与 13 组隔离 runtime 通过。排名重建、导出/删除处理器、共享/生产 migration 和 v2.0 门禁未完成。PR #57 / `b04ba98` 已合并，不作为待合并阻塞。
+- 后续持久 worker 首批已有兼容队列字段、退避/死信、租约代次、事务副作用、独立子进程恢复和受控排名通知处理器候选；完整 50 条 migration 与 15 组内核隔离 runtime 通过。通知域确认、排名重建、导出/删除处理器、共享/生产 migration 和 v2.0 门禁未完成。PR #57 / `b04ba98` 已合并，不作为待合并阻塞。
 
 - 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
 - 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
