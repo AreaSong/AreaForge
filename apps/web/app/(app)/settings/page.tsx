@@ -1,4 +1,4 @@
-import { ShieldCheck, UserCheck } from "lucide-react";
+import { UserCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
@@ -11,6 +11,7 @@ import { SettingsOfflineIndicator } from "@/components/settings/settings-offline
 import { SettingsRuntimeCard } from "@/components/settings/settings-runtime-card";
 import { SettingsWorkspaceCapacityCard } from "@/components/settings/settings-workspace-capacity";
 import { getWorkspaceCapacityMetrics } from "@/lib/study/settings-capacity-service";
+import { getUpdateCenterStatus } from "@/lib/system/update-center";
 
 export const dynamic = "force-dynamic";
 export const metadata = getRouteMetadata("/settings");
@@ -19,9 +20,10 @@ export default async function SettingsIndexPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [activeWorkspace, aiCredentialStatus] = await Promise.all([
+  const [activeWorkspace, aiCredentialStatus, updateStatus] = await Promise.all([
     findActiveWorkspaceOrNull(user.id),
     getAiProviderCredentialStatus(user.id),
+    getUpdateCenterStatus(),
   ]);
 
   const [subjects, capacityMetrics] = await Promise.all([
@@ -79,13 +81,14 @@ export default async function SettingsIndexPage() {
               activeWorkspace={activeWorkspace}
               activeSubjectCount={activeSubjectCount}
               aiConfigured={isAiConfigured}
+              currentVersion={updateStatus.currentVersion}
             />
           </section>
 
           {/* System Runtime Metrics & Quick Actions */}
           <section aria-labelledby="settings-runtime-heading">
             <h2 id="settings-runtime-heading" className="sr-only">系统运行态与安全基线</h2>
-            <SettingsRuntimeCard />
+            <SettingsRuntimeCard status={updateStatus} />
           </section>
         </main>
       </div>

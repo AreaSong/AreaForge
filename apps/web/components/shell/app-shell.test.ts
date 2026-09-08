@@ -141,6 +141,8 @@ test("GlobalTopBar: controls and tool actions are correctly distributed", () => 
   assert.match(topbarSource, /props\.hasWorkspace \? <GlobalConfirmationCenter/);
   assert.match(shellSource, /hasWorkspace=\{Boolean\(status\.workspaceId\)\}/);
   assert.match(topbarSource, /<GlobalAiAssistant/);
+  assert.match(topbarSource, /href="\/settings\/notifications"/);
+  assert.match(topbarSource, /通知中心/);
   assert.match(topbarSource, /我学不下去了/);
   assert.match(topbarSource, /<GlobalQuickCreate/);
 });

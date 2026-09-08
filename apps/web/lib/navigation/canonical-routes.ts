@@ -186,6 +186,7 @@ export const CANONICAL_ROUTES = [
   }),
   appRoute("/settings/profile", "个人与恢复", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "profile" }),
   appRoute("/settings/learning", "学习与提醒", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "learning" }),
+  appRoute("/settings/notifications", "通知中心", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "notifications" }),
   appRoute("/settings/ai", "AI 与隐私", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "ai" }),
   appRoute("/settings/data", "数据与安全", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "data" }),
   appRoute("/settings/system", "系统与更新", "settings", "secondary", "dashboard-wide", "/settings", { secondary: "system" }),

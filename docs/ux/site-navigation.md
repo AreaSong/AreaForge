@@ -52,6 +52,7 @@ flowchart TB
   stages --> trend["/roadmap/stages/trend 阶段趋势"]
   settings["/settings 设置总览"] --> exams["/settings/exams 考试与科目"]
   settings --> learning["/settings/learning 学习与提醒"]
+  settings --> notifications["/settings/notifications 通知中心"]
   settings --> data["/settings/data 数据与安全"]
   settings --> ai["/settings/ai AI 与隐私"]
   settings --> profile["/settings/profile 个人与恢复"]
@@ -67,13 +68,13 @@ flowchart TB
 | 知识 | `/knowledge` | 概览、知识点、考纲、学习资料、知识卡片、错题、复习 |
 | 检验 | `/test/retests` | 专项复测、模拟考试 |
 | 路线 | `/roadmap` | 路线总览、投入安排、阶段、周期复盘 |
-| 设置（底部工具） | `/settings` | 设置总览、考试与科目、个人与恢复、学习与提醒、AI 与隐私、数据与安全、系统与更新 |
+| 设置（底部工具） | `/settings` | 设置总览、账户安全、工作区与成员、考试与科目、个人与恢复、学习与提醒、通知中心、AI 与隐私、数据与安全、系统与更新 |
 
 确认中心通过顶部公共入口、命令面板和报告/复测/模拟结果深链进入全局工作窗口；它不占用 L3 内容区，也不制造第四级导航。
 
 ## 页面清单
 
-以下 55 条记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
+以下页面记录与 `apps/web/lib/navigation/canonical-routes.ts`、实际 `page.tsx` 文件由同一门禁校验。
 
 | 路由 | 名称 | 职责 |
 |---|---|---|
@@ -129,6 +130,7 @@ flowchart TB
 | `/settings/exams` | 考试与科目 | 考试目标、工作区、科目、专业课/408 分组 CRUD |
 | `/settings/profile` | 个人与恢复 | 个人信息、动机和恢复相关设置 |
 | `/settings/learning` | 学习与提醒 | 通知、提醒窗口和界面偏好 |
+| `/settings/notifications` | 通知中心 | 账户与 Workspace 隔离的成员、私有挑战和申诉事件；已读、隐藏与恢复状态跨设备同步 |
 | `/settings/ai` | AI 与隐私 | Provider、隐私边界和 AI 偏好 |
 | `/settings/data` | 数据与安全 | 数据导入导出、存储和安全状态 |
 | `/settings/system` | 系统与更新 | 版本、诊断和更新入口 |

@@ -1,7 +1,8 @@
 "use client";
 
 import { Button, IconButton } from "@/components/ui/button";
-import { Activity, Menu, TriangleAlert } from "lucide-react";
+import { Activity, BellRing, Menu, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
 import { GlobalAiAssistant } from "@/components/global-ai-assistant";
 import { CONFIRMATION_WINDOW_EVENT, GlobalConfirmationCenter } from "@/components/global-confirmation-center";
@@ -30,6 +31,7 @@ export interface GlobalTopBarProps {
   userId: string;
   workspaceId?: string | null;
   hasWorkspace: boolean;
+  notificationsEnabled: boolean;
   statusTone: string;
   statusSummary: string;
   activeSession: StudySessionDto | null;
@@ -120,6 +122,16 @@ export function GlobalTopBar(props: GlobalTopBarProps) {
 
         <div className="col-start-2 row-start-1 flex min-w-0 shrink-0 items-center justify-end gap-1 max-[359px]:col-span-1 max-[359px]:col-start-2 max-[359px]:row-start-2 sm:gap-1.5 lg:col-start-3 lg:row-start-1">
           {props.hasWorkspace ? <GlobalConfirmationCenter pathname={props.pathname ?? ""} userId={props.userId} /> : null}
+          {props.notificationsEnabled ? (
+            <Link
+              href="/settings/notifications"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label="打开通知中心"
+              title="通知中心"
+            >
+              <BellRing size={15} aria-hidden="true" />
+            </Link>
+          ) : null}
           <GlobalAiAssistant userId={props.userId} placement="header" />
           <Button
             type="button"
