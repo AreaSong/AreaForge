@@ -20,9 +20,11 @@
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
 - `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
-- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产；v1.4-v1.8 默认关闭的本地候选已通过总门禁、一次性隔离 runtime，commit `6568c87` 的 branch push CI run `34119581102` 已成功，六类身份 desktop/mobile 可见性、代表性写入与 17 项浏览器失败矩阵已完成；v1.9 已形成纯规则与持久排名通知基础，通用 worker/搜索/配额/MFA/观测等主体 runtime 与 v2.0 综合门禁仍未完成；候选 migration 尚未 apply 到共享测试库或生产，仍缺受保护 PR/合并、Release/生产证据。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 及 v1.4-v1.9 候选已分别由 PR #56、#57 合并。六类身份 desktop/mobile、代表性写入、17 项失败矩阵和通知基础已有隔离证据；后续 worker 业务处理器、搜索/配额/MFA/观测与 v2.0 综合门禁尚未完成。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
+
+- 后续持久 worker 首批已有兼容队列字段、退避/死信、租约代次、事务副作用与独立子进程恢复候选；完整 50 条 migration 与 12 组隔离 runtime 通过。各域处理器、共享/生产 migration 和 v2.0 门禁未完成。PR #57 / `b04ba98` 已合并，不作为待合并阻塞。
 
 - 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
 - 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。

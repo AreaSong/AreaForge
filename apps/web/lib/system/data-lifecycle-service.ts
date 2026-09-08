@@ -287,6 +287,7 @@ export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifec
         where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } },
       });
       if (existing) {
+        if (existing.queueVersion !== 0) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
         if (existing.requestFingerprint !== requestFingerprint) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
         return serializeDataJob(existing);
       }
@@ -333,7 +334,7 @@ export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifec
       const existing = await prisma.dataJob.findUnique({
         where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } },
       });
-      if (existing && existing.requestFingerprint === requestFingerprint) return serializeDataJob(existing);
+      if (existing && existing.queueVersion === 0 && existing.requestFingerprint === requestFingerprint) return serializeDataJob(existing);
       if (existing) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
     }
     throw error;
@@ -343,7 +344,7 @@ export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifec
 export async function listDataLifecycleJobs(actor: CurrentUser): Promise<DataJobDto[]> {
   requireDataLifecycleCandidate();
   const rows = await prisma.dataJob.findMany({
-    where: { requestedByUserId: actor.id },
+    where: { requestedByUserId: actor.id, queueVersion: 0 },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
@@ -352,7 +353,7 @@ export async function listDataLifecycleJobs(actor: CurrentUser): Promise<DataJob
 
 export async function getDataLifecycleJob(actor: CurrentUser, jobId: string): Promise<DataJobDto> {
   requireDataLifecycleCandidate();
-  const job = await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id } });
+  const job = await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, queueVersion: 0 } });
   if (!job) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
   return serializeDataJob(job);
 }
@@ -362,7 +363,7 @@ export async function cancelDataLifecycleJob(actor: CurrentUser, jobId: string, 
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new ApiError("DATA_JOB_REVISION_INVALID", 400);
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
-    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id } });
+    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, queueVersion: 0 } });
     if (!job) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
     if (expectedRevision !== job.updatedAt.getTime()) throw new ApiError("DATA_JOB_CONFLICT", 409);
     if (job.kind === "DELETE" && job.status === "PAUSED") {
@@ -395,11 +396,12 @@ export async function retryDataLifecycleJob(actor: CurrentUser, jobId: string, e
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new ApiError("DATA_JOB_REVISION_INVALID", 400);
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
-    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id } });
+    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, queueVersion: 0 } });
     if (!job) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
     if (job.kind !== "EXPORT" || job.status !== "FAILED" || !job.retryable) {
       throw new ApiError("DATA_JOB_RETRY_NOT_ALLOWED", 409);
     }
+    if (expectedRevision !== job.updatedAt.getTime()) throw new ApiError("DATA_JOB_CONFLICT", 409);
     const changed = await tx.dataJob.updateMany({
       where: { id: job.id, requestedByUserId: actor.id, status: "FAILED", retryable: true, updatedAt: job.updatedAt },
       data: { status: "QUEUED", progress: 0, errorCode: null, retryable: false },
@@ -432,6 +434,7 @@ export async function claimDataLifecycleJob(input: {
       ? await lockDataJob(tx, normalizeJobId(input.jobId))
       : await lockNextDataJob(tx, now);
     if (!row) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
+    if (row.queueVersion !== 0) throw new ApiError("DATA_JOB_WORKER_PROTOCOL_MISMATCH", 409);
     if (row.expiresAt <= now) throw new ApiError("DATA_JOB_EXPIRED", 409);
     if (row.kind !== "EXPORT") throw new ApiError("DATA_JOB_KIND_NOT_WORKER_ELIGIBLE", 409);
 
@@ -518,6 +521,7 @@ export async function expireDataLifecycleJob(jobId: string, now = new Date()): P
   return prisma.$transaction(async (tx) => {
     const row = await lockDataJob(tx, normalizeJobId(jobId));
     if (!row) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
+    if (row.queueVersion !== 0) throw new ApiError("DATA_JOB_WORKER_PROTOCOL_MISMATCH", 409);
     const state = transitionOrThrow(rowToDataJobState(row), { type: "EXPIRE", now: now.toISOString() });
     const updated = await persistDataJobState(tx, row, state);
     await writeDataAudit(tx, null, "DATA_JOB_EXPIRED", row.id, { reason: "LEASE_EXPIRED" });
@@ -901,7 +905,7 @@ async function lockNextDataJob(tx: Prisma.TransactionClient, now: Date): Promise
   const rows = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT "id"
     FROM "DataJob"
-    WHERE "kind" = 'EXPORT'
+    WHERE "kind" = 'EXPORT' AND "queueVersion" = 0
       AND "expiresAt" > ${now}
       AND (
         "status" = 'QUEUED'
@@ -911,7 +915,7 @@ async function lockNextDataJob(tx: Prisma.TransactionClient, now: Date): Promise
       )
     ORDER BY "createdAt" ASC, "id" ASC
     LIMIT 1
-    FOR UPDATE
+    FOR UPDATE SKIP LOCKED
   `;
   const id = rows[0]?.id;
   return id ? tx.dataJob.findUnique({ where: { id } }) : null;
@@ -986,6 +990,7 @@ async function workerTransitionDataLifecycleJob(
   return prisma.$transaction(async (tx) => {
     const row = await lockDataJob(tx, normalizeJobId(jobId));
     if (!row) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
+    if (row.queueVersion !== 0) throw new ApiError("DATA_JOB_WORKER_PROTOCOL_MISMATCH", 409);
     if (row.kind !== "EXPORT") throw new ApiError("DATA_JOB_KIND_NOT_WORKER_ELIGIBLE", 409);
     if (row.updatedAt.getTime() !== expectedRevision) throw new ApiError("DATA_JOB_REVISION_CONFLICT", 409);
     if (row.leaseOwner !== workerId) throw new ApiError("DATA_JOB_LEASE_OWNER_MISMATCH", 409);

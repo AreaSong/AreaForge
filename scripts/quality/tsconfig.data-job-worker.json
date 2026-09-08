@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true },
+  "include": ["../workers/data-job-*.ts", "data-job-worker*.ts"]
+}

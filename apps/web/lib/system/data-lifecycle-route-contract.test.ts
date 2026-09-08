@@ -79,3 +79,13 @@ test("download grant route never accepts a raw path or token hash", async () => 
   assert.doesNotMatch(source, /objectKey|tokenHash|storedName|uri/i);
   assert.match(source, /requireRecentReauthentication\(actor\)/);
 });
+
+test("legacy preview APIs do not claim or mutate durable queue jobs", async () => {
+  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  assert.match(service, /WHERE "kind" = 'EXPORT' AND "queueVersion" = 0/);
+  assert.equal((service.match(/row\.queueVersion !== 0/g) ?? []).length, 3);
+  assert.match(service, /requestedByUserId: actor\.id, queueVersion: 0/);
+  assert.match(service, /existing\.queueVersion === 0 && existing\.requestFingerprint/);
+  const retry = service.slice(service.indexOf("export async function retryDataLifecycleJob"), service.indexOf("export async function claimDataLifecycleJob"));
+  assert.match(retry, /expectedRevision !== job\.updatedAt\.getTime\(\)/);
+});

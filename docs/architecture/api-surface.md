@@ -97,6 +97,10 @@
 
 ### Platform / Audit
 
+`/api/system/data-jobs` 的既有预览、取消、重试和手工 worker 接口只处理 `queueVersion=0`。
+独立 worker 协议任务由服务端队列组件管理，旧接口不能领取、完成或通过幂等键接管它们。
+本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。
+
 - `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
 - `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。尚未确认配额数值与执行政策，因此响应明确为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不将观测值解释为限额，不拒绝任何业务写入。
 - `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读搜索；返回活动科目，以及当前 actor 自有任务/知识点/笔记/错题/资料和通过有效对象 grant 可见的笔记/错题。查询先校验 Membership 与授权，再返回标题、资源类型和 canonical href；不搜索或返回正文、附件名、动机档案、情绪、AI prompt/响应或内部路径。响应 `indexed=false` 表明当前直接查询 PostgreSQL，不伪装为已完成的持久搜索索引。

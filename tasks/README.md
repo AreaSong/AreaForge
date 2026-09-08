@@ -16,8 +16,9 @@
 - 学习行动中心阶段包见 `docs/development/v11-phase-packages.md`；Batch 0 任务 `tasks/active/0025-v11-batch0-doc-sync.md`，Batch 3–10 已完成见 `tasks/done/0027-*` 至 `0034-*`，`v1.1.0` 与 Batch 11 的 `v1.1.1` 修复 Release/production apply 均已完成。`tasks/active/0035-v11-batch11-minor-release.md` 已完成 `v1.1.2` 稳定 Release，继续保留 production apply 的独立确认边界；Batch 1–2 历史复核入口保留在 `tasks/backlog/0026-*`。
 - 响应式布局系统与 49 条 canonical 页面迁移由 `tasks/active/0036-responsive-layout-system.md` 承接；响应式 R1-R6 保留历史 local-verified 证据，共享能力 G0-G5、复杂异步一致性 B6、当前 checkout 的 G6 浏览器证据与文档同步 G7 已完成。G6 当前证据为 v2 responsive/governance artifact 与 pair validator 结果，详见任务文件；旧 `responsive-r6` 截图不计入 G6。本地收口不改变既有功能完成、Release 或 production apply 状态。
 - `v1.2.0` 发布准备第一阶段已由 `tasks/done/0037-v12-release-preparation.md` 完成；第二阶段已从 fresh readback 的 `main` commit 创建 annotated tag、完成 Release workflow 和 strict 供应链资产校验，证据见 `docs/development/release-v1.2.0-record.md` 与 `docs/development/release-supply-chain-v1.2.0.md`。production apply 仍需后续独立确认。
-- A -> B 平台演进的 M0 已归档；v1.3 已合并但等待独立 Release/production disposition。`0040`、`0044`、`0041`、`0042`、`0043` 对应的 v1.4-v1.8 默认关闭本地候选已形成隔离 runtime、本地总门禁和 Git 检查点，commit `6568c87` 的 branch push CI run `34119581102` 已成功，六类身份 desktop/mobile 可见性、代表性写入与 17 项浏览器失败矩阵已完成；`0045` 已形成纯规则与持久排名通知基础。所有候选仍待受保护 PR/合并、Release 和生产证据；`0045` 后续承接通用 worker/搜索/配额/MFA/观测等平台加固，`0046` 承接 v2.0 综合门禁。任务进入 active 或总体路线获同意都不等于已经获得生产 migration/apply、数据删除或 Release 授权。
+- A -> B 平台演进的 M0 已归档；v1.3 已由 PR #56 合并但等待独立 Release/production disposition，v1.4-v1.9 默认关闭候选已由 PR #57 合并 `main` commit `b04ba98`。六类身份 desktop/mobile、代表性写入和 17 项失败矩阵已有隔离证据；`0045` 后续承接持久 worker 的域处理器、搜索/配额/MFA/观测，`0046` 承接 v2.0 综合门禁。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据；任务进入 active 不等于执行授权。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
+- `0045` 的持久 worker 首批已形成新协议队列、租约代次、退避/死信与独立子进程恢复候选，并通过 50 条 migration 与 12 组隔离 runtime；真实域处理器、共享/生产启用和 v2.0 门禁仍未完成。已合并的 PR #57 不再作为候选代码合并阻塞。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
 ## 使用规则

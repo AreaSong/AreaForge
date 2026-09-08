@@ -7,9 +7,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "test": "tsx --test src/*.test.ts ../../scripts/quality/data-job-worker.selftest.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@areaforge/core": "workspace:*",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "pg": "^8.16.3"

@@ -47,6 +47,14 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `AiProviderCredential`：当前账户 Provider 配置；服务端保存 base URL、model、API Key 密文、fingerprint、revision 和时间字段，API Key 不进入 Web 响应或审计 metadata。
 - `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；可选 `mistakeId` 记录“转为错题”来源，一个失分项最多关联一条错题。
 
+## 后台任务状态
+
+`DataJob` 通过 `queueVersion` 区分旧手工预览协议与独立 worker 协议；旧行默认保持零。
+`nextAttemptAt`、`maxAttempts`、`leaseVersion`、`pauseRequested`、`deadLetteredAt` 分别保存持久调度、
+重试预算、租约代次、暂停请求和死信时间。新协议的 ACCOUNT/WORKSPACE 范围由 SQL CHECK 保证一致；
+领取由队列索引和 `FOR UPDATE SKIP LOCKED` 支持，不修改其他业务模型或自动执行旧任务。
+副作用和成功状态在同一事务提交，机制与业务处理器的区别见 [`持久后台任务`](../modules/background-jobs.md)。
+
 ## 规划扩展模型
 
 后续实体继续遵循 additive-first；已落地模型见上方与 Prisma schema。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。旧数据只读兼容，不批量猜测回填。

@@ -44,6 +44,7 @@ export * from "./data-trash";
 export * from "./platform-hardening";
 export * from "./user-notification";
 export * from "./data-jobs";
+export * from "./data-job-queue";
 export * from "./ranking-metrics";
 export * from "./ranking-policy";
 export * from "./controlled-operation-lifecycle";

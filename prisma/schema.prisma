@@ -679,6 +679,13 @@ model DataJob {
   resultJson         Json?
   errorCode          String?
   retryable          Boolean            @default(false)
+  // 零表示旧的手工 preview 协议；独立 worker 只消费显式入队的协议一任务。
+  queueVersion       Int                @default(0)
+  nextAttemptAt      DateTime?
+  maxAttempts        Int                @default(5)
+  leaseVersion       Int                @default(0)
+  pauseRequested     Boolean            @default(false)
+  deadLetteredAt     DateTime?
   expiresAt          DateTime
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -691,6 +698,7 @@ model DataJob {
   @@index([leaseExpiresAt, status])
   @@index([workspaceId, createdAt])
   @@index([requestedByUserId, createdAt])
+  @@index([queueVersion, status, nextAttemptAt])
 }
 
 // v1.7 candidate only: Web persists a typed request and its lifecycle, while

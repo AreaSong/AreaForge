@@ -192,6 +192,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@areaforge/core':
+        specifier: workspace:*
+        version: link:../core
       '@prisma/adapter-pg':
         specifier: ^7.9.1
         version: 7.9.1

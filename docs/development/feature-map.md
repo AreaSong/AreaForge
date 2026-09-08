@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-09-06（生产运行 `v1.1.1`；最新稳定 Release `v1.2.0` 已发布但尚未 production apply；当前 A→B v1.3 已合并，v1.4-v1.8 为默认关闭的本地候选）
+快照日期：2026-09-08（本次更新持久 worker 首批本地候选；生产状态未重新采集，以 operational-readiness 和匹配运行态证据为准）
 
 ## 四态与映射
 
@@ -121,6 +121,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`tasks/backlog/0045-platform-hardening.md` | 协议隔离、fencing、退避/死信、控制与事务提交已有 12 组隔离证据；域处理器、正式运维入口与共享/生产启用仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |
@@ -185,15 +186,15 @@
 
 | 状态 | 数量 |
 |---|---|
-| done | 95 |
-| partial | 8 |
-| planned | 12 |
-| wont | 5 |
+| done | 102 |
+| partial | 12 |
+| planned | 8 |
+| wont | 2 |
 
 partial 与 planned 项的关闭条件一律以 `residual-risk-ledger.md` 与对应 tasks 为准，本文不承载关闭判定。
 
 ## 维护
 
 1. 功能状态变化：先更新 `feature-traceability.md`（权威）与相关台账，再同步本文对应行与顶部快照日期。
-2. 同步 Cursor Canvas 投影（`areaforge-feature-map.canvas.tsx`）。
+2. 同步 Cursor Canvas 投影（`areaforge-feature-map.canvas.tsx`）；该文件不在当前仓库内，本次外部投影未核验。
 3. 触发关系登记在 `doc-sync-checklist.md`。
