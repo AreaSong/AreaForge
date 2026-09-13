@@ -500,11 +500,13 @@ export const protectedPathFiles = [
 ] as const;
 
 export function buildOperabilityStatusProjection(options: BuildOptions = {}): OperabilityStatusProjection {
-  const facts = collectProjectionFacts(options);
+  // 采集可能跨秒；输出时间与 freshness 必须共用同一次冻结时点。
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
+  const facts = collectProjectionFacts({ ...options, generatedAt });
 
   return {
     schemaVersion: 2,
-    generatedAt: options.generatedAt ?? new Date().toISOString(),
+    generatedAt,
     mode: "offline_long_term_operability_status_projection",
     asOf: facts.asOf,
     app: buildAppStatus(facts.packageJson),

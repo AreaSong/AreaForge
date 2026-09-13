@@ -15,6 +15,7 @@ export interface DataJobWorkerOptions {
   pollIntervalMs?: number;
   once?: boolean;
   onResult?: (result: DataJobExecutionResult) => void;
+  beforePoll?: () => Promise<void>;
 }
 
 /** 独立进程组合入口；没有显式注册处理器时拒绝启动，不消费旧 preview 任务。 */
@@ -27,6 +28,8 @@ export async function runDataJobWorker(options: DataJobWorkerOptions): Promise<{
   const kinds = [...handlers.keys()];
   let processed = 0;
   while (!options.signal.aborted) {
+    await options.beforePoll?.();
+    if (options.signal.aborted) break;
     await recoverQueuedDataJobs(options.client, { kinds, partition: options.partition });
     if (options.signal.aborted) break;
     const lease = await claimQueuedDataJob(options.client, { workerId: options.workerId, kinds, leaseMs, partition: options.partition });

@@ -35,3 +35,4 @@ Web 层边界：
 - 普通首页 SSR 不触发真实 AI provider 外呼。
 - 附件不放入 `public/`，必须走鉴权 API。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令，也不挂载 `docker.sock`、生产 `.env`、备份目录或签名私钥。
+- 完整数据导出由独立 worker 写入私有 `EXPORT_DIR`，Web 仅申请任务、校验本人下载授权并读取已验证 ZIP；不写归档、不执行副本回收或源数据删除，默认 `DATA_EXPORT_ENABLED=false`。

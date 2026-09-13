@@ -11,6 +11,25 @@ import {
   revokeExportDownloadGrants,
 } from "./data-lifecycle";
 
+test("真实下载使用二进制响应，旧描述信息与网络中断不可冒充成功", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const bytes = new Uint8Array([80, 75, 3, 4, 1, 2, 3]);
+    globalThis.fetch = async () => new Response(bytes, { headers: { "content-type": "application/zip", "content-length": String(bytes.length), "content-disposition": 'attachment; filename="areaforge-account-job.zip"' } });
+    const valid = await redeemExportDownloadGrant("fixture-token");
+    assert.equal(valid.ok, true); assert.equal(valid.blob?.size, bytes.length); assert.equal(valid.fileName, "areaforge-account-job.zip");
+    globalThis.fetch = async () => Response.json({ download: { fileName: "legacy.zip" } });
+    const legacy = await redeemExportDownloadGrant("fixture-token");
+    assert.equal(legacy.ok, false); assert.equal(legacy.blob, null);
+    globalThis.fetch = async () => Response.json({ error: "DATA_EXPORT_DOWNLOAD_NOT_FOUND" }, { status: 404 });
+    const missing = await redeemExportDownloadGrant("fixture-token");
+    assert.equal(missing.status, 404); assert.equal(missing.body?.error, "DATA_EXPORT_DOWNLOAD_NOT_FOUND");
+    globalThis.fetch = async () => { throw new Error("network unavailable"); };
+    const network = await redeemExportDownloadGrant("fixture-token");
+    assert.equal(network.ok, false); assert.equal(network.status, 0); assert.equal(network.fileName, null);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("data lifecycle adapters use canonical system routes and JSON bodies", async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ url: string; init?: RequestInit }> = [];

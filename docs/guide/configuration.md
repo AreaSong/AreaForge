@@ -36,12 +36,13 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `AUTH_ADMIN_PASSWORD_HASH` | 可选 | 管理员密码的 scrypt 哈希，用 `pnpm auth:hash '<密码>'` 生成；不要填明文密码 |
 | `AUTH_MULTI_USER_ENABLED` | `false` | v1.4 邀请、成员和多 Workspace 选择闸门；只有 migration、隔离验证和 SMTP 配置完成后才在目标环境开启 |
 | `AUTH_RBAC_ENABLED` | `false` | v1.5 角色、分享、Coach 与 Operator API 闸门；默认关闭，需独立确认与隔离验证 |
-| `DATA_LIFECYCLE_ENABLED` | `false` | v1.6 本地候选数据任务/脱敏预览闸门；不启用物理删除、归档落盘或生产操作 |
+| `DATA_LIFECYCLE_ENABLED` | `false` | 数据任务/脱敏预览总闸门；单独开启不生成文件，不启用物理删除或生产操作 |
+| `DATA_EXPORT_ENABLED` | `false` | 本人数据/READY 附件真实导出、独立 EXPORT 处理器与下载闸门；须同时开启生命周期开关并配置私有目录，执行前仍须环境对应的确认 |
 | `RANKING_ENABLED` | `false` | v1.8 私有挑战/排名候选闸门；默认关闭，不开放公开榜或通知外呼 |
 | `RANKING_PROJECTION_ENABLED` | `false` | 独立排名投影故障开关；关闭时挑战/个人学习主链仍可用，但投影读取与重建 fail closed |
 | `PLATFORM_NOTIFICATIONS_ENABLED` | `false` | v1.8/v1.9 持久通知中心开关；关闭时排名流程不读写 `UserNotification`，不影响既有前台浏览器提醒 |
 | `PLATFORM_NOTIFICATION_QUEUE_ENABLED` | `false` | 将排名通知在业务事务内写入持久 `DataJob`；须同时开启通知总开关，消费前重验权限和源实体；关闭后新事件走直接事务路径，已有队列不自动重放 |
-| `DATA_JOB_WORKER_ENABLED` | `false` | 仅独立 `worker:data-jobs:run` 进程读取；要求非空的显式处理器集合，可用 `--once` 和 `--workspace=<id>` 限定消费；Web 不启动 worker |
+| `DATA_JOB_WORKER_ENABLED` | `false` | 仅独立进程读取；`worker:data-jobs:run` 要求非空显式处理器，可用 `--once` 和 `--workspace=<id>` 限定消费；`worker:exports:reclaim` 只回收登记副本，导出关闭后仍可显式运行；Web 不启动 worker |
 | `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
 | `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
 | `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |
@@ -76,10 +77,12 @@ Provider 有两种来源：部署环境变量是兼容回退；登录用户也�
 | 变量 | 默认值 | 说明 |
 |---|---|---|
 | `UPLOAD_DIR` | `/app/uploads` | 附件本体目录；必须在 `apps/web/public` 之外，本地开发改成本机可写绝对路径 |
+| `EXPORT_DIR` | 未设置 | 导出专属 canonical 私有目录（0700），不得与 `UPLOAD_DIR` 相同或相互嵌套；独立 worker 写入，Web 仅读取已授权包，不静态公开 |
 | `MAX_UPLOAD_MB` | `20` | 单文件大小上限 |
 | `ALLOWED_UPLOAD_MIME` | `image/png,image/jpeg,image/webp,application/pdf` | 允许的 MIME 类型白名单 |
 
 附件只通过鉴权 API 访问，数据库存 metadata 与 hash，文件本体在 `UPLOAD_DIR`；备份必须同时覆盖数据库和上传目录。
+导出目录仅保存有时限的派生副本，不作为备份；开关、资源保护、下载与回收契约见 [本人数据导出](../modules/data-export.md)。
 
 ## 日志与备份（部署层）
 

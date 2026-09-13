@@ -53,6 +53,7 @@ test("multi-user and SMTP secrets fail closed when configuration is incomplete",
 test("local candidate feature gates are parsed centrally and default closed", () => {
   const defaults = parseServerEnv(baseEnv);
   assert.equal(defaults.DATA_LIFECYCLE_ENABLED, false);
+  assert.equal(defaults.DATA_EXPORT_ENABLED, false);
   assert.equal(defaults.RANKING_ENABLED, false);
   assert.equal(defaults.RANKING_PROJECTION_ENABLED, false);
   assert.equal(defaults.PLATFORM_NOTIFICATIONS_ENABLED, false);

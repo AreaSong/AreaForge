@@ -6,12 +6,14 @@ import {
   cancelDataLifecycleJob,
   getDataLifecycleJob,
   retryDataLifecycleJob,
+  pauseDataLifecycleJob,
+  resumeDataLifecycleJob,
 } from "@/lib/system/data-lifecycle-service";
 
 export const dynamic = "force-dynamic";
 
 const mutationSchema = z.object({
-  action: z.enum(["cancel", "retry"]),
+  action: z.enum(["cancel", "retry", "pause", "resume"]),
   expectedRevision: z.number().int().nonnegative(),
 }).strict();
 
@@ -32,9 +34,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ j
     if (!parsed.success) return zodErrorResponse(parsed.error);
     await requireRecentReauthentication(actor);
     const { jobId } = await context.params;
-    const job = parsed.data.action === "cancel"
-      ? await cancelDataLifecycleJob(actor, jobId, parsed.data.expectedRevision)
-      : await retryDataLifecycleJob(actor, jobId, parsed.data.expectedRevision);
+    const actions = { cancel: cancelDataLifecycleJob, retry: retryDataLifecycleJob, pause: pauseDataLifecycleJob, resume: resumeDataLifecycleJob };
+    const job = await actions[parsed.data.action](actor, jobId, parsed.data.expectedRevision);
     return NextResponse.json({ job });
   } catch (error) {
     return apiErrorResponse(error);

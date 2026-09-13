@@ -5,9 +5,10 @@ import {
 import { operationalHandoffBindingStatus, validateOperationalHandoff } from "./operational-handoff-validate";
 
 function main(): void {
+  const checkedAt = new Date().toISOString();
   const handoff = buildOperationalHandoff({
-    asOf: "2026-07-12",
-    generatedAt: "2026-07-12T00:00:00.000Z",
+    asOf: checkedAt.slice(0, 10),
+    generatedAt: checkedAt,
   });
   expectPass(JSON.stringify(handoff));
   if (operationalHandoffBindingStatus(JSON.stringify(handoff)) !== "current") {

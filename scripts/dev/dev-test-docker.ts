@@ -2,6 +2,7 @@ import { spawnSync, type SpawnSyncOptionsWithStringEncoding } from "node:child_p
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import type { DevTestExportFixture } from "./dev-test-export-fixture";
 import {
   DEV_TEST_LABELS,
   DEV_TEST_POOL,
@@ -52,8 +53,13 @@ export class DockerClient {
     this.run(["version", "--format", "{{.Server.Version}}"]);
   }
 
-  build(identity: BuildIdentity): string {
-    this.runHostBuild();
+  assertLocalDaemon(): void {
+    const endpoint = process.env.DOCKER_HOST?.trim() || this.run(["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"]);
+    if (!endpoint.trim().startsWith("unix:///")) throw new Error("test-pool fixture requires a local Unix Docker socket");
+  }
+
+  build(identity: BuildIdentity, environment?: Record<string, string>): string {
+    this.runHostBuild(environment);
     const context = this.prepareStandaloneContext(identity);
     try {
       const labels = this.identityLabels(identity);
@@ -116,22 +122,26 @@ export class DockerClient {
     }
   }
 
-  runInstance(slot: SlotNumber, port: number, identity: BuildIdentity, environment: Record<string, string>): string {
-    this.ensureUploadsVolume();
+  runInstance(slot: SlotNumber, port: number, identity: BuildIdentity, environment: Record<string, string>, fixture?: DevTestExportFixture): string {
+    if (!fixture) this.ensureUploadsVolume();
     const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "areaforge-dev-test-env-"));
     const envFile = path.join(temporaryDirectory, "runtime.env");
     writeFileSync(envFile, serializeEnvironment(environment), { encoding: "utf8", mode: 0o600 });
     try {
-      const labels = { ...this.identityLabels(identity), [DEV_TEST_LABELS.slot]: String(slot), [DEV_TEST_LABELS.port]: String(port) };
+      const labels = { ...this.identityLabels(identity), [DEV_TEST_LABELS.slot]: String(slot), [DEV_TEST_LABELS.port]: String(port),
+        ...(fixture ? { [DEV_TEST_LABELS.fixtureId]: fixture.id } : {}) };
       const args = ["run", "-d", "--name", containerName(slot), "--restart", "no"];
       for (const [key, value] of Object.entries(labels)) args.push("--label", `${key}=${value}`);
       args.push(
         "--env-file", envFile,
         "--add-host", "host.docker.internal:host-gateway",
         "-p", `127.0.0.1:${port}:3000`,
-        "-v", `${UPLOADS_VOLUME}:/app/uploads`,
-        identity.imageTag,
       );
+      if (fixture) args.push("--user", `${fixture.ownerUid}:${fixture.ownerGid}`, "--security-opt", "no-new-privileges", "--cap-drop", "ALL",
+        "--mount", `type=bind,src=${fixture.uploadRoot},dst=/app/uploads,readonly`,
+        "--mount", `type=bind,src=${fixture.exportRoot},dst=/app/exports,readonly`);
+      else args.push("-v", `${UPLOADS_VOLUME}:/app/uploads`);
+      args.push(identity.imageTag);
       return this.run(args).trim();
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -194,6 +204,7 @@ export class DockerClient {
       gitCommit: requiredLabel(labels, DEV_TEST_LABELS.gitCommit),
       buildId: requiredLabel(labels, DEV_TEST_LABELS.buildId),
       note: labels[DEV_TEST_LABELS.note] ?? "",
+      fixtureId: labels[DEV_TEST_LABELS.fixtureId],
     };
   }
 
@@ -208,15 +219,17 @@ export class DockerClient {
     };
   }
 
-  private runHostBuild(): void {
-    this.runProcess("pnpm", ["db:generate"], { stdio: "inherit" });
-    this.runProcess("pnpm", ["--filter", "@areaforge/web", "build"], { stdio: "inherit" });
+  private runHostBuild(environment?: Record<string, string>): void {
+    this.runProcess("pnpm", ["db:generate"], { stdio: "inherit", environment });
+    this.runProcess("pnpm", ["--filter", "@areaforge/web", "build"], { stdio: "inherit", environment });
   }
 
   private prepareStandaloneContext(identity: BuildIdentity): string {
     const context = mkdtempSync(path.join(tmpdir(), "areaforge-dev-test-build-"));
     try {
-      const copyOptions = { recursive: true, verbatimSymlinks: true } as const;
+      // runtime 只接受显式 env allowlist；standalone trace 不得把本地环境文件装进镜像。
+      const copyOptions = { recursive: true, verbatimSymlinks: true,
+        filter: (source: string) => !/^\.env(?:\.|$)/.test(path.basename(source)) } as const;
       cpSync(path.join(this.root, "apps/web/.next/standalone"), path.join(context, "standalone"), copyOptions);
       cpSync(path.join(this.root, "apps/web/.next/static"), path.join(context, "static"), copyOptions);
       cpSync(path.join(this.root, "apps/web/public"), path.join(context, "public"), copyOptions);

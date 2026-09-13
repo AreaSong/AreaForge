@@ -1,28 +1,32 @@
-import { DataJobQueueError, type DataQueueClient } from "./data-job-queue-types";
+import { DataJobQueueError, type DataQueueClient, type DataQueueTransaction } from "./data-job-queue-types";
 import { assertQueueScope, auditQueuedDataJob, lockQueuedDataJob, queueClock, releasedQueueLease, updateQueuedDataJob } from "./data-job-queue-store";
 
 export type DataJobQueueControl = "PAUSE" | "RESUME" | "CANCEL" | "REPLAY";
 
 /** actor 必须由服务端认证获得；仅允许请求者控制自己的任务。 */
-export async function controlQueuedDataJob(client: DataQueueClient, input: {
+export interface DataJobControlInput {
   jobId: string;
   actorId: string;
   expectedRevision: number;
   action: DataJobQueueControl;
-}) {
+}
+
+export async function controlQueuedDataJob(client: DataQueueClient, input: DataJobControlInput) {
+  return client.$transaction(tx => controlQueuedDataJobInTransaction(tx, input));
+}
+
+export async function controlQueuedDataJobInTransaction(tx: DataQueueTransaction, input: DataJobControlInput) {
   if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) throw new DataJobQueueError("DATA_JOB_REVISION_INVALID");
-  return client.$transaction(async (tx) => {
-    const row = await lockQueuedDataJob(tx, input.jobId);
-    if (row.requestedByUserId !== input.actorId) throw new DataJobQueueError("DATA_JOB_QUEUE_NOT_FOUND");
-    if (row.updatedAt.getTime() !== input.expectedRevision) throw new DataJobQueueError("DATA_JOB_REVISION_CONFLICT");
-    const now = await queueClock(tx);
-    if (row.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
-    await assertQueueScope(tx, row);
-    const data = controlData(row, input.action, now);
-    const updated = await updateQueuedDataJob(tx, row, data);
-    await auditQueuedDataJob(tx, updated, `DATA_JOB_${input.action}_REQUESTED`);
-    return updated;
-  });
+  const row = await lockQueuedDataJob(tx, input.jobId);
+  if (row.requestedByUserId !== input.actorId) throw new DataJobQueueError("DATA_JOB_QUEUE_NOT_FOUND");
+  if (row.updatedAt.getTime() !== input.expectedRevision) throw new DataJobQueueError("DATA_JOB_REVISION_CONFLICT");
+  const now = await queueClock(tx);
+  if (row.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
+  await assertQueueScope(tx, row);
+  const data = controlData(row, input.action, now);
+  const updated = await updateQueuedDataJob(tx, row, data);
+  await auditQueuedDataJob(tx, updated, `DATA_JOB_${input.action}_REQUESTED`);
+  return updated;
 }
 
 function controlData(row: Awaited<ReturnType<typeof lockQueuedDataJob>>, action: DataJobQueueControl, now: Date) {

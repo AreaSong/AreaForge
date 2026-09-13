@@ -45,6 +45,7 @@ export * from "./platform-hardening";
 export * from "./user-notification";
 export * from "./data-jobs";
 export * from "./data-job-queue";
+export * from "./data-export-job";
 export * from "./ranking-notification-job";
 export * from "./ranking-metrics";
 export * from "./ranking-policy";

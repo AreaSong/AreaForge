@@ -87,6 +87,7 @@ export const DATA_EXPORT_MODEL_DISPOSITIONS = [
   excluded("AuthActionToken", "purpose-separated credential material is never exported"),
   excluded("AuthThrottleBucket", "anti-abuse keys and counters are internal security state"),
   excluded("DataExportPackage", "artifact storage identity and objectKey are internal"),
+  excluded("DataExportArtifact", "per-lease staging and cleanup identity is internal storage state"),
   excluded("DataExportDownloadGrant", "download capability hashes are never exported"),
   excluded("AiRuntimeSetting", "global server runtime configuration is not account data"),
   derived("RankingProjection", "rebuildable from opt-in challenge source facts"),

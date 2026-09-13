@@ -8,6 +8,10 @@ import { buildOperationalEvidenceSourceSnapshot } from "./operational-evidence-s
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
+// 当前绑定的合成证据使用同一次冻结时点，过期反例只移动验证时钟。
+const fixtureNow = new Date().toISOString();
+const fixtureEvidenceTime = new Date(Date.parse(fixtureNow) - 600_000).toISOString();
+const fixtureStaleTime = new Date(Date.parse(fixtureNow) + 2 * 86_400_000).toISOString();
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-ops001-preflight-"));
 
 try {
@@ -38,7 +42,8 @@ try {
     encoding: "utf8",
     env: {
       ...process.env,
-      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+      AREAFORGE_SMOKE_PROOF_NOW: fixtureNow,
+      AREAFORGE_OPS001_EXPECTED_VERSION: "0.1.7",
     },
   });
   expectStatus("generate OPS-001 closure packet", generate, 0);
@@ -78,7 +83,7 @@ try {
     AREAFORGE_OPS001_SMOKE_RECORD: staleSmoke,
     AREAFORGE_OPS001_UPDATE_STATUS_RECORD: updateStatusRecord,
     AREAFORGE_OPS001_EVIDENCE_BUNDLE: evidenceBundle,
-    AREAFORGE_SMOKE_PROOF_NOW: "2026-07-12T14:20:01.000Z",
+    AREAFORGE_SMOKE_PROOF_NOW: fixtureStaleTime,
   }, 1);
   assertJsonStatus(stale.stdout, "invalid");
 
@@ -108,7 +113,8 @@ function runPreflight(env: Record<string, string>, expectedStatus: number): Retu
       AREAFORGE_OPS001_EVIDENCE_BUNDLE: "",
       AREAFORGE_OPS001_CLOSURE_PACKET: "",
       AREAFORGE_OPS001_BLOCKED_RECORD: "",
-      AREAFORGE_SMOKE_PROOF_NOW: "2026-07-10T14:30:00.000Z",
+      AREAFORGE_SMOKE_PROOF_NOW: fixtureNow,
+      AREAFORGE_OPS001_EXPECTED_VERSION: "0.1.7",
       ...env,
     },
   });
@@ -169,7 +175,7 @@ function createBlockedRecord(): string {
 function createSmokeRecord(): string {
   return [
     "recordId: prod-readonly-smoke-20260710222000",
-    "checkedAt: 2026-07-10T22:20:00+08:00",
+    `checkedAt: ${fixtureEvidenceTime}`,
     "environment: production",
     "baseUrl: https://forge.areasong.top",
     "expectedVersion: 0.1.7",
@@ -210,14 +216,14 @@ function createUpdateStatusRecord(): JsonRecord {
     signatureRequired: true,
     timerEnabled: true,
     timerActive: true,
-    lastCheckedAt: "2026-07-10T22:20:00+08:00",
+    lastCheckedAt: fixtureEvidenceTime,
     blocker: null,
     rollback: {
       available: true,
       targetVersion: "0.1.5",
       targetImage: "ghcr.io/areasong/areaforge-web:v0.1.5@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     },
-    statusUpdatedAt: "2026-07-10T22:20:00+08:00",
+    statusUpdatedAt: fixtureEvidenceTime,
     safetyFacts: {
       serverCommandAttempted: false,
       productionWriteAttempted: false,
@@ -231,7 +237,7 @@ function createUpdateStatusRecord(): JsonRecord {
 
 function createEvidenceBundle(): JsonRecord {
   const summary = {
-    checkedAt: "2026-07-10T14:20:00.000Z",
+    checkedAt: fixtureEvidenceTime,
     environment: "production",
     scope: "daily",
     baseUrl: "https://forge.areasong.top",
@@ -259,7 +265,7 @@ function createEvidenceBundle(): JsonRecord {
     status: "needs_attention",
     mode: "read_only_operational_evidence_bundle",
     bundleHash: "",
-    generatedAt: "2026-07-10T14:20:00.000Z",
+    generatedAt: fixtureEvidenceTime,
     sourceSnapshot: buildOperationalEvidenceSourceSnapshot(),
     summary,
     freshness: summary.freshness,
@@ -330,13 +336,13 @@ function createFreshness(): JsonRecord {
     maxAgeSeconds: 1209600,
     latestEvidenceFreshnessStatus: "fresh",
     signals: {
-      health: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      releaseIdentity: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      updateAgent: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      authenticatedSmoke: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      backup: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      rollback: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
-      infrastructure: { checkedAt: "2026-07-10T14:20:00.000Z", ageSeconds: 0, status: "fresh" },
+      health: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      releaseIdentity: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      updateAgent: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      authenticatedSmoke: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      backup: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      rollback: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
+      infrastructure: { checkedAt: fixtureEvidenceTime, ageSeconds: 0, status: "fresh" },
     },
   };
 }

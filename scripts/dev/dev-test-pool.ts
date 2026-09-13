@@ -6,6 +6,7 @@ import { buildWorktreeValidationFingerprint } from "../quality/worktree-validati
 import { computeProductExperienceSourceHash } from "../quality/product-experience-source";
 import { DockerClient, type BuildIdentity } from "./dev-test-docker";
 import { acquirePoolLock } from "./dev-test-pool-lock";
+import { assertExportFixtureSlot, exportFixtureBuildEnvironment, exportFixtureEnvironment, loadDevTestExportFixture, type DevTestExportFixture } from "./dev-test-export-fixture";
 import {
   DEV_TEST_POOL,
   containerName,
@@ -53,10 +54,16 @@ async function main(): Promise<void> {
 
 async function deploy(mode: PoolMode, options: Options): Promise<void> {
   const identity = createBuildIdentity(options.note);
+  const fixture = loadDevTestExportFixture(root);
+  if (fixture) docker.assertLocalDaemon();
+  if (fixture && (mode !== "refresh" || !options.slot)) throw new Error("DATA_EXPORT_TEST_FIXTURE_REQUIRES_EXPLICIT_REFRESH_SLOT");
+  const initialSelection = selectSlot(mode, loadPool(), ports, options.slot);
+  assertExportFixtureSlot(initialSelection, fixture);
   if (options.dryRun) {
     const release = acquirePoolLock();
     try {
       const selection = selectSlot(mode, loadPool(), ports, options.slot);
+      assertExportFixtureSlot(selection, fixture);
       printPlan(mode, selection, identity, options.json);
     } finally {
       release();
@@ -64,13 +71,15 @@ async function deploy(mode: PoolMode, options: Options): Promise<void> {
     return;
   }
 
-  const imageId = docker.build(identity);
+  const environment = loadRuntimeEnvironment(initialSelection.slot, initialSelection.port, identity.appVersion, fixture);
+  const imageId = docker.build(identity, fixture ? exportFixtureBuildEnvironment(fixture, environment) : undefined);
   let committed = false;
   try {
     const release = acquirePoolLock();
     try {
       const selection = selectSlot(mode, loadPool(), ports, options.slot);
-      await replaceSlot(selection, identity);
+      assertExportFixtureSlot(selection, fixture);
+      await replaceSlot(selection, identity, fixture);
       committed = true;
       printResult(mode, selection, identity, loadPool(), options.json);
     } finally {
@@ -81,7 +90,7 @@ async function deploy(mode: PoolMode, options: Options): Promise<void> {
   }
 }
 
-async function replaceSlot(selection: SlotSelection, identity: BuildIdentity): Promise<void> {
+async function replaceSlot(selection: SlotSelection, identity: BuildIdentity, fixture?: DevTestExportFixture): Promise<void> {
   const old = selection.replacing;
   const fixedName = containerName(selection.slot);
   const backupName = `${fixedName}-rollback-${identity.generation}`;
@@ -94,8 +103,10 @@ async function replaceSlot(selection: SlotSelection, identity: BuildIdentity): P
       docker.rename(old.name, backupName);
       renamed = true;
     }
-    const environment = loadRuntimeEnvironment(selection.slot, selection.port, identity.appVersion);
-    docker.runInstance(selection.slot, selection.port, identity, environment);
+    const checkedFixture = fixture ? loadDevTestExportFixture(root) : undefined;
+    if (fixture && checkedFixture?.id !== fixture.id) throw new Error("DATA_EXPORT_TEST_FIXTURE_CHANGED");
+    const environment = loadRuntimeEnvironment(selection.slot, selection.port, identity.appVersion, checkedFixture);
+    docker.runInstance(selection.slot, selection.port, identity, environment, checkedFixture);
     await waitForHealth(selection.port, identity);
     if (renamed) docker.remove(backupName);
     if (old) docker.removeOwnedImageIfUnused(old.imageId);
@@ -206,7 +217,8 @@ function createBuildIdentity(note: string): BuildIdentity {
   };
 }
 
-function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: string): Record<string, string> {
+function loadRuntimeEnvironment(slot: SlotNumber, port: number, appVersion: string, fixture?: DevTestExportFixture): Record<string, string> {
+  if (fixture) return exportFixtureEnvironment(fixture, slot, port, appVersion);
   const source = path.join(root, "apps/web/.env.local");
   if (!existsSync(source)) throw new Error("apps/web/.env.local is required for the local test pool");
   const local = parseEnvFile(readFileSync(source, "utf8"));
@@ -343,7 +355,7 @@ function summarizeLatest(instances: PoolInstance[]) {
   if (!latest) return null;
   return { slot: latest.slot, container: latest.name, port: latest.port, url: `http://127.0.0.1:${latest.port}`,
     status: latest.running ? "running" : "stopped", note: latest.note || "-", generation: latest.generation,
-    commit: latest.gitCommit, sourceFingerprint: latest.sourceFingerprint, buildId: latest.buildId };
+    commit: latest.gitCommit, sourceFingerprint: latest.sourceFingerprint, buildId: latest.buildId, fixtureId: latest.fixtureId ?? null };
 }
 
 function printLatestSummary(latest: ReturnType<typeof summarizeLatest>): void {

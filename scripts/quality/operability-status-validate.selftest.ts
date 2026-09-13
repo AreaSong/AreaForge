@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   buildOperabilityStatusProjection,
   type OperabilityStatusProjection,
@@ -5,9 +6,11 @@ import {
 import { validateOperabilityStatus } from "./operability-status-validate";
 
 function main(): void {
+  testDefaultClockSnapshot();
+  const checkedAt = new Date().toISOString();
   const projection = buildOperabilityStatusProjection({
-    asOf: "2026-07-12",
-    generatedAt: "2026-07-12T00:00:00.000Z",
+    asOf: checkedAt.slice(0, 10),
+    generatedAt: checkedAt,
   });
   expectPass(JSON.stringify(projection));
 
@@ -158,6 +161,24 @@ function main(): void {
   }), "record");
 
   console.log("PASS operability status validator selftest");
+}
+
+function testDefaultClockSnapshot(): void {
+  const NativeDate = Date;
+  let tick = NativeDate.now();
+  class AdvancingDate extends NativeDate {
+    constructor(value?: string | number | Date) {
+      super(value === undefined ? (tick += 2_000) : value instanceof NativeDate ? value.getTime() : value);
+    }
+    static override now() { return tick; }
+  }
+  globalThis.Date = AdvancingDate as unknown as DateConstructor;
+  try {
+    const projection = buildOperabilityStatusProjection();
+    assert.ok(projection.uxReview.reviewedAt, "fixture must provide a dated UX record");
+    const expectedAge = Math.max(0, Math.floor((NativeDate.parse(projection.generatedAt) - NativeDate.parse(projection.uxReview.reviewedAt)) / 1_000));
+    assert.equal(projection.uxReview.ageSeconds, expectedAge, "collection and published timestamp must share one clock");
+  } finally { globalThis.Date = NativeDate; }
 }
 
 function withPatch(

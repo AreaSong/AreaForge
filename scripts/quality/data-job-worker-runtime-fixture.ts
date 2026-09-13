@@ -12,7 +12,9 @@ export async function requireDataJobWorkerFixture(): Promise<void> {
   assert.ok(["postgres:", "postgresql:"].includes(url.protocol));
   assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(url.hostname), "requires loopback database");
   const database = url.pathname.slice(1);
-  assert.match(database, /^areaforge_v20_worker_[a-z0-9_]+$/);
+  assert.ok(/^areaforge_v20_worker_[a-z0-9_]+$/.test(database)
+    || (process.env.AREAFORGE_DATA_EXPORT_ISOLATED_DB === "1" && /^areaforge_v20_export_[a-z0-9_]+$/.test(database)),
+  "requires worker namespace or separately authorized export fixture namespace");
   const [row] = await prisma.$queryRaw<Array<{ name: string }>>`SELECT current_database() AS name`;
   assert.equal(row?.name, database);
 }

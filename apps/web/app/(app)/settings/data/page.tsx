@@ -159,11 +159,13 @@ export default async function SettingsDataPage() {
           <section aria-labelledby="data-job-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="data-job-center-title" className="text-base font-semibold text-white">数据任务中心</h2>
-              <p className="mt-0.5 text-xs text-zinc-400">v1.6 候选能力：预览、提交和观察任务；删除与归档边界仍保持关闭。</p>
+              <p className="mt-0.5 text-xs text-zinc-400">预览本人数据，提交后台导出并获取私有 ZIP；删除仍只提供影响预览。</p>
             </div>
             <DataJobCenterClient
+              key={user.id}
               enabled={dataLifecycleEnabled}
-              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({
+              exportEnabled={dataLifecycleEnabled && process.env.DATA_EXPORT_ENABLED === "true"}
+              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE" && workspace.membershipRole === "OWNER").map((workspace) => ({
                 id: workspace.id,
                 name: workspace.name,
                 role: workspace.membershipRole,

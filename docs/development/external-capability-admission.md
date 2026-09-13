@@ -39,6 +39,15 @@ residualRiskId: none；本地 BuildKit cache 不自动回收，由 doctor 暴露
 
 测试池的 `refresh` 只替换最新或明确指定的槽位；`snapshot` 在第四个候选进入时按 FIFO 淘汰最老 Web 实例。`dev:test:latest`、list、doctor 和部署结果必须从 Docker ownership labels 中派生同一个 latest 实例，不能把 slot 1 固定解释为最新。候选镜像必须先构建成功，槽位交换必须持锁，健康或 runtime identity 校验失败时恢复旧实例且不改变 latest。同名异主、label 缺失、端口不一致或重复槽位一律 fail closed。测试池不得成为 Web API、CI deploy、服务器 updater 或生产 Docker 的入口。
 
+DATA-EXPORT 隔离模式沿用同一三槽池，但不借用共享库、共享 uploads volume 或真实会话密钥。该模式只在已确认的本地导出包内使用：
+
+- 显式设置 `AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT`、`AREAFORGE_DATA_EXPORT_ISOLATED_DB=1` 和 `AREAFORGE_DEV_TEST_DATABASE_URL`，只允许 `refresh --slot`，不自动选槽或 FIFO 替换。
+- 输入必须是本机 canonical 临时目录下 `areaforge-v20-export-*` 的 0700 私有目录，带当前 UID/GID、仓库 hash、精确 `areaforge_v20_export_*` 库名 marker 和 0600 合成密钥文件；拒绝远端数据库、远端 Docker、目录/密钥软链接、过宽权限、错误库名或仓库绑定。
+- 只占空槽或刷新同一 fixture hash 的槽位；普通模式不能覆盖 fixture 槽，fixture 也不能覆盖共享槽。校验在构建前和持锁交换时执行。
+- Web 以 fixture UID/GID 只读挂载本批 `uploads` / `exports`；独立宿主机 worker 写入导出副本。运行环境来自合成 marker/密钥，不读取默认 `.env.local` 的 runtime allowlist；构建覆盖合成数据库/会话配置并关闭 AI/SMTP，打包排除 `.env*`，密钥与目录不写 Docker label 或报告。
+- 输出仍是 canonical 槽位、端口、URL、source fingerprint 和不含路径的 fixture hash；不创建新 volume、不执行 migration、不授权源附件删除、共享数据/生产操作或历史资源清理。关闭开关/停止本批槽位可撤回本地访问，数据库与私有目录不自动删除。
+- 验证除测试池原门禁外，增加 marker/权限/软链接/精确数据库/同槽所有权负测和真实 API/桌面/窄视口导出；迁移与合成资源本身仍使用 `high-risk-confirmation-packets.md` 的独立 DATA-EXPORT 授权。
+
 ### 提交级 Secret Scan 准入
 
 ```text

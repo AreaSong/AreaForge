@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   createDataExportManifest,
   hashDataExportManifest,
@@ -9,14 +9,13 @@ import {
   type DataJobCommand,
   type DataJobState,
 } from "@areaforge/core";
-import { prisma, type Prisma } from "@areaforge/db";
+import { collectDataExportRecords, prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { requireFreshAccountSession } from "@/lib/auth/account-service";
 import type { CurrentUser } from "@/lib/auth/session";
 import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import { previewRankingDeletion } from "@/lib/ranking/deletion-preview-service";
-import { appendExtendedExportRecords } from "./data-export-inventory-records";
-import { appendRelatedExportRecords } from "./data-export-inventory-related-records";
+import { controlDurableDataExport, createDurableDataExport, dataExportAvailability, downloadDurableDataExport, issueDurableExportGrant, revokeDurableExportGrants, type DataExportAvailability } from "./data-export-runtime-service";
 
 /**
  * v1.6 is intentionally a local candidate.  The flag is read directly here
@@ -25,10 +24,8 @@ import { appendRelatedExportRecords } from "./data-export-inventory-related-reco
  * independently approved.
  */
 const DATA_LIFECYCLE_FLAG = "DATA_LIFECYCLE_ENABLED";
-const EXPORT_TTL_MS = 60 * 60 * 1000;
 const DELETE_PREVIEW_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DELETE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const DOWNLOAD_GRANT_TTL_MS = 15 * 60 * 1000;
 const DOWNLOAD_TOKEN_PURPOSE = "areaforge:data-export-download:v1:";
 const PREVIEW_VERSION = "data-lifecycle-preview-v1" as const;
 /** Worker leases are deliberately short in the local candidate. */
@@ -94,13 +91,17 @@ export interface DataDeletePreview {
   rankingProjectionCount: number;
 }
 
-export interface DataJobDto {
+export interface DataJobDto extends DataExportAvailability {
   id: string;
   kind: DataJobKind;
   scope: DataJobScope;
   status: DataJobStatus;
   progress: number;
   attempt: number;
+  queueVersion: number;
+  nextAttemptAt: string | null;
+  deadLetteredAt: string | null;
+  pauseRequested: boolean;
   /** Optimistic concurrency token derived from the durable updatedAt value. */
   revision: number;
   errorCode: string | null;
@@ -124,20 +125,8 @@ export interface DataJobWorkerLeaseDto {
   leaseExpiresAt: string;
 }
 
-export interface RedeemedDownloadDto {
-  packageId: string;
-  jobId: string;
-  fileName: string;
-  contentType: string;
-  sizeBytes: string;
-  archiveSha256: string;
-  manifestSha256: string;
-  consumedAt: string;
-}
-
 type DbClient = typeof prisma | Prisma.TransactionClient;
 type JsonRecord = Record<string, unknown>;
-type Delegate = { findMany(args: unknown): Promise<unknown[]> };
 
 export function isDataLifecycleEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return env[DATA_LIFECYCLE_FLAG] === "true";
@@ -263,7 +252,7 @@ export async function previewDataLifecycle(
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
     const scope = await resolveScope(tx, actor, request.scope, request.workspaceId);
-    const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, request.kind === "EXPORT");
+    const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, false);
     if (request.kind === "EXPORT") return buildDataExportPreview(request.scope, records);
     const ranking = await previewRankingDeletion({ userId: actor.id, workspaceId: request.workspaceId });
     return {
@@ -278,62 +267,32 @@ export async function previewDataLifecycle(
 export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifecycleRequest): Promise<DataJobDto> {
   requireDataLifecycleCandidate();
   const request = normalizeDataLifecycleRequest(raw);
+  if (request.kind === "EXPORT") return serializeForActor(actor, await createDurableDataExport(actor, request));
   const requestFingerprint = createDataRequestFingerprint(request);
   const now = new Date();
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async tx => {
       await requireFreshAccountSession(tx, actor);
-      const existing = await tx.dataJob.findUnique({
-        where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } },
-      });
+      const existing = await tx.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } } });
       if (existing) {
-        if (existing.queueVersion !== 0) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
-        if (existing.requestFingerprint !== requestFingerprint) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
+        if (existing.queueVersion !== 0 || existing.requestFingerprint !== requestFingerprint) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
         return serializeDataJob(existing);
       }
-
       const scope = await resolveScope(tx, actor, request.scope, request.workspaceId);
-      const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, request.kind === "EXPORT");
-      const preview = request.kind === "EXPORT"
-        ? buildDataExportPreview(request.scope, records, now.toISOString())
-        : {
-          ...buildDataDeletePreview(request.scope, scope.workspaceIds, records, now),
-          ...(await previewRankingDeletion({ userId: actor.id, workspaceId: request.workspaceId }).then((ranking) => ({
-            rankingBlockerCount: ranking.blockers.length,
-            rankingParticipationCount: ranking.participationCount,
-            rankingProjectionCount: ranking.projectionCount,
-          }))),
-        };
-      const created = await tx.dataJob.create({
-        data: {
-          kind: request.kind,
-          scope: request.scope,
-          requestedByUserId: actor.id,
-          workspaceId: request.workspaceId ?? null,
-          // DELETE is deliberately parked in PAUSED preview-only state.  No
-          // worker may interpret a preview as authorization to delete.
-          status: request.kind === "DELETE" ? "PAUSED" : "QUEUED",
-          progress: 0,
-          attempt: 0,
-          idempotencyKey: request.idempotencyKey,
-          requestFingerprint,
-          resultJson: preview as unknown as Prisma.InputJsonValue,
-          expiresAt: new Date(now.getTime() + (request.kind === "DELETE" ? DELETE_PREVIEW_TTL_MS : EXPORT_TTL_MS)),
-        },
-      });
-      await writeDataAudit(tx, actor.id, "DATA_JOB_REQUESTED", created.id, {
-        kind: request.kind,
-        scope: request.scope,
-        workspaceId: request.workspaceId ?? null,
-        previewVersion: PREVIEW_VERSION,
-      });
+      const records = await collectExportRecords(tx, actor, scope.workspaceIds, request.scope, false);
+      const ranking = await previewRankingDeletion({ userId: actor.id, workspaceId: request.workspaceId });
+      const preview = { ...buildDataDeletePreview(request.scope, scope.workspaceIds, records, now), rankingBlockerCount: ranking.blockers.length,
+        rankingParticipationCount: ranking.participationCount, rankingProjectionCount: ranking.projectionCount };
+      // DELETE 仍只保存影响预览，独立 EXPORT 确认不能打开删除执行器。
+      const created = await tx.dataJob.create({ data: { kind: "DELETE", scope: request.scope, requestedByUserId: actor.id,
+        workspaceId: request.workspaceId ?? null, status: "PAUSED", progress: 0, attempt: 0, idempotencyKey: request.idempotencyKey,
+        requestFingerprint, resultJson: preview as unknown as Prisma.InputJsonValue, expiresAt: new Date(now.getTime() + DELETE_PREVIEW_TTL_MS) } });
+      await writeDataAudit(tx, actor.id, "DATA_JOB_REQUESTED", created.id, { kind: "DELETE", scope: request.scope, previewVersion: PREVIEW_VERSION });
       return serializeDataJob(created);
     }, { isolationLevel: "RepeatableRead" });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      const existing = await prisma.dataJob.findUnique({
-        where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } },
-      });
+      const existing = await prisma.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: request.idempotencyKey } } });
       if (existing && existing.queueVersion === 0 && existing.requestFingerprint === requestFingerprint) return serializeDataJob(existing);
       if (existing) throw new ApiError("DATA_JOB_IDEMPOTENCY_CONFLICT", 409);
     }
@@ -344,22 +303,24 @@ export async function requestDataLifecycleJob(actor: CurrentUser, raw: DataLifec
 export async function listDataLifecycleJobs(actor: CurrentUser): Promise<DataJobDto[]> {
   requireDataLifecycleCandidate();
   const rows = await prisma.dataJob.findMany({
-    where: { requestedByUserId: actor.id, queueVersion: 0 },
+    where: { requestedByUserId: actor.id, OR: [{ queueVersion: 0, kind: { in: ["EXPORT", "DELETE"] } }, { queueVersion: 1, kind: "EXPORT" }] },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  return rows.map(serializeDataJob);
+  return Promise.all(rows.map(row => serializeForActor(actor, row)));
 }
 
 export async function getDataLifecycleJob(actor: CurrentUser, jobId: string): Promise<DataJobDto> {
   requireDataLifecycleCandidate();
-  const job = await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, queueVersion: 0 } });
+  const job = await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id,
+    OR: [{ queueVersion: 0, kind: { in: ["EXPORT", "DELETE"] } }, { queueVersion: 1, kind: "EXPORT" }] } });
   if (!job) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
-  return serializeDataJob(job);
+  return serializeForActor(actor, job);
 }
 
 export async function cancelDataLifecycleJob(actor: CurrentUser, jobId: string, expectedRevision: number): Promise<DataJobDto> {
   requireDataLifecycleCandidate();
+  if (await isDurableExport(actor, jobId)) return serializeForActor(actor, await controlDurableDataExport(actor, normalizeJobId(jobId), expectedRevision, "CANCEL"));
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new ApiError("DATA_JOB_REVISION_INVALID", 400);
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
@@ -393,6 +354,7 @@ export async function cancelDataLifecycleJob(actor: CurrentUser, jobId: string, 
 
 export async function retryDataLifecycleJob(actor: CurrentUser, jobId: string, expectedRevision: number): Promise<DataJobDto> {
   requireDataLifecycleCandidate();
+  if (await isDurableExport(actor, jobId)) return serializeForActor(actor, await controlDurableDataExport(actor, normalizeJobId(jobId), expectedRevision, "REPLAY"));
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new ApiError("DATA_JOB_REVISION_INVALID", 400);
   return prisma.$transaction(async (tx) => {
     await requireFreshAccountSession(tx, actor);
@@ -531,86 +493,33 @@ export async function expireDataLifecycleJob(jobId: string, now = new Date()): P
 
 export async function createExportDownloadGrant(actor: CurrentUser, jobId: string): Promise<DataDownloadGrantDto> {
   requireDataLifecycleCandidate();
-  const token = randomBytes(32).toString("base64url");
-  const now = new Date();
-  return prisma.$transaction(async (tx) => {
-    await requireFreshAccountSession(tx, actor);
-    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, kind: "EXPORT", status: "SUCCEEDED" } });
-    if (!job) throw new ApiError("DATA_EXPORT_NOT_READY", 409);
-    await assertJobScopeStillAuthorized(tx, actor, job.scope, job.workspaceId);
-    const pkg = await tx.dataExportPackage.findUnique({ where: { jobId: job.id } });
-    if (!pkg || pkg.expiresAt <= now || pkg.protocol !== "areaforge-data-export" || pkg.schemaVersion < 1) {
-      throw new ApiError("DATA_EXPORT_PACKAGE_NOT_READY", 409);
-    }
-    const expiresAt = new Date(Math.min(pkg.expiresAt.getTime(), now.getTime() + DOWNLOAD_GRANT_TTL_MS));
-    await tx.dataExportDownloadGrant.updateMany({
-      where: { packageId: pkg.id, requestedByUserId: actor.id, consumedAt: null, revokedAt: null },
-      data: { revokedAt: now },
-    });
-    const grant = await tx.dataExportDownloadGrant.create({
-      data: { packageId: pkg.id, requestedByUserId: actor.id, tokenHash: hashDataDownloadToken(token), expiresAt },
-    });
-    await writeDataAudit(tx, actor.id, "DATA_EXPORT_DOWNLOAD_GRANT_CREATED", grant.id, {
-      jobId: job.id,
-      packageId: pkg.id,
-      expiresAt: expiresAt.toISOString(),
-    });
-    return { id: grant.id, jobId: job.id, token, expiresAt: expiresAt.toISOString() };
-  });
+  return issueDurableExportGrant(actor, normalizeJobId(jobId));
 }
 
 export async function revokeExportDownloadGrants(actor: CurrentUser, jobId: string): Promise<{ revokedCount: number }> {
   requireDataLifecycleCandidate();
-  return prisma.$transaction(async (tx) => {
+  const job = await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id } });
+  if (job?.queueVersion === 1 && job.kind === "EXPORT") return revokeDurableExportGrants(actor, jobId);
+  return prisma.$transaction(async tx => {
     await requireFreshAccountSession(tx, actor);
-    const job = await tx.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, kind: "EXPORT" } });
-    if (!job) throw new ApiError("DATA_JOB_NOT_FOUND", 404);
-    const changed = await revokeJobDownloadGrants(tx, job.id, new Date());
-    await writeDataAudit(tx, actor.id, "DATA_EXPORT_DOWNLOAD_GRANTS_REVOKED", job.id, { revokedCount: changed });
-    return { revokedCount: changed };
+    if (!job || job.queueVersion !== 0 || job.kind !== "EXPORT") throw new ApiError("DATA_JOB_NOT_FOUND", 404);
+    return { revokedCount: await revokeJobDownloadGrants(tx, job.id, new Date()) };
   });
 }
 
-/**
- * Redeem is a capability check only.  It intentionally returns no object key
- * or filesystem path; a future storage adapter must consume this descriptor
- * and stream the package without making path data part of the Web DTO.
- */
-export async function redeemExportDownloadGrant(actor: CurrentUser, token: string): Promise<RedeemedDownloadDto> {
+export async function redeemExportDownloadGrant(actor: CurrentUser, token: string, signal?: AbortSignal) {
   requireDataLifecycleCandidate();
-  if (!/^[A-Za-z0-9_-]{32,160}$/.test(token)) throw new ApiError("DATA_DOWNLOAD_NOT_FOUND", 404);
-  const now = new Date();
-  return prisma.$transaction(async (tx) => {
-    const grant = await tx.dataExportDownloadGrant.findUnique({
-      where: { tokenHash: hashDataDownloadToken(token) },
-      include: { exportPackage: { include: { job: true } } },
-    });
-    if (!grant || grant.requestedByUserId !== actor.id || grant.revokedAt || grant.consumedAt || grant.expiresAt <= now) {
-      throw new ApiError("DATA_DOWNLOAD_NOT_FOUND", 404);
-    }
-    const pkg = grant.exportPackage;
-    if (pkg.expiresAt <= now || pkg.job.status !== "SUCCEEDED" || pkg.job.kind !== "EXPORT") {
-      throw new ApiError("DATA_DOWNLOAD_NOT_FOUND", 404);
-    }
-    await assertJobScopeStillAuthorized(tx, actor, pkg.job.scope, pkg.job.workspaceId);
-    const consumedAt = new Date();
-    const changed = await tx.dataExportDownloadGrant.updateMany({
-      where: { id: grant.id, requestedByUserId: actor.id, consumedAt: null, revokedAt: null, expiresAt: { gt: consumedAt } },
-      data: { consumedAt },
-    });
-    if (changed.count !== 1) throw new ApiError("DATA_DOWNLOAD_NOT_FOUND", 404);
-    await writeDataAudit(tx, actor.id, "DATA_EXPORT_DOWNLOAD_GRANT_CONSUMED", grant.id, { jobId: pkg.job.id, packageId: pkg.id });
-    return {
-      packageId: pkg.id,
-      jobId: pkg.job.id,
-      fileName: pkg.fileName,
-      contentType: pkg.contentType,
-      sizeBytes: pkg.sizeBytes.toString(),
-      archiveSha256: pkg.archiveSha256,
-      manifestSha256: pkg.manifestSha256,
-      consumedAt: consumedAt.toISOString(),
-    };
-  });
+  return downloadDurableDataExport(actor, token, signal);
+}
+
+export async function pauseDataLifecycleJob(actor: CurrentUser, jobId: string, revision: number): Promise<DataJobDto> {
+  requireDataLifecycleCandidate();
+  return serializeDataJob(await controlDurableDataExport(actor, normalizeJobId(jobId), revision, "PAUSE"));
+}
+
+export async function resumeDataLifecycleJob(actor: CurrentUser, jobId: string, revision: number): Promise<DataJobDto> {
+  requireDataLifecycleCandidate();
+  return serializeDataJob(await controlDurableDataExport(actor, normalizeJobId(jobId), revision, "RESUME"));
 }
 
 export function serializeDataJob(row: {
@@ -620,6 +529,10 @@ export function serializeDataJob(row: {
   status: string;
   progress: number;
   attempt: number;
+  queueVersion?: number;
+  nextAttemptAt?: Date | null;
+  deadLetteredAt?: Date | null;
+  pauseRequested?: boolean;
   revision?: number;
   errorCode: string | null;
   retryable: boolean;
@@ -635,14 +548,29 @@ export function serializeDataJob(row: {
     status: row.status as DataJobStatus,
     progress: row.progress,
     attempt: row.attempt,
+    queueVersion: row.queueVersion ?? 0,
+    nextAttemptAt: row.nextAttemptAt?.toISOString() ?? null,
+    deadLetteredAt: row.deadLetteredAt?.toISOString() ?? null,
+    pauseRequested: row.pauseRequested ?? false,
+    exportState: row.queueVersion === 1 ? "NOT_READY" : "PREVIEW_ONLY",
+    downloadable: false,
+    exportSummary: null,
     revision: row.revision ?? row.updatedAt.getTime(),
     errorCode: row.errorCode,
     retryable: row.retryable,
     expiresAt: row.expiresAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    preview: parseStoredPreview(row.resultJson),
+    preview: (row.queueVersion ?? 0) === 0 ? parseStoredPreview(row.resultJson) : null,
   };
+}
+
+async function serializeForActor(actor: CurrentUser, row: Awaited<ReturnType<typeof prisma.dataJob.findUniqueOrThrow>>): Promise<DataJobDto> {
+  return { ...serializeDataJob(row), ...await dataExportAvailability(actor, row) };
+}
+
+async function isDurableExport(actor: CurrentUser, jobId: string): Promise<boolean> {
+  return !!await prisma.dataJob.findFirst({ where: { id: normalizeJobId(jobId), requestedByUserId: actor.id, queueVersion: 1, kind: "EXPORT" }, select: { id: true } });
 }
 
 function previewFromManifest(scope: DataJobScope, manifest: DataExportManifest): DataExportPreview {
@@ -686,179 +614,9 @@ async function resolveScope(
   return { workspaceIds: [workspaceId] };
 }
 
-async function assertJobScopeStillAuthorized(
-  tx: Prisma.TransactionClient,
-  actor: CurrentUser,
-  scope: string,
-  workspaceId: string | null,
-): Promise<void> {
-  if (scope === "ACCOUNT") {
-    const account = await tx.user.findFirst({ where: { id: actor.id, status: "ACTIVE" }, select: { id: true } });
-    if (!account) throw new ApiError("UNAUTHORIZED", 401);
-    return;
-  }
-  if (scope !== "WORKSPACE" || !workspaceId) throw new ApiError("DATA_JOB_SCOPE_INVALID", 409);
-  await resolveScope(tx, actor, "WORKSPACE", workspaceId);
-}
 
-async function collectExportRecords(
-  client: DbClient,
-  actor: CurrentUser,
-  workspaceIds: readonly string[],
-  scope: DataJobScope,
-  includeData: boolean,
-): Promise<DataExportRecordInput[]> {
-  const actorId = actor.id;
-  const records: DataExportRecordInput[] = [];
-  const db = client as unknown as Record<string, Delegate>;
-  const workspaceWhere = { workspaceId: { in: [...workspaceIds] } };
-  const ownerWhere = scope === "WORKSPACE" ? { ownerUserId: actorId, ...workspaceWhere } : { ownerUserId: actorId };
-  const userWhere = scope === "WORKSPACE" ? { userId: actorId, workspaceId: { in: [...workspaceIds] } } : { userId: actorId };
-  const subjectOwnerWhere = scope === "WORKSPACE"
-    ? { ownerUserId: actorId, subject: workspaceWhere }
-    : { ownerUserId: actorId };
-
-  if (scope === "ACCOUNT") {
-    await appendRows(db, records, "account", "user", { id: actorId }, {
-      id: true, email: true, status: true, emailVerifiedAt: true, createdAt: true, updatedAt: true,
-    });
-  }
-  await appendRows(db, records, "workspace", "examWorkspace", { id: { in: [...workspaceIds] } }, {
-    id: true, userId: true, stableKey: true, name: true, targetExamDate: true, stageSummary: true,
-    status: true, revision: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "workspaceMembership", "workspaceMembership", { ...workspaceWhere, userId: actorId }, {
-    id: true, workspaceId: true, userId: true, role: true, status: true, revision: true,
-    joinedAt: true, leftAt: true, removedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "subjectGroup", "subjectGroup", workspaceWhere, {
-    id: true, workspaceId: true, stableKey: true, name: true, sortOrder: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "subject", "subject", workspaceWhere, {
-    id: true, workspaceId: true, groupId: true, stableKey: true, name: true, color: true, sortOrder: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "syllabusNode", "syllabusNode", { subject: workspaceWhere }, {
-    id: true, subjectId: true, parentId: true, title: true, kind: true, status: true, masteryLevel: true,
-    sortOrder: true, targetMinutes: true, actualMinutes: true, stableKey: true, revision: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "syllabusNodeProgress", "syllabusNodeProgress", scope === "WORKSPACE"
-    ? { ownerUserId: actorId, syllabusNode: { subject: workspaceWhere } }
-    : { ownerUserId: actorId }, {
-    id: true, syllabusNodeId: true, ownerUserId: true, status: true, masteryLevel: true, targetMinutes: true, actualMinutes: true, revision: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "studyTask", "studyTask", scope === "WORKSPACE" ? subjectOwnerWhere : { ownerUserId: actorId }, {
-    id: true, ownerUserId: true, subjectId: true, syllabusNodeId: true, parentTaskId: true, planMilestoneId: true,
-    title: true, type: true, status: true, priority: true, debtStatus: true, plannedDate: true, estimatedMinutes: true,
-    actualMinutes: true, reviewText: true, completedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "studySession", "studySession", scope === "WORKSPACE" ? { ...userWhere } : { userId: actorId }, {
-    id: true, subjectId: true, taskId: true, syllabusNodeId: true, activityKind: true, activityMode: true, status: true,
-    startedAt: true, pausedAt: true, endedAt: true, accumulatedPauseSeconds: true, effectiveMinutes: true, qualityScore: true,
-    isEffective: true, understandingLevel: true, minimalOutput: true, nextAction: true, producedNote: true, producedMistake: true,
-    isLowConversion: true, antiFakeReason: true, requiredOutput: true, closeoutVersion: true, note: true, goalMinutes: true,
-    userId: true, workspaceId: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "dailyReview", "dailyReview", scope === "WORKSPACE" ? { ...ownerWhere } : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, revision: true, reviewDate: true, totalMinutes: true, effectiveMinutes: true,
-    summary: true, lostControl: true, keepAction: true, tomorrowMinimum: true, mood: true, aiSuggestion: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "checkIn", "checkIn", scope === "WORKSPACE" ? { ...ownerWhere } : { ownerUserId: actorId }, {
-    id: true, ownerUserId: true, workspaceId: true, studyDate: true, completedMinimumAction: true, totalMinutes: true,
-    effectiveMinutes: true, effectiveSessionCount: true, taskCompletionRate: true, reviewSubmitted: true, lowEfficiency: true,
-    lowConversionCount: true, sourceVersion: true, reviewCount: true, reviewSeconds: true, passedCount: true, partialCount: true,
-    failedCount: true, minimumActionSource: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "note", "note", subjectOwnerWhere, {
-    id: true, ownerUserId: true, subjectId: true, syllabusNodeId: true, taskId: true, kind: true, studyDate: true,
-    stableKey: true, revision: true, title: true, content: includeData, masteryStatus: true, nextReviewAt: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "attachment", "attachment", scope === "WORKSPACE" ? { ownerUserId: actorId, OR: [{ note: { subject: workspaceWhere } }, { studyResource: workspaceWhere }] } : { ownerUserId: actorId }, {
-    id: true, ownerUserId: true, noteId: true, originalName: true, mimeType: true, sizeBytes: true, hash: true, status: true, protocolVersion: true, finalizedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "mistake", "mistake", subjectOwnerWhere, {
-    id: true, ownerUserId: true, subjectId: true, syllabusNodeId: true, title: true, questionText: includeData, source: true,
-    cause: true, causeNote: includeData, correctAnswer: includeData, correctIdea: includeData, nextReviewAt: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "studyResource", "studyResource", scope === "WORKSPACE" ? ownerWhere : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, stableKey: true, title: true, category: true, sourceType: true,
-    subjectId: true, externalUrl: true, displayHost: true, duplicateOfResourceId: true, revision: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "simulationExam", "simulationExam", scope === "WORKSPACE" ? ownerWhere : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, name: true, examDate: true, isFirstSynchronized: true, targetDurationMinutes: true,
-    actualDurationMinutes: true, targetScore: true, actualScore: true, blankQuestionCount: true, mindset: true, summary: includeData,
-    reviewText: includeData, status: true, confirmedAt: true, revision: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "stagePlan", "stagePlan", scope === "WORKSPACE" ? ownerWhere : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, stableKey: true, revision: true, name: true, startDate: true, endDate: true,
-    goal: includeData, mode: true, status: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "planMilestone", "planMilestone", scope === "WORKSPACE" ? ownerWhere : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, stagePlanId: true, subjectId: true, stableKey: true, title: true,
-    targetDate: true, sortOrder: true, status: true, revision: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "reviewSchedule", "reviewSchedule", scope === "WORKSPACE" ? ownerWhere : { ownerUserId: actorId }, {
-    id: true, workspaceId: true, ownerUserId: true, targetType: true, noteId: true, mistakeId: true, studyResourceId: true,
-    syllabusNodeId: true, status: true, dueDate: true, pausedReason: true, consecutivePassCount: true, revision: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "motivationVault", "motivationVault", { userId: actorId }, {
-    id: true, userId: true, whyStarted: includeData, neverReturnTo: includeData, futureSelf: includeData, messageToFuture: includeData,
-    firstSimulationDiary: includeData, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "motivationItem", "motivationItem", { userId: actorId }, {
-    id: true, userId: true, type: true, title: true, body: includeData, externalUrl: true, enabled: true, sortOrder: true,
-    revision: true, archivedAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "notificationPreference", "notificationPreference", { userId: actorId }, {
-    id: true, userId: true, reviewDueEnabled: true, planStartEnabled: true, eveningReviewEnabled: true, reviewDueWindowStart: true,
-    reviewDueWindowEnd: true, planStartWindowStart: true, planStartWindowEnd: true, eveningReviewWindowStart: true,
-    eveningReviewWindowEnd: true, quietHoursStart: true, quietHoursEnd: true, revision: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "userNotification", "userNotification", scope === "WORKSPACE"
-    ? { recipientUserId: actorId, workspaceId: { in: [...workspaceIds] } }
-    : { recipientUserId: actorId }, {
-    id: true, recipientUserId: true, workspaceId: true, workspaceLabel: true, kind: true,
-    readAt: true, dismissedAt: true, revision: true, createdAt: true, updatedAt: true,
-  });
-  await appendRows(db, records, "auditEvent", "auditEvent", { actorId: actorId }, {
-    id: true, actorId: true, action: true, entityType: true, entityId: true, createdAt: true,
-  });
-  await appendRows(db, records, "dataJob", "dataJob", scope === "WORKSPACE"
-    ? { requestedByUserId: actorId, workspaceId: { in: [...workspaceIds] } }
-    : { requestedByUserId: actorId }, {
-    id: true, kind: true, scope: true, status: true, progress: true, attempt: true, errorCode: true, retryable: true, expiresAt: true, createdAt: true, updatedAt: true,
-  });
-  await appendExtendedExportRecords(client, records, actorId, workspaceIds, scope, includeData);
-  await appendRelatedExportRecords(client, records, actorId, actor.email, workspaceIds, scope, includeData);
-  return records;
-}
-
-async function appendRows(
-  db: Record<string, Delegate>,
-  records: DataExportRecordInput[],
-  kind: string,
-  delegateName: string,
-  where: unknown,
-  select: JsonRecord,
-): Promise<void> {
-  const delegate = db[delegateName];
-  if (!delegate) throw new ApiError("DATA_INVENTORY_MODEL_UNAVAILABLE", 503);
-  const rows = await delegate.findMany({ where, select, orderBy: { id: "asc" } });
-  for (const row of rows) {
-    const item = row as JsonRecord;
-    const id = typeof item.id === "string" ? item.id : null;
-    if (!id) throw new ApiError("DATA_INVENTORY_ID_MISSING", 409);
-    records.push({ kind, id, data: toJsonSafe(item) });
-  }
-}
-
-function toJsonSafe(value: unknown): unknown {
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "bigint") return value.toString();
-  if (Array.isArray(value)) return value.map(toJsonSafe);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonSafe(item)]));
-  }
-  return value;
+async function collectExportRecords(client: DbClient, actor: CurrentUser, workspaceIds: readonly string[], scope: DataJobScope, includeData: boolean): Promise<DataExportRecordInput[]> {
+  return collectDataExportRecords(client, { actor, workspaceIds, scope, includeData });
 }
 
 function parseStoredPreview(value: unknown): DataExportPreview | DataDeletePreview | null {

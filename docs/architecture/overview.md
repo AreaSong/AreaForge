@@ -56,7 +56,7 @@ packages/ai -> Sub2API / OpenAI compatible API
 
 ## A -> B 后续状态
 
-邀请制多用户与 Workspace Membership 已进入 v1.4 本地候选，预设角色权限/对象级分享/Coach 协作已进入 v1.5 本地候选；v1.6 数据任务/删除预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影、反作弊与持久申诉，以及 v1.9 通用持久通知底座也已在一次性隔离 fixture 形成默认关闭的候选 runtime。候选 migration 尚未 apply 到共享测试库或生产，完整账户导出、物理删除、root-agent 执行、通用通知 worker、全局通知入口与删除/导出完整联动以及各版本 Release/生产证据仍缺；未形成对应完整证据前都不是当前线上能力。
+邀请制账户、Workspace/Membership、预设角色、对象级分享与 Coach 协作共同限定数据访问。通知与本人数据导出使用独立持久 worker；导出生成私有归档并通过一次性 POST 授权下载，Web 不启动进程或执行服务器命令。数据删除、排名重建、root-agent 和其他域仍按各自独立确认推进；具体实现、环境验收及 Release/生产状态统一见 [功能追踪矩阵](../development/feature-traceability.md)，不由本地构建或单域测试推定线上能力。
 
 ## 暂缓或永久禁止
 

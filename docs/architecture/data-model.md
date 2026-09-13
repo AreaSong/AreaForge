@@ -55,6 +55,13 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 领取由队列索引和 `FOR UPDATE SKIP LOCKED` 支持，不修改其他业务模型或自动执行旧任务。
 副作用和成功状态在同一事务提交，机制与业务处理器的区别见 [`持久后台任务`](../modules/background-jobs.md)。
 
+### 导出文件与下载授权
+
+- `DataExportArtifact`：文件写入前的持久意图，唯一 `(jobId, leaseVersion)` 和随机 `objectKey`；状态为 `STAGING/PUBLISHED/RECLAIMING/RECLAIMED`，保留快照/到期/发布/回收时间及有界错误码。FK 与 CHECK 约束防止解绑、非法 key 和矛盾终态。
+- `DataExportPackage.sourceArtifactId`：nullable unique FK 绑定当前代次 artifact；旧包保持 NULL，不能发放真实文件。Package 只保存 manifest 摘要、计数、长度和摘要，不长期复制正文。
+- `DataExportDownloadGrant`：token 仅存 purpose-separated hash；`reservationId/reservedAt/reservationExpiresAt` 区分校验预留与真正消费，SQL CHECK 约束三字段一致、预留期限和消费状态。
+- 导出模型不改变源记录 owner、不构成备份或删除账本；文件与事务的发布/恢复边界见 [`本人数据导出`](../modules/data-export.md)。
+
 ## 规划扩展模型
 
 后续实体继续遵循 additive-first；已落地模型见上方与 Prisma schema。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。旧数据只读兼容，不批量猜测回填。

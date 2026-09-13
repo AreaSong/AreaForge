@@ -15,6 +15,11 @@
 `--once` 只处理一次领取周期，`--workspace=<id>` 限定工作区；拒绝未知参数、重复选项和路径形式的 ID。
 Web 不调用此命令；关闭通知开关后，运行中的通知处理器也会在准备和事务提交阶段拒绝投递。
 
+EXPORT 使用独立固定处理器，只有 `DATA_LIFECYCLE_ENABLED=true` 与 `DATA_EXPORT_ENABLED=true` 同时成立才注册。
+文件写入意图、私有 ZIP、权限快照、一次性下载与精确副本回收见 [`本人数据导出`](data-export.md)。
+`--reclaim-exports` 是独立显式维护模式，不得与消费参数混用；关闭导出后可回收登记副本，不注册或消费任何处理器。
+排名重建、DELETE 和搜索处理器不因 EXPORT 可用而自动启用。
+
 ## 持久协议
 
 - `queueVersion=0` 是旧手工预览协议，`queueVersion=1` 是独立 worker 协议；新增字段默认零，不自动提升旧任务。
@@ -70,12 +75,16 @@ Web 不调用此命令；关闭通知开关后，运行中的通知处理器也�
 默认 `pnpm check` 通过 Core/DB 单测覆盖规则和 worker 单元测试，并通过 `worker:data-jobs:typecheck` 检查执行器。
 真实数据库与子进程证据另运行 `pnpm worker:data-jobs:runtime:selftest`：必须显式设置
 `AREAFORGE_DATA_JOB_WORKER_ISOLATED_DB=1`，数据库只允许 loopback 且名称匹配 `areaforge_v20_worker_*`。
+如在已确认的导出专属 `areaforge_v20_export_*` 合成库重跑内核/通知回归，必须额外保留 `AREAFORGE_DATA_EXPORT_ISOLATED_DB=1`；不放宽到任意本地库。
 脚本再核对 `current_database()` 与全部 canonical migration 的名称、完成状态和 SQL checksum。
 该入口不创建、迁移或删除数据库；外层必须获得隔离 fixture 授权。
 内核入口仅执行合成副作用回归。通知域使用独立入口 `pnpm worker:notifications:runtime:selftest`，另要求
 `AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB=1` 及相应独立确认；环境变量本身不是授权，不能因运行内核测试而隐式启用通知域写入。
 通知专项覆盖受控事件种类、事务回滚、并发去重、scope/source 伪造、撤销后重入、运行中开关、锁竞争、冲突死信重放、
 失效收件人的真实业务调用链，以及准备和通知事务写入后两个独立子进程强杀恢复点。
+
+导出域另运行 `pnpm worker:exports:runtime:selftest` 和 `pnpm worker:exports:browser:selftest`；
+它们要求导出独立确认、专属库 guard、私有 fixture marker 和完整 migration checksum，不由内核或通知测试替代。
 
 回退先停止消费与新协议生产者，保留任务、审计和兼容字段，不 DROP 表或猜测恢复旧代次。
 存在新协议任务时，继续使用理解协议隔离的 Web 构建；不能让旧手工接口接管新队列。

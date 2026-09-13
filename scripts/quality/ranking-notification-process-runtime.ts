@@ -17,6 +17,7 @@ async function verifyCrashPoint(point: "prepare" | "commit") {
     stdio: ["ignore", "ignore", "ignore", "ipc"], env: {
       PATH: process.env.PATH, DATABASE_URL: process.env.DATABASE_URL,
       AREAFORGE_DATA_JOB_WORKER_ISOLATED_DB: "1", AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB: "1",
+      AREAFORGE_DATA_EXPORT_ISOLATED_DB: process.env.AREAFORGE_DATA_EXPORT_ISOLATED_DB,
       PLATFORM_NOTIFICATIONS_ENABLED: "true", PLATFORM_NOTIFICATION_QUEUE_ENABLED: "true",
       AREAFORGE_WORKER_FIXTURE_REQUESTER: event.actorUserId, AREAFORGE_WORKER_FIXTURE_WORKSPACE: event.workspaceId,
       AREAFORGE_WORKER_FIXTURE_CRASH: point,

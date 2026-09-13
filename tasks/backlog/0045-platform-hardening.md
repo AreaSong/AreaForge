@@ -39,8 +39,8 @@ releaseRequired: true
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，响应明确 `indexed=false`，当前仍是直接数据库候选而非持久搜索索引。
 - 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和下述 `UserNotification` 基础；持久 worker 内核通过 15 组隔离回归，独立确认后的排名通知域通过 11 组专项，见下方接力验收记录。排名重建、导出/删除处理器、持久搜索索引、配额写入、MFA/Passkey、监控外呼及生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
-- `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备已读、隐藏、恢复；用户导出预览包含脱敏通知记录。它尚不包含排名重建、导出/删除 worker、外部投递或其他业务域事件，不改变前置 blocker。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。排名重建、DELETE、持久搜索、配额写入、MFA/Passkey、监控外呼及共享/生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
+- `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收
 
@@ -86,6 +86,12 @@ releaseRequired: true
 - Next/eslint-config-next `16.3.3`、Sharp `0.35.4`、js-yaml `4.3.2` 已按精确版本安装；lock 变化限于这些包及其 Next SWC/helper、Sharp 平台/libvips/WASM runtime 依赖。build allowlist 和其他 override 未变；冻结安装通过，全量/生产依赖审计均为 0 漏洞。
 - `AF-RISK-REL-001` 仅从 `approved` 对齐为 `expired`，原日期、接受事实、basisHash 与安全默认均不变；18 项台账和任务 doctor 重新通过。例外不再有效，未续期、未关闭风险或开启自动更新。完整构建/专项/CI 与导出实现继续逐项记录，不由上述结果代替。
 - 新依赖下 `pnpm check`、PNG/JPEG/WebP/AVIF 编解码、冻结安装和全量/生产审计已通过。只读自测改为冻结真实检查时点，关闭复核夹具读取当前权威类型；长期证据 CLI 保留失败退出码并排空 JSON，修复大输出被截断。只读副作用、快照、台账、任务、状态/交接和运维类型检查已通过；只读投影仍明确缺生产/长期证据，不因 schema 修复成为 production-ready。
+- 上述依赖与到期对齐检查点为 `09a81af3178d8ec05c304e86a37fc893eae0279e`，已推送且 [CI run 34735167371](https://github.com/AreaSong/AreaForge/actions/runs/34735167371) 成功。该 CI 不覆盖其后的 EXPORT 改动。
+- EXPORT 后续独立实现与验收见 `0041-data-lifecycle.md`：持久意图/租约代次、流式私有归档、本人权限快照、一次性下载、关闭后的显式副本回收已有代码；51-migration 合成库中 14 组专项含四个真实 SIGKILL 点，15 内核与 11 通知回归复验通过，任务中心和真实 API 的桌面/窄视口验证通过。
+- 只读核验发现的学习关系遗漏、首次 pull 前取消句柄泄漏及回收失败对象阻塞批次已修复并补回归；跨用户签发凭证统一隐藏为 404，预览选择器补显式可访问名称。测试池只更新专属槽 2，保留原槽 1 与既有治理/截图改动，不连接共享库或生产。
+- 最终完整检查已通过；补齐标准检查发现的 Storage 测试类型与 CLI 参数契约。运维专项另修正读取当前台账的两处旧固定时钟、OPS-001 合成 bundle 的时效/显式版本，以及长期 gate 自测缺失的 journey 绑定；合成 journey factory 与体验 validator 自测共用，绝不替代真实浏览器或降低 validator。OPS 投影仍保留历史生产记录与新鲜证据缺口，不由结构校验升级为 production-ready。
+- 实际交接 JSON 另复现采集与输出跨秒导致的 `ageSeconds` 失配；状态生成器改为同一次冻结时点，推进时钟回归与真实 status/handoff/bundle 默认绑定校验通过。投影继续返回 blocked/needs_attention，不能据此宣称线上健康、Release 或长期运营完成。
+- 下一步 DATA-DELETE 本地删除/恢复范围已写入高风险确认包，状态为待确认；当前未新增 DELETE handler、未删除真实源数据，不能复用本次 EXPORT 授权。
 
 - 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。

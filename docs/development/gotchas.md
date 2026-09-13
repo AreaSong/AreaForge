@@ -55,6 +55,13 @@
 
 ## 安全与 HTTP 边界
 
+### 下载流尚未首次读取就取消，生成器 finally 不会关闭外部已打开的句柄
+
+- 触发：先打开并校验文件，再用异步生成器包装为 Web 响应；客户端在首次 pull 前取消。
+- 根因：未启动的生成器不执行函数体或 finally，外部文件句柄可能泄漏；换成文件流后若沿用按 chunk 计数的 Web highWaterMark，还可能预取整包。
+- 规避：让 FileHandle 的原生流管理关闭与 abort，并显式按字节设置 Web 背压；同时测试首次读取前取消、中途取消、abort 和无消费者的预取上限，不能只测完整下载。
+- 关联：`packages/storage/src/data-export-files.ts`、`packages/storage/src/data-export.test.ts`、`docs/modules/data-export.md`。
+
 ### 直接取 X-Forwarded-For 第一跳做限速键，登录限速可被伪造头绕过
 
 - 触发：`getClientIp` 信任请求自带的 XFF 头。

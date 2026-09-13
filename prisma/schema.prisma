@@ -664,34 +664,35 @@ model AuthThrottleBucket {
 }
 
 model DataJob {
-  id                 String             @id @default(cuid())
+  id                 String               @id @default(cuid())
   kind               DataJobKind
   scope              DataJobScope
   requestedByUserId  String
   workspaceId        String?
-  status             DataJobStatus      @default(QUEUED)
-  attempt            Int                @default(0)
-  progress           Float              @default(0)
+  status             DataJobStatus        @default(QUEUED)
+  attempt            Int                  @default(0)
+  progress           Float                @default(0)
   leaseOwner         String?
   leaseExpiresAt     DateTime?
   idempotencyKey     String
   requestFingerprint String
   resultJson         Json?
   errorCode          String?
-  retryable          Boolean            @default(false)
+  retryable          Boolean              @default(false)
   // 零表示旧的手工 preview 协议；独立 worker 只消费显式入队的协议一任务。
-  queueVersion       Int                @default(0)
+  queueVersion       Int                  @default(0)
   nextAttemptAt      DateTime?
-  maxAttempts        Int                @default(5)
-  leaseVersion       Int                @default(0)
-  pauseRequested     Boolean            @default(false)
+  maxAttempts        Int                  @default(5)
+  leaseVersion       Int                  @default(0)
+  pauseRequested     Boolean              @default(false)
   deadLetteredAt     DateTime?
   expiresAt          DateTime
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  requestedBy        User               @relation("DataJobRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
-  workspace          ExamWorkspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  requestedBy        User                 @relation("DataJobRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  workspace          ExamWorkspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   exportPackage      DataExportPackage?
+  exportArtifacts    DataExportArtifact[]
 
   @@unique([requestedByUserId, idempotencyKey])
   @@index([status, kind, createdAt])
@@ -748,40 +749,72 @@ model ControlledOperationRequest {
   @@index([requestedByUserId, createdAt])
 }
 
+enum DataExportArtifactState {
+  STAGING
+  PUBLISHED
+  RECLAIMING
+  RECLAIMED
+}
+
+model DataExportArtifact {
+  id               String                  @id @default(cuid())
+  jobId            String
+  leaseVersion     Int
+  state            DataExportArtifactState @default(STAGING)
+  objectKey        String                  @unique
+  snapshotAt       DateTime?
+  expiresAt        DateTime
+  publishedAt      DateTime?
+  reclaimedAt      DateTime?
+  reclaimErrorCode String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  job              DataJob                 @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  exportPackage    DataExportPackage?
+
+  @@unique([jobId, leaseVersion])
+  @@index([state, expiresAt])
+}
+
 model DataExportPackage {
-  id              String                    @id @default(cuid())
-  jobId           String                    @unique
-  protocol        String
-  schemaVersion   Int
-  manifest        Json
-  manifestSha256  String
-  objectKey       String                    @unique
-  archiveSha256   String
-  sizeBytes       BigInt
-  contentType     String
-  fileName        String
-  recordCount     Int
-  attachmentCount Int
-  expiresAt       DateTime
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  job             DataJob                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  downloadGrants  DataExportDownloadGrant[]
+  id               String                    @id @default(cuid())
+  jobId            String                    @unique
+  sourceArtifactId String?                   @unique
+  protocol         String
+  schemaVersion    Int
+  manifest         Json
+  manifestSha256   String
+  objectKey        String                    @unique
+  archiveSha256    String
+  sizeBytes        BigInt
+  contentType      String
+  fileName         String
+  recordCount      Int
+  attachmentCount  Int
+  expiresAt        DateTime
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  job              DataJob                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceArtifact   DataExportArtifact?       @relation(fields: [sourceArtifactId], references: [id], onDelete: Restrict)
+  downloadGrants   DataExportDownloadGrant[]
 
   @@index([expiresAt])
 }
 
 model DataExportDownloadGrant {
-  id                String            @id @default(cuid())
-  packageId         String
-  requestedByUserId String
-  tokenHash         String            @unique
-  expiresAt         DateTime
-  consumedAt        DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  exportPackage     DataExportPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  requestedBy       User              @relation("DataExportDownloadRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  id                   String            @id @default(cuid())
+  packageId            String
+  requestedByUserId    String
+  tokenHash            String            @unique
+  expiresAt            DateTime
+  consumedAt           DateTime?
+  reservationId        String?
+  reservedAt           DateTime?
+  reservationExpiresAt DateTime?
+  revokedAt            DateTime?
+  createdAt            DateTime          @default(now())
+  exportPackage        DataExportPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  requestedBy          User              @relation("DataExportDownloadRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
 
   @@index([packageId, expiresAt])
   @@index([requestedByUserId, createdAt])

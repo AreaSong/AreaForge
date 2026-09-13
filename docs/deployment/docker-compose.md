@@ -74,7 +74,9 @@ pnpm dev:test:doctor
 
 浏览器/Playwright 验收必须复用 `pnpm dev:test:latest -- --json` 返回的 URL，不得为每个对话、页面或截图创建新的 Web 容器。若外部验收工具创建 `areaforge-v11browser-runtime-*` 一次性 runtime，必须在验收结束时清理；测试池不会接管这类容器，也不会把它们算入三个 slot。
 
-三个 Web 实例共享 `apps/web/.env.local` 指向的本地 PostgreSQL 和 `areaforge-dev-test-uploads` volume，以相同数据比较 UI。管理器只接受 loopback PostgreSQL 地址和 `areaforge` dev/test/local 数据库名，强制 `AI_ENABLED=false`，不读取生产 `.env`，不运行 migration，不清空数据库，不删除 uploads volume，也不执行全局 Docker prune。共享 PostgreSQL 不计入三个 Web 实例名额。历史 `areaforge-v11*` 容器和镜像不由测试池自动接管或清理。
+普通模式的 Web 实例共享 `apps/web/.env.local` 指向的本地 PostgreSQL 和 `areaforge-dev-test-uploads` volume，以相同数据比较 UI。管理器只接受 loopback PostgreSQL 地址和 `areaforge` dev/test/local 数据库名，强制 `AI_ENABLED=false`，不读取生产 `.env`，不运行 migration，不清空数据库，不删除 uploads volume，也不执行全局 Docker prune。共享 PostgreSQL 不计入三个 Web 实例名额。历史 `areaforge-v11*` 容器和镜像不由测试池自动接管或清理。
+
+本人数据导出的专属合成验收使用同一测试池的独立模式：显式设置 `AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT`、`AREAFORGE_DATA_EXPORT_ISOLATED_DB=1` 与 `AREAFORGE_DEV_TEST_DATABASE_URL`，再执行 `refresh --slot`。目录须由本批创建并登记 canonical 私有根、当前 UID/GID、仓库 hash、精确 `areaforge_v20_export_*` 库名和合成密钥，拒绝软链接和过宽权限；不复用共享库或真实密钥。Web 只读挂载本批 uploads/exports，独立宿主 worker 执行文件写入。只占空槽或刷新同一 fixture 槽，普通模式与 fixture 模式不可互相覆盖；standalone 打包排除 `.env*`。这不是迁移、生产部署或源文件删除授权，准入和回退见 `docs/development/external-capability-admission.md`。
 
 ## 生产建议
 

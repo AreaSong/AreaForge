@@ -61,6 +61,7 @@
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
 - `modules/background-jobs.md`：持久后台任务、租约代次、重试、死信和事务提交边界。
+- `modules/data-export.md`：本人数据/READY 附件导出、私有 ZIP、一次性下载、保留与精确副本回收。
 - `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布并完成 production apply）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。

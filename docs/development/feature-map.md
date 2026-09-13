@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-09-13（本次更新排名通知域本地候选；生产状态未重新采集，以 operational-readiness 和匹配运行态证据为准）
+快照日期：2026-09-13（本次更新 DATA-EXPORT 本地实现与隔离验收；生产状态未重新采集，以 operational-readiness 和匹配运行态证据为准）
 
 ## 四态与映射
 
@@ -114,6 +114,7 @@
 | `storage.private-dir` | UPLOAD_DIR 私有落盘 | done | `Attachment`（metadata/hash/URI 入库） | 文件本体不进 `public/` |
 | `storage.auth-download` | 鉴权附件下载 | done | `GET /api/attachments/[id]` | 未授权访问被拒 |
 | `storage.reconciliation` | 附件对账（只读） | done | `pnpm attachment:reconciliation` | 只生成报告，不修复 metadata、不删孤儿文件 |
+| `storage.owner-export` | 本人数据与附件导出 | partial | `docs/modules/data-export.md`、`scripts/workers/data-export-handler.ts`、`tasks/backlog/0041-data-lifecycle.md` | 私有 ZIP、权限快照、一次性 POST 下载与副本回收的隔离/桌面/窄屏验收通过；默认关闭，尚缺签名 Release 与共享/生产交付，不含源数据删除 |
 | `storage.crash-window` | 附件崩溃窗口原子写协议 | planned | `tasks/backlog/0021`、`ops-007` 设计 | 需独立确认 staging/fsync 与崩溃注入测试 |
 
 ## 6. 工程与质量
@@ -121,7 +122,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
-| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/ranking-notification-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 协议隔离、fencing、退避/死信、控制与事务提交已有 15 组内核隔离证据；独立确认后的通知域通过 11 组专项，覆盖源事务、权限撤销、幂等、24 个失效收件人业务场景和进程强杀恢复；排名重建/导出/删除域处理器、正式运维入口与共享/生产启用仍缺 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/data-export-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 51-migration 专用合成库中 15 组内核、11 组通知和 14 组 EXPORT 运行态通过，EXPORT 覆盖私有 ZIP/附件/一次性下载/回收、四个强杀点及桌面/窄屏验收；排名重建、DELETE、正式运维入口和共享/生产启用仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |

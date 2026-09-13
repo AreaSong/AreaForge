@@ -1,15 +1,12 @@
-import type { DataExportRecordInput } from "@areaforge/core";
-import { prisma, type Prisma } from "@areaforge/db";
-import { ApiError } from "@/lib/api/responses";
+import type { PrismaClient, Prisma } from "../generated/prisma/client";
+import { appendRows, metadataOnlyTarget, type DataExportRecordTarget, type ExportRecordDelegate } from "./data-export-record-target";
 
-type DbClient = typeof prisma | Prisma.TransactionClient;
-export type ExportRecordDelegate = { findMany(args: unknown): Promise<unknown[]> };
-type JsonRecord = Record<string, unknown>;
+type DbClient = PrismaClient | Prisma.TransactionClient;
 type DataJobScope = "ACCOUNT" | "WORKSPACE";
 
 export async function appendExtendedExportRecords(
   client: DbClient,
-  records: DataExportRecordInput[],
+  records: DataExportRecordTarget,
   actorId: string,
   workspaceIds: readonly string[],
   scope: DataJobScope,
@@ -84,7 +81,7 @@ export async function appendExtendedExportRecords(
     actorId, ...(scope === "WORKSPACE" ? workspaceWhere : {}),
   }, {
     id: true, operationId: true, actorId: true, workspaceId: true, endpoint: true, purpose: true,
-    projectionVersion: true, status: true, resultReference: true, expiresAt: true, consumedAt: true,
+    projectionVersion: true, status: true, resultReference: includeData, expiresAt: true, consumedAt: true,
     revision: true, createdAt: true, updatedAt: true,
   });
   await appendRows(db, records, "terminalGoal", "terminalGoal", actorWorkspaceWhere, {
@@ -134,40 +131,17 @@ export async function appendExtendedExportRecords(
   });
   await appendRows(db, records, "coachSuggestion", "coachSuggestion", {
     ...(scope === "WORKSPACE" ? workspaceWhere : {}),
-    OR: [{ authorUserId: actorId }, { recipientUserId: actorId }],
+    authorUserId: actorId,
   }, {
     id: true, workspaceId: true, authorUserId: true, recipientUserId: true, sourceGrantId: true,
     sourceResourceType: true, sourceResourceId: true, sourceSnapshotHash: true, payload: includeData,
     status: true, revision: true, decidedAt: true, planInboxItemId: true, createdAt: true, updatedAt: true,
   });
-}
-
-export async function appendRows(
-  db: Record<string, ExportRecordDelegate>,
-  records: DataExportRecordInput[],
-  kind: string,
-  delegateName: string,
-  where: unknown,
-  select: JsonRecord,
-  keyField = "id",
-): Promise<void> {
-  const delegate = db[delegateName];
-  if (!delegate) throw new ApiError("DATA_INVENTORY_MODEL_UNAVAILABLE", 503);
-  const rows = await delegate.findMany({ where, select, orderBy: { [keyField]: "asc" } });
-  for (const row of rows) {
-    const item = row as JsonRecord;
-    const id = typeof item[keyField] === "string" ? item[keyField] as string : null;
-    if (!id) throw new ApiError("DATA_INVENTORY_ID_MISSING", 409);
-    records.push({ kind, id, data: toJsonSafe(item) });
-  }
-}
-
-function toJsonSafe(value: unknown): unknown {
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "bigint") return value.toString();
-  if (Array.isArray(value)) return value.map(toJsonSafe);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonSafe(item)]));
-  }
-  return value;
+  await appendRows(db, metadataOnlyTarget(records), "coachSuggestion", "coachSuggestion", {
+    ...(scope === "WORKSPACE" ? workspaceWhere : {}), recipientUserId: actorId, authorUserId: { not: actorId },
+  }, {
+    id: true, workspaceId: true, authorUserId: true, recipientUserId: true, sourceGrantId: true,
+    sourceResourceType: true, sourceResourceId: true, status: true, revision: true, decidedAt: true,
+    planInboxItemId: true, createdAt: true, updatedAt: true,
+  });
 }

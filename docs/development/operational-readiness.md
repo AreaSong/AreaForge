@@ -22,6 +22,7 @@
 - 默认自动策略：`AREAFORGE_AUTO_APPLY=none`
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
 - A -> B 后续路线：`AF-RISK-DATA-002` 已由 active v1.4 任务承接并可在已确认范围内继续本地验证；`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 仍是不可执行的 `deferred-work`。三者都不是当前生产能力，也不提供 RBAC、生产 migration/apply、数据删除、排名共享或服务器动作授权。
+- DATA-EXPORT 本地证据：2026-09-13 的专用 51-migration 合成库通过 15 内核/11 通知/14 导出专项，导出任务中心的桌面/窄视口和真实 API 验收通过；仅更新本地测试池专属槽 2。`DATA_EXPORT_ENABLED=false` 默认关闭，未生成新 Release、未执行共享或生产 migration/apply、备份恢复、源数据删除或 residual 关闭；该候选不更新上述生产 identity/回滚目标，详情见 `tasks/backlog/0041-data-lifecycle.md`。
 
 ## 运营状态
 

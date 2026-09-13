@@ -15,6 +15,7 @@ import { computeAttachmentReconciliationSummaryHash } from "./attachment-reconci
 import type { AttachmentReconciliationSummary } from "./attachment-reconciliation-summary";
 import { buildDataIntegrityDoctor } from "../ops/data-integrity-doctor";
 import { parseIndentedKeyValueRecord } from "./record-validator-common";
+import { writeSyntheticJourneyEvidence } from "./product-experience-selftest-fixture";
 import {
   extractOps006EvidenceBindings,
   validateFreshDataIntegrityRecord,
@@ -305,7 +306,14 @@ function createUxRecord(
 }
 
 function writeUxRecord(recordPath: string, draft: string): void {
-  writeFileSync(recordPath, draft);
+  const fields = parseIndentedKeyValueRecord(draft);
+  const journeyDirectory = `${recordPath}.journey`;
+  const journeyFile = path.join(journeyDirectory, "v11-browser-journey-evidence.json");
+  writeSyntheticJourneyEvidence({ root, file: journeyFile, screenshotDir: path.join(journeyDirectory, "screenshots"),
+    generatedAt: fields.get("reviewedAt")!, appVersion: fields.get("appVersion")!,
+    gitCommit: fields.get("gitCommit")!, sourceHash: fields.get("productExperienceSourceHash")! });
+  const prepared = `${draft}journeyEvidence: ${path.relative(root, journeyFile)}\njourneyEvidenceHash: sha256:${"0".repeat(64)}\n`;
+  writeFileSync(recordPath, prepared);
   const hashes = spawnSync(
     "pnpm",
     ["exec", "tsx", "scripts/quality/product-experience-review-validate.ts", recordPath, "--print-record-hashes"],
@@ -322,13 +330,15 @@ function writeUxRecord(recordPath: string, draft: string): void {
   const runtimeEvidenceHash = hashes.stdout.match(/^runtimeIdentityEvidenceHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
   const runtimeIdentityHash = hashes.stdout.match(/^runtimeIdentityHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
   const reviewHash = hashes.stdout.match(/^reviewResultHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
-  if (!runtimeEvidenceHash || !runtimeIdentityHash || !screenshotHash || !reviewHash) throw new Error("UX record hash output is incomplete");
+  const journeyHash = hashes.stdout.match(/^journeyEvidenceHash:\s*(sha256:[a-f0-9]{64})$/m)?.[1];
+  if (!runtimeEvidenceHash || !runtimeIdentityHash || !screenshotHash || !reviewHash || !journeyHash) throw new Error("UX record hash output is incomplete");
   writeFileSync(
     recordPath,
-    draft
+    prepared
       .replace(`runtimeIdentityEvidenceHash: sha256:${"0".repeat(64)}`, `runtimeIdentityEvidenceHash: ${runtimeEvidenceHash}`)
       .replace(`runtimeIdentityHash: sha256:${"0".repeat(64)}`, `runtimeIdentityHash: ${runtimeIdentityHash}`)
       .replace(`screenshotEvidenceHash: sha256:${"0".repeat(64)}`, `screenshotEvidenceHash: ${screenshotHash}`)
+      .replace(`journeyEvidenceHash: sha256:${"0".repeat(64)}`, `journeyEvidenceHash: ${journeyHash}`)
       .replace(`reviewResultHash: sha256:${"0".repeat(64)}`, `reviewResultHash: ${reviewHash}`),
   );
 }

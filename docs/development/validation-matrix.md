@@ -568,6 +568,23 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 心跳/中止、旧协议隔离、两个真实进程 kill-point、失败/控制请求竞争的返回状态、处理器伪造控制错误和长提交事务；不得把无数据库的普通 check 或 CI 当作该 runtime 的替代证据。
 不执行共享/生产 migration，不生成真实归档或删除真实数据，不证明业务域处理器、浏览器或 Release/生产完成。
 
+## 本人数据导出专项
+
+涉及 `packages/core/src/data-export-*`、`packages/db/src/data-export-*`、`packages/storage/src/data-export-*`、
+`scripts/workers/data-export-*`、数据任务 Web/API 或导出 artifact migration 时，先核对独立 DATA-EXPORT 确认，
+再运行 Core/Storage/DB/Web 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、
+`pnpm db:generate`、`pnpm db:validate`、`pnpm check`、Web 共享能力相关门禁、docs/risk/governance/secrets 和 `git diff --check`。
+
+- `pnpm worker:exports:runtime:selftest`：要求 `AREAFORGE_DATA_EXPORT_ISOLATED_DB=1`、新建 loopback `areaforge_v20_export_*` 专用合成库、`AREAFORGE_DATA_EXPORT_FIXTURE_ROOT` 私有目录；先核对完整 canonical migration ledger/SQL checksum。脚本不建库、不迁移，不读取共享 uploads。
+- 覆盖 Account/Workspace、自有/历史成员上下文、所有权转移与账户暂停后恢复、学习关系/同名附件、并发请求幂等、旧协议隔离、权限版本与开关、回执上限；独立解 ZIP 并核对对象、manifest、附件和整包 SHA-256。
+- 故障覆盖缺失、篡改、软链接、容量上限、暂停/取消/重试/过期、文件已就位但尚无 Package；真实子进程在 intent、首条记录、seal、Package 写入但事务未提交四处 SIGKILL，恢复后仅新代次可成功，旧 key 回收不得触及新 key 或源附件。
+- 下载覆盖并发兑换、撤销/过期、session 撤销、短期 reservation 代次、打开/校验失败不消费、开始前/传输中取消与文件句柄释放；回收覆盖幂等、未登记 sentinel、失败对象轮转及关闭导出后的显式维护。
+- 在同一已迁移导出合成库重跑 `worker:data-jobs:runtime:selftest` / `worker:notifications:runtime:selftest` 时，同时保留内核 guard、通知域 guard 和导出 guard；专用 export 名称只在额外导出 guard 下放行，旧共享/真实数据库不得冒充候选证据。
+- `pnpm worker:exports:browser:selftest`：复用 `dev:test:latest -- --json` 返回且 source fingerprint 匹配的 EXPORT 专用槽，覆盖未登录/跨用户 API、真实 ZIP、响应丢失重试、暂停/恢复/进度、下载/撤销/过期、错误恢复、旧包拒绝及桌面/窄视口。认证材料仅存在合成进程内或 0600 临时文件，截图不得包含 token。
+- 测试池隔离模式改动另跑 `dev:test:selftest` / `dev:test:typecheck` / latest / doctor / snapshot dry-run、`package-e:preflight`；marker、canonical 0700 根、0600 合成 secret、精确库名/仓库/UID 绑定、软链接、同槽所有权与只读文件挂载均需负测。
+
+本地回归不证明生产 migration、真实用户导出、Release、DATA-DELETE、备份恢复、长期运行容量或 v2.0 综合门禁。
+
 ## 当前已知验证阻塞
 
 仓库使用 pnpm 11.7.0，并通过 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies` 与 `allowBuilds` 允许 Prisma、Sharp 和相关解析依赖执行必要 build script。若当前机器仍提示 ignored builds，按 `docs/development/setup.md` 执行 `pnpm approve-builds --all` 后再跑 `pnpm check`。

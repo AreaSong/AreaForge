@@ -11,6 +11,7 @@ export const DEV_TEST_LABELS = {
   buildId: "com.areaforge.dev-test.build-id",
   port: "com.areaforge.dev-test.port",
   note: "com.areaforge.dev-test.note",
+  fixtureId: "com.areaforge.dev-test.fixture-id",
 } as const;
 
 export type PoolMode = "refresh" | "snapshot";
@@ -29,6 +30,7 @@ export type PoolInstance = {
   gitCommit: string;
   buildId: string;
   note: string;
+  fixtureId?: string;
 };
 
 export type SlotSelection = {
@@ -66,6 +68,7 @@ export function validatePool(instances: PoolInstance[], ports: number[]): void {
     if (seenSlots.has(instance.slot)) throw new Error(`duplicate owned containers found for slot ${instance.slot}`);
     if (instance.name !== containerName(instance.slot)) throw new Error(`owned container has unexpected name: ${instance.name}`);
     if (instance.port !== ports[instance.slot - 1]) throw new Error(`slot ${instance.slot} uses unexpected port ${instance.port}`);
+    if (instance.fixtureId !== undefined && !/^[a-f0-9]{64}$/.test(instance.fixtureId)) throw new Error(`slot ${instance.slot} has invalid fixture identity`);
     seenSlots.add(instance.slot);
   }
 }

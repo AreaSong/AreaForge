@@ -56,4 +56,6 @@ CSV 和 summary 必须写在 `UPLOAD_DIR` 外，输出路径不能相同、不�
 
 ## 学习行动中心关联能力
 
-统一复习排期、知识画布布局、动机提醒与通知偏好已进入当前产品；它们不改变 FILE/LINK exactly-one、私有鉴权访问或附件 staging 边界。v1.6 的内存 ZIP 与删除状态机只属于无 I/O 的 Core 候选，不读取附件本体、不写归档、不删除文件。`AF-RISK-DATA-001` 保持 `deferred-work`；物理删除、历史 orphan 自动清理和完整账户导出服务不在当前可执行范围。
+统一复习排期、知识画布布局、动机提醒与通知偏好不改变 FILE/LINK exactly-one、私有鉴权访问或附件 staging 边界。
+独立导出 worker 仅读取请求者本人 READY 附件并写入 `EXPORT_DIR` 私有流式 ZIP；下载经同句柄校验与一次性 POST 授权，回收只触及已登记的导出副本，不改源文件或清理历史上传 orphan。
+完整协议见 [本人数据导出](../modules/data-export.md)。Core 删除状态机仍无物理删除能力；`AF-RISK-DATA-001` 的后续删除边界和关闭条件不因导出实现改变。

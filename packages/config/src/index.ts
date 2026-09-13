@@ -29,6 +29,8 @@ export const serverEnvSchema = z.object({
   AUTH_MULTI_USER_ENABLED: booleanFromString.default(false),
   AUTH_RBAC_ENABLED: booleanFromString.default(false),
   DATA_LIFECYCLE_ENABLED: booleanFromString.default(false),
+  DATA_EXPORT_ENABLED: booleanFromString.default(false),
+  EXPORT_DIR: optionalNonEmptyString,
   RANKING_ENABLED: booleanFromString.default(false),
   RANKING_PROJECTION_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),

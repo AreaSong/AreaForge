@@ -1,14 +1,12 @@
-import type { DataExportRecordInput } from "@areaforge/core";
-import { prisma, type Prisma } from "@areaforge/db";
-import { normalizeEmail } from "@/lib/auth/session";
-import { appendRows, type ExportRecordDelegate } from "./data-export-inventory-records";
+import type { PrismaClient, Prisma } from "../generated/prisma/client";
+import { appendRows, metadataOnlyTarget, type DataExportRecordTarget, type ExportRecordDelegate } from "./data-export-record-target";
 
-type DbClient = typeof prisma | Prisma.TransactionClient;
+type DbClient = PrismaClient | Prisma.TransactionClient;
 type DataJobScope = "ACCOUNT" | "WORKSPACE";
 
 interface ExportContext {
   db: Record<string, ExportRecordDelegate>;
-  records: DataExportRecordInput[];
+  records: DataExportRecordTarget;
   actorId: string;
   actorEmail: string;
   workspaceIds: readonly string[];
@@ -18,7 +16,7 @@ interface ExportContext {
 
 export async function appendRelatedExportRecords(
   client: DbClient,
-  records: DataExportRecordInput[],
+  records: DataExportRecordTarget,
   actorId: string,
   actorEmail: string,
   workspaceIds: readonly string[],
@@ -70,7 +68,7 @@ async function appendAccountSecurityRecords(context: ExportContext): Promise<voi
     OR: [
       { invitedByUserId: actorId },
       { acceptedByUserId: actorId },
-      { emailNormalized: normalizeEmail(actorEmail) },
+      { emailNormalized: actorEmail.trim().toLowerCase() },
     ],
   }, {
     id: true, workspaceId: true, role: true, status: true, expiresAt: true,
@@ -299,13 +297,16 @@ async function appendRankingRecords(context: ExportContext): Promise<void> {
   const workspaceFilter = scope === "WORKSPACE" ? { workspaceId: { in: [...workspaceIds] } } : {};
   await appendRows(db, records, "privateChallenge", "privateChallenge", {
     ...workspaceFilter,
-    OR: [{ ownerUserId: actorId }, { participants: { some: { userId: actorId } } }],
+    ownerUserId: actorId,
   }, {
     id: true, workspaceId: true, ownerUserId: true, name: includeData, description: includeData,
     status: true, timezone: true, startDate: true, endDate: true, targetEffectiveMinutesPerDay: true,
     scoreVersion: true, rulesVersion: true, publishedFields: true, revision: true,
     startedAt: true, endedAt: true, closedAt: true, dissolvedAt: true, createdAt: true, updatedAt: true,
   });
+  await appendRows(db, metadataOnlyTarget(records), "privateChallenge", "privateChallenge", {
+    ...workspaceFilter, ownerUserId: { not: actorId }, participants: { some: { userId: actorId } },
+  }, { id: true, workspaceId: true });
   await appendRows(db, records, "privateChallengeParticipant", "privateChallengeParticipant", {
     userId: actorId,
     ...(scope === "WORKSPACE" ? { challenge: workspaceFilter } : {}),

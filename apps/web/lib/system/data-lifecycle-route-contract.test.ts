@@ -61,7 +61,7 @@ test("data lifecycle service has no physical deletion or archive filesystem path
 });
 
 test("data inventory includes recipient-scoped notifications without internal event keys", async () => {
-  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  const service = await readFile(path.resolve(webRoot, "../../packages/db/src/data-export-inventory-primary.ts"), "utf8");
   assert.match(service, /"userNotification", "userNotification"/);
   assert.match(service, /recipientUserId: actorId/);
   assert.doesNotMatch(service, /userNotification[\s\S]{0,500}sourceEntityId: true/);
@@ -70,8 +70,9 @@ test("data inventory includes recipient-scoped notifications without internal ev
 
 test("account inventory keeps joined workspace context and workspace jobs scoped", async () => {
   const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  const inventory = await readFile(path.resolve(webRoot, "../../packages/db/src/data-export-inventory-primary.ts"), "utf8");
   assert.match(service, /memberships: \{ some: \{ userId: actor\.id \} \}/);
-  assert.match(service, /scope === "WORKSPACE"[\s\S]*?requestedByUserId: actorId, workspaceId: \{ in: \[\.\.\.workspaceIds\] \}/);
+  assert.match(inventory, /scope === "WORKSPACE"[\s\S]*?requestedByUserId: actorId, workspaceId: \{ in: \[\.\.\.workspaceIds\] \}/);
 });
 
 test("download grant route never accepts a raw path or token hash", async () => {

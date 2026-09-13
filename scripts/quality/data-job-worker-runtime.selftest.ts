@@ -267,6 +267,7 @@ function startFixtureProcess(fixture: WorkerFixture, crash: "prepare" | "commit"
     stdio: ["ignore", "ignore", "ignore", "ipc"], env: {
       PATH: process.env.PATH, DATABASE_URL: process.env.DATABASE_URL, NODE_ENV: "test",
       AREAFORGE_DATA_JOB_WORKER_ISOLATED_DB: "1", AREAFORGE_WORKER_FIXTURE_REQUESTER: fixture.owner.id,
+      AREAFORGE_DATA_EXPORT_ISOLATED_DB: process.env.AREAFORGE_DATA_EXPORT_ISOLATED_DB,
       AREAFORGE_WORKER_FIXTURE_CRASH: crash || "0",
     },
   });
