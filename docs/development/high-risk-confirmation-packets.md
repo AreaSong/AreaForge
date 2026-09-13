@@ -2090,3 +2090,15 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 验证：`residuals:validate`、`residuals:review-due`、`tasks:doctor`、`ops:status`、`ops:handoff`、相关只读投影 selftest、docs/risk/governance 门禁；验证 `acceptedExceptionEffective=false`，不能通过改日期或退回旧时间获取 PASS。
 - 回退：保留原接受事实与 Git 历史；发现输入不符则停止本次对齐，不续期或反向恢复过期的有效授权。服务器配置不变，`AREAFORGE_AUTO_APPLY=none`，不执行 Release/updater/生产操作，也不关闭 residual。
 - 本节尚未批准；与 DATA-EXPORT 是两个独立范围，批准其中一个不授权另一个。
+
+## 依赖安全补丁本地实施确认包（待确认）
+
+状态：2026-09-13 准备，未执行升级。`24e344c5004d3c9e832fcd53ea650378713b165a` 的 [CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在完整依赖审计失败；本地 `pnpm audit:all` 复现 2 critical + 2 high，`pnpm audit:prod` 复现 2 critical + 1 high。这与接受例外到期是两个独立阻塞。
+
+- 来源：GitHub 未撤回公告 `GHSA-p293-qw3h-jr36`、`GHSA-2xp9-vwfh-vxw4`、`GHSA-rgj7-g3m4-5g8c`、`GHSA-2883-xcg3-v3hh`；发布于 2026-09-08。npm 元数据已确认以下修复版本存在：Next / eslint-config-next 为 MIT、Sharp 为 Apache-2.0、js-yaml 为 MIT。实际 manifest/lock 为 Next `16.3.0`，不能沿用旧文档的 `16.2.11` 描述。
+- 精确升级：`apps/web/package.json` 的 `next` 与 `eslint-config-next` 从 `16.3.0` 到 `16.3.3`；根 `package.json` 的 Sharp 及 `pnpm-workspace.yaml` override 从 `0.35.3` 到 `0.35.4`；js-yaml override 从 `4.3.1` 到 `4.3.2`。只接受这些补丁所必需的 lockfile/平台包变化，保持其他 override、既有 minimatch patch 和 build allowlist，不启用新安装权限。
+- 允许：本仓库 manifest/lock、相关文档/验证和必要的兼容性修复；本地受控依赖安装、构建与合成 fixture。测试池验收复用既有槽位与配置，不连接生产、不改变共享数据库/上传内容、不新增长期 Web 容器；不升级全局 Node/pnpm，不修改生产依赖或镜像。
+- 风险：框架请求处理与图像 native decoder 的回归、平台二进制完整性、安装脚本或传递依赖变化。Windows 专项公告不等于已证明 Linux 部署同路径可利用；当前 Next 配置未显式禁用图像优化，AVIF/图像路径仍须按真实配置核验。此处只确认依赖审计命中，不执行利用实验、不声称生产已遭攻击或已修复。
+- 验证：复核官方公告/registry integrity 与受限 lock diff，`pnpm install --frozen-lockfile`、`pnpm audit:all`、`pnpm audit:prod`、`pnpm check`、品牌与图片处理回归、通知/内核隔离回归、文档/风险/治理/secret 门禁及本地登录/学习/通知只读页面 smoke。受保护分支 CI 必须重新成功；到期例外门禁需按其独立确认包处理，不能通过禁用审计、降低 severity、改旧日期或删除失败步骤获得绿色。
+- 回退与停止：新增不明依赖、安装权限或安全回归时停止升级，保留差异证据；可回退本批本地依赖/应用提交用于定位，但保持安全审计阻断，不把旧易受影响版本标为已修补。不自动回滚或更新生产，不创建 Release/tag，不修改自动更新策略或关闭 residual。
+- 验证通过后允许提交推送 `codex/v19-platform-hardening`。本包只授权依赖补丁；DATA-EXPORT、到期状态对齐、其他高风险域与生产动作仍分别确认。

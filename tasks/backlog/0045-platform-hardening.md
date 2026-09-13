@@ -78,6 +78,7 @@ releaseRequired: true
 - `pnpm worker:data-jobs:runtime:selftest` 的 15 组独立内核回归重新通过；通知 fixture 已从内核入口移除，不能用普通 CI 或内核回归替代通知域运行证据。
 - 本批未改变 UI 路由、未做浏览器验收，不证明真实用户投递、外部通知渠道、排名重建/导出/删除、共享/生产启用、Release 或 v2.0 完成；原有治理修改与截图不得混入本批 Git 检查点。`0041` 完整导出是下一项独立确认范围。
 - 最终代码、构建、文档结构、风险、治理与 secret 检查通过；`residuals:validate` 和 `tasks:doctor` 在当前日期失败，根因是未改动的 `AF-RISK-REL-001.acceptedException` 仍为 `approved`、却已于 2026-09-10 到期。任务引用缺失报错是 reader 拒绝整个无效台账后的连带结果，不代表这些 ID 被删除。本批不续期、不改台账、不关闭 residual；Git 仅保存明确标注 partial/WIP 的检查点，不能称为全门禁或 v2.0 完成。
+- 检查点 `24e344c` 已推送；[CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在 Full dependency audit 失败，尚未进入完整 CI 验收。本地重新执行 `audit:all` 同样命中 2 critical + 2 high，`audit:prod` 命中 2 critical + 1 high：当前 Next `16.3.0`、Sharp `0.35.3`、开发链 js-yaml `4.3.1` 分别需独立确认修补到 `16.3.3`、`0.35.4`、`4.3.2`。公告、配置适用面和升级边界见高风险确认包；没有确认当前部署可利用，不因 Windows 特定条件或本地构建通过而豁免审计。后续顺序为依赖补丁、到期状态对齐、完整导出本地包。
 
 - 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。
