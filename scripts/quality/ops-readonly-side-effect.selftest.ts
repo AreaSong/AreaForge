@@ -6,6 +6,7 @@ import { protectedPathFiles } from "../ops/operability-status";
 type JsonRecord = Record<string, unknown>;
 
 const root = process.cwd();
+const checkedAt = new Date().toISOString();
 const protectedFiles = [...protectedPathFiles];
 
 const readOnlyCommands = [
@@ -184,6 +185,7 @@ function main(): void {
     const result = spawnSync("pnpm", command.args, {
       cwd: root,
       encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
       env: readOnlyEnv(),
     });
     expectStatus(command.label, result, command.allowedExitCodes ?? [0]);
@@ -210,8 +212,9 @@ function readOnlyEnv(): NodeJS.ProcessEnv {
   }
   env.CI = "1";
   env.NO_COLOR = "1";
-  env.AREAFORGE_OPERABILITY_STATUS_AS_OF = "2026-07-12";
-  env.AREAFORGE_LONG_TERM_SNAPSHOT_NOW = "2026-07-12T00:00:00.000Z";
+  // 这里核验当前仓库，不能用历史时钟把真实过期记录变成未来记录；同轮仍冻结同一个时点。
+  env.AREAFORGE_OPERABILITY_STATUS_AS_OF = checkedAt.slice(0, 10);
+  env.AREAFORGE_LONG_TERM_SNAPSHOT_NOW = checkedAt;
   return env;
 }
 
@@ -248,7 +251,7 @@ function protectedPathFingerprintSha256(): string {
 }
 
 function assertJsonSafety(label: string, raw: string, expectedMode: string): void {
-  const parsed = parseFirstJsonObject(raw);
+  const parsed = parseFirstJsonObject(raw, label);
   if (parsed.mode !== expectedMode) {
     fail(`${label} mode mismatch: ${String(parsed.mode)} expected ${expectedMode}`);
   }
@@ -282,9 +285,9 @@ function assertJsonSafety(label: string, raw: string, expectedMode: string): voi
   }
 }
 
-function parseFirstJsonObject(raw: string): JsonRecord {
+function parseFirstJsonObject(raw: string, label: string): JsonRecord {
   const start = raw.indexOf("{");
-  if (start < 0) fail("command output does not contain a JSON object");
+  if (start < 0) fail(`${label}: command output does not contain a JSON object`);
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -303,7 +306,7 @@ function parseFirstJsonObject(raw: string): JsonRecord {
       if (depth === 0) return JSON.parse(raw.slice(start, index + 1)) as JsonRecord;
     }
   }
-  fail("command output contains an incomplete JSON object");
+  fail(`${label}: command output contains an incomplete JSON object`);
 }
 
 function assertStatusProtectedPathFingerprint(label: string, parsed: JsonRecord): void {

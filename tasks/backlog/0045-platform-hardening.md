@@ -80,6 +80,13 @@ releaseRequired: true
 - 最终代码、构建、文档结构、风险、治理与 secret 检查通过；`residuals:validate` 和 `tasks:doctor` 在当前日期失败，根因是未改动的 `AF-RISK-REL-001.acceptedException` 仍为 `approved`、却已于 2026-09-10 到期。任务引用缺失报错是 reader 拒绝整个无效台账后的连带结果，不代表这些 ID 被删除。本批不续期、不改台账、不关闭 residual；Git 仅保存明确标注 partial/WIP 的检查点，不能称为全门禁或 v2.0 完成。
 - 检查点 `24e344c` 已推送；[CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在 Full dependency audit 失败，尚未进入完整 CI 验收。本地重新执行 `audit:all` 同样命中 2 critical + 2 high，`audit:prod` 命中 2 critical + 1 high：当前 Next `16.3.0`、Sharp `0.35.3`、开发链 js-yaml `4.3.1` 分别需独立确认修补到 `16.3.3`、`0.35.4`、`4.3.2`。公告、配置适用面和升级边界见高风险确认包；没有确认当前部署可利用，不因 Windows 特定条件或本地构建通过而豁免审计。后续顺序为依赖补丁、到期状态对齐、完整导出本地包。
 
+### 三项独立确认后的推进（2026-09-13）
+
+- 维护者已明确批准依赖安全补丁、到期例外对齐和完整导出本地闭环；此前 WIP/CI 失败保留为历史证据，不再把这三个本地范围写成待批准。DATA-DELETE、其他域、Release/生产和 residual 关闭仍不在授权内。
+- Next/eslint-config-next `16.3.3`、Sharp `0.35.4`、js-yaml `4.3.2` 已按精确版本安装；lock 变化限于这些包及其 Next SWC/helper、Sharp 平台/libvips/WASM runtime 依赖。build allowlist 和其他 override 未变；冻结安装通过，全量/生产依赖审计均为 0 漏洞。
+- `AF-RISK-REL-001` 仅从 `approved` 对齐为 `expired`，原日期、接受事实、basisHash 与安全默认均不变；18 项台账和任务 doctor 重新通过。例外不再有效，未续期、未关闭风险或开启自动更新。完整构建/专项/CI 与导出实现继续逐项记录，不由上述结果代替。
+- 新依赖下 `pnpm check`、PNG/JPEG/WebP/AVIF 编解码、冻结安装和全量/生产审计已通过。只读自测改为冻结真实检查时点，关闭复核夹具读取当前权威类型；长期证据 CLI 保留失败退出码并排空 JSON，修复大输出被截断。只读副作用、快照、台账、任务、状态/交接和运维类型检查已通过；只读投影仍明确缺生产/长期证据，不因 schema 修复成为 production-ready。
+
 - 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。
 

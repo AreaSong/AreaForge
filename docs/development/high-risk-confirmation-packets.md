@@ -2061,9 +2061,9 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 回退：停止通知消费及新队列生产，保持 `PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`，保留任务/审计；未排队的新事件可走既有直接事务路径，已排队事件只能经事件键对账后受控恢复，不批量删除或盲目重放。
 - 不包含：真实用户数据、共享/生产数据库、排名重建/导出/物理删除、MFA/配额、外部通知投递、root-agent/服务器操作、Release/tag、production apply、备份恢复和 residual 关闭；这些仍需各自精确确认。
 
-## DATA-EXPORT 完整本地闭环确认包（待确认）
+## DATA-EXPORT 完整本地闭环确认包（本地已确认）
 
-状态：2026-09-13 接力准备，尚未获本包批准。用户要求完整推进 v2.0 和提交推送，不等于新增归档副本、附件本体读取、下载或保留/清理边界已获授权；在确认前只做本包设计与静态检查。此包不替代 DATA-DELETE、OPS、RANKING 重建、MFA/配额、Release 或生产确认。
+状态：2026-09-13 本地已确认。维护者在收到依赖补丁、到期状态对齐、完整导出三个独立范围及风险/验证/回退说明后明确回复“可以，允许继续”，覆盖本包所列本地实现、合成资源与验证后提交推送。此包不替代 DATA-DELETE、OPS、RANKING 重建、MFA/配额、Release 或生产确认。
 
 - 基线：通知域检查点之后的 `codex/v19-platform-hardening`；Prisma schema SHA-256 为 `a201d53020ffb1ce8f5cb8e15f9df920334886f6c8726cf39d451bf7b26ffab8`，50 条 canonical migration。实施前重新核验，若数据模型或权限前提改变则更新范围后确认，不拿历史记录自动放行。
 - 代码范围：`packages/core/src/data-export-*` / 数据清单规则、`packages/db/src/data-export-*` / 既有 DataJob 接口、`packages/storage/src/data-export-*`、`scripts/workers/data-export-*`、`apps/web/lib/system/data-lifecycle-*` 与数据任务 API/DTO/任务中心、相应测试、配置和文档；只允许导出所需 additive schema/migration，不改变源记录 owner 或角色能力。
@@ -2081,7 +2081,7 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 
 建议确认：同意上述 DATA-EXPORT 本地完整闭环及限定合成资源验证、验证后提交推送；不包含其他独立高风险包、共享真实数据或生产动作。
 
-## AF-RISK-REL-001 到期状态对齐（待确认，非续期或关闭）
+## AF-RISK-REL-001 到期状态对齐（已确认，非续期或关闭）
 
 2026-09-13 只读复核：JSON 中 `acceptedException.status=approved`、`expiresAt=2026-09-10` 与当前日期不符；权威 reader 因此拒绝整个台账，`residuals:validate`、`residuals:review-due` 和 `tasks:doctor` 失败。JSON/Markdown 与 `87aa306` 一致，这不是通知实现删除了风险条目。
 
@@ -2089,11 +2089,11 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 影响与风险：恢复台账的合法历史状态，并继续把这项例外作为无效/待复核展示；不是豁免失效、不意味发布就绪，更不授权 patch 自动应用。
 - 验证：`residuals:validate`、`residuals:review-due`、`tasks:doctor`、`ops:status`、`ops:handoff`、相关只读投影 selftest、docs/risk/governance 门禁；验证 `acceptedExceptionEffective=false`，不能通过改日期或退回旧时间获取 PASS。
 - 回退：保留原接受事实与 Git 历史；发现输入不符则停止本次对齐，不续期或反向恢复过期的有效授权。服务器配置不变，`AREAFORGE_AUTO_APPLY=none`，不执行 Release/updater/生产操作，也不关闭 residual。
-- 本节尚未批准；与 DATA-EXPORT 是两个独立范围，批准其中一个不授权另一个。
+- 本节已于 2026-09-13 获维护者“可以，允许继续”的明确确认，仅覆盖上述 `expired` 对齐；与 DATA-EXPORT、依赖补丁分别受各自边界约束。
 
-## 依赖安全补丁本地实施确认包（待确认）
+## 依赖安全补丁本地实施确认包（本地已确认）
 
-状态：2026-09-13 准备，未执行升级。`24e344c5004d3c9e832fcd53ea650378713b165a` 的 [CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在完整依赖审计失败；本地 `pnpm audit:all` 复现 2 critical + 2 high，`pnpm audit:prod` 复现 2 critical + 1 high。这与接受例外到期是两个独立阻塞。
+状态：2026-09-13 本地已确认，维护者在收到精确补丁版本和验证/回退范围后回复“可以，允许继续”。历史检查点 `24e344c5004d3c9e832fcd53ea650378713b165a` 的 [CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在完整依赖审计失败；本地 `pnpm audit:all` 复现 2 critical + 2 high，`pnpm audit:prod` 复现 2 critical + 1 high。这与接受例外到期是两个独立阻塞，升级和过期对齐均不得伪称生产修复。
 
 - 来源：GitHub 未撤回公告 `GHSA-p293-qw3h-jr36`、`GHSA-2xp9-vwfh-vxw4`、`GHSA-rgj7-g3m4-5g8c`、`GHSA-2883-xcg3-v3hh`；发布于 2026-09-08。npm 元数据已确认以下修复版本存在：Next / eslint-config-next 为 MIT、Sharp 为 Apache-2.0、js-yaml 为 MIT。实际 manifest/lock 为 Next `16.3.0`，不能沿用旧文档的 `16.2.11` 描述。
 - 精确升级：`apps/web/package.json` 的 `next` 与 `eslint-config-next` 从 `16.3.0` 到 `16.3.3`；根 `package.json` 的 Sharp 及 `pnpm-workspace.yaml` override 从 `0.35.3` 到 `0.35.4`；js-yaml override 从 `4.3.1` 到 `4.3.2`。只接受这些补丁所必需的 lockfile/平台包变化，保持其他 override、既有 minimatch patch 和 build allowlist，不启用新安装权限。

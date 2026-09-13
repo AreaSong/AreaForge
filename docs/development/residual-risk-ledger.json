@@ -49,7 +49,7 @@
       "taskRefs": [],
       "taskPromotionWaiver": null,
       "acceptedException": {
-        "status": "approved",
+        "status": "expired",
         "scope": "保持 AREAFORGE_AUTO_APPLY=none 作为当前安全默认，不启用 patch 自动应用",
         "reason": "patch 自动应用尚未获用户明确确认，且签名、备份、extra smoke、rollback target 和 manifest policy 尚未作为同一启用门禁完成确认",
         "acceptedBy": "AreaSong",

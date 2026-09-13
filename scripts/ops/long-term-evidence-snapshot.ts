@@ -233,7 +233,8 @@ function main(): void {
   console.log(JSON.stringify(snapshot, null, 2));
 
   if (snapshot.status === "invalid" || shouldFail(snapshot.status, process.env.AREAFORGE_LONG_TERM_SNAPSHOT_FAIL_ON)) {
-    process.exit(1);
+    // 失败状态也必须把完整机器 JSON 排空到管道，不能在大输出尚未写完时截断证据。
+    process.exitCode = 1;
   }
 }
 

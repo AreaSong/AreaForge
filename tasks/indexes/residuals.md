@@ -52,4 +52,4 @@
 | AF-RISK-OPS-009 | `tasks/backlog/0042-controlled-operations-center.md`、`tasks/backlog/0045-platform-hardening.md`、`tasks/backlog/0046-v2-platform-gate.md` | backlog；等待 OPS 包，随后进入平台加固与总门禁 |
 | AF-RISK-SC-002 | `tasks/active/0035-v11-batch11-minor-release.md`、`tasks/done/0037-v12-release-preparation.md` | active；v1.2 第一阶段已重采匹配 commit 的 CI/供应链证据，后续 Release 仍须绑定最终 tag；不自动改变 residual 状态 |
 
-其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，不使用 task promotion waiver；接受例外不等于 executable task，也不授权 patch 自动应用。
+其他 residual 的 `taskRefs=[]`。`AF-RISK-REL-001` 使用已有历史 accepted exception，现已按 2026-09-13 的明确确认标记 `expired`，不使用 task promotion waiver；其原到期/复核日期和接受事实不变，例外不再有效，也不授权 patch 自动应用或关闭 residual。

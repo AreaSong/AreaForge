@@ -44,15 +44,15 @@ DATA-EXPORT/DATA-DELETE 的业务处理器、存储、权限及恢复证据仍�
 
 ### DATA-EXPORT 确认说明
 
-下一批精确范围已集中在 `docs/development/high-risk-confirmation-packets.md` 的「DATA-EXPORT 完整本地闭环确认包（待确认）」：包含本人 Account/Workspace 数据与 READY 附件、独立导出 worker、私有临时包、一次性真实下载和导出副本回收；不含源数据删除或生产。该包尚未批准，保持本任务 backlog/planning，不因通知域通过或 Git 推送而自动开始归档落盘。
+精确范围已集中在 `docs/development/high-risk-confirmation-packets.md` 的「DATA-EXPORT 完整本地闭环确认包（本地已确认）」：维护者于 2026-09-13 明确批准本人 Account/Workspace 数据与 READY 附件、独立导出 worker、私有临时包、一次性真实下载和导出副本回收，仅使用本批合成库与合成文件；不含源数据删除或生产。EXPORT 本地实现现可推进，本任务因 DELETE 与整体交付证据未齐继续保留 backlog/planning。
 
-当前仅允许在本地候选范围演进 redaction、manifest/hash、feature-gated preview 和 descriptor 契约，并补充单元测试；不得在未完成 DATA-EXPORT 确认前生成真实归档、写入共享/生产数据库、发放可下载文件或执行生产写入。正式确认必须补齐导出对象与附件范围、owner/授权判定、secret/internal path 排除清单、临时包保留与清理、下载撤销、审计、失败补偿和回滚证据。
+按已确认包，仅在本批合成环境实现和验证真实归档与下载；对象/附件范围、owner/授权、secret/internal path 排除、保留与回收、撤销、审计、失败补偿和回滚仍是验收条件。共享/生产数据库、真实用户附件与生产写入不在本地授权内；代码或纯 Core 测试不能代替文件/下载的实际证据。
 
 ### DATA-DELETE 确认说明
 
 本基础任务只允许本地候选的删除影响预览和纯状态机：默认不可执行，只有显式隔离 fixture 可演练重新验证、冷静期、冻结、范围 fingerprint、kill-point、失败补偿和重试。纯 Core 回收站协议覆盖影响预览、revision/fingerprint、恢复期、恢复和到期转 `PURGE_ELIGIBLE`，但固定 `purgeExecutionAllowed=false`；deletion ledger 提供连续序号、不可变哈希链、篡改拒绝和历史备份恢复后的只读 replay plan，计划固定 `executionAllowed=false`。不执行数据库回收站写入、物理删除、附件清理、账本持久化或恢复后真实重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
 
-> 当前工作树中 `DataJob` / `DataExportPackage` / `DataExportDownloadGrant` schema 或 migration 仍属于候选变更；允许在一次性隔离数据库中做可回收的验证，但在 DATA-EXPORT 与 DATA-DELETE 确认前不得 apply 到共享/生产数据库、归档落盘、发放真实下载包、删除或生产 apply，也不能据此更新本任务为完成。
+> `DataJob` / `DataExportPackage` / `DataExportDownloadGrant` 及导出 artifact schema/migration 保持本地候选；本次 DATA-EXPORT 确认只允许专属合成环境的归档与下载验证。共享/生产 migration、真实数据删除与 production apply 仍禁止，DATA-DELETE 独立确认仍缺，不能据此更新整个任务为完成。
 
 ## 验收与关闭
 

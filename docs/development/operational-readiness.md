@@ -401,7 +401,7 @@ pnpm restore:drill:validate <restore-drill-record.md|txt>
 - `AF-RISK-SC-002`：已由 exact commit `5bec62608d929a796b4ca00a91aa95bdf256b27c` 的成功 CI run `29634081982`、通过校验的 CI-only record 和 clean detached worktree preflight 关闭为 `closed-evidence`。后续相关源变化必须重采，不自动沿用。
 - `AF-RISK-SC-004`：已 `closed-evidence`（2026-07-21）。规范化 Protect main readback 与受控 PR `#18` 的 `ci / verify` fail-to-pass 通过 validator 和 preflight；证据见 `output/supply-chain/github-main-protection-readback-20260721.json`、`output/supply-chain/github-main-protection-controlled-pr-20260721.json` 和对应 closeout。未来 workflow/check 名称或 ruleset 漂移需重新采证。
 - `AF-RISK-OPS-002`：写入型生产 smoke 策略已有非执行草案，但仍缺专用账号、用户确认、清理策略和受控记录。
-- `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受的安全默认，不等于自动应用能力已启用。
+- `AF-RISK-REL-001`：历史接受例外已标记 `expired`、不再有效；`AREAFORGE_AUTO_APPLY=none` 仍是安全默认，未续期、未关闭 residual，也未启用自动应用。
 - `AF-RISK-SC-002`：已关闭为 CI-only 证据项；后续修改 GitHub Actions、依赖审计、Release workflow、供应链记录工具或创建新 Release 前必须重新生成匹配 commit 证据，失败时重新打开。
 - `AF-RISK-SC-003`：已关闭为证据项；本地 UX smoke 曾复现 `pg` transaction client query queue deprecation，现已通过 `packages/db` transaction query 串行化修复；后续升级 `pg` / `@prisma/adapter-pg` 前重跑 `pnpm pg:trace-deprecation` 和本地 UX smoke。
 - `AF-RISK-OPS-003`：未来服务器、域名、Nginx 或端口迁移需单独 release/ops 记录。

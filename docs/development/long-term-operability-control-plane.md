@@ -245,7 +245,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 
 - `AF-RISK-OPS-001`：`v0.1.9` production readonly smoke、redacted update-agent status、operational evidence bundle、backup-restore preview 和 closure packet 已通过人工复核并进入 `closed-evidence`；生产版本变化、证据过期或 preflight 失效时重新打开。`v0.1.7` bundle 与 2026-07-11/12 fallback 目录仅保留为历史证据。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
-- `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
+- `AF-RISK-REL-001`：历史接受例外为 `expired`，不再作为有效接受；`AREAFORGE_AUTO_APPLY=none` 保持安全默认，启用 patch 自动应用仍需独立确认与关闭证据。
 - `AF-RISK-SC-001`：`v0.1.9` 签名 Release assets、strict 供应链校验、production apply record 与 closeout 人工复核已进入 `closed-evidence`；新 Release、签名策略/workflow 变化或 strict 校验失效时重新打开。
 - `AF-RISK-SC-002`：exact commit `5bec62608d929a796b4ca00a91aa95bdf256b27c` 的成功 CI run `29634081982`、通过校验的 CI-only record 和 clean detached worktree preflight 已支持关闭为 `closed-evidence`。后续 workflow、依赖审计、Release workflow、记录工具或新 Release 变化会触发重新复核；CI-only 证据不关闭 `AF-RISK-SC-001`。
 - `AF-RISK-SC-003`：后续升级 `pg` / `@prisma/adapter-pg` 前重跑 deprecation trace 和本地 UX smoke。

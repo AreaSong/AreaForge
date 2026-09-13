@@ -76,6 +76,8 @@ schema V2 为每个 item 增加：
 
 `AF-RISK-REL-001` 的 `acceptedException` 记录本次明确确认事实：AreaSong 在 `2026-08-11T12:12:00+08:00` 接受继续保持 `AREAFORGE_AUTO_APPLY=none`、不启用 patch 自动应用的当前边界，来源为 `conversation:2026-08-11-v1.1.2-release-confirmation`，到期日为 `2026-09-10`。其 scope、reason、重新打开条件和 `basisHash` 只绑定既有 `none/patch`、签名、备份、extra smoke、rollback target 与 manifest policy 边界；不表示 patch 自动应用已获授权。
 
+2026-09-13 维护者明确批准到期状态对齐，现将该历史接受事实标记为 `expired`，保留原接受人、时间、到期/复核日期、scope/reason/sourceRef/basisHash 和 `executableNow=false`。`acceptedExceptionEffective=false`，仍需人工复核，未续期、未关闭 residual、未启用 patch 自动应用；生产配置没有变化。
+
 ## 关闭规则
 
 - 关闭残余项必须追加证据，不从“看起来没问题”关闭。
