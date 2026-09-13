@@ -554,6 +554,11 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 `DataJob` 队列字段或旧预览协议隔离时，运行 Core/DB/Web 对应测试与类型检查、`pnpm worker:data-jobs:typecheck`、
 `pnpm worker:data-jobs:selftest`、`pnpm db:generate`、`pnpm db:validate`、`pnpm check`、文档/风险/治理/secret 门禁及 `git diff --check`。
 通知处理器还须通过 `pnpm --filter @areaforge/db test` 中的 payload/allowlist selftest；域级隔离写入需独立确认，并显式设置 `AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB=1`。仅运行内核回归不证明通知处理器。
+涉及 `packages/core/src/ranking-notification-job*`、`packages/db/src/ranking-notification-*`、排名通知调用者或
+`scripts/quality/ranking-notification-*` 时，另运行 `pnpm worker:notifications:runtime:selftest`，同时保留内核与通知两项隔离 guard。
+通知专项须覆盖事务回滚/并发去重、全部受控事件、source/scope 伪造、撤销后恢复、运行中开关、锁冲突退避、死信重放、
+失效收件人的业务事务、独立于通知开关的所有权目标有效性，以及 prepare/事务副作用写入后但提交前两个真实进程强杀点。
+运行前核验 loopback 专属合成库与完整 migration ledger/checksum；源业务与队列不得因测试而连接共享库或生产。
 DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker typecheck。
 
 获本批隔离授权后，以新建 loopback `areaforge_v20_worker_*` 数据库完成 migration deploy/repeat deploy，再设置

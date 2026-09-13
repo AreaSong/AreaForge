@@ -104,3 +104,4 @@ export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from 
 export { heartbeatQueuedDataJob, commitQueuedDataJob, failQueuedDataJob } from "./data-job-queue-lease";
 export { controlQueuedDataJob, type DataJobQueueControl } from "./data-job-queue-control";
 export { recoverQueuedDataJobs, getDataJobQueueSnapshot } from "./data-job-queue-recovery";
+export { enqueueRankingNotificationJob, deliverRankingNotificationJob, writeRankingNotificationDirect } from "./ranking-notification-queue";

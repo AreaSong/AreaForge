@@ -44,6 +44,8 @@ DATA-EXPORT/DATA-DELETE 的业务处理器、存储、权限及恢复证据仍�
 
 ### DATA-EXPORT 确认说明
 
+下一批精确范围已集中在 `docs/development/high-risk-confirmation-packets.md` 的「DATA-EXPORT 完整本地闭环确认包（待确认）」：包含本人 Account/Workspace 数据与 READY 附件、独立导出 worker、私有临时包、一次性真实下载和导出副本回收；不含源数据删除或生产。该包尚未批准，保持本任务 backlog/planning，不因通知域通过或 Git 推送而自动开始归档落盘。
+
 当前仅允许在本地候选范围演进 redaction、manifest/hash、feature-gated preview 和 descriptor 契约，并补充单元测试；不得在未完成 DATA-EXPORT 确认前生成真实归档、写入共享/生产数据库、发放可下载文件或执行生产写入。正式确认必须补齐导出对象与附件范围、owner/授权判定、secret/internal path 排除清单、临时包保留与清理、下载撤销、审计、失败补偿和回滚证据。
 
 ### DATA-DELETE 确认说明

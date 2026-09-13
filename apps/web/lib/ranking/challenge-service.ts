@@ -465,6 +465,8 @@ export async function transferPrivateChallengeOwnership(
     if (challenge.revision !== expectedRevision) throw new ApiError("RANKING_CHALLENGE_CONFLICT", 409);
     const target = await tx.privateChallengeParticipant.findFirst({ where: { id: targetParticipantId, challengeId, status: "ACTIVE" } });
     if (!target || target.userId === actor.id) throw new ApiError("RANKING_TRANSFER_TARGET_INVALID", 409);
+    // 通知可以跳过失效收件人，但所有权目标必须独立于通知开关保持当前有效。
+    await requireActiveRankingMember(tx, target.userId, challenge.workspaceId);
     await requireEnabledPreference(tx, target.userId, challenge.workspaceId);
     const changed = await tx.privateChallenge.updateMany({
       where: { id: challengeId, ownerUserId: actor.id, revision: expectedRevision },

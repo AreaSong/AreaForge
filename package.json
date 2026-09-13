@@ -301,6 +301,8 @@
     "ops:v15:r-study-task-owner:typecheck": "tsc -p scripts/quality/tsconfig.v15-r-study-task-owner.json",
     "ops:v15:r-study-task-owner:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/v15-r-study-task-owner-runtime.selftest.ts",
     "worker:data-jobs:typecheck": "tsc -p scripts/quality/tsconfig.data-job-worker.json",
+    "worker:data-jobs:run": "tsx scripts/workers/data-job-worker.ts",
+    "worker:notifications:runtime:selftest": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json tsx scripts/quality/ranking-notification-runtime.selftest.ts",
     "worker:data-jobs:selftest": "tsx --test scripts/quality/data-job-worker.selftest.ts",
     "worker:data-jobs:runtime:selftest": "tsx scripts/quality/data-job-worker-runtime.selftest.ts",
     "ops:ab:candidate-schema:selftest": "tsx scripts/quality/ab-candidate-schema.selftest.ts",

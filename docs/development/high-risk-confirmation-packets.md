@@ -2046,11 +2046,11 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 回退：停止 worker 与新协议生产者；回退至保留协议隔离的应用，保留兼容字段、任务和审计，不 DROP 或清理历史数据。
 - 不包含：共享/生产数据库写入、真实账户与附件操作、正式导出下载、物理删除、备份删除账本、root-agent/服务器执行、Release/tag、production apply、生产备份恢复、自动应用策略或 residual 关闭。业务处理器注册与真实执行仍须各域独立确认。
 
-## 排名通知队列域本地实施确认包（待确认）
+## 排名通知队列域本地实施确认包（本地已确认）
 
-状态：待确认。`ad3f719` 已存在的通知处理器和合成写入不在前述首批内核确认范围内；本轮停止域级扩展与启用，不以历史实现、CI 或测试结果追认授权。
+状态：本地实施已确认（2026-09-09）。此前 `ad3f719` 的通知候选超出首批内核确认，历史问题不追认。维护者在本包已展示、风险/验证/回退边界已说明后，亲自要求“那现在把这些完成至100%，完成至v2.0”；本次据此执行下列通知域本地范围，不再重复索要同一批准。后续其他高风险包、Release 和生产仍独立确认。
 
-自动 goal continuation 只重放既有目标，不是对本包的新批准。续跑中对该消息的错误解释已纠正，未提交的通知域实现及错误状态文案已撤回；仍保留 `ad3f719` 的默认关闭候选，等待维护者对本节明确确认。本轮未执行共享库/生产写入、发布或真实数据删除。
+自动 goal continuation 只重放既有目标，不是新批准。此前续跑的错误解释已纠正并撤回未提交域代码；此次确认来自维护者的新消息。允许同一已确认范围内反复隔离验证，禁止扩展到真实用户、共享库、生产或新域。
 
 - 影响与目标：仅在 `codex/v19-platform-hardening` 收敛现有排名通知候选；业务事件与 `DataJob` 原子入队，独立 worker 把受控事件写入 `UserNotification`。不新增通知渠道或学习正文读取。
 - 数据边界：payload 只保留 recipient/Workspace、既有 `RANKING_*` 种类、三类源实体 ID、正整数 `eventVersion` 与由其重算的 eventKey；拒绝未知字段、自由路径、正文及 kind/source/version 不匹配。消费前绑定持久任务 scope/请求者/收件人/源实体与指纹，不能凭 payload 自报另一个 Workspace。
@@ -2060,3 +2060,33 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 验证：源业务回滚不留下 job、重复入队/执行只形成一次通知、同 eventKey 异 scope/source 全拒绝、收件人移除/恢复不复活旧权限、开关关闭、kill-point/重试/死信、脱敏和租约代次；运行 Core/DB/Config/Web 检查、完整 `pnpm check`、docs/risk/governance/secrets 与隔离通知回归。
 - 回退：停止通知消费及新队列生产，保持 `PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`，保留任务/审计；未排队的新事件可走既有直接事务路径，已排队事件只能经事件键对账后受控恢复，不批量删除或盲目重放。
 - 不包含：真实用户数据、共享/生产数据库、排名重建/导出/物理删除、MFA/配额、外部通知投递、root-agent/服务器操作、Release/tag、production apply、备份恢复和 residual 关闭；这些仍需各自精确确认。
+
+## DATA-EXPORT 完整本地闭环确认包（待确认）
+
+状态：2026-09-13 接力准备，尚未获本包批准。用户要求完整推进 v2.0 和提交推送，不等于新增归档副本、附件本体读取、下载或保留/清理边界已获授权；在确认前只做本包设计与静态检查。此包不替代 DATA-DELETE、OPS、RANKING 重建、MFA/配额、Release 或生产确认。
+
+- 基线：通知域检查点之后的 `codex/v19-platform-hardening`；Prisma schema SHA-256 为 `a201d53020ffb1ce8f5cb8e15f9df920334886f6c8726cf39d451bf7b26ffab8`，50 条 canonical migration。实施前重新核验，若数据模型或权限前提改变则更新范围后确认，不拿历史记录自动放行。
+- 代码范围：`packages/core/src/data-export-*` / 数据清单规则、`packages/db/src/data-export-*` / 既有 DataJob 接口、`packages/storage/src/data-export-*`、`scripts/workers/data-export-*`、`apps/web/lib/system/data-lifecycle-*` 与数据任务 API/DTO/任务中心、相应测试、配置和文档；只允许导出所需 additive schema/migration，不改变源记录 owner 或角色能力。
+- 影响：首次把授权数据和附件复制为私有临时 ZIP，并向本人提供真实下载。`ACCOUNT` 只导出请求者自有记录及解释它们所需的最小 Workspace/关系上下文；历史 Membership 不授予其他成员正文访问。`WORKSPACE` 保留当前 ACTIVE Owner 申请边界，只导出该 Workspace 内请求者自有记录，不能因 Owner 身份打包其他成员私有正文或仅因 share grant 获得的资源。
+- 范围差异必须显式可见：账户级动机档案、全局通知偏好及无法归属目标 Workspace 的审计不进入 Workspace 包；它们可按现有本人清单进入 Account 包。账号/会话/邀请/Provider 等只保留现有最小生命周期字段，永久排除密码、token、密钥及密文、网络标识 hash、内部路径/objectKey/lease、原始 provider trace；不新增 AI 外呼或历史/费用台账留存。
+- 附件：仅复制本范围内请求者拥有且 `READY` 的附件，经私有句柄读取并校验 metadata、字节数和 SHA-256；包内使用安全相对名并记录来源 ID/hash。缺失、篡改、软链接、非法路径或不一致直接失败，不以“完整包”静默省略，不修改或删除源附件。
+- 快照：请求时冻结显式 scope 与权限版本，worker 在一致数据库快照读取导出内容；manifest 标明实际快照时间与排除项。执行、发布包及下载前重新授权，权限版本漂移/冻结/移除不允许旧任务发布或下载；不把请求时间误写成整个文件系统快照时间。
+- 队列与文件一致性：新 EXPORT 使用 `queueVersion=1`，v0 preview 保持隔离；只有新协议已验证包才可发放文件。持久写入意图、独占 staging、fsync/原子发布、租约代次与包指针绑定；文件 IO 不伪称数据库事务的一部分，崩溃后的孤儿副本通过精确 job/代次对账恢复或回收，不盲目扫描源上传目录。
+- 环境和资源：仅本机新建 `areaforge_v20_export_*` loopback 合成库、合成附件、由 `mktemp -d` 创建并登记所有权的本批私有测试目录；不得读取现有真实 uploads 或共享测试池数据库。本批技术安全上限建议固定为单 worker 并发 1、流式缓冲不超过 64 MiB、单包不超过 512 MiB/100000 条目，超限失败且不可下载；这是导出任务资源保护，不启用平台业务配额。
+- 保留与回收：沿用任务最长 1 小时、下载 grant 最长 15 分钟；包最迟随任务到期不可再下载，worker 仅能回收本批已登记的导出副本及 staging 残留，清理幂等且不改源数据。新的目录/包不是备份，不纳入或改变现有备份策略；不授权历史容器、数据库、volume 或上传孤儿清理。
+- 下载：必须有当前会话、本人 job/scope 和未撤销的一次性 grant，token 只在受控 POST body 中传递，不进入 URL/日志；同句柄校验后原子消费，返回安全文件名、`private, no-store` 和 `nosniff`。并发只允许一次获准开始；打开失败不得伪报已交付，断线可重新验证并申请新 grant。撤销阻止后续开始的下载，但无法收回已交付客户端的字节。
+- 风险与停止条件：私密内容产生新副本、旧租约发布、越权 scope、下载撤销竞争、内存/磁盘耗尽。任一跨用户内容、source 文件修改、secret/internal path 泄漏、旧代次成功或不一致包可下载时停止，不开启默认开关。
+- 验证：双用户/双 Workspace、当前/历史成员和 Owner 转移、暂停/撤销/恢复；独立解 ZIP 对比对象、manifest、附件和整包 SHA-256；缺失/篡改/软链接/容量超限；写入、发布、事务提交各 kill-point、旧租约拒绝、取消/重试/清理幂等；并发兑换/撤销/过期/断线；真实本地 API 与任务中心桌面/窄视口。运行 Core/DB/Storage/Web、schema、导出专项、完整 `pnpm check` 与 docs/risk/governance/secrets 门禁。UI 复用测试池专用槽，只能绑定本批合成库与合成附件目录，不改写其他槽数据或全局/生产配置；操作前列明目标，URL 由测试池返回。工具无法保持这种隔离时报告缺口，不擅自改用共享库。
+- 回退：关闭 EXPORT 新请求、消费和下载，撤销本批 grant，按允许范围仅回收导出副本；保留任务/审计/additive 字段，不 DROP、不改源数据、不把 v1 job 降回 v0。验证通过后允许提交推送当前分支；不包含 Release/tag、共享/生产 migration/apply、服务器命令、备份恢复、数据删除或 residual 关闭。
+
+建议确认：同意上述 DATA-EXPORT 本地完整闭环及限定合成资源验证、验证后提交推送；不包含其他独立高风险包、共享真实数据或生产动作。
+
+## AF-RISK-REL-001 到期状态对齐（待确认，非续期或关闭）
+
+2026-09-13 只读复核：JSON 中 `acceptedException.status=approved`、`expiresAt=2026-09-10` 与当前日期不符；权威 reader 因此拒绝整个台账，`residuals:validate`、`residuals:review-due` 和 `tasks:doctor` 失败。JSON/Markdown 与 `87aa306` 一致，这不是通知实现删除了风险条目。
+
+- 建议动作：仅把该条既有接受事实的状态改为 `expired`，同步 Markdown 台账、任务索引及受影响的只读状态说明；保留 `acceptedAt`、`expiresAt`、`reviewAt`、scope/reason/sourceRef/basisHash、`type=accepted-exception` 和 `executableNow=false`，不生成新的接受事实。
+- 影响与风险：恢复台账的合法历史状态，并继续把这项例外作为无效/待复核展示；不是豁免失效、不意味发布就绪，更不授权 patch 自动应用。
+- 验证：`residuals:validate`、`residuals:review-due`、`tasks:doctor`、`ops:status`、`ops:handoff`、相关只读投影 selftest、docs/risk/governance 门禁；验证 `acceptedExceptionEffective=false`，不能通过改日期或退回旧时间获取 PASS。
+- 回退：保留原接受事实与 Git 历史；发现输入不符则停止本次对齐，不续期或反向恢复过期的有效授权。服务器配置不变，`AREAFORGE_AUTO_APPLY=none`，不执行 Release/updater/生产操作，也不关闭 residual。
+- 本节尚未批准；与 DATA-EXPORT 是两个独立范围，批准其中一个不授权另一个。

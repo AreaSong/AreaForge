@@ -33,6 +33,7 @@ export const serverEnvSchema = z.object({
   RANKING_PROJECTION_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATION_QUEUE_ENABLED: booleanFromString.default(false),
+  DATA_JOB_WORKER_ENABLED: booleanFromString.default(false),
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),

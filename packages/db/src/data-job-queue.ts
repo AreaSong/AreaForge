@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { DATA_JOB_QUEUE_VERSION, validateDataJobAttempts, validateDataJobLeaseDuration } from "@areaforge/core";
 import { Prisma } from "../generated/prisma/client";
 import { DataJobQueueError, type ClaimDataJobInput, type DataJobLease, type DataJobPartition, type DataQueueClient, type DataQueueTransaction, type EnqueueDataJobInput } from "./data-job-queue-types";
@@ -29,12 +30,18 @@ export async function enqueueDataJobInTransaction(
   if (existing) return assertSameRequest(existing, input);
   const now = await queueClock(tx);
   if (input.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
-  const row = await tx.dataJob.create({ data: {
-    ...queueInput, maxAttempts: input.maxAttempts ?? 5, queueVersion: DATA_JOB_QUEUE_VERSION,
-    nextAttemptAt: now, status: "QUEUED",
-    resultJson: payloadJson,
-  } });
-  await auditQueuedDataJob(tx, row, "DATA_JOB_ENQUEUED");
+  const id = randomUUID();
+  // 空 update 的 ORM upsert 可能降为先读后写；数据库 ON CONFLICT 才能原子去重且不触碰已有 revision。
+  await tx.$executeRaw`
+    INSERT INTO "DataJob" (id, kind, scope, "requestedByUserId", "workspaceId", "idempotencyKey", "requestFingerprint", "expiresAt", "maxAttempts", "queueVersion", "nextAttemptAt", status, "resultJson", "updatedAt")
+    VALUES (${id}, ${queueInput.kind}::"DataJobKind", ${queueInput.scope}::"DataJobScope", ${queueInput.requestedByUserId}, ${queueInput.workspaceId},
+      ${queueInput.idempotencyKey}, ${queueInput.requestFingerprint}, ${queueInput.expiresAt}, ${queueInput.maxAttempts ?? 5}, ${DATA_JOB_QUEUE_VERSION},
+      ${now}, 'QUEUED', ${payloadJson === undefined ? null : JSON.stringify(payloadJson)}::jsonb, ${now})
+    ON CONFLICT ("requestedByUserId", "idempotencyKey") DO NOTHING
+  `;
+  const row = await tx.dataJob.findUniqueOrThrow({ where: { requestedByUserId_idempotencyKey: identity } });
+  assertSameRequest(row, input);
+  if (row.id === id) await auditQueuedDataJob(tx, row, "DATA_JOB_ENQUEUED");
   return row;
 }
 

@@ -33,18 +33,20 @@ releaseRequired: true
 - 增加限流、配额、MFA/Passkey 候选、会话风险提醒、举报申诉和审计检索。
 - 建立多租户指标/告警、容量阈值、支持包脱敏和灾备演练。
 
-## 当前低风险基础
+## 当前候选基础
 
 - `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，响应明确 `indexed=false`，当前仍是直接数据库候选而非持久搜索索引。
 - 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和下述 `UserNotification` 基础；新增持久 worker 内核与排名通知处理器见首批实施记录。排名重建、导出/删除处理器、持久搜索索引、配额写入、MFA/Passkey、监控外呼及生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
+- 原有平台候选包含纯规则、只读审计检索和下述 `UserNotification` 基础；持久 worker 内核通过 15 组隔离回归，独立确认后的排名通知域通过 11 组专项，见下方接力验收记录。排名重建、导出/删除处理器、持久搜索索引、配额写入、MFA/Passkey、监控外呼及生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备已读、隐藏、恢复；用户导出预览包含脱敏通知记录。它尚不包含排名重建、导出/删除 worker、外部投递或其他业务域事件，不改变前置 blocker。
 
 ## 验收
 
-### 首批持久 worker（2026-09-08 已确认，本地候选）
+### 首批持久 worker（2026-09-08 历史范围，本地候选）
+
+本节与下节保留首批内核的历史授权/验收边界；通知域的当前确认与证据见后续接力验收记录。
 
 - 用户在收到持久 worker、兼容 migration、新建隔离 PostgreSQL、验证后提交推送及禁止范围后明确同意继续。授权仅覆盖本批本地实现与合成 fixture，不延伸为 EXPORT/DELETE/OPS/RANKING 域执行、共享库或生产写入、Release/tag 或 residual 关闭。
 - 已增加 `DataJob.queueVersion/nextAttemptAt/maxAttempts/leaseVersion/pauseRequested/deadLetteredAt` 和第 50 条 additive migration；零协议旧任务不自动入队。DB 包只新增对仓库已有 Core 的 workspace 依赖，无新增第三方包。
@@ -56,7 +58,7 @@ releaseRequired: true
 - 回退：停止 worker 与新协议生产者；保留兼容字段、任务和审计。已有新协议任务时须保留 Web 的协议隔离，不允许旧手工接口接管；不 DROP、不删除业务源数据。
 - 当前整体任务仍保持 backlog/planning：前置域处理器、后续平台能力、独立发布与生产证据未齐，本批不关闭任何 residual。
 
-### 内核复核与授权缺口（2026-09-08）
+### 内核复核与授权缺口（2026-09-08 历史记录）
 
 - `69678d2` 的 CI run `34207073402` 成功；`ad3f719` 增加通知候选，但其实现及合成通知写入超出首批内核确认。已停止域级扩展和启用；默认开关保持关闭，未触碰共享库或生产。通知候选应按下一个独立确认包收敛，不以测试通过追认授权。
 - 新增内核回归复现准备失败与控制请求竞争：数据库已为 `PAUSED`，runner 却返回 `FAILED`。修复为采用失败结算事务返回的真实状态，并补 `CANCELLED` 对照；处理器伪造同名错误仍进入持久失败。
@@ -64,7 +66,20 @@ releaseRequired: true
 - 最新 15 组内核隔离回归通过（50 条 migration ledger/hash），通知域测试本轮未执行；历史 13 组结果包含一组通知测试，不能混算为当前 15 组内核证据。
 - 下一批通知域确认需覆盖：payload 与任务 Workspace/收件人/源实体严格绑定、提交时 Membership 撤销竞争、总开关运行中关闭、事件键完整冲突校验、业务事务原子入队、跨租户/重放/失败恢复矩阵。确认入口见 `docs/development/high-risk-confirmation-packets.md`。
 
-- 大数据量、并发、队列故障、恢复和灾备测试通过；故障不阻断个人学习主链。
+### 排名通知域接力验收（2026-09-13，本地候选）
+
+- 复用 2026-09-09 已确认的通知域本地范围，在既有 loopback 合成库核验全部 50 条 migration 名称、状态和 SQL checksum；本轮未新增或执行 migration，未连接共享库或生产。
+- 通知协议严格绑定 actor、recipient、Workspace、受控 kind/source/version、事件键与完整指纹；保存账户 authRevision、Membership ID/revision 和 Workspace revision，撤销后恢复不能使旧任务复活。直接写入与队列共用来源规则，入队与源事务原子提交。
+- 修复并发空 update ORM upsert 的唯一键竞争：任务和通知以数据库 `ON CONFLICT DO NOTHING` 原子去重；同键异 scope/source 拒绝，重复消费不重置已读、隐藏或 revision。
+- 修复失效收件人阻断业务：直接写入/队列两模式下，离开、移除、暂停账户与挑战结束、解散、移除参与者、处理申诉共 24 个场景可提交源业务，失效收件人不获通知，有效收件人继续投递。请求者、Workspace 或来源不合法仍拒绝，已排队任务权限失效进入死信。
+- 所有权转移目标在业务事务中独立检查 ACTIVE 账户与 Membership，不依赖通知开启；关闭通知/直接写入/队列三模式下共 9 个失效目标负向场景保持 owner、revision、审计和队列不变，恢复目标有效性后可正常转移。
+- 新增 `worker:data-jobs:run` 独立入口与默认关闭的 `DATA_JOB_WORKER_ENABLED`；只接受 `--once` 和 `--workspace=<id>`，Web 不启动该进程，运行中的通知处理器也检查开关。
+- `pnpm worker:notifications:runtime:selftest` 的 11 组通过：独立配置进程、事务回滚/并发幂等、八类事件、source/scope 伪造、撤销后重入、运行中开关、锁竞争、冲突死信重放、失效收件人业务链、所有权目标有效性、真实进程强杀恢复。强杀发生在 prepare 与通知副作用写入后但事务提交前；恢复仅投递一次，旧租约无法提交。
+- `pnpm worker:data-jobs:runtime:selftest` 的 15 组独立内核回归重新通过；通知 fixture 已从内核入口移除，不能用普通 CI 或内核回归替代通知域运行证据。
+- 本批未改变 UI 路由、未做浏览器验收，不证明真实用户投递、外部通知渠道、排名重建/导出/删除、共享/生产启用、Release 或 v2.0 完成；原有治理修改与截图不得混入本批 Git 检查点。`0041` 完整导出是下一项独立确认范围。
+- 最终代码、构建、文档结构、风险、治理与 secret 检查通过；`residuals:validate` 和 `tasks:doctor` 在当前日期失败，根因是未改动的 `AF-RISK-REL-001.acceptedException` 仍为 `approved`、却已于 2026-09-10 到期。任务引用缺失报错是 reader 拒绝整个无效台账后的连带结果，不代表这些 ID 被删除。本批不续期、不改台账、不关闭 residual；Git 仅保存明确标注 partial/WIP 的检查点，不能称为全门禁或 v2.0 完成。
+
+- 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。
 
 ## 回滚

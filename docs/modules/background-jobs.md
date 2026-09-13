@@ -8,8 +8,12 @@
 
 执行器默认关闭，必须显式传入 `enabled=true` 和非空、种类不重复的处理器集合。
 处理器只按代码注册，不从请求参数、数据库或环境变量加载任意脚本。
-排名通知处理器存在待审查的本地候选，不代表已获域级实施或启用授权；排名重建、导出和删除仍不注册业务处理器。各域的实现和授权见
+排名通知通过固定处理器注册；排名重建、导出和删除不因通知处理器可用而获得执行能力。各域的实现和授权见
 [`feature-traceability.md`](../development/feature-traceability.md) 与对应确认包。
+
+独立进程入口为 `pnpm worker:data-jobs:run`，要求 `DATA_JOB_WORKER_ENABLED=true`、有效数据库配置及至少一个已开启的处理器。
+`--once` 只处理一次领取周期，`--workspace=<id>` 限定工作区；拒绝未知参数、重复选项和路径形式的 ID。
+Web 不调用此命令；关闭通知开关后，运行中的通知处理器也会在准备和事务提交阶段拒绝投递。
 
 ## 持久协议
 
@@ -54,7 +58,12 @@
 - 进程正常停止时不再领取任务，未提交的执行进入可重试失败；进程被杀时由租约回收恢复。
 - 回收只扫描注册种类及指定分区；过期任务不重新执行，取消请求不变回普通排队任务。
 - 只读队列快照提供状态计数、退避数量、死信数量、失效租约数和最老活动时间，不输出租约或正文。
-- 排名通知处理器只接受 `RANKING_*` 受控种类、三类源实体和不透明 ID；它在事务内重新检查收件人 Membership，使用事件键幂等 upsert `UserNotification`。`PLATFORM_NOTIFICATION_QUEUE_ENABLED` 只有在 `PLATFORM_NOTIFICATIONS_ENABLED` 同时开启时才有效。
+- 排名通知只接受 `RANKING_*` 受控种类、三类源实体、不透明 ID 和正整数事件版本；源实体、事件键、请求者、收件人和 Workspace 必须匹配。任务指纹覆盖完整协议与账户、Membership、Workspace 版本，不使用会省略敏感字段的导出脱敏 hash。
+- 入队在业务事务内完成；投递重新锁定账户、Workspace、Membership 和源实体，比较权限快照。移除后重新加入、账户暂停后恢复均不能复活旧任务；`NOWAIT` 锁冲突成为有界错误码和持久退避，不记录驱动异常正文。
+- 直接写入与队列生产共用源实体和授权检查。入队时已经失效的收件人不产生通知，不阻断挑战结束、解散、移除或申诉处理；请求者失效、工作区失效或事件来源不匹配仍拒绝。已排队任务的收件人权限失效则进入不可重试失败。
+- 通知接收资格不替代业务授权。挑战所有权转移必须在源事务内独立验证目标账户和 Membership 有效性，即使通知关闭也不能转给失效目标。
+- `DataJob` 与 `UserNotification` 使用数据库 `ON CONFLICT DO NOTHING` 原子去重；同键异 scope/source 拒绝，重复投递不重置已读、隐藏或 revision。通知副作用与任务成功状态同事务提交。
+- `PLATFORM_NOTIFICATION_QUEUE_ENABLED` 只有在 `PLATFORM_NOTIFICATIONS_ENABLED` 同时开启时才有效。队列关闭时，新事件可走既有直接事务路径；已排队事件不会因此自动切换消费协议。
 
 ## 验证与回退
 
@@ -63,10 +72,12 @@
 `AREAFORGE_DATA_JOB_WORKER_ISOLATED_DB=1`，数据库只允许 loopback 且名称匹配 `areaforge_v20_worker_*`。
 脚本再核对 `current_database()` 与全部 canonical migration 的名称、完成状态和 SQL checksum。
 该入口不创建、迁移或删除数据库；外层必须获得隔离 fixture 授权。
-默认仅执行内核合成副作用回归。通知域 fixture 另要求 `AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB=1`
-及相应独立确认；环境变量本身不是授权，不能因运行内核测试而隐式启用通知域写入。
+内核入口仅执行合成副作用回归。通知域使用独立入口 `pnpm worker:notifications:runtime:selftest`，另要求
+`AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB=1` 及相应独立确认；环境变量本身不是授权，不能因运行内核测试而隐式启用通知域写入。
+通知专项覆盖受控事件种类、事务回滚、并发去重、scope/source 伪造、撤销后重入、运行中开关、锁竞争、冲突死信重放、
+失效收件人的真实业务调用链，以及准备和通知事务写入后两个独立子进程强杀恢复点。
 
 回退先停止消费与新协议生产者，保留任务、审计和兼容字段，不 DROP 表或猜测恢复旧代次。
 存在新协议任务时，继续使用理解协议隔离的 Web 构建；不能让旧手工接口接管新队列。
-历史通知 fixture 只覆盖合成事件写入与重复事件；它不证明完整域授权、跨工作区 payload 绑定、撤销竞争或生产就绪。
+已排队事件只能经事件键对账后受控恢复，不批量删除或盲目重放；隔离专项不证明真实账户投递、外部通知渠道或生产就绪。
 内核回归不证明通知、排名重建、导出、删除、共享库、生产、Release 或浏览器验收。

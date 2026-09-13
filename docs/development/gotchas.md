@@ -25,6 +25,13 @@
 
 ## 并发与事务
 
+### 把失效收件人的通知失败传播回源事务，会让挑战无法结束或清退参与者
+
+- 触发：参与者离开或被移除工作区、账户被暂停后，Owner 结束/解散挑战、移除参与者或处理申诉返回通知授权冲突。
+- 根因：Membership 生命周期与挑战参与记录独立，通知仍遍历既有参与者；收件人校验抛错会回滚整个业务事务。
+- 规避：生产阶段先锁定并验证请求者、工作区和事件来源，仅跳过已失效收件人；已排队事件在消费阶段仍严格拒绝。不能吞掉请求者失效、跨工作区 source 或锁冲突；所有权转移目标的有效性必须在源事务独立检查，不能依赖通知开关。
+- 关联：`packages/db/src/ranking-notification-authorization.ts`、`scripts/quality/ranking-notification-source-runtime.ts`、`docs/modules/background-jobs.md`。
+
 ### Prisma pg adapter 在同一 transaction client 上并发发查询会触发 deprecation 并有排队风险
 
 - 触发：事务回调里用 `Promise.all` 或未 await 的查询共享同一个 transaction client；本地 UX smoke 曾真实复现 `pg` 的 query queue deprecation 告警。
