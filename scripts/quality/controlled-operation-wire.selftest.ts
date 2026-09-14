@@ -19,7 +19,8 @@ for (const operation of [{ operation: "APPLY_RELEASE", tag: "v9.9.1" }, { operat
     descriptor: { code: operation.operation, risk, requiresApproval: risk === "HIGH_RISK" }, intentHash: operationIntentHash("operator", intent),
     nonce: "22222222-2222-4222-8222-222222222222", requestedAt: context.observedAt,
     expiresAt: new Date(Date.parse(context.observedAt) + (risk === "HIGH_RISK" ? 300_000 : 900_000)).toISOString(), context });
-  execFileSync("bash", ["-c", 'source "$1"; validate_request_schema /dev/stdin', "ops-wire-selftest", path.resolve("ops/update-agent/lib/update-request-v2.sh")],
+  // Linux 的 Node pipe 可能是 socket，重开 /dev/stdin 会 ENXIO；让 jq 直接读 fd 0。
+  execFileSync("bash", ["-c", 'source "$1"; validate_request_schema -', "ops-wire-selftest", path.resolve("ops/update-agent/lib/update-request-v2.sh")],
     { env: { PATH: process.env.PATH }, input: JSON.stringify(bound.execution.updaterRequest), stdio: ["pipe", "pipe", "pipe"] });
 }
 delete process.env.OPS_AGENT_PRODUCTION_ENABLED;

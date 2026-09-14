@@ -48,6 +48,7 @@ releaseRequired: true
 - `OPS_EXECUTION_ENABLED`、`OPS_AGENT_ENABLED` 和 `OPS_AGENT_PRODUCTION_ENABLED` 默认关闭。旧 updater 的签名/checksum/digest、双前态/TTL、备份与固定回滚链路保留；生产源码接入只经过本地静态/协议验证，不代表生产运行通过。
 - Release、共享/生产 migration/apply/backup/restore/rollback、自动策略、宿主全局配置和 residual 关闭均未执行。`AF-RISK-OPS-009` 只同步本地证据摘要，分类/日期/可执行状态/关闭条件不变；本任务和整体 v2.0 不因本地批次进展变为生产完成。
 - 最终本地门禁：`pnpm check`（含 OPS typecheck/selftest）、`ops:controlled:runtime:selftest`、`ops:controlled:browser:selftest`、冻结安装、全量/生产依赖审计（均 0 漏洞）、OPS-005/OPS-008 回归、updater preflight/shellcheck、测试池 selftest/typecheck/doctor/dry-run、release admission/identity/workflow selftest、docs/tasks/residual/risk/governance/secrets 与只读副作用门禁通过。`execution` 元数据的静态 `exec` 误报已用调用/import 判定和危险反例修正，没有移除命令禁区。
+- 检查点 `5cd1074` 已推送；首个 CI run `34849843885` 在新增 wire 自测的 `/dev/stdin` 读取退出 2，此前 1011 个 Web 测试及治理/审计均通过。一次性无网络 Linux Node 24 复现重开 stdin 为 `ENXIO`、直接 fd 0 正常；自测改用 jq 的 `-` 输入，保持原 strict schema 与验证内容不变。后续修正只涉及自测传输与说明，不改变已验收产品源码；CI 最终状态以修正检查点对应 run 为准。
 
 ## 永久禁止
 

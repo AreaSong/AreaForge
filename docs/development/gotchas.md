@@ -228,6 +228,13 @@
 - 规避：检查具体调用与能力 import，保留 `exec/execFile/spawn/child_process` 等危险反例；不能通过删掉整个 guard 解决误报。
 - 关联：`apps/web/lib/system/operator-route-contract.test.ts`。
 
+### Linux Node 子进程的标准输入不能一律作为路径重开
+
+- 触发：macOS 通过的协议自测在 Linux CI 中读取 `/dev/stdin` 退出 2，错误被库内重定向隐藏。
+- 根因：Node 子进程的管道可由 Unix socket 实现，Linux 对 `/dev/stdin` 再次 open 会返回 `ENXIO`；直接读 fd 0 正常。
+- 规避：命令支持标准输入时使用 `-` 或直接读取 fd 0，不重开 `/dev/stdin`；用无网络 Linux Node 进程补跨平台负向复现。
+- 关联：`scripts/quality/controlled-operation-wire.selftest.ts`。
+
 ## 维护
 
 1. 新任务开工前扫读本文相关分组。
