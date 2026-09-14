@@ -13,7 +13,7 @@ import {
   TerminalSquare,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   approveControlledOperationRequest,
   cancelControlledOperationRequest,
@@ -30,6 +30,7 @@ import {
   type ControlledOperationParameters,
   type ControlledOperationRequestStatus,
   type ControlledOperationRequestView,
+  type ControlledOperationContextView,
 } from "@/lib/api/controlled-operations";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
@@ -38,6 +39,8 @@ import { Alert, Badge, EmptyState } from "@/components/ui/feedback";
 import { Metric } from "@/components/ui/metric";
 import { formatDateTime } from "@/lib/formatters";
 import { isConflict } from "@/lib/client/api-errors";
+import { createExclusiveOperationGate } from "@/lib/client/operation-gates";
+import { OperationExecutionContext, OperationReauthentication, RequestExecutionEvidence } from "./controlled-operation-evidence";
 
 const DEFAULT_OPERATION: ControlledOperationCode = "DIAGNOSTIC_HEALTH";
 
@@ -59,16 +62,32 @@ export function ControlledOperationsClient(props: {
   const [includeCapacity, setIncludeCapacity] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "success" | "warning" | "danger"; text: string } | null>(null);
+  const [executionContext, setExecutionContext] = useState<ControlledOperationContextView | null>(null);
+  const [executionStatus, setExecutionStatus] = useState<"ready" | "disabled" | "unavailable">("unavailable");
+  const [retryIntent, setRetryIntent] = useState<ControlledOperationIntentInput | null>(null);
+  const actionGate = useRef(createExclusiveOperationGate());
 
   const load = useCallback(async () => {
     if (!props.enabled) return;
+    const token = actionGate.current.acquire();
+    if (!token) return;
     setPending("load");
     const [catalogResult, requestResult] = await Promise.all([
       listControlledOperations(),
       listControlledOperationRequests({ limit: 100 }),
     ]);
     setPending(null);
+    actionGate.current.release(token);
     if (catalogResult.ok && catalogResult.body?.operations) setOperations(catalogResult.body.operations);
+    if (catalogResult.ok) {
+      const context = catalogResult.body?.executionContext ?? null;
+      setExecutionContext(context); setExecutionStatus(catalogResult.body?.executionStatus ?? "disabled");
+      if (context) {
+        setExpectedBeforeHash(context.expectedBeforeHash);
+        setTag(context.targetVersion ? `v${context.targetVersion}` : "");
+        setTargetVersion(context.rollbackTargetVersion ?? "");
+      }
+    }
     if (requestResult.ok && requestResult.body?.requests) setRequests(requestResult.body.requests);
     if (!catalogResult.ok || !requestResult.ok) {
       const failed = !catalogResult.ok ? catalogResult : requestResult;
@@ -77,7 +96,7 @@ export function ControlledOperationsClient(props: {
   }, [props.enabled]);
 
   useEffect(() => {
-    if (!props.enabled || (props.initialOperations && props.initialRequests)) return;
+    if (!props.enabled) return;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load, props.enabled, props.initialOperations, props.initialRequests]);
@@ -96,16 +115,23 @@ export function ControlledOperationsClient(props: {
       setNotice({ tone: "warning", text: intent.error });
       return;
     }
+    const token = actionGate.current.acquire();
+    if (!token) return;
+    const frozenIntent = retryIntent ?? { ...intent.value, ...(executionContext ? { executionSnapshotHash: executionContext.snapshotHash } : {}) };
+    setIdempotencyKey(frozenIntent.idempotencyKey);
     setPending("create");
     setNotice(null);
-    const result = await createControlledOperationRequest(intent.value);
+    const result = await createControlledOperationRequest(frozenIntent);
+    actionGate.current.release(token);
     setPending(null);
     if (!result.ok || !result.body?.request) {
+      setRetryIntent(result.status === 0 ? frozenIntent : null);
       setNotice({ tone: "danger", text: operationRequestError(result.status, result.body?.error) });
       return;
     }
     setRequests((current) => [result.body!.request!, ...current.filter((item) => item.id !== result.body!.request!.id)]);
     setIdempotencyKey("");
+    setRetryIntent(null);
     setNotice({ tone: "success", text: selectedDescriptor?.requiresApproval ? "请求已提交，仍需二次确认和审批；未执行任何服务器动作。" : "只读请求已提交，等待受控 agent 回写状态。" });
   }
 
@@ -118,6 +144,8 @@ export function ControlledOperationsClient(props: {
         ? "确认提交安全重试请求？服务端会重新校验 request hash。"
         : "确认推进这个高风险受控请求？这只提交状态，不会由 Web 直接执行服务器动作。";
     if ((action === "cancel" || action === "retry" || requiresExplicitConfirm) && !window.confirm(confirmationText)) return;
+    const token = actionGate.current.acquire();
+    if (!token) return;
     setPending(`${action}:${request.id}`);
     const result = action === "confirm"
       ? await confirmControlledOperationRequest(request.id, binding)
@@ -131,6 +159,7 @@ export function ControlledOperationsClient(props: {
               ? await resumeControlledOperationRequest(request.id, binding)
               : await retryControlledOperationRequest(request.id, binding);
     setPending(null);
+    actionGate.current.release(token);
     if (!result.ok || !result.body?.request) {
       setNotice({ tone: "danger", text: operationRequestError(result.status, result.body?.error) });
       if (isConflict(result)) await load();
@@ -140,19 +169,22 @@ export function ControlledOperationsClient(props: {
     setNotice({ tone: "success", text: requestActionLabel(action) });
   }
 
-  return <div className="space-y-6">
+  return <section aria-label="受控运维请求" className="min-w-0 space-y-6">
     <Alert tone="warning" title="受控请求边界"><span>这里仅提交白名单 operation intent 与确认绑定。真正的服务器动作只能由 root-only agent 处理；本页面不接受命令文本、脚本、自由路径或环境变量。</span></Alert>
+    <OperationExecutionContext context={executionContext} status={executionStatus} />
+    <OperationReauthentication disabled={pending !== null} />
+    {retryIntent ? <Alert tone="warning">上次响应未收到。再次提交会重试同一份冻结请求和幂等键，不会创建第二次执行。</Alert> : null}
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Metric label="请求总数" value={requests.length} note="当前 Operator 可见列表" icon={FileCheck2} tone="accent" layout="tile" /><Metric label="待确认/审批" value={approvalCount} note="需人工继续确认" icon={ClipboardCheck} tone="warning" layout="tile" /><Metric label="队列与运行" value={queuedCount} note="由 agent 回写状态" icon={RefreshCw} tone="info" layout="tile" /><Metric label="执行边界" value="root-only" note="Web 不执行命令" icon={ShieldAlert} tone="danger" layout="tile" /></dl>
 
-    <SectionCard variant="master" className="space-y-5"><div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><TerminalSquare className="size-4 text-teal-300" aria-hidden="true" />提交受控请求</h2><p className="mt-1 text-xs leading-5 text-zinc-400">参数来自 catalog；expected-before、TTL、nonce 和 request hash 由服务端绑定。</p></div><Button disabled={pending !== null} onClick={() => void load()} size="sm" type="button" variant="secondary"><RefreshCw className={`size-3.5 ${pending === "load" ? "animate-spin" : ""}`} aria-hidden="true" />刷新请求</Button></div>
-      <fieldset className="grid gap-3 md:grid-cols-2"><legend className="sr-only">受控 operation intent</legend><label className="text-xs text-zinc-300">白名单操作<Select className="mt-2" disabled={pending !== null} value={operationCode} onChange={(event) => setOperationCode(event.target.value as ControlledOperationCode)}>{(operations.length > 0 ? operations : fallbackCatalog).map((operation) => <option key={operation.code} value={operation.code}>{operation.label} · {operation.risk === "HIGH_RISK" ? "高风险" : "只读"}</option>)}</Select></label><label className="text-xs text-zinc-300">expected-before hash<Input className="mt-2 font-mono text-xs" disabled={pending !== null} value={expectedBeforeHash} onChange={(event) => setExpectedBeforeHash(event.target.value)} placeholder="sha256:…" /></label><label className="text-xs text-zinc-300 md:col-span-2">申请理由<Textarea className="mt-2 min-h-20" disabled={pending !== null} value={requestedReason} onChange={(event) => setRequestedReason(event.target.value)} placeholder="说明这次受控请求的窗口、目的和回滚依据" /></label></fieldset>
-      <OperationParameterFields operationCode={operationCode} tag={tag} backupScope={backupScope} targetVersion={targetVersion} holdReason={holdReason} includeCapacity={includeCapacity} disabled={pending !== null} onTagChange={setTag} onBackupScopeChange={setBackupScope} onTargetVersionChange={setTargetVersion} onHoldReasonChange={setHoldReason} onIncludeCapacityChange={setIncludeCapacity} />
-      <div className="flex flex-wrap items-end gap-3"><label className="min-w-[18rem] flex-1 text-xs text-zinc-300">幂等键（留空自动生成）<Input className="mt-2 font-mono text-xs" disabled={pending !== null} value={idempotencyKey} onChange={(event) => setIdempotencyKey(event.target.value)} placeholder="UUID" /></label><Button disabled={pending !== null} onClick={() => void submitIntent()} type="button"><FileCheck2 className="size-4" aria-hidden="true" />提交受控请求</Button></div>
+    <SectionCard variant="master" className="space-y-5"><div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><TerminalSquare className="size-4 text-teal-300" aria-hidden="true" />提交受控请求</h2><p className="mt-1 text-xs leading-5 text-zinc-400">参数来自 catalog；expected-before、TTL、nonce 和 request hash 由服务端绑定。</p></div><Button disabled={pending !== null} onClick={() => void load()} className="min-h-11" size="sm" type="button" variant="secondary"><RefreshCw className={`size-3.5 ${pending === "load" ? "animate-spin" : ""}`} aria-hidden="true" />刷新请求</Button></div>
+      <fieldset disabled={pending !== null || retryIntent !== null} className="grid gap-3 md:grid-cols-2"><legend className="sr-only">受控 operation intent</legend><label className="text-xs text-zinc-300">白名单操作<Select aria-label="白名单操作" className="mt-2" disabled={pending !== null} value={operationCode} onChange={(event) => setOperationCode(event.target.value as ControlledOperationCode)}>{(operations.length > 0 ? operations : fallbackCatalog).map((operation) => <option key={operation.code} value={operation.code}>{operation.label} · {operation.risk === "HIGH_RISK" ? "高风险" : "只读"}</option>)}</Select></label><label className="text-xs text-zinc-300">expected-before hash<Input className="mt-2 font-mono text-xs" disabled={pending !== null} readOnly={executionStatus === "ready"} value={expectedBeforeHash} onChange={(event) => setExpectedBeforeHash(event.target.value)} placeholder="sha256:…" /></label><label className="text-xs text-zinc-300 md:col-span-2">申请理由<Textarea aria-label="申请理由" className="mt-2 min-h-20" disabled={pending !== null} value={requestedReason} onChange={(event) => setRequestedReason(event.target.value)} placeholder="说明这次受控请求的窗口、目的和回滚依据" /></label></fieldset>
+      <OperationParameterFields operationCode={operationCode} tag={tag} backupScope={backupScope} targetVersion={targetVersion} holdReason={holdReason} includeCapacity={includeCapacity} disabled={pending !== null || retryIntent !== null} onTagChange={setTag} onBackupScopeChange={setBackupScope} onTargetVersionChange={setTargetVersion} onHoldReasonChange={setHoldReason} onIncludeCapacityChange={setIncludeCapacity} />
+      <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 w-full flex-1 text-xs text-zinc-300">幂等键（留空自动生成）<Input className="mt-2 font-mono text-xs" disabled={pending !== null} readOnly={retryIntent !== null} value={idempotencyKey} onChange={(event) => setIdempotencyKey(event.target.value)} placeholder="UUID" /></label><Button className="min-h-11" disabled={pending !== null || executionStatus === "unavailable"} onClick={() => void submitIntent()} type="button"><FileCheck2 className="size-4" aria-hidden="true" />{retryIntent ? "重试同一请求" : "提交受控请求"}</Button></div>
       {notice ? <Alert tone={notice.tone} role={notice.tone === "danger" ? "alert" : "status"}>{notice.text}</Alert> : null}
     </SectionCard>
 
     <SectionCard variant="subtle" className="space-y-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-base font-semibold text-white">Operator 请求列表</h2><p className="mt-1 text-xs text-zinc-500">刷新页面不会丢失请求；每个操作都沿着服务端状态机推进。</p></div><Badge tone="info">catalog {operations.length || fallbackCatalog.length} 项</Badge></div>{requests.length === 0 ? <EmptyState title="还没有受控请求" description="选择一个白名单 operation，补齐 expected-before hash 和理由后提交。" /> : <div className="space-y-3">{requests.map((request) => <ControlledRequestRow key={request.id} request={request} pending={pending} holdReason={holdReason} onHoldReasonChange={setHoldReason} onMutate={mutateRequest} />)}</div>}</SectionCard>
-  </div>;
+  </section>;
 }
 
 function OperationParameterFields(props: {
@@ -170,9 +202,9 @@ function OperationParameterFields(props: {
   onIncludeCapacityChange: (value: boolean) => void;
 }) {
   if (props.operationCode === "CHECK_RELEASE" || props.operationCode === "APPLY_RELEASE") return <label className="block text-xs text-zinc-300">{props.operationCode === "CHECK_RELEASE" ? "Release tag（可选）" : "Release tag"}<Input className="mt-2 font-mono text-xs" disabled={props.disabled} value={props.tag} onChange={(event) => props.onTagChange(event.target.value)} placeholder="v1.3.0" /></label>;
-  if (props.operationCode === "BACKUP_PREVIEW") return <label className="block text-xs text-zinc-300">预览范围<Select className="mt-2" disabled={props.disabled} value={props.backupScope} onChange={(event) => props.onBackupScopeChange(event.target.value as "DATABASE" | "UPLOADS" | "FULL")}><option value="DATABASE">数据库</option><option value="UPLOADS">上传目录</option><option value="FULL">完整范围</option></Select></label>;
+  if (props.operationCode === "BACKUP_PREVIEW") return <label className="block text-xs text-zinc-300">预览范围<Select aria-label="预览范围" className="mt-2" disabled={props.disabled} value={props.backupScope} onChange={(event) => props.onBackupScopeChange(event.target.value as "DATABASE" | "UPLOADS" | "FULL")}><option value="DATABASE">数据库</option><option value="UPLOADS">上传目录</option><option value="FULL">完整范围</option></Select></label>;
   if (props.operationCode === "ROLLBACK_RELEASE") return <label className="block text-xs text-zinc-300">固定回滚目标<Input className="mt-2 font-mono text-xs" disabled={props.disabled} value={props.targetVersion} onChange={(event) => props.onTargetVersionChange(event.target.value)} placeholder="1.2.0" /></label>;
-  if (props.operationCode === "MAINTENANCE_HOLD") return <label className="block text-xs text-zinc-300">维护原因<Select className="mt-2" disabled={props.disabled} value={props.holdReason} onChange={(event) => props.onHoldReasonChange(event.target.value as "RELEASE" | "INCIDENT" | "RESTORE" | "CAPACITY")}><option value="RELEASE">发布</option><option value="INCIDENT">事故</option><option value="RESTORE">恢复</option><option value="CAPACITY">容量</option></Select></label>;
+  if (props.operationCode === "MAINTENANCE_HOLD") return <label className="block text-xs text-zinc-300">维护原因<Select aria-label="维护原因" className="mt-2" disabled={props.disabled} value={props.holdReason} onChange={(event) => props.onHoldReasonChange(event.target.value as "RELEASE" | "INCIDENT" | "RESTORE" | "CAPACITY")}><option value="RELEASE">发布</option><option value="INCIDENT">事故</option><option value="RESTORE">恢复</option><option value="CAPACITY">容量</option></Select></label>;
   return <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-zinc-300"><Checkbox checked={props.includeCapacity} disabled={props.disabled} onChange={(event) => props.onIncludeCapacityChange(event.target.checked)} />诊断摘要包含容量指标（仍为脱敏只读）</label>;
 }
 
@@ -188,9 +220,9 @@ function ControlledRequestRow(props: {
   const canApprove = request.status === "APPROVAL_REQUIRED";
   const canCancel = !["SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"].includes(request.status);
   const canHold = ["QUEUED", "RUNNING", "PAUSED"].includes(request.status);
-  const canResume = ["HELD", "PAUSED"].includes(request.status);
+  const canResume = ["HELD", "PAUSED"].includes(request.status) && request.workerId === null && request.failureCode !== "NEEDS_RECONCILIATION";
   const canRetry = request.status === "FAILED" && request.retryable;
-  return <Card variant="subtle" className="space-y-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-all font-mono text-sm text-white">{request.id}</strong><Badge tone={requestStatusTone(request.status)}>{requestStatusLabel(request.status)}</Badge><Badge tone={request.risk === "HIGH_RISK" ? "danger" : "info"}>{request.risk === "HIGH_RISK" ? "高风险" : "只读"}</Badge></div><p className="mt-1 text-sm text-zinc-200">{operationLabel(request.operation)}</p><p className="mt-1 text-xs text-zinc-500">{request.requestedReason} · revision {request.revision} · attempt {request.attempt}</p></div><div className="flex flex-wrap gap-2">{canConfirm ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "confirm")} size="sm" type="button"><ClipboardCheck className="size-3.5" aria-hidden="true" />确认</Button> : null}{canApprove ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "approve")} size="sm" type="button"><CheckCircle2 className="size-3.5" aria-hidden="true" />审批</Button> : null}{canCancel ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "cancel")} size="sm" type="button" variant="secondary"><XCircle className="size-3.5" aria-hidden="true" />取消</Button> : null}{canHold ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "hold")} size="sm" type="button" variant="secondary"><Pause className="size-3.5" aria-hidden="true" />挂起</Button> : null}{canResume ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "resume")} size="sm" type="button" variant="secondary"><Play className="size-3.5" aria-hidden="true" />恢复</Button> : null}{canRetry ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "retry")} size="sm" type="button" variant="secondary"><RefreshCw className="size-3.5" aria-hidden="true" />重试</Button> : null}</div></div><div className="grid gap-2 text-xs text-zinc-500 sm:grid-cols-2"><span>申请时间：{formatDateTime(request.requestedAt)}</span><span>过期时间：{formatDateTime(request.expiresAt)}</span><span className="break-all font-mono">request hash：{request.requestHash}</span><span className="break-all font-mono">expected-before：{request.expectedBeforeHash}</span></div>{canHold ? <label className="block max-w-xs text-xs text-zinc-300">挂起原因<Select className="mt-2" disabled={props.pending !== null} value={props.holdReason} onChange={(event) => props.onHoldReasonChange(event.target.value as "RELEASE" | "INCIDENT" | "RESTORE" | "CAPACITY")}><option value="RELEASE">发布</option><option value="INCIDENT">事故</option><option value="RESTORE">恢复</option><option value="CAPACITY">容量</option></Select></label> : null}{request.failureCode ? <p className="flex items-center gap-2 text-xs text-rose-200"><AlertTriangle className="size-3.5" aria-hidden="true" />{request.failureCode}{request.retryable ? " · 可重试" : ""}</p> : null}{request.status === "SUCCEEDED" ? <p className="flex items-center gap-2 text-xs text-emerald-200"><CheckCircle2 className="size-3.5" aria-hidden="true" />受控 agent 已回写成功；证据摘要：{request.evidenceHash ?? "未提供"}</p> : null}{request.status === "HELD" ? <p className="text-xs text-amber-200">已挂起：{request.holdReasonCode ?? "未说明"}。恢复仍需重新提交绑定。</p> : null}</Card>;
+  return <Card data-operation-id={request.id} variant="subtle" className="min-w-0 space-y-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-all font-mono text-sm text-white">{request.id}</strong><Badge tone={requestStatusTone(request.status)}>{request.status === "HELD" && request.workerId ? "等待安全挂起" : requestStatusLabel(request.status)}</Badge><Badge tone={request.risk === "HIGH_RISK" ? "danger" : "info"}>{request.risk === "HIGH_RISK" ? "高风险" : "只读"}</Badge></div><p className="mt-1 text-sm text-zinc-200">{operationLabel(request.operation)}</p><p className="mt-1 text-xs text-zinc-500">{request.requestedReason} · revision {request.revision} · attempt {request.attempt}</p></div><div className="flex flex-wrap gap-2">{canConfirm ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "confirm")} className="min-h-11" size="sm" type="button"><ClipboardCheck className="size-3.5" aria-hidden="true" />确认</Button> : null}{canApprove ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "approve")} className="min-h-11" size="sm" type="button"><CheckCircle2 className="size-3.5" aria-hidden="true" />审批</Button> : null}{canCancel ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "cancel")} className="min-h-11" size="sm" type="button" variant="secondary"><XCircle className="size-3.5" aria-hidden="true" />取消</Button> : null}{canHold ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "hold")} className="min-h-11" size="sm" type="button" variant="secondary"><Pause className="size-3.5" aria-hidden="true" />挂起</Button> : null}{canResume ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "resume")} className="min-h-11" size="sm" type="button" variant="secondary"><Play className="size-3.5" aria-hidden="true" />恢复</Button> : null}{canRetry ? <Button disabled={props.pending !== null} onClick={() => void props.onMutate(request, "retry")} className="min-h-11" size="sm" type="button" variant="secondary"><RefreshCw className="size-3.5" aria-hidden="true" />重试</Button> : null}</div></div><div className="grid gap-2 text-xs text-zinc-500 sm:grid-cols-2"><span>申请时间：{formatDateTime(request.requestedAt)}</span><span>过期时间：{formatDateTime(request.expiresAt)}</span><span className="break-all font-mono">request hash：{request.requestHash}</span><span className="break-all font-mono">expected-before：{request.expectedBeforeHash}</span></div>{canHold ? <label className="block max-w-xs text-xs text-zinc-300">挂起原因<Select aria-label="挂起原因" className="mt-2" disabled={props.pending !== null} value={props.holdReason} onChange={(event) => props.onHoldReasonChange(event.target.value as "RELEASE" | "INCIDENT" | "RESTORE" | "CAPACITY")}><option value="RELEASE">发布</option><option value="INCIDENT">事故</option><option value="RESTORE">恢复</option><option value="CAPACITY">容量</option></Select></label> : null}<RequestExecutionEvidence request={request} />{request.failureCode ? <p className="flex items-center gap-2 text-xs text-rose-200"><AlertTriangle className="size-3.5" aria-hidden="true" />{request.failureCode}{request.retryable ? " · 可重试" : ""}</p> : null}{request.status === "SUCCEEDED" ? <p className="flex items-center gap-2 text-xs text-emerald-200"><CheckCircle2 className="size-3.5" aria-hidden="true" />{request.execution?.environment === "local_fixture" ? "本地合成执行通过，不代表生产交付" : request.execution ? "独立 agent 已回写完成结果" : "旧预览回执，不证明实际执行"}；证据摘要：{request.evidenceHash ?? "未提供"}</p> : null}{request.status === "HELD" && !request.workerId ? <p className="text-xs text-amber-200">已挂起：{request.holdReasonCode ?? "未说明"}。恢复仍需重新提交绑定。</p> : null}</Card>;
 }
 
 function buildIntent(input: {
@@ -237,7 +269,7 @@ function operationLabel(operation: ControlledOperationParameters): string {
 }
 
 function requestStatusLabel(status: ControlledOperationRequestStatus): string {
-  return { PREVIEWED: "已预览", CONFIRMATION_REQUIRED: "待确认", APPROVAL_REQUIRED: "待审批", QUEUED: "排队中", RUNNING: "运行中", PAUSED: "已暂停", HELD: "已挂起", CANCEL_REQUESTED: "取消中", SUCCEEDED: "成功", FAILED: "失败", CANCELLED: "已取消", EXPIRED: "已过期" }[status];
+  return { PREVIEWED: "已预览", CONFIRMATION_REQUIRED: "待确认", APPROVAL_REQUIRED: "待审批", QUEUED: "排队中", RUNNING: "运行中", PAUSED: "已暂停", HELD: "已挂起", CANCEL_REQUESTED: "等待安全取消", SUCCEEDED: "成功", FAILED: "失败", CANCELLED: "已取消", EXPIRED: "已过期" }[status];
 }
 
 function requestStatusTone(status: ControlledOperationRequestStatus): "neutral" | "info" | "success" | "warning" | "danger" {

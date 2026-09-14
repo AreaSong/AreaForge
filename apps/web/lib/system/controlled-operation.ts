@@ -93,6 +93,7 @@ export const controlledOperationIntentSchema = z.object({
   expectedBeforeHash: hashSchema,
   idempotencyKey: idempotencyKeySchema,
   requestedReason: z.string().trim().min(1).max(240),
+  executionSnapshotHash: hashSchema.optional(),
 }).strict();
 
 export type ControlledOperationIntent = z.infer<typeof controlledOperationIntentSchema>;

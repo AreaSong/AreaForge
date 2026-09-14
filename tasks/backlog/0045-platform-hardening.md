@@ -39,7 +39,7 @@ releaseRequired: true
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，响应明确 `indexed=false`，当前仍是直接数据库候选而非持久搜索索引。
 - 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。排名重建、DELETE、持久搜索、配额写入、MFA/Passkey、监控外呼及共享/生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE 与 OPS 另有独立本地验收；排名重建、持久搜索、配额写入、MFA/Passkey、监控外呼及共享/生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收
@@ -92,6 +92,11 @@ releaseRequired: true
 - 最终完整检查已通过；补齐标准检查发现的 Storage 测试类型与 CLI 参数契约。运维专项另修正读取当前台账的两处旧固定时钟、OPS-001 合成 bundle 的时效/显式版本，以及长期 gate 自测缺失的 journey 绑定；合成 journey factory 与体验 validator 自测共用，绝不替代真实浏览器或降低 validator。OPS 投影仍保留历史生产记录与新鲜证据缺口，不由结构校验升级为 production-ready。
 - 实际交接 JSON 另复现采集与输出跨秒导致的 `ageSeconds` 失配；状态生成器改为同一次冻结时点，推进时钟回归与真实 status/handoff/bundle 默认绑定校验通过。投影继续返回 blocked/needs_attention，不能据此宣称线上健康、Release 或长期运营完成。
 - DATA-DELETE 已获独立本地确认；53-migration 专用库的 17 组运行态及最终 API/桌面/390px/320px 验收通过，含五类对象、真实权限变化、并发/死信、五个强杀点、画布原生查询过滤和备份水位防复活，详见 `0041`。没有删除真实用户数据，不扩大 EXPORT、其他域或生产授权；本任务仍因排名重建、搜索、配额、MFA、观测/灾备与交付缺口保留 backlog。
+
+### OPS 独立本地接力（2026-09-14）
+
+- `0042` 已在独立批准下实现冻结身份绑定、root 桥接/登记、跨进程锁、不可覆盖日志、停止屏障和回执恢复。38 组合成运行态与真实 API/桌面/390px/320px 浏览器验收通过，原始事实与 Web 脱敏投影分离。
+- 新入口默认关闭，副作用适配器仅操作本批合成资源；生产适配器未运行，未触碰共享/生产数据、发布或 residual 状态。本任务仍因排名重建、持久搜索、配额、MFA、观测/灾备和综合交付保留 backlog。
 
 - 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。

@@ -97,6 +97,16 @@
 
 ### Platform / Audit
 
+受控运维只允许平台 Operator，协议见[受控运维](../modules/controlled-operations.md)：
+
+- `GET /api/system/operations`：封闭 catalog、执行入口可用性和经 root 文件校验的脱敏前态。
+- `POST /api/system/operations/requests`：strict intent、`executionSnapshotHash` 与幂等键；完整执行绑定在确认前冻结。
+- `GET /api/system/operations/requests`：请求状态与安全执行摘要；不返回租约 token 或私有路径。
+- `GET /api/system/operations/requests/:requestId`：当前状态和经过 schema/hash 校验的阶段投影；原始 journal 只保留其 hash。
+- `POST /api/system/operations/requests/:requestId/{confirm,approve,cancel,hold,resume,retry}`：近期重新验证与 revision/hash/nonce CAS；运行中的停止必须等执行器回执，不能仅清租约。
+
+Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费；新独立执行结果不能由旧手工 worker 接口伪造。
+
 独立删除接口不执行文件 IO 或服务器命令，协议见[本人数据回收站与删除](../modules/data-deletion.md)：
 
 - `GET /api/system/deletions`：当前用户的最小回收站/删除状态；不返回冻结正文、路径、租约或 token hash。

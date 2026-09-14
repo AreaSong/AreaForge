@@ -33,5 +33,6 @@ Web 层边界：
 - 普通首页 SSR 不触发真实 AI provider 外呼。
 - 附件不放入 `public/`，必须走鉴权 API。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令，也不挂载 `docker.sock`、生产 `.env`、备份目录或签名私钥；这是根 `AGENTS.md` 的同一 canonical 禁区，本文件不另行扩大或缩小它。
+- 受控运维仅登记冻结绑定与确认/审批/控制，并读取经过校验的脱敏前态/阶段投影。`OPS_EXECUTION_ENABLED=false` 默认关闭；运行中 hold/cancel 保留租约直到独立执行器确认，Web 不启动消费者。当前本地验收和交付状态见 `tasks/backlog/0042-controlled-operations-center.md`。
 - 完整数据导出由独立 worker 写入私有 `EXPORT_DIR`，Web 仅申请任务、校验本人下载授权并读取已验证 ZIP；不写归档、不执行副本回收或源数据删除，默认 `DATA_EXPORT_ENABLED=false`。
 - 独立删除入口只预览、登记和控制意图，物理删除与恢复重放不在 Web 执行。默认 `DATA_DELETE_ENABLED=false` / `DATA_DELETE_WORKER_ENABLED=false`；最终源码验收与环境限制以 `tasks/backlog/0041-data-lifecycle.md` 为准。

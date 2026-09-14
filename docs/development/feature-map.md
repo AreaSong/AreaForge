@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-09-14（本次更新 DATA-DELETE 本地实现与隔离验收；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
+快照日期：2026-09-14（本次更新 DATA-DELETE 与 OPS 本地实现和隔离验收；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
 
 ## 四态与映射
 
@@ -123,7 +123,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
-| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/data-export-handler.ts`、`scripts/workers/data-delete-worker.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT 的 15/11/14 组分域运行态已通过；独立 DELETE 另有 53-migration 专用库的 17 组运行态和当前源码浏览器验收。排名重建、正式运维入口、平台加固与共享/生产启用仍缺 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/data-export-handler.ts`、`scripts/workers/data-delete-worker.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT 的 15/11/14 组分域运行态已通过；独立 DELETE 另有 53-migration 专用库的 17 组运行态和当前源码浏览器验收。OPS 本地候选另有 38 组运行态及真实 API/桌面/390px/320px 验收；排名重建、正式交付、平台加固与共享/生产启用仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |

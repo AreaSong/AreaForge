@@ -39,6 +39,15 @@
 
 文件上传、附件访问、AI 调用、备份恢复和高风险确认规则见 `docs/security/file-ai-safety.md`。
 
+## 受控运维信任边界
+
+- Web 只接受封闭 operation 参数与确认绑定，不接受命令、路径、env 或客户端自报 Operator 身份；Workspace Owner 不是平台 Operator。
+- 独立执行器核对请求 hash/nonce/代次、完整前态、不可变 Release 与固定回滚来源。旧 tag-only 请求不得补算成已批准执行，签名、备份和双前态门禁不能由 Web 开关绕过。
+- root 配置、原始 journal 和服务器凭据不进入 Web。脱敏前态/阶段投影与原始事实分别绑定 hash，未知字段、损坏或缺失证据 fail closed。
+- 取消/hold/过期不能仅清除活动租约；执行事实未知时不自动重跑。跨请求检查须结合数据库 root 登记与证据锚，不能只扫描仍可见的文件。
+- 可靠零副作用拒绝与未知执行结果分开处理；回执恢复的来源链接与新 claim 同事务持久化，连续中断不能伪造成功或重复副作用。
+- 合成模式不代表生产，生产入口另需 root 身份、私有受信配置、显式开启和独立批准。完整数据库控制权属于控制面妥协风险，普通内容 hash 不是独立授权签名；生产准入与关闭证据仍见对应确认包与残余台账。
+
 ## 学习行动中心新增资产
 
 学习行动中心已把考试工作区归属、学习树规范化 Markdown 长期留存与导出、资料 HTTPS 外链、浏览器通知 payload、四类 AI 草稿 HMAC（基于哈希的消息认证码）token 纳入生产威胁面。导入 confirm 的生命周期边界已确认，但 `AF-RISK-DATA-001` 继续保持 `deferred-work`；AI 草稿仍禁止附件与未选择正文，物理删除与完整账户导出不在当前范围。发布后产品化修复尚未形成新的 Release 或 production apply，不改变这些安全边界。规格见 `workflow/versions/v1.1-learning-action-center.md`。

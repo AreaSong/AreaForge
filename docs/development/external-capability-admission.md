@@ -60,6 +60,17 @@ DATA-DELETE 本地确认后的测试池模式沿用三槽池和显式 `refresh -
 - 只占空槽或替换同一 fixture；Web 挂载本批 uploads/exports 为只读，删除执行器只在独立宿主进程运行。Web 中导出和所有 worker 启动开关保持关闭。
 - 只允许确认包列明的新建合成删除、备份与向全新恢复目标重放。不得清理旧库、历史容器/卷、真实 uploads，不能据此执行生产恢复。
 
+### OPS 隔离模式与独立执行器
+
+OPS 本地确认包仅授权 `fixture_only`：新建 loopback `areaforge_v20_ops_*` 库、当前 UID/仓库绑定的私有 `areaforge-v20-ops-*` 根，以及限定合成副作用和强杀恢复验证。
+
+- 测试池使用 `AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT`、`AREAFORGE_OPS_ISOLATED_DB=1` 和精确数据库 URL；与 EXPORT/DELETE 模式互斥，只允许显式刷新专用槽。
+- marker、canonical 路径、UID/GID、私有合成凭据和镜像身份必须匹配；会话密钥变化会改变 fixtureId，不能静默复用旧槽。
+- Web 只读挂载本批空 uploads/exports 与单独的脱敏 context 目录，不挂载 agent journal、配置、签名材料或凭据文件。
+- 独立执行器使用继承到子进程的文件锁、不可覆盖桥接/阶段日志和持久回执恢复。合成适配器只运行仓库固定测试程序并写合成计数，显式清空外部 Provider/SMTP 和其他域开关。
+- 生产适配器默认关闭，保留原 updater 的签名/前态/备份/回滚门禁；本地批准不授权生产配置、root 安装、SSH、共享库、真实备份/上传、正式发布、自动策略或 residual 关闭。
+- 回退是关闭入口和消费者并保留请求/journal/claim，不静默重放未知副作用，也不清理历史数据库或目录。验证执行 OPS 专项、测试池、updater、治理、安全和文档门禁。
+
 ### 提交级 Secret Scan 准入
 
 ```text

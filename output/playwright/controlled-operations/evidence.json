@@ -1,0 +1,41 @@
+{
+  "scope": "OPS local fixture browser/API",
+  "checkedAt": "2026-09-14T13:01:06.025Z",
+  "pool": {
+    "slot": 3,
+    "container": "areaforge-dev-test-3",
+    "port": 43173,
+    "url": "http://127.0.0.1:43173",
+    "status": "running",
+    "note": "OPS isolated acceptance",
+    "generation": 1789390098174,
+    "commit": "6d20120f8220c386020b3727460dba5447781903",
+    "sourceFingerprint": "sha256:ce9666d848795f2fc57f58ff93b8dfd55a830bddcfb2f569a031f3a9e6ac46e1",
+    "buildId": "sha256:2541416067b3f2930f2659d1daae3a01d2bd7052fdba28f89cf8a4c960e141eb",
+    "fixtureId": "f13ae3f2a2f1effd0a0b293ede30c093f7db46a8a9d089e0b3a8809f27c947f0"
+  },
+  "viewports": [
+    "1440x1000",
+    "390x844",
+    "320x844"
+  ],
+  "passed": [
+    "real-login",
+    "operator-only",
+    "reauth",
+    "immutable-context",
+    "lost-response-same-request",
+    "two-step-approval",
+    "root-execution",
+    "phase-history-hashes",
+    "hold-pending-barrier",
+    "resume",
+    "cancel",
+    "strict-input",
+    "no-secret",
+    "keyboard",
+    "no-horizontal-overflow"
+  ],
+  "pageErrors": [],
+  "productionTouched": false
+}

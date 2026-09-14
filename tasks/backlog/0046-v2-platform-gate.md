@@ -25,6 +25,8 @@ releaseRequired: true
 
 汇总而不替代 AUTH、RBAC、EXPORT、DELETE、OPS、RANKING 六个独立高风险包，以完整产品、Release、生产、安全、隐私和运营证据决定是否可声明 v2.0。
 
+当前分域证据：AUTH/RBAC、EXPORT/DELETE 已有独立本地实现与验收，OPS 新增 38 组合成运行态及真实 API/桌面/390px/320px 浏览器证据，详见 `0042`。排名重建、平台加固、全域回归、受保护合并、签名 Release 与完整生产运营证据仍缺；本地单域结果不使本门禁完成。
+
 ## 验收
 
 - 个人学习旅程与多人协作旅程都能完成，个人用户无需配置成员、权限或排名。

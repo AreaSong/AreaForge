@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["../../ops/controlled-operation-agent/*.ts", "controlled-operation*.ts", "../dev/dev-test-ops-fixture.ts"]
+}

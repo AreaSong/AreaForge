@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+// executionStatus 是只读元数据；禁区应匹配能力导入/调用，而不是任意 exec 子串。
+const forbiddenCatalogCapability = /createUpdateRequest|\bexec(?:File)?(?:Sync)?\s*\(|\bspawn(?:Sync)?\s*\(|child_process|\bshell\b|\bdocker\b/i;
 
 async function routeSource(relativePath: string): Promise<string> {
   return readFile(path.join(webRoot, relativePath), "utf8");
@@ -22,7 +24,15 @@ test("system update routes require platform operator authorization", async () =>
   assert.match(status, /requirePlatformOperator\(actor\)/);
   assert.match(operations, /requireApiUser\(request\)/);
   assert.match(operations, /requirePlatformOperator\(actor\)/);
-  assert.doesNotMatch(operations, /createUpdateRequest|exec|spawn|shell|docker/i);
+  assert.doesNotMatch(operations, forbiddenCatalogCapability);
+});
+
+test("catalog capability guard permits execution metadata but rejects process capabilities", () => {
+  assert.doesNotMatch('const executionContext = await readOperationExecutionContext(); const executionStatus = "ready";', forbiddenCatalogCapability);
+  for (const source of ["exec('command')", "execSync('command')", "execFile('program', [])", "execFileSync('program', [])",
+    "spawn('program')", "spawnSync('program')", "import { exec as run } from 'node:child_process'", "createUpdateRequest(input)"]) {
+    assert.match(source, forbiddenCatalogCapability);
+  }
 });
 
 test("operator account routes derive the actor from the session and keep mutations strict", async () => {

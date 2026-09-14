@@ -598,6 +598,16 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 - 知识画布原生查询必须覆盖节点/边/计数/分页/focus/search 的冻结过滤与恢复；原生读适配补代次变化、旧表兼容和持续竞争负测。真实登录的 API 探针必须使用同一浏览器会话，不能因独立 HTTP 客户端漏带 Secure Cookie 而把 401 误算为越权或撤销验证。
 - 最终编辑后运行 docs/readiness/links/evergreen、tasks/risk/governance/secrets 和 diff 门禁；最终 runtime 或浏览器缺失时只能报告 partial/blocked，不以中途源码证据、构建或绿色 CI 替代。
 
+## 受控运维独立执行专项
+
+涉及 `controlled-operation-*`、`ops/controlled-operation-agent/**` 或 OPS 专用测试池时，先核对独立 OPS 确认包，再运行：
+
+- Core/DB/Web 规则与类型检查、`pnpm ops:controlled:typecheck`、`pnpm ops:controlled:selftest`、`pnpm check`。wire 自测必须进入原 updater 的 strict shell schema，不能只比较两个新实现。
+- `pnpm ops:controlled:runtime:selftest <private-fixture-root>`：完整 canonical migration ledger/checksum、六种白名单动作、跨进程锁/子进程继承、双前态、权限变化、hold/cancel 屏障、旧代次、逐阶段真实 SIGKILL、重复回执恢复、真实数据库写回超时、journal 篡改/截断及跨请求锚。可靠零副作用拒绝不能升级为永久对账阻塞。
+- `pnpm ops:controlled:browser:selftest <private-fixture-root>`：复用 OPS 专属 latest，核对 source fingerprint 与 fixtureId；覆盖真实登录/Operator/重新验证、冻结前态、丢失响应幂等、确认/审批、阶段历史、挂起/恢复/取消、未登录和非 Operator 拒绝、桌面/390px/320px、键盘及无横向溢出。
+- 测试池改动补 `dev:test:selftest` / `dev:test:typecheck` / latest / doctor / snapshot dry-run；同时运行 `github-release-updater:preflight`、`shellcheck:updater`、原 OPS-005/OPS-008 selftest、governance/risk/secrets/docs、ops readiness/handoff 与 `git diff --check`。
+- 只允许本批新建合成库/目录及固定测试命令，不借用 DELETE/EXPORT/共享数据。本地日志与结果必须标为 `local_fixture`，不证明生产签名/backup/apply/rollback、Release、长期运营或 residual 关闭。
+
 ## 当前已知验证阻塞
 
 DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。

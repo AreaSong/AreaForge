@@ -214,6 +214,20 @@
 - 规避：接入或删除前先做产品口径决策；此分叉已登记在优化轮「登记不修复」清单。
 - 关联：`packages/core`、优化轮记录。
 
+### 表单控件内容会污染嵌套 label 的精确名称
+
+- 触发：受控运维选择器能看到但精确 `getByLabel` 不匹配；文本框第一次可填写，填入内容后不能再次按同一名称定位。
+- 根因：嵌套 option/textarea 的文本进入 label 文本，名称随选项或已填写正文变化。
+- 规避：保留可见 label，并为关键控件设置稳定、同义的 `aria-label` 或独立 `htmlFor/id`；浏览器验收必须包含填入后的再次编辑。
+- 关联：`apps/web/components/controlled-operations-client.tsx`、`scripts/quality/controlled-operation-browser.selftest.ts`。
+
+### 静态命令禁区不能用任意 exec 子串判定
+
+- 触发：只读 `executionStatus` / `readOperationExecutionContext` 被判为 Web 执行命令。
+- 根因：正则没有调用/标识符边界，把元数据名当成 process capability。
+- 规避：检查具体调用与能力 import，保留 `exec/execFile/spawn/child_process` 等危险反例；不能通过删掉整个 guard 解决误报。
+- 关联：`apps/web/lib/system/operator-route-contract.test.ts`。
+
 ## 维护
 
 1. 新任务开工前扫读本文相关分组。

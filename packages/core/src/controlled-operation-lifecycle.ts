@@ -46,6 +46,7 @@ export type ControlledOperationRequestCommand =
   | { type: "HEARTBEAT"; workerId: string; now: string; leaseExpiresAt: string }
   | { type: "PAUSE"; workerId: string; now: string }
   | { type: "HOLD"; now: string }
+  | { type: "ACKNOWLEDGE_HOLD"; workerId: string; now: string }
   | { type: "RESUME"; now: string }
   | { type: "REQUEST_CANCEL"; now: string }
   | { type: "CANCEL"; workerId: string; now: string }
@@ -100,13 +101,17 @@ export function transitionControlledOperationRequest(
   const fail = (error: ControlledOperationTransitionError): ControlledOperationTransitionResult => ({ state, error });
   const now = Date.parse(command.now);
   if (!Number.isFinite(now)) return fail("EXPIRED");
+  const executing = hasControlledOperationLease(state);
   if (now >= Date.parse(state.expiresAt) && !isTerminal(state.status)) {
-    if (command.type !== "EXPIRE") return fail("EXPIRED");
+    // TTL 关闭新的执行 admission；它不能证明已启动的外部副作用停止。
+    const safetyCommand = executing && ["HEARTBEAT", "HOLD", "REQUEST_CANCEL", "ACKNOWLEDGE_HOLD", "CANCEL", "FAIL", "SUCCEED", "PAUSE"].includes(command.type);
+    if (command.type !== "EXPIRE" && !safetyCommand) return fail("EXPIRED");
   }
 
   if (command.type === "EXPIRE") {
     if (isTerminal(state.status)) return fail("INVALID_STATUS");
     if (now < Date.parse(state.expiresAt)) return fail("NOT_EXPIRED");
+    if (executing) return { error: null, state: { ...state, status: "CANCEL_REQUESTED", failureCode: "REQUEST_EXPIRED", retryable: false } };
     return { error: null, state: clearLease({ ...state, status: "EXPIRED", failureCode: "REQUEST_EXPIRED", retryable: false }) };
   }
   if (command.type === "ACKNOWLEDGE_PREVIEW") {
@@ -123,15 +128,16 @@ export function transitionControlledOperationRequest(
   }
   if (command.type === "HOLD") {
     if (state.status !== "QUEUED" && state.status !== "RUNNING" && state.status !== "PAUSED") return fail("INVALID_STATUS");
-    return { error: null, state: clearLease({ ...state, status: "HELD" }) };
+    return { error: null, state: executing ? { ...state, status: "HELD" } : clearLease({ ...state, status: "HELD" }) };
   }
   if (command.type === "RESUME") {
     if (state.status !== "HELD" && state.status !== "PAUSED") return fail("INVALID_STATUS");
+    if (executing) return fail("LEASE_REQUIRED");
     return { error: null, state: { ...state, status: "QUEUED" } };
   }
   if (command.type === "REQUEST_CANCEL") {
     if (isTerminal(state.status)) return fail("INVALID_STATUS");
-    if (state.status === "RUNNING") return { error: null, state: { ...state, status: "CANCEL_REQUESTED" } };
+    if (executing) return { error: null, state: { ...state, status: "CANCEL_REQUESTED" } };
     return { error: null, state: clearLease({ ...state, status: "CANCELLED" }) };
   }
   if (command.type === "RETRY") {
@@ -157,7 +163,10 @@ export function transitionControlledOperationRequest(
     };
   }
 
-  if (state.status !== "RUNNING" && !(command.type === "CANCEL" && state.status === "CANCEL_REQUESTED")) return fail("INVALID_STATUS");
+  if (!executing) return fail("INVALID_STATUS");
+  if (command.type === "ACKNOWLEDGE_HOLD" && state.status !== "HELD") return fail("INVALID_STATUS");
+  if (command.type === "PAUSE" && state.status !== "RUNNING") return fail("INVALID_STATUS");
+  if (command.type === "CANCEL" && state.status !== "CANCEL_REQUESTED") return fail("INVALID_STATUS");
   if (!state.workerId || !state.leaseExpiresAt) return fail("LEASE_REQUIRED");
   if (state.workerId !== command.workerId) return fail("LEASE_OWNER_MISMATCH");
   const currentLeaseExpiry = Date.parse(state.leaseExpiresAt);
@@ -169,6 +178,7 @@ export function transitionControlledOperationRequest(
     return { error: null, state: { ...state, leaseExpiresAt: command.leaseExpiresAt } };
   }
   if (command.type === "PAUSE") return { error: null, state: clearLease({ ...state, status: "PAUSED" }) };
+  if (command.type === "ACKNOWLEDGE_HOLD") return { error: null, state: clearLease({ ...state, status: "HELD" }) };
   if (command.type === "CANCEL") return { error: null, state: clearLease({ ...state, status: "CANCELLED" }) };
   if (command.type === "SUCCEED") return { error: null, state: clearLease({ ...state, status: "SUCCEEDED", failureCode: null, retryable: false }) };
   if (command.type === "FAIL") {
@@ -178,6 +188,10 @@ export function transitionControlledOperationRequest(
     };
   }
   return fail("INVALID_STATUS");
+}
+
+export function hasControlledOperationLease(state: Pick<ControlledOperationRequestState, "status" | "workerId" | "leaseExpiresAt">): boolean {
+  return ["RUNNING", "HELD", "CANCEL_REQUESTED"].includes(state.status) && state.workerId !== null && state.leaseExpiresAt !== null;
 }
 
 function clearLease(state: ControlledOperationRequestState): ControlledOperationRequestState {

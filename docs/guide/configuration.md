@@ -88,6 +88,21 @@ Provider 有两种来源：部署环境变量是兼容回退；登录用户也�
 Web 永不启动消费者。暂停新请求/进程不移除已有可见性保护，合法取消和恢复仍可进行；生产启用仍需独立 migration/apply 与恢复确认。
 详细范围、24 小时冷静期、30 天恢复期及回退限制见[本人数据回收站与删除](../modules/data-deletion.md)。
 
+## 受控运维执行
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `OPS_EXECUTION_ENABLED` | `false` | Web 创建带完整前态和不可变目标的执行绑定；关闭时旧请求只能预览 |
+| `OPS_EXECUTION_CONTEXT_FILE` | 未设置 | 独立执行器生成的只读脱敏前态文件，不是命令或服务器配置 |
+| `OPS_EXECUTION_SCOPE_ID` | 未设置 | 必须与前态文件中 root 配置的作用域指纹完全一致 |
+| `OPS_EXECUTION_LOCAL_FIXTURE` | `false` | 仅专用合成测试池注入；生产禁止使用合成前态 |
+| `OPS_AGENT_ENABLED` | `false` | 独立执行入口的总开关；Web 不读取它来启动进程 |
+| `OPS_AGENT_PRODUCTION_ENABLED` | `false` | 生产入口的额外关闭门，仍要求 root 身份、私有配置和独立生产批准 |
+
+Web 只挂载脱敏前态目录为只读，不挂载 root journal、updater 配置、备份、签名私钥或 Docker socket。
+确认与审批冻结请求，过期、前态变化或身份变化不得在消费时自动刷新绑定。
+执行机制、停止屏障与恢复规则见[受控运维](../modules/controlled-operations.md)；独立进程的配置与隔离验收见[运维执行器](../../ops/controlled-operation-agent/README.md)。
+
 ## 日志与备份（部署层）
 
 | 变量 | 默认值 | 说明 |

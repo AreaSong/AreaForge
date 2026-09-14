@@ -34,7 +34,7 @@
 | AF-RISK-DATA-001 | 独立 EXPORT 已有本人记录/READY 附件私有 ZIP、一次性下载、权限/崩溃/回收与桌面/窄屏验收；90 个模型按 83 included/6 security/1 derived 分类。数据库回收站、物理删除、源附件清理、账本执行和共享/生产交付仍缺，保持 deferred-work | `areaforge-security-governance` / `areaforge-file-storage-safety` | 关闭需 fixture+物理删除/撤销路线证据；重开见台账 closeCondition |
 | AF-RISK-DATA-002 | 多用户/Membership/RBAC 已有本地统一授权、敏感矩阵、跨租户负向、隔离 runtime/总门禁、脱敏 Operator 账户目录、六类身份 desktop/mobile 可见性、代表性浏览器写入、17 项浏览器失败矩阵、App Shell/每日复盘 actor/owner 查询隔离和 `StudyTask.ownerUserId` 非空收紧；runner 检查点 `6568c87` / branch CI `34119581102` 已通过；仍缺受保护 PR/合并、Release 与生产证据，保持 deferred-work | `areaforge-security-governance` / `areaforge-validation-driver` | v1.4-v1.5 PR/Release/生产证据齐全后 |
 | AF-RISK-DATA-003 | 私有挑战、投影、申诉与持久通知已有本地候选，脱敏本人记录可进入独立 EXPORT；成员 opt-out→投影清理→删除预览 READY 与 Owner 阻断已有隔离证据。真实删除、完整排名浏览器矩阵和生产证据仍缺，保持 deferred-work | `areaforge-product-experience` / `areaforge-security-governance` | RANKING 确认包和 v1.8 前置完成后 |
-| AF-RISK-OPS-009 | v1.7 本地候选已有白名单 intent/持久请求生命周期和隔离 fixture 证据；root-agent journal/reconciliation、真实 updater 和逐动作生产证据仍缺；任意 shell 永久禁止 | `areaforge-sre-ops` / `areaforge-security-governance` / `areaforge-supply-chain` | OPS 确认包和 v1.7 前置完成后 |
+| AF-RISK-OPS-009 | OPS 冻结绑定、root 桥接/锁/日志/回执恢复已有 38 组本地运行态及真实 API/桌面/窄屏验收；生产适配器未运行，Release 和逐动作生产证据仍缺；分类及关闭条件不变，任意 shell 永久禁止 | `areaforge-sre-ops` / `areaforge-security-governance` / `areaforge-supply-chain` | OPS 确认包和 v1.7 前置完成后 |
 
 ## Task Bindings
 

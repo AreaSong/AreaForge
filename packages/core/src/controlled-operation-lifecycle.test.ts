@@ -36,11 +36,30 @@ test("worker lease, hold, resume, and completion are fenced", () => {
   assert.equal(transitionControlledOperationRequest(state, { type: "SUCCEED", workerId: "agent-b", now: "2026-09-06T00:00:03.000Z" }).error, "LEASE_OWNER_MISMATCH");
   state = transitionControlledOperationRequest(state, { type: "HOLD", now: "2026-09-06T00:00:04.000Z" }).state;
   assert.equal(state.status, "HELD");
+  assert.equal(state.workerId, "agent-a");
+  assert.equal(transitionControlledOperationRequest(state, { type: "RESUME", now: "2026-09-06T00:00:04.100Z" }).error, "LEASE_REQUIRED");
+  state = transitionControlledOperationRequest(state, { type: "ACKNOWLEDGE_HOLD", workerId: "agent-a", now: "2026-09-06T00:00:04.200Z" }).state;
+  assert.equal(state.workerId, null);
   state = transitionControlledOperationRequest(state, { type: "RESUME", now: "2026-09-06T00:00:05.000Z" }).state;
   assert.equal(state.status, "QUEUED");
   state = transitionControlledOperationRequest(state, { type: "CLAIM", workerId: "agent-a", now: "2026-09-06T00:00:06.000Z", leaseExpiresAt: "2026-09-06T00:10:00.000Z" }).state;
   state = transitionControlledOperationRequest(state, { type: "SUCCEED", workerId: "agent-a", now: "2026-09-06T00:00:07.000Z" }).state;
   assert.equal(state.status, "SUCCEEDED");
+});
+
+test("running expiry and repeated cancellation retain the executor fence until acknowledgement", () => {
+  let state = createControlledOperationRequestState({ ...base, risk: "READ_ONLY", requiresApproval: false, expiresAt: "2026-09-06T00:00:10.000Z" });
+  state = transitionControlledOperationRequest(state, { type: "ACKNOWLEDGE_PREVIEW", now: "2026-09-06T00:00:01.000Z" }).state;
+  state = transitionControlledOperationRequest(state, { type: "CLAIM", workerId: "agent-a", now: "2026-09-06T00:00:02.000Z", leaseExpiresAt: "2026-09-06T00:10:00.000Z" }).state;
+  state = transitionControlledOperationRequest(state, { type: "EXPIRE", now: "2026-09-06T00:00:10.000Z" }).state;
+  assert.equal(state.status, "CANCEL_REQUESTED");
+  state = transitionControlledOperationRequest(state, { type: "REQUEST_CANCEL", now: "2026-09-06T00:00:11.000Z" }).state;
+  assert.equal(state.workerId, "agent-a");
+  assert.equal(transitionControlledOperationRequest(state, { type: "CLAIM", workerId: "agent-b", now: "2026-09-06T00:00:11.000Z", leaseExpiresAt: "2026-09-06T00:11:00.000Z" }).error, "EXPIRED");
+  const acknowledged = transitionControlledOperationRequest(state, { type: "CANCEL", workerId: "agent-a", now: "2026-09-06T00:00:12.000Z" });
+  assert.equal(acknowledged.error, null);
+  assert.equal(acknowledged.state.status, "CANCELLED");
+  assert.equal(acknowledged.state.workerId, null);
 });
 
 test("cancel, retry, and expiry do not permit unsafe resurrection", () => {

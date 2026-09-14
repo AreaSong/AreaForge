@@ -63,6 +63,7 @@
 - `modules/background-jobs.md`：持久后台任务、租约代次、重试、死信和事务提交边界。
 - `modules/data-export.md`：本人数据/READY 附件导出、私有 ZIP、一次性下载、保留与精确副本回收。
 - `modules/data-deletion.md`：本人回收站、冻结范围、独立删除执行器、文件意图与备份账本重放边界。
+- `modules/controlled-operations.md`：受控运维冻结绑定、root 独立执行、停止屏障与阶段证据；执行器说明见 `ops/controlled-operation-agent/README.md`。
 - `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布并完成 production apply）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。

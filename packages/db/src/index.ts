@@ -110,6 +110,8 @@ export const prisma = new Proxy({} as PrismaClient, {
 });
 
 export type { PrismaClient };
+export * from "./controlled-operation-protocol";
+export * from "./controlled-operation-store";
 export { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
 export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from "./data-job-queue";

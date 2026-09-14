@@ -331,7 +331,7 @@
       "id": "AF-RISK-OPS-009",
       "type": "deferred-work",
       "reviewAt": "2026-11-30",
-      "currentImpact": "v1.7 本地候选已形成白名单 catalog、strict intent、持久请求/确认/审批/lease/hold/retry API，并在一次性隔离 fixture 验证；root-agent phase journal、跨进程锁、reconciliation、真实 updater/逐动作生产证据仍缺，扩大 Web 可请求的生产动作会增加提权、重放、状态漂移和误操作风险，Web runtime 任意 shell 仍永久禁止",
+      "currentImpact": "OPS 独立本地确认已完成冻结绑定、root-owned 桥接登记/文件、跨进程锁、不可覆盖日志、停止屏障与回执恢复；38 组合成运行态和真实 API/桌面/390px/320px 验收通过。生产适配器未运行，签名 Release、生产配置/逐动作 backup/apply/rollback 与运营证据仍缺；Web 任意 shell 永久禁止。本次仅同步本地证据摘要，不改变 residual 分类、复核日期、可执行状态或关闭条件",
       "executableNow": false,
       "closeCondition": "OPS 独立确认包、白名单 operation catalog、expected-before/TTL/nonce/hash/幂等/审批、root-only agent journal/锁/恢复以及逐动作生产证据齐全后进入人工关闭复核",
       "requiredEvidence": "协议与威胁模型、请求/agent selftest、kill-point、权限负向测试、签名/备份/hash/smoke/rollback/redacted evidence",
