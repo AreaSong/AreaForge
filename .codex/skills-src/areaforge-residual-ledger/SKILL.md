@@ -27,6 +27,8 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 11. [docs/development/maintenance-cadence.md](../../../docs/development/maintenance-cadence.md)
 12. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
+Read the minimum sources relevant to the residual item. Always read this skill; load incident, release, security, or operational references only when the item belongs to those surfaces.
+
 ## References
 
 - [references/classification.md](references/classification.md): residual types, close conditions, and reporting format.
@@ -37,6 +39,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report classification, evidence gaps, and proposed close conditions without editing the ledger, docs, tasks, or workflow. A closure draft may be prepared without confirmation; an actual status/`closed-evidence` write requires the matching residual-closure confirmation when the applicable packet marks it independent. `areaforge-doc-sync` may mirror an already authorized status but never infers or performs closure.
 1. Classify the item as current blocker, deferred work, accepted exception, monitoring gap, release follow-up, historical reference, template marker, or closed evidence.
 2. Start from tasks, workflow, completion records, release records, and feature traceability before creating or changing a residual entry.
 3. Report each item with stable ID, source file, type, review date, current impact, owner, close condition, evidence required, and whether it is executable now.
@@ -44,7 +47,7 @@ Use this skill to keep unresolved items visible, classified, and closeable witho
 5. If an item is executable and in current scope, promote it through tasks or workflow instead of leaving it only as residual text.
 6. If an item is accepted or deferred, keep the rationale and revisit trigger explicit.
 7. For data export, retention, deletion rights, user migration, privacy lifecycle, AI history, token/cost ledger, or provider trace gaps, use existing security/file/AI/SRE owner skills first; introduce `AF-RISK-DATA-*` only when data lifecycle becomes a stable residual family rather than a one-off cross-owner issue.
-8. Sync docs after status changes and run the validation selected by the validation driver.
+8. After an authorized status change, sync docs and run the validation selected by the validation driver; do not turn a report or validator result into an automatic ledger update.
 9. For broad "what is left" questions, separate current blockers/executable items from indexed but non-current items such as accepted exceptions, deferred work, historical references, and closed evidence.
 
 ## Guardrails

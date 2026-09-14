@@ -15,14 +15,14 @@
 
 ## Commit
 
-- Commit after validation passes for the touched scope.
+- Commit after validation passes for the touched scope and only when a checkpoint is explicitly in the requested change scope; Review/diagnostic work does not stage or commit.
 - If a validation is intentionally not run, the commit message or closeout must mention the reason and residual risk.
 - Prefer concise Chinese commit messages that describe the user-visible or governance-visible effect.
 
 ## Push
 
 - Do not push by default.
-- Push only when requested, when opening a PR, or when a release/tag flow explicitly requires it.
+- Push only after explicit user intent for the push/PR/release action. A workflow may perform its downstream push after that intent, but “workflow requires it” is not a separate local authorization.
 - If push fails, stop and inspect the branch state instead of force-pushing.
 
 ## Recovery

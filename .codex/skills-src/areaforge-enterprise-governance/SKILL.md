@@ -1,6 +1,6 @@
 ---
 name: areaforge-enterprise-governance
-description: "Use when Codex needs to inspect, design, or update AreaForge enterprise governance: CI policy, branch and release rules, dependency admission, CODEOWNERS or PR templates, security policy, review gates, repository settings, workflow drift, or governance-level readiness. This skill owns repository-level policy; hand security boundary details to areaforge-security-governance, artifact trust to areaforge-supply-chain, and release execution to areaforge-release-operator."
+description: "Use for AreaForge repository-policy work: CI permissions, branch/tag rules, dependency admission, CODEOWNERS, PR/security templates, repository settings, and governance preflight. Hand concrete security boundaries to areaforge-security-governance, artifact provenance to areaforge-supply-chain, and release execution to areaforge-release-operator."
 ---
 
 # AreaForge Enterprise Governance
@@ -34,6 +34,8 @@ Use this skill when a change affects how the project is governed rather than a s
 18. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 19. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
+Read the minimum sources relevant to the governance surface. Always read this skill and the governance gates; load release, security, support, dependency, or operational sources only when the changed policy crosses those surfaces.
+
 ## References
 
 - [references/governance-gates.md](references/governance-gates.md): CI, review, dependency, release, ownership, and policy gates.
@@ -44,6 +46,7 @@ Use this skill when a change affects how the project is governed rather than a s
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report governance findings, missing evidence, and suggested close conditions without editing policy, workflows, templates, or skills. Continue with governance changes only when the user explicitly requests that scoped change.
 1. Identify the governance surface: CI, release, branch policy, dependency policy, review process, completion evidence, runtime write boundary, security policy, ownership, docs gate, or Codex workflow.
 2. Load the governance gates before editing workflows, templates, skills, scripts, or repository policy docs.
 3. Check whether the change weakens evidence, expands write capability, changes approval requirements, or bypasses a high-risk confirmation packet.

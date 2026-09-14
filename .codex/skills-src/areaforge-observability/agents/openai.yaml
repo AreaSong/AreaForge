@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Observability"
   short_description: "Production signals and evidence checks"
-  default_prompt: "Use $areaforge-observability to inspect AreaForge health signals, alerts, logs, operations evidence, and read-only historical evidence indexes without treating them as live health."
+  default_prompt: "Use $areaforge-observability to inspect AreaForge read-only health/status signals, alerts, logs, operations evidence, and historical evidence indexes without treating them as live health; hand state changes to SRE Ops."

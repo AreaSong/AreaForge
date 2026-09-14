@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Quick | Low-risk wording, links, small docs or template edits | `areaforge-doc-sync` | diff summary, `git diff --check`, targeted docs check |
 | Change | Feature, API, UI, package, or cross-file change | relevant domain skill plus `areaforge-validation-driver` | source facts, tests/checks, docs sync, residuals |
-| Mission-Critical | auth, migration, uploads, AI privacy, deploy, backup, restore, update policy, server commands | security/SRE/release owner skill | explicit confirmation packet, rollback plan, high-risk validation |
+| Mission-Critical | auth/session/permissions/tenant isolation; migration, data repair, batch delete/clear, irreversible changes; uploads, attachment deletion, storage migration, backup/restore; export, retention, deletion rights, user migration; AI privacy, real provider calls, history/token/cost/provider traces; cross-service writes/Saga/Outbox/compensation; payment/billing/quota/metering; deploy, update policy, server commands; packet-defined rollout/probe/Release/residual closure | security/SRE/release owner skill | explicit confirmation packet, rollback plan, high-risk validation |
 | Review | user asks for review, audit, readiness, or risk check | matching governance or domain skill | findings first, file/line evidence, open questions |
 | Ops | production health, backups, update-agent, logs, Nginx, disk, cert, smoke freshness | `areaforge-sre-ops` and `areaforge-observability` | timestamped read-only evidence or confirmed write record |
 | Release | version bump, tag, GitHub Release, GHCR digest, updater, rollback | `areaforge-release-operator` and `areaforge-supply-chain` | validation, tag, release assets, signature, digest, health, residuals |
@@ -16,7 +16,7 @@
 ## Closeout Checks
 
 - Source facts updated before summaries or skill text.
-- High-risk confirmation retained when required.
+- High-risk confirmation retained when required; a still-valid confirmation is reused across owner handoffs and is re-requested only for a new action/target/scope, changed risk, stale evidence, or one-time consumption.
 - Validation selected from changed paths, not habit.
 - Release-bound changes mention whether a new GitHub Release is required.
 - Release-bound changes must read `docs/development/production-release-runbook.md`, `docs/deployment/github-release-updater.md`, `.github/workflows/release.yml`, and `docs/development/high-risk-confirmation-packets.md` before recommending tag, updater apply, rollback, or policy changes.
@@ -24,4 +24,5 @@
 - `health`, `readiness`, `doctor`, `gate`, `smoke`, `record`, and `apply` are distinct evidence words; do not use one as proof for another without explicit source evidence.
 - Production release or update evidence must include post-release public health, authenticated smoke or explicit limitation, update-agent status, rollback target, `pnpm ops:evidence:bundle` hash, and relevant residual risk IDs.
 - Ops claims are backed by timestamped evidence or reported as `unknown`.
+- Local UI/browser/test-pool/URL work uses the shared test-pool latest rule. A task-owned refresh/snapshot is required to claim a new optimized latest; a pre-existing instance may support evidence only when its source fingerprint matches the scope and it is labeled as pre-existing. Quick docs, Review, core, and non-Web work marks the pool check `not-applicable`.
 - Residual risks use IDs from `docs/development/residual-risk-ledger.md` when they affect future release or operations decisions.

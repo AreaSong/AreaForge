@@ -32,6 +32,8 @@ Use this skill to keep the public project usable without weakening AreaForge's s
 16. [.github/ISSUE_TEMPLATE/ops_support.md](../../../.github/ISSUE_TEMPLATE/ops_support.md)
 17. [.github/pull_request_template.md](../../../.github/pull_request_template.md)
 
+Read the minimum sources relevant to the public request. Always read this skill; load security, SRE, release, or governance references only when the request crosses those boundaries.
+
 ## References
 
 - [references/public-triage.md](references/public-triage.md): public issue, PR, support, and security routing gates.
@@ -44,13 +46,14 @@ Use this skill to keep the public project usable without weakening AreaForge's s
 
 ## Workflow
 
+0. If the request is Review/diagnostic or a public documentation question, keep it read-only and use the supplied issue/repository evidence first. Only request a change or additional runtime evidence when the missing information would alter the owner, validation, or approval path.
 1. Classify the public request as bug, feature, ops support, release/supply-chain, AI, docs, security, or contribution review.
 2. Check for sensitive data before solving the issue. If public content contains secrets, private study data, attachment content, exploit details, database URLs, tokens, server paths, or unredacted logs, route to redaction or `SECURITY.md` first.
 3. Map the request to the source fact: product docs, module docs, support intake, operator onboarding, release train, residual ledger, or code review policy.
 4. Assign the owner skill for the risky surface. Keep this skill as the coordinator; hand security, SRE, release, supply-chain, AI, upload/storage, UX, and validation details to their owner skills.
-5. Ask first for `pnpm ops:support:bundle-preview` output validated by `pnpm ops:support:bundle-preview:validate` when a public support or self-hosting issue needs context. Ask only for redacted, minimal reproduction evidence. Do not request production `.env`, database dumps, backup archives, attachment contents, full review text, motivation data, session secrets, API keys, cosign material, or smoke passwords.
+5. When a public support or self-hosting issue cannot be resolved from the supplied evidence and runtime context is necessary, request `pnpm ops:support:bundle-preview` output validated by `pnpm ops:support:bundle-preview:validate`. Ask only for redacted, minimal reproduction evidence. Do not request production `.env`, database dumps, backup archives, attachment contents, full review text, motivation data, session secrets, API keys, cosign material, or smoke passwords.
 6. If the request implies production deploy, backup, restore, migration, updater apply, rollback, auto-apply policy change, or server command execution, state that a public issue or PR is not execution confirmation and require the appropriate high-risk confirmation path.
-7. After public-template, support, or governance changes, sync docs and run `pnpm support:intake:preflight`, `pnpm ops:support:bundle-preview:selftest`, `pnpm governance:preflight`, `pnpm docs:readiness`, and `git diff --check`. If skills changed, also run `pnpm skills:validate`.
+7. After public-template, support, or governance changes, use the validation-driver changed-path profile: support changes run `pnpm support:intake:preflight`; support-bundle behavior runs its selftest; repository-governance changes run `pnpm governance:preflight`; docs changes run `pnpm docs:readiness`; all changed paths run `git diff --check`. Add only the relevant docs/risk/release checks. If skills changed, also run `pnpm skills:validate`.
 
 ## Guardrails
 

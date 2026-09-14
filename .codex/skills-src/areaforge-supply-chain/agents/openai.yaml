@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Supply Chain"
   short_description: "Release artifact trust and dependency gates"
-  default_prompt: "Use $areaforge-supply-chain to verify AreaForge release artifacts, image digests, signatures, dependencies, and updater trust."
+  default_prompt: "Use $areaforge-supply-chain to verify AreaForge release artifact and dependency trust: image digests, signatures, checksums, dependencies, and updater inputs; do not treat trust validation as release publication or production execution."

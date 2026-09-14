@@ -61,6 +61,10 @@
 ## 工作原则
 
 - 从仓库根到目标路径逐层检查适用的 `AGENTS.md`，按任务范围读取相关源事实后再改代码；局部技术规则可细化实现，但不得放宽根安全和批准边界。skill 的条件阅读与完成规则归口 `docs/development/codex-workflow.md`。
+- 更近目录的 `AGENTS.md` 只在其目录范围内细化或收紧全局规则；若涉及系统/平台硬门禁或高风险授权，仍取更严格规则。
+- 小任务可直接执行；目标明确且可逆的多文件改动可先给简明计划并继续执行；只有未决选择会改变范围、权限、数据、外部副作用或验收标准时才等待确认。轻微歧义采用最小可逆假设并在收尾说明。
+- 不把流程负担甩给用户；该我主动检查、主动验证、主动汇报的，直接执行并说明结果。
+- Skill 或插件不得扩大用户请求的范围；本地脚手架可在明确请求内推进，但全局配置、系统安装、外部发布、凭据/权限变化、删除/替换和远端写入必须按当前环境的授权边界处理。
 - 涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、供应链、残余风险、AI 或验证选择时，优先使用 `.codex/skills-src/` 中对应的 AreaForge repo-local skill。
 - 涉及公开 issue、支持入口、贡献者 PR、公开安全披露或维护者 triage 时，优先使用 `.codex/skills-src/areaforge-public-maintenance`，再按风险面交给安全、SRE、Release、供应链或体验 owner skill。
 - 跨多个治理面推进时，先用 `.codex/skills-src/areaforge-operating-loop` 做任务分级、owner skill 路由、验证选择和收尾证据整理。
@@ -69,10 +73,11 @@
 - 文档或入口变更后，按 `docs/development/doc-sync-checklist.md` 检查漂移。
 - 验证选择遵循 `docs/development/validation-matrix.md`。
 - 依赖、GitHub Actions、Docker base image、PR 模板、安全政策或公开仓库治理变更，遵循 `docs/development/dependency-policy.md` 并运行 `pnpm governance:preflight`。
-- 新增或扩大外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具时，遵循 `docs/development/external-capability-admission.md`；已准入且在当前请求范围内的只读调用无需重复准入。既有精确生产只读确认包仍有效，它们不得绕过 Web runtime 服务器命令禁区或生产高风险确认。
+- 新增或扩大外部能力、自动化、MCP、subagent、浏览器控制、部署插件或远程运维工具时，遵循 `docs/development/external-capability-admission.md`；已准入且在当前请求范围内的只读调用无需重复准入，worker 写集仍须有明确委派边界，不因准入自动扩大。既有精确生产只读确认包仅在原动作、目标、版本/资源和次数限制内有效，不得绕过 Web runtime 服务器命令禁区或生产高风险确认；历史已执行记录不构成新任务授权。
+- Skill 的默认发布、部署、持久化、清理和验证步骤都是条件性流程：只有用户请求且当前环境允许时执行外部写入；无法完成必需验证时报告 partial/blocked，不把构建或计划成功写成运行态成功。
 - 本地容器化 UI 验证统一使用 `areaforge-dev-test` 测试池：普通迭代执行 `pnpm dev:test:refresh` 复用最新槽位，只有明确需要保留旧版本比较时才执行 `pnpm dev:test:snapshot`；最多保留三个 Web 实例，不得绕过测试池创建递增命名的长期残留容器。
 - 浏览器/Playwright 验收必须复用 `pnpm dev:test:latest -- --json` 返回的 URL；不得为每个对话、每个页面或每次截图另起 `areaforge-v11browser-runtime-*` 容器。若某个验收工具确实创建一次性 runtime 容器，必须在该次验收结束时删除，不能把它当作测试池实例或长期运行服务。
-- 测试池收尾按 `docs/development/codex-workflow.md` 执行：本地 UI/浏览器验收、测试池操作或本地测试 URL 查询在范围内时，Docker 可用则运行 `pnpm dev:test:latest -- --json`；实际 `refresh`/`snapshot` 后报告机器返回的槽位、端口和 URL。未更新时标为既有实例，不得用它证明本次改动；范围内但 Docker 不可用时报告未核验。纯文档、只读审阅、非 Web 任务标为不适用，不为收尾启动 Docker 或刷新测试池。
+- 测试池收尾按 `docs/development/codex-workflow.md` 执行：本地 UI/浏览器验收、测试池操作或本地测试 URL 查询在范围内时，Docker 可用则运行 `pnpm dev:test:latest -- --json`；实际 `refresh`/`snapshot` 后报告机器返回的槽位、端口和 URL。未更新时标为既有实例；只有 source fingerprint 与当前 scope 匹配时才可作为当前环境证据，不能称为本任务更新后的 latest。fingerprint 不匹配或不可核验时报告未核验。纯文档、只读审阅、非 Web 任务标为不适用，不为收尾启动 Docker 或刷新测试池。
 - 实际发布、生产运维、长期运营状态或其证据发生变化时，同步 `docs/development/operational-readiness.md`、`docs/development/residual-risk-ledger.md` 的受影响入口，并按验证矩阵运行 `pnpm ops:readiness`；release/update/运维交接证据需要 `pnpm ops:handoff`、`pnpm ops:evidence:bundle` 和 `pnpm ops:alert:preview`。单纯审阅这些规则或修正文案不表示生产状态变化。
 - 当前学习闭环围绕“开始学习（选科目） -> 专注计时 -> 收口 -> 证据/复测 -> 今日闭环 -> 周期报告与阶段调整”展开；任务和考纲是可选上下文，学习是否真正学进去才是主要结果。
 - `packages/core` 放平台无关业务规则，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量。
@@ -83,15 +88,19 @@
 
 ## 高风险边界
 
-拟执行以下动作或改变对应高风险边界的实现时，先说明影响、风险、验证与回滚思路，再等待明确确认。只读审阅、诊断、计划、文档准备和无真实状态写入的静态/mock 检查可先行；它们不授权 migration、真实数据写入、Provider 外呼或生产操作。
+拟执行以下高风险边界变更、受控状态写入或外部写入时，先说明影响、风险、验证与回滚思路，再等待明确确认。仅触及相关文件但不改变边界的设计、测试、文档、静态检查和无真实状态写入的 mock 可先行；等待只阻止受限动作，其他已授权且独立的安全工作继续。上述准备工作不授权 migration、真实数据写入、Provider 外呼或生产操作。
 
 - 数据库 migration、数据修复、批量删除、清空记录。
 - 删除附件、移动上传目录、修改备份/恢复策略。
-- 认证、会话、权限、密钥、AI 调用隐私边界。
+- 认证、会话、授权、租户隔离、权限模型、密钥生命周期、加密和 AI 调用隐私边界。
+- 数据导出、留存、删除权、用户迁移，以及 AI history、token/cost ledger 或 provider trace 留存边界。
+- 跨服务写一致性、Saga、Outbox、补偿逻辑，以及支付、计费、配额和计量。
+- 破坏性操作或风险等级无法快速判断的变更。
 - 网页内直接触发部署、执行服务器命令或一键更新；允许的版本中心只能提交受控请求，由服务器侧 root update-agent/updater 执行签名校验、备份、migration、切换和回滚。
 - 将动机档案、情绪记录、复盘正文发送给 AI 的默认策略变化。
+- 确认包明确要求独立批准的 rollout、controlled probe、Release 或 residual closure。
 
-确认范围和跨 skill 复用以 `docs/development/high-risk-confirmation-packets.md` 为准；同一未超范围的确认不因 handoff 重复询问，一次性或独立确认要求不得复用。文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。
+确认范围和跨 skill 复用以 `docs/development/high-risk-confirmation-packets.md` 为准：同一有效确认可在精确 action、target、scope、version/resource 和有效期内跨 handoff 复用；一次性确认消费后不可再次执行，独立确认包不得交叉复用。确认未覆盖新动作、目标/版本变化、风险实质增加、前置证据失效或明确失效时重新确认。文件上传、附件访问、AI 调用和备份恢复的细化安全边界见 `docs/security/file-ai-safety.md`。
 
 ## 验证要求
 

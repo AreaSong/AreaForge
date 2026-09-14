@@ -6,6 +6,16 @@
 
 它不是新流程系统，不创建任务队列，不替代 `docs/development/validation-matrix.md`、`docs/development/residual-risk-ledger.md` 或 Release runbook。它只要求每次完成声明带上新鲜证据和未验证边界。
 
+## 任务状态与声明范围
+
+- `complete`：用户请求范围内的交付和必需验证均完成；已接受且不阻断本次声明的残余风险仍须列出。
+- `partial` / `checkpoint`：仅部分交付或已保存工作，不能称为完整完成；请求中的安全可行工作仍应继续。Git checkpoint 不是完成或发布授权。
+- `blocked`：缺少关键批准、环境或证据，且已穷尽范围内安全替代；说明缺口和恢复条件，不能因“已有阻塞说明”标记 complete。
+- `not-applicable`：某检查不适用于当前交付，不是通过，也不是阻塞。Review/诊断以核验过的来源、文件/行号、发现和限制完成其只读交付，不要求无关 build、Docker 或生产门禁，也不声称修复或运行时健康。
+- 以上是人类可读任务状态；保存的证据记录继续使用既有 `result: PASS/FAIL/BLOCKED/NOT-READY` schema，不新增枚举或绕过 validator。`PASS` 仅支持其 `claimScope`。
+- `release-published` 只表示 `release-artifact` 范围完成；`production-applied` 需要独立生产授权和实际 apply 证据。合法的 `production-deferred` 不阻断只要求发布制品的任务，但若用户要求上线，则整体任务仍为 partial/blocked。
+- 最终实现、文档、skill metadata 和台账编辑后再运行必需检查；之后改动使证据失效时重跑受影响检查。只有 runbook 要求或用户请求时保存独立记录，不为普通任务额外生成报告文件。
+
 ## 校验入口
 
 完成声明记录可保存为 Markdown 或纯文本，然后运行：

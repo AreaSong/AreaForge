@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Release Operator"
-  short_description: "Release and updater evidence workflow"
-  default_prompt: "Use $areaforge-release-operator to prepare a signed AreaForge release and updater evidence."
+  short_description: "Signed release artifacts and production apply evidence"
+  default_prompt: "Use $areaforge-release-operator to prepare or review AreaForge release identity, signed assets, updater requests, and release evidence; hand artifact trust to Supply Chain and confirmed production execution to SRE Ops while keeping release-published separate from production-applied."

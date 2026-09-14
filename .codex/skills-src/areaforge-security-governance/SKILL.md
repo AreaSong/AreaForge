@@ -1,6 +1,6 @@
 ---
 name: areaforge-security-governance
-description: "Use when Codex needs to review or update AreaForge security governance, authentication, authorization, uploads, attachment access, AI privacy, secrets, logs, supply chain, GitHub Release signing, GHCR, updater safety, production command boundaries, or high-risk confirmation packets. This skill owns security boundary review and data lifecycle coordination; hand artifact trust verification to areaforge-supply-chain and release execution to areaforge-release-operator."
+description: "Use for AreaForge security/privacy boundaries: auth/session, authorization, upload access, AI data minimization, secrets/logs, server-command boundaries, and high-risk confirmation packets. Hand artifact provenance to areaforge-supply-chain and release publication to areaforge-release-operator."
 ---
 
 # AreaForge Security Governance
@@ -21,6 +21,8 @@ Review security as a system: data boundary, command boundary, dependency boundar
 5. [docs/architecture/ai-boundary.md](../../../docs/architecture/ai-boundary.md)
 6. [docs/deployment/github-release-updater.md](../../../docs/deployment/github-release-updater.md)
 
+Read the minimum sources relevant to the security boundary under review. Always read this skill; load file, AI, supply-chain, release, or production references only when that boundary is in scope.
+
 ## References
 
 - [references/security-gates.md](references/security-gates.md): security review checklist and high-risk boundaries.
@@ -32,12 +34,13 @@ Review security as a system: data boundary, command boundary, dependency boundar
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report findings with file/line evidence and claim scope; do not edit code, docs, residuals, or release configuration. Continue with the steps below only when the user explicitly requests a change or a scoped state update.
 1. Identify assets: account/session, database, upload files, AI context, release keys, GHCR images, server secrets, backups.
 2. Identify trust boundary changes: browser/server, Web/updater, DB/filesystem, AI provider, GitHub/GHCR, Nginx/container.
-3. Apply the security gates before editing code, docs, or release configuration.
+3. Apply the relevant security review gates before editing code, docs, or release configuration; a review gate is not itself a user-approval request. Stop for the confirmation packet only before the scoped high-risk implementation, real call, or state-changing action.
 4. For reviews, lead with findings and file/line references; separate confirmed issues from residual risk.
 5. Treat data export, retention, deletion rights, account/user migration, privacy lifecycle, or default data sharing changes as high-risk until a dedicated data-governance owner exists.
-6. Act as the temporary primary coordinator for data lifecycle work: hand attachment/file body rules to `areaforge-file-storage-safety`, AI history/provider trace rules to `areaforge-ai-governance`, backup/restore or production execution to `areaforge-sre-ops`, and unresolved close conditions to `areaforge-residual-ledger`.
+6. Act as the temporary primary coordinator for data lifecycle work: set the scope and confirmation packet, then hand attachment/file body rules to `areaforge-file-storage-safety`, AI history/provider trace rules to `areaforge-ai-governance`, backup/restore or production execution to `areaforge-sre-ops`, and unresolved close conditions to `areaforge-residual-ledger`. These owner skills return scoped evidence and do not reopen the same approval for that exact scope; independent rollout, probe, Release, or residual-closure confirmations remain separate.
 7. For fixes, verify auth, path traversal, secret exposure, logging, dependency, and rollback implications.
 
 ## Guardrails

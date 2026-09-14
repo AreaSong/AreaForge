@@ -13,6 +13,15 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 
 若层次之间冲突，优先更新 `docs/**`，再同步 `workflow/**` 和 `tasks/**`。
 
+仅在用户请求变更且事实已核实时才同步文件；审阅、解释和诊断请求默认只读。实现路径明确、可逆且不触及批准边界的跨文件工作，可给出简明计划后继续。仅当未决选择会改变范围、权限、数据、外部副作用或验收标准时提问；普通工程取舍由代理结合现有模式决定并说明。非阻断漂移不终止独立的安全工作。
+
+## 条件阅读与交接
+
+- 读取适用的 AGENTS 和目标代码/源事实。repo-local skill 的 `Read First` 是按任务选择的来源目录，不是无条件全量阅读清单；选中的指令文件须完整阅读。先读取该 skill 的职责/护栏及对应 reference，再按任务补充相关源事实，不沿全部 sibling skill 链递归展开。
+- 同一任务已读且未变化的来源无需重复读取；新任务、范围变化或文件更新时重新检查。缺少关键安全/批准来源时停在受限动作前，仍可继续无关的只读调查。
+- handoff 表示当前主代理切换到对应 owner 的规则，不要求新建任务或子代理，也不构成新的用户批准门。主代理持续承担实施、最终验证和收尾责任。
+- 数据生命周期由 Security Governance 统一范围和确认；File Storage、AI、SRE 分别核验文件、Provider/费用、生产执行机制并回传。Residual 分类、Doc Sync 同步结论，不把同一范围反复路由回 Security；新边界才重新评估。
+
 ## 任务分级
 
 ### Quick
@@ -39,15 +48,17 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 命中以下边界时进入高风险任务：
 
 - 认证、会话、权限。
-- 数据库 migration、数据修复、批量删除。
+- 数据库 migration、数据修复、批量删除、不可逆变更。
 - 上传、附件删除、备份和恢复。
+- 租户隔离、密钥/加密、跨服务写一致性、Saga、Outbox、补偿逻辑，以及支付、计费、配额和计量。
+- 数据导出、留存、删除权、用户迁移、AI history/token/cost/provider trace 留存，以及风险等级无法快速判断的破坏性操作。
 - AI 默认读取动机档案、情绪记录、复盘正文。
 - 部署、服务器命令、一键更新。
 
 要求：
 
 - 先说明影响、风险、验证和回滚。
-- 等明确确认后再执行。
+- 改变高风险边界的实现和真实状态写入须等明确确认后再执行；只读调查、计划、文档准备、静态/mock 检查可先行。确认复用与重新确认条件见 `high-risk-confirmation-packets.md`，不能因切换 skill 重复索要同一批准。
 - 结果必须报告未验证项和残余风险。
 
 ### Review
@@ -80,8 +91,8 @@ AreaForge 采用轻量 Codex 工作流。它吸收 AreaMatrix 的源事实、验
 
 ## 子代理使用规则
 
-- 只有用户明确要求使用子代理、并行审查或分工时才使用。
-- 子代理适合只读审查、不同维度并行探索、互不重叠的实现切片。
+- 对具体、独立、可审计的只读探索或核验可主动使用子代理，不要求用户逐次点名；简单任务不为并行而并行。子代理默认不得修改文件或继续派生子代理。
+- 主代理处理已知小文件、方案取舍、代码修改和最终验证；确需 worker 时遵守当前运行环境允许的委派权限和互不重叠写集，不把委派当成额外写权限。
 - 主代理必须整合子代理结论，不能直接把子代理输出当最终验收。
 - 子代理不能替代本地验证，也不能替代高风险确认。
 
@@ -133,19 +144,19 @@ mainAgentMustReview:
 
 ## 功能完成后的发版规则
 
-当一次功能更新准备进入线上时，默认走 GitHub Release 路径，而不是只在服务器上手动改代码：
+当用户明确要求一次功能更新进入线上时，默认走 GitHub Release 路径，而不是只在服务器上手动改代码；仅完成开发、审阅或本地验证不触发发布：
 
 1. 先按 `docs/development/release-train.md` 判断发布范围，再同步 `docs/**`、`tasks/**` 和 `workflow/**`，确认源事实没有漂移。
 2. 按 `docs/development/validation-matrix.md` 跑对应验证，至少覆盖 `pnpm check`、`pnpm docs:readiness`、`pnpm risk:preflight`、`pnpm ops:readiness` 和 `git diff --check`；涉及更新器时补跑 `pnpm github-release-updater:preflight` 与 `pnpm shellcheck:updater`。
 3. bump 版本并提交干净 commit。
-4. 创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 先执行 validate job，再生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle；stable release 缺签名密钥必须失败。
+4. 在用户已明确请求发布且前述门禁通过后，创建并推送 `vX.Y.Z` tag，让 `.github/workflows/release.yml` 先执行 validate job，再生成 GitHub Release、GHCR Web/migration 镜像、manifest、`SHA256SUMS` 和 cosign bundle；stable release 缺签名密钥必须失败。
 5. 通过 Web 版本中心提交受控更新请求，或由管理员在服务器执行 updater；Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
 6. 更新成功后，把 Release tag、线上 health、镜像 digest、update-agent 状态、`pnpm ops:evidence:bundle` 的 `bundleHash` 和残余风险同步回发布记录或对应文档。
 7. 若本次 Release 用于关闭或复核 `AF-RISK-SC-001` / `AF-RISK-SC-002`，按 `docs/development/release-supply-chain-record-template.md` 记录供应链证据，同时配置 record/assets 运行 `pnpm sc:sc-002:preflight`，再运行 `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict`。
 
 当前仓库已提供 repo-local Codex skills，源目录为 `.codex/skills-src/`，自动发现入口为 `.agents/skills/`。跨多个治理面时先触发 `areaforge-operating-loop` 做分级和 owner 路由；涉及企业治理、发布、真实体验、文档同步、生产运维、观测、事故响应、安全、上传/附件存储、供应链、残余风险、AI 或验证选择时，再触发对应 `areaforge-*` skill；变更 skill 后运行 `pnpm skills:validate`。
 
-完成声明默认遵循 `docs/development/completion-evidence-checklist.md`：说明证据等级、新鲜验证、未验证项、阻断项、是否需要 Release 和 residual risk IDs。写动作能力默认按 `docs/development/runtime-write-boundary.md` 的 R0-R4 矩阵判断，不能把 preview、本地 smoke、Web update request 或草稿说成生产 apply。
+完成声明默认遵循 `docs/development/completion-evidence-checklist.md`：先完成实施和受影响文档/metadata/residual 同步，再执行最终验证，最后收尾或进行用户请求的 Git checkpoint；验证后再次编辑须重跑受影响检查。说明证据等级、新鲜验证、未验证项、阻断项、是否需要 Release 和 residual risk IDs。写动作能力默认按 `docs/development/runtime-write-boundary.md` 的 R0-R4 矩阵判断，不能把 preview、本地 smoke、Web update request 或草稿说成生产 apply。
 
 ## 收尾报告
 
@@ -156,5 +167,5 @@ mainAgentMustReview:
 - 跑了哪些验证。
 - 哪些没有验证。
 - 还有哪些风险或后续任务。
-- 本地 Docker 可用时运行 `pnpm dev:test:latest -- --json` 并说明本次是否更新本地测试池；若执行过成功的 `refresh` 或 `snapshot`，必须逐项报告 latest 的槽位、端口和访问地址。若未更新，不得把既有 latest 写成本次优化结果，也不得让维护者依次尝试三个端口；Docker 不可用时明确 latest 未核验。
+- 只有本地 UI/浏览器验收、测试池操作或本地测试 URL 查询在范围内时，本地 Docker 可用则运行 `pnpm dev:test:latest -- --json` 并说明本次是否更新测试池；成功 `refresh` 或 `snapshot` 后报告 latest 槽位、端口、URL 和 source fingerprint。未更新只能标为既有实例；source fingerprint 与当前 scope 匹配时可作为当前环境证据，但不能称为本任务更新后的 latest，不匹配或无法核验时不得证明本次源码；范围内但 Docker 不可用时报告 latest 未核验。纯文档、只读审阅和非 Web 任务为不适用，不为收尾启动 Docker 或刷新测试池。
 - 浏览器验收沿用同一个 latest URL；禁止按对话、页面或截图启动新的长期 Web 容器。一次性 `areaforge-v11browser-runtime-*` 只允许在验收期间存在，结束后必须删除并在收尾报告中说明清理结果。

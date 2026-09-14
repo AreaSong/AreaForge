@@ -2,7 +2,7 @@
 
 ## Scope Gate
 
-Ask which governance surface changed:
+Determine the changed governance surface from the request and diff first; ask only when the missing distinction would change the owner, validation, or approval path:
 
 - CI workflow
 - release workflow
