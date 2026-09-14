@@ -585,6 +585,21 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 
 本地回归不证明生产 migration、真实用户导出、Release、DATA-DELETE、备份恢复、长期运行容量或 v2.0 综合门禁。
 
+## 本人数据删除专项
+
+涉及 `packages/core/src/data-delete-*`、`packages/db/src/data-delete-*`、普通 Prisma 可见性适配、`packages/storage/src/data-delete-*`、
+独立删除进程、删除 API/UI 或对应 additive migration 时，先核对独立 DATA-DELETE 确认，然后运行：
+
+- Core/DB/Storage/Web 测试与类型检查、`pnpm worker:deletions:typecheck`、`pnpm worker:deletions:isolation:selftest`、`pnpm check`。
+- `pnpm worker:deletions:runtime:selftest <本批 fixture 根>`：只允许登记所有权的新建 `areaforge_v20_delete_*` 库与私有目录；核对全部 migration 名称、实际顺序、SQL checksum、完成状态及步骤数。包含五类对象、真实成员/所有权/账户权限变化、并发恢复与 claim、根对象清除、文件一致性、租约/退避/死信、五个真实强杀点、跨备份快照提交及可信账本水位重放。禁止复用 EXPORT/共享库或真实上传目录。
+- `pnpm worker:deletions:browser:selftest <本批 fixture 根>`：复用 DELETE 专属测试池 latest，严格匹配产品源码指纹与 fixture；验证账户/工作区/对象确认、响应丢失幂等、普通读取隐藏、跨用户拒绝、取消/恢复/失败保留、账户退出后回执、桌面和窄视口。
+- 测试池模式变化另运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/dry-run 及原治理门禁；不得覆盖共享槽或 EXPORT 槽。
+- 新模型必须进入导出清单双向分类；内部删除意图、栅栏、文件指纹和恢复账本不得静默作为用户归档输出。
+- 知识画布原生查询必须覆盖节点/边/计数/分页/focus/search 的冻结过滤与恢复；原生读适配补代次变化、旧表兼容和持续竞争负测。真实登录的 API 探针必须使用同一浏览器会话，不能因独立 HTTP 客户端漏带 Secure Cookie 而把 401 误算为越权或撤销验证。
+- 最终编辑后运行 docs/readiness/links/evergreen、tasks/risk/governance/secrets 和 diff 门禁；最终 runtime 或浏览器缺失时只能报告 partial/blocked，不以中途源码证据、构建或绿色 CI 替代。
+
 ## 当前已知验证阻塞
+
+DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。
 
 仓库使用 pnpm 11.7.0，并通过 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies` 与 `allowBuilds` 允许 Prisma、Sharp 和相关解析依赖执行必要 build script。若当前机器仍提示 ignored builds，按 `docs/development/setup.md` 执行 `pnpm approve-builds --all` 后再跑 `pnpm check`。

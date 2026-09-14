@@ -84,6 +84,10 @@ Provider 有两种来源：部署环境变量是兼容回退；登录用户也�
 附件只通过鉴权 API 访问，数据库存 metadata 与 hash，文件本体在 `UPLOAD_DIR`；备份必须同时覆盖数据库和上传目录。
 导出目录仅保存有时限的派生副本，不作为备份；开关、资源保护、下载与回收契约见 [本人数据导出](../modules/data-export.md)。
 
+`DATA_DELETE_ENABLED=false` 控制新回收站/删除请求；`DATA_DELETE_WORKER_ENABLED=false` 独立控制删除进程启动，并须同时启用生命周期与删除开关。
+Web 永不启动消费者。暂停新请求/进程不移除已有可见性保护，合法取消和恢复仍可进行；生产启用仍需独立 migration/apply 与恢复确认。
+详细范围、24 小时冷静期、30 天恢复期及回退限制见[本人数据回收站与删除](../modules/data-deletion.md)。
+
 ## 日志与备份（部署层）
 
 | 变量 | 默认值 | 说明 |

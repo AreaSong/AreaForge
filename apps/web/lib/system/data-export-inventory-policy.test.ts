@@ -25,7 +25,7 @@ test("every Prisma model has an explicit export lifecycle disposition", async ()
   }), {});
   assert.deepEqual(dispositionCounts, {
     INCLUDED_PREVIEW: 83,
-    EXCLUDED_SECURITY: 6,
+    EXCLUDED_SECURITY: 12,
     DERIVED_REBUILDABLE: 1,
   });
 });

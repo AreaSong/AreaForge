@@ -62,6 +62,12 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `DataExportDownloadGrant`：token 仅存 purpose-separated hash；`reservationId/reservedAt/reservationExpiresAt` 区分校验预留与真正消费，SQL CHECK 约束三字段一致、预留期限和消费状态。
 - 导出模型不改变源记录 owner、不构成备份或删除账本；文件与事务的发布/恢复边界见 [`本人数据导出`](../modules/data-export.md)。
 
+### 删除意图与回收站
+
+删除状态由 `DataDeletionIntent`、`DataDeletionItem`、`DataDeletionFence`、`DataDeletionFile`、`DataDeletionLedger` 与 `DataDeletionVisibility` 承载。
+意图中的 requester/workspace/resource 标识不对待删业务对象建外键；精确对象指纹、可见性代次、持久文件意图与不可变 ledger 分离，根对象删除不会销毁回执。
+这些内部协议模型不进入普通数据导出清单。行为和授权边界见[本人数据回收站与删除](../modules/data-deletion.md)。
+
 ## 规划扩展模型
 
 后续实体继续遵循 additive-first；已落地模型见上方与 Prisma schema。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。旧数据只读兼容，不批量猜测回填。

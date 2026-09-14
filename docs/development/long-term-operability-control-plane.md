@@ -9,7 +9,7 @@
 ## 当前结论
 
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
-- 当前生产基线为 `1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` / `https://forge.areasong.top/`；最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`。2026-08-01 Web 受控 production apply 已完成并由公网 health 报告 verified runtime identity；`v1.2.0` 尚未执行 production apply。
+- 归档生产交付基线为 `1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` / `https://forge.areasong.top/`，对应 2026-08-01 受控 apply。最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；2026-09-14 公网 health 已观测到该版本，但完整服务器交付/回滚证据未核验，继续保持 `needs_live_evidence`，详见 operational-readiness。
 - `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；当前 `v1.1.1` 生产事实已由公网 health、固定 Web digest 与服务器 updater 结果交叉确认，旧记录不能替代这些当前证据。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
 - `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.1` 当前生产健康，也不授权未来 Release、production apply、migration、写入 smoke 或自动更新策略变化。

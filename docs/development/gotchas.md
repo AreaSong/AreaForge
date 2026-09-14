@@ -25,6 +25,20 @@
 
 ## 并发与事务
 
+### 删除事务的记录时间不能当作备份快照水位
+
+- 触发：删除已写入 `completedAt` 但事务未提交时启动数据库备份；按备份时间筛选恢复账本。
+- 根因：备份仍能看到旧记录，而账本中的时间早于备份开始；时间过滤会跳过这次后来提交的删除。
+- 规避：从恢复库取得账本序号/head 快照，绑定 dump hash 并核对外部可信源链，重放缺失后缀；保持恢复目标未发布。用提交前屏障与真实 dump/restore 验证该竞争窗口。
+- 关联：`packages/core/src/data-delete-ledger.ts`、`scripts/quality/data-delete-restore-runtime.ts`、`docs/modules/data-deletion.md`。
+
+### ORM 的回收站过滤不会自动覆盖原生 SQL 聚合
+
+- 触发：普通详情已隐藏回收站对象，知识画布搜索仍返回其标题或图关系。
+- 根因：Prisma `$allModels` 扩展不处理 `$queryRaw`；聚合、计数和分页已在数据库中执行，事后删 DTO 不够。
+- 规避：原生读显式在节点/边/计数/分页之前接入冻结谓词，并在查询后重验可见性代次；补 focus/search 的真实 API 验收。
+- 关联：`packages/db/src/data-delete-visibility.ts`、`apps/web/lib/study/knowledge-canvas-query.ts`。
+
 ### 把失效收件人的通知失败传播回源事务，会让挑战无法结束或清退参与者
 
 - 触发：参与者离开或被移除工作区、账户被暂停后，Owner 结束/解散挑战、移除参与者或处理申诉返回通知授权冲突。
@@ -54,6 +68,13 @@
 - 关联：`docs/development/ops-006-business-state-concurrency-design.md`、`apps/web/lib/study/concurrency.ts`、residual `AF-RISK-OPS-006`。
 
 ## 安全与 HTTP 边界
+
+### 浏览器真实登录成功，独立 HTTP 测试客户端仍可能漏带 loopback Secure Cookie
+
+- 触发：production-build 测试池使用 HTTP `127.0.0.1`，浏览器操作成功而 Playwright `context.request` 返回 401。
+- 根因：浏览器允许可信 loopback 上的 Secure Cookie；独立 HTTP 客户端的本地域名例外不一定覆盖 IP。直接把 401 计为撤销成功会形成假阳性。
+- 规避：鉴权探针复用已登录页面的同源请求，并先断言正常会话成功，再测试撤销；不要关闭产品 Secure Cookie 或注入非 Secure 替代凭据。
+- 关联：`scripts/quality/data-delete-browser.selftest.ts`、`apps/web/lib/auth/cookies.ts`。
 
 ### 下载流尚未首次读取就取消，生成器 finally 不会关闭外部已打开的句柄
 

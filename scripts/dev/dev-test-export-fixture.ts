@@ -3,8 +3,10 @@ import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readF
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { SlotSelection } from "./dev-test-pool-core";
+import { loadDevTestDeleteFixture } from "./dev-test-delete-fixture";
 
 export interface DevTestExportFixture {
+  kind?: "DELETE";
   id: string;
   root: string;
   uploadRoot: string;
@@ -17,6 +19,7 @@ export interface DevTestExportFixture {
 }
 
 export function loadDevTestExportFixture(repository: string, env: NodeJS.ProcessEnv = process.env): DevTestExportFixture | undefined {
+  if (env.AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT) return loadDevTestDeleteFixture(repository, env);
   const value = env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT;
   if (!value) return undefined;
   try {
@@ -60,7 +63,8 @@ export function exportFixtureEnvironment(fixture: DevTestExportFixture, slot: nu
   const database = new URL(fixture.databaseUrl); database.hostname = "host.docker.internal";
   return { DATABASE_URL: database.href, APP_URL: `http://127.0.0.1:${port}`, APP_VERSION: appVersion,
     AUTH_SESSION_COOKIE_NAME: `af_dev_test_${slot}`, AUTH_SESSION_SECRET: fixture.sessionSecret, AUTH_ACTION_TOKEN_SECRET: fixture.actionSecret,
-    AUTH_MULTI_USER_ENABLED: "true", AUTH_RBAC_ENABLED: "true", DATA_LIFECYCLE_ENABLED: "true", DATA_EXPORT_ENABLED: "true",
+    AUTH_MULTI_USER_ENABLED: "true", AUTH_RBAC_ENABLED: "true", DATA_LIFECYCLE_ENABLED: "true", DATA_EXPORT_ENABLED: fixture.kind === "DELETE" ? "false" : "true",
+    DATA_DELETE_ENABLED: fixture.kind === "DELETE" ? "true" : "false", DATA_DELETE_WORKER_ENABLED: "false",
     DATA_JOB_WORKER_ENABLED: "false", UPLOAD_DIR: "/app/uploads", EXPORT_DIR: "/app/exports", TRUST_PROXY: "false",
     AI_ENABLED: "false", AI_LOG_PROMPTS: "false", AI_ALLOW_SENSITIVE_CONTEXT: "false",
     RANKING_ENABLED: "false", RANKING_PROJECTION_ENABLED: "false", PLATFORM_NOTIFICATIONS_ENABLED: "false", PLATFORM_NOTIFICATION_QUEUE_ENABLED: "false" };

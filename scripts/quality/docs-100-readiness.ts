@@ -603,7 +603,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
       new RegExp(`^${field}: [a-f0-9]{64}$`, "m").test(historicalReleaseRecord)
     ) &&
     historicalReleaseRecord.includes("root-only paths remain on host") &&
-    operationalReadiness.includes("均为历史证据，不能替代当前 `v1.1.1` 生产证据");
+    operationalReadiness.includes("均为历史证据，不能替代新鲜的生产交付证据");
   const currentStatusSources = [
     webAgentGuide,
     webReadme,
@@ -656,7 +656,7 @@ function checkCurrentProductionEvidenceBoundary(): void {
     ok: missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces,
     detail:
       missing.length === 0 && forbidden.length === 0 && currentProductionIdentity && historicalReleaseBoundary && staleCurrentClaims === 0 && currentProductSurfaces
-        ? "v1.1.1 current production identity is consistent and v0.1.9 remains historical evidence only"
+        ? "recorded v1.1.1 delivery anchors are consistent; historical records and public health alone do not prove current production delivery"
         : `missing ${missing.join(", ") || "none"}; forbidden ${forbidden.join(", ") || "none"}; current identity ${currentProductionIdentity ? "present" : "missing"}; historical boundary ${historicalReleaseBoundary ? "present" : "missing"}; current product surfaces ${currentProductSurfaces ? "present" : "missing"}; stale current claims ${staleCurrentClaims}`,
   });
 }

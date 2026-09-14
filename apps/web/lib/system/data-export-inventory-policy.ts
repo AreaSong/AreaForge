@@ -90,6 +90,12 @@ export const DATA_EXPORT_MODEL_DISPOSITIONS = [
   excluded("DataExportArtifact", "per-lease staging and cleanup identity is internal storage state"),
   excluded("DataExportDownloadGrant", "download capability hashes are never exported"),
   excluded("AiRuntimeSetting", "global server runtime configuration is not account data"),
+  excluded("DataDeletionIntent", "internal deletion authorization, lease and receipt capability state"),
+  excluded("DataDeletionItem", "internal frozen identity and row fingerprint manifest"),
+  excluded("DataDeletionFence", "internal visibility and mutation fences are not portable source data"),
+  excluded("DataDeletionFile", "internal exact file cleanup identity and crash journal"),
+  excluded("DataDeletionLedger", "restore anti-resurrection ledger requires an independently trusted head"),
+  excluded("DataDeletionVisibility", "global internal visibility cache generation"),
   derived("RankingProjection", "rebuildable from opt-in challenge source facts"),
 ] as const satisfies readonly DataExportModelDisposition[];
 

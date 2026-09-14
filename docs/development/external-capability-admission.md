@@ -51,6 +51,15 @@ DATA-EXPORT 隔离模式沿用同一三槽池，但不借用共享库、共享 u
 - 输出仍是 canonical 槽位、端口、URL、source fingerprint 和不含路径的 fixture hash；不创建新 volume、不执行 migration、不授权源附件删除、共享数据/生产操作或历史资源清理。关闭开关/停止本批槽位可撤回本地访问，数据库与私有目录不自动删除。
 - 验证除测试池原门禁外，增加 marker/权限/软链接/精确数据库/同槽所有权负测和真实 API/桌面/窄视口导出；迁移与合成资源本身仍使用 `high-risk-confirmation-packets.md` 的独立 DATA-EXPORT 授权。
 
+### DATA-DELETE 隔离模式
+
+DATA-DELETE 本地确认后的测试池模式沿用三槽池和显式 `refresh --slot`：
+
+- 使用独立 `AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT`、`AREAFORGE_DATA_DELETE_ISOLATED_DB=1` 与精确数据库 URL，不能回落到 EXPORT 或共享配置。
+- fixture 必须是 canonical、当前 UID 所有的私有 `areaforge-v20-delete-*` 临时根，匹配仓库/UID/GID、精确 `areaforge_v20_delete_*` 数据库和私有合成密钥。
+- 只占空槽或替换同一 fixture；Web 挂载本批 uploads/exports 为只读，删除执行器只在独立宿主进程运行。Web 中导出和所有 worker 启动开关保持关闭。
+- 只允许确认包列明的新建合成删除、备份与向全新恢复目标重放。不得清理旧库、历史容器/卷、真实 uploads，不能据此执行生产恢复。
+
 ### 提交级 Secret Scan 准入
 
 ```text

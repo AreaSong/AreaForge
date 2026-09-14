@@ -58,4 +58,5 @@ CSV 和 summary 必须写在 `UPLOAD_DIR` 外，输出路径不能相同、不�
 
 统一复习排期、知识画布布局、动机提醒与通知偏好不改变 FILE/LINK exactly-one、私有鉴权访问或附件 staging 边界。
 独立导出 worker 仅读取请求者本人 READY 附件并写入 `EXPORT_DIR` 私有流式 ZIP；下载经同句柄校验与一次性 POST 授权，回收只触及已登记的导出副本，不改源文件或清理历史上传 orphan。
-完整协议见 [本人数据导出](../modules/data-export.md)。Core 删除状态机仍无物理删除能力；`AF-RISK-DATA-001` 的后续删除边界和关闭条件不因导出实现改变。
+完整导出协议见[本人数据导出](../modules/data-export.md)。独立删除执行器使用已确认 scope、私有文件身份、持久删除意图和目录 fsync，拒绝重复 metadata 引用、软/硬链接与 hash 漂移，不以导出回收器代替源附件删除。
+删除与历史备份重放见[本人数据回收站与删除](../modules/data-deletion.md)；`AF-RISK-DATA-001` 不因本地实现自动关闭。

@@ -3,8 +3,109 @@ generator client {
   output   = "../packages/db/generated/prisma"
 }
 
+generator deletionCatalog {
+  provider = "node ./scripts/quality/generate-deletion-catalog.mjs"
+  output   = "../packages/db/generated/data-delete"
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+// 删除源账户后仍须保留最小回执，因此这些标识刻意不建立到业务对象的外键。
+model DataDeletionIntent {
+  id                 String   @id @default(cuid())
+  requesterId        String
+  scope              String
+  workspaceId        String?
+  resourceType       String?
+  resourceId         String?
+  state              String
+  revision           Int      @default(1)
+  idempotencyKey     String
+  requestHash        String
+  fingerprint        String
+  authorizationHash  String
+  schemaHash         String
+  availableAt        DateTime
+  frozenAt           DateTime @default(now())
+  irreversibleAt     DateTime?
+  leaseOwner         String?
+  leaseVersion       Int      @default(0)
+  leaseExpiresAt     DateTime?
+  attempt            Int      @default(0)
+  maxAttempts        Int      @default(5)
+  nextAttemptAt      DateTime?
+  executionPid       Int?
+  errorCode          String?
+  completedAt        DateTime?
+  receiptTokenHash   String
+  receiptExpiresAt   DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  items              DataDeletionItem[]
+  fences             DataDeletionFence[]
+  files              DataDeletionFile[]
+  ledger             DataDeletionLedger?
+
+  @@unique([requesterId, idempotencyKey])
+  @@index([state, availableAt, nextAttemptAt])
+  @@index([requesterId, createdAt])
+}
+
+model DataDeletionItem {
+  id           String @id @default(cuid())
+  intentId     String
+  model        String
+  keyJson      Json
+  identityHash String
+  rowHash      String
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([intentId, identityHash])
+}
+
+model DataDeletionFence {
+  id           String @id @default(cuid())
+  intentId     String
+  model        String
+  keyJson      Json
+  identityHash String
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([model, identityHash])
+  @@index([intentId])
+}
+
+model DataDeletionFile {
+  id           String @id @default(cuid())
+  intentId     String
+  identityHash String
+  storageKind  String
+  storageKey   String?
+  expectedHash String?
+  expectedSize BigInt?
+  phase        String @default("PENDING")
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([intentId, identityHash])
+}
+
+model DataDeletionLedger {
+  sequence     BigInt @id @default(autoincrement())
+  intentId     String @unique
+  scope        String
+  scopeHash    String
+  previousHash String?
+  entryHash    String @unique
+  manifest     Json
+  completedAt  DateTime
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+}
+
+model DataDeletionVisibility {
+  id       Int    @id @default(1)
+  revision BigInt @default(0)
 }
 
 enum SubjectCode {

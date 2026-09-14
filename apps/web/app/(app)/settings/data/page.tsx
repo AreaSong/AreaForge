@@ -2,6 +2,7 @@ import { Database, Download, FileInput, HardDrive, ShieldCheck } from "lucide-re
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataJobCenterClient } from "@/components/data-job-center-client";
+import { DataDeletionCenter } from "@/components/data-deletion-center";
 import { RankingChallengeClient } from "@/components/ranking-challenge-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
@@ -25,7 +26,7 @@ export default async function SettingsDataPage() {
       <PageHeader
         eyebrow="设置 / 数据与安全"
         title="数据与安全"
-        description="管理学习树的导入导出入口，了解数据边界和恢复原则。删除、迁移与生产备份仍由受控运维流程处理。"
+        description="管理本人数据的导出、回收站与删除；生产迁移和备份恢复仍由独立受控运维流程处理。"
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
@@ -159,7 +160,7 @@ export default async function SettingsDataPage() {
           <section aria-labelledby="data-job-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="data-job-center-title" className="text-base font-semibold text-white">数据任务中心</h2>
-              <p className="mt-0.5 text-xs text-zinc-400">预览本人数据，提交后台导出并获取私有 ZIP；删除仍只提供影响预览。</p>
+              <p className="mt-0.5 text-xs text-zinc-400">预览本人数据并申请私有 ZIP；真实删除请使用下方独立流程。</p>
             </div>
             <DataJobCenterClient
               key={user.id}
@@ -172,6 +173,8 @@ export default async function SettingsDataPage() {
               }))}
             />
           </section>
+          <DataDeletionCenter key={user.id + "-deletion"} enabled={dataLifecycleEnabled && process.env.DATA_DELETE_ENABLED === "true"}
+            workspaces={workspaces.filter(workspace => workspace.status === "ACTIVE").map(workspace => ({ id: workspace.id, name: workspace.name, role: workspace.membershipRole }))} />
           <section aria-labelledby="ranking-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="ranking-center-title" className="text-base font-semibold text-white">成长指标与私有挑战</h2>

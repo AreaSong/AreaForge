@@ -496,3 +496,4 @@ export type { BoundedFileScan, BoundedMultipartFailure } from "./bounded-multipa
 export * from "./data-export-files";
 export * from "./data-export-zip";
 export * from "./data-export-archive";
+export { inspectDeletionFile, removeDeletionFile, DataDeleteStorageError, type DeletionFileDescriptor, type DeletionFileRoots } from "./data-delete-files";

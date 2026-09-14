@@ -5,7 +5,7 @@ status: backlog
 phase: planning
 blockers:
   - 0044 ownership and authorization model must complete
-  - DELETE confirmation and execution evidence remain required
+  - Signed release and independent shared/production delivery evidence remain required
 risk: high
 ownerSkill: areaforge-security-governance
 validation:
@@ -31,7 +31,7 @@ releaseRequired: true
 
 账户级导出保留解释本人记录所需的 Workspace/关系上下文，非本人 Workspace、科目、考纲仅最小 ID/metadata；历史 Membership 不授予他人正文。Workspace 级只导出 ACTIVE Owner 的本人记录，不包含全局动机/通知偏好及无法归属目标 Workspace 的审计。预览与 worker 共用清单，权限版本在请求、执行、发布和下载阶段重新校验。
 
-DATA-0 模型台账覆盖 90 个 Prisma model：83 个接入 owner/actor-scoped 清单，6 个安全状态排除，`RankingProjection` 可重建派生排除，`PLANNED_MINIMIZED` 为零。关系表按已拥有对象反向约束；认证/邀请/Provider 等只保留最小生命周期字段，永久排除 token/network hash、密文、nonce、幂等指纹、objectKey、worker/lease。学习 `sessionId` 仅按实体白名单映射为 `studySessionId`，FILE 资料和复习/复测/模拟计时保留必要业务关联。清单与 schema/查询 delegate 双向静态核验，实际内容另由独立 ZIP/hash 回归验证。
+DATA-0 模型台账覆盖 96 个 Prisma model：83 个接入 owner/actor-scoped 清单，12 个内部安全/执行状态排除，`RankingProjection` 可重建派生排除，`PLANNED_MINIMIZED` 为零。新增六个删除协议模型不作为普通导出数据；关系表按已拥有对象反向约束，认证/邀请/Provider 只保留最小生命周期字段。清单与 schema/查询 delegate 双向静态核验，实际内容另由独立 ZIP/hash 回归验证。
 
 ## 独立确认包
 
@@ -50,9 +50,21 @@ DATA-EXPORT 与 DATA-DELETE 的业务处理器、存储、权限及恢复证据�
 
 ### DATA-DELETE 确认说明
 
-本基础任务只允许本地候选的删除影响预览和纯状态机：默认不可执行，只有显式隔离 fixture 可演练重新验证、冷静期、冻结、范围 fingerprint、kill-point、失败补偿和重试。纯 Core 回收站协议覆盖影响预览、revision/fingerprint、恢复期、恢复和到期转 `PURGE_ELIGIBLE`，但固定 `purgeExecutionAllowed=false`；deletion ledger 提供连续序号、不可变哈希链、篡改拒绝和历史备份恢复后的只读 replay plan，计划固定 `executionAllowed=false`。不执行数据库回收站写入、物理删除、附件清理、账本持久化或恢复后真实重放。任何涉及数据库/附件/备份的真实删除或保留策略，必须单独确认不可逆范围、重新验证、冻结与取消、kill-point/重试/恢复语义、失败补偿、备份复活防护、审计回执和回滚/恢复方案。
+确认前的基础仅提供删除影响预览和纯状态机，旧协议仍固定不可执行。独立 DATA-DELETE 包现已批准本地实现和限定合成验证，当前代码与证据见下节；不复用 EXPORT 授权，也不因此开放共享库、真实用户或生产。
 
-> `DataJob` / `DataExportPackage` / `DataExportDownloadGrant` 及导出 artifact schema/migration 保持本地候选；本次 DATA-EXPORT 确认只允许专属合成环境的归档与下载验证。共享/生产 migration、真实数据删除与 production apply 仍禁止，DATA-DELETE 独立确认仍缺，不能据此更新整个任务为完成。
+> 共享/生产 migration、真实用户数据删除、production apply 与 residual 关闭仍未授权；本地 DELETE 批准不能使整个任务或 v2.0 门禁完成。
+
+### DATA-DELETE 本地验收（2026-09-14；整体交付仍 partial）
+
+- 维护者在核对 `5f5b5a6`、51 条 migration 与 schema preimage 后，于 2026-09-13 明确回复“同意，允许”。开工时保留原工作区 56 个暂存文件，在独立 worktree 实施；2026-09-14 维护者已将原有修改提交推送为 `3c30b76`。恢复执行时临时工作树和合成目录已丢失，从本任务的 58 份成功补丁记录恢复到持久主工作区；恢复时 schema 与产品指纹均匹配中断前源码，新 HEAD 与治理修改保留。后续只修正本批缺口，不重放历史命令。
+- 已形成独立意图/精确对象清单/回收站/冻结、本人范围验证、24 小时冷静期与 30 天恢复期、带租约代次/重试的删除进程、文件意图/unlink/fsync、源记录与最小账本原子提交，以及验证可信 head 后向新恢复目标重放的本地候选。默认开关关闭，Web 不执行删除器。
+- 最终合成资源为新建 loopback `areaforge_v20_delete_bb178f5e63dc` 与本批私有目录；53 条 migration deploy/repeat deploy 成功，完整名称、实际顺序、SQL checksum、完成状态和步骤数匹配。schema SHA-256 为 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`。旧 `cc637a6d38da` 仅为中断前实验，未启动或清理；未使用 EXPORT/共享库或真实 uploads。
+- 最终 17 组运行态通过：单连接池/嵌套可见性、五个真实 SIGKILL 点、账户/工作区根删除、期限与取消、权限重新确认、五类对象回收/恢复/物理清除、并发恢复 CAS 与 claim 单赢家、真实成员移除/所有权转移/账户暂停、未解散挑战/跨 owner 引用/文件身份唯一性、持久退避/死信/人工重试、备份竞争与可信账本重放、文件/记录/账本闭环。失败前不误报删除成功，旧会话和旧租约不能提交。
+- 独立核验发现并真实复现两处缺口后修复：恢复重放改用 dump 内账本序号/head 水位，拒绝用预提交时间筛选；知识画布原生 SQL 在节点、边、计数、分页与搜索之前排除冻结对象，并在查询前后重验可见性代次。实际隔离回归证明恢复不复活、画布 focus/search 不再泄漏回收站标题。
+- 测试池只释放归属已核实的本批失效槽 3，然后用新 fixture 重建；槽 1/2 的容器身份保留，数据库、卷和历史资源未删除。最新槽 3 / `http://127.0.0.1:43173` 的产品指纹为 `sha256:6ae12cc9091f0f1ac8fe3bab7e1863cb9ad630c9c29b62b308817cd94c4e593b`，build ID 为 `sha256:6a32adaadc3f3c4728a482d0cd2161994da4acba697ff6328a088ca06bb161e8`。中途旧实例和截图不作为最终证据。
+- 最终真实 API 与 1440×1000、390×844、320×844 浏览器矩阵通过：真实登录/Secure Cookie、重新验证、scope 切换清空、确认词、丢响应同任务/同凭据幂等、普通页面/附件/画布隐藏与恢复、跨用户拒绝、刷新失败保留、冷静期取消、账户物理删除后会话失效与只读回执、真实键盘导航/Enter 刷新。没有横向溢出或页面异常，按钮触控高度至少 44px；范围和控制区分别截图，见 `output/playwright/data-delete/evidence.json` 与同目录 PNG。
+- 风险预检对业务回收站 restore 采用精确路由/服务判定和拒绝服务器执行的负测，不放开 Web 运维命令。常规总检查、Core/DB/Storage/Web、删除专项、测试池、冻结安装、文档/任务/风险/治理/secret 门禁按最终改动范围复验；Git/CI 对应本批检查点，不以旧 `5f5b5a6` 的 CI 证明新增源码。
+- 本节仅完成 DATA-DELETE 本地范围。签名 Release、共享/生产 migration/apply、生产备份恢复、其他独立域和 v2.0 综合门禁仍未完成；`AF-RISK-DATA-001` 未关闭。
 
 ### EXPORT 本地验收（2026-09-13）
 

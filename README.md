@@ -49,11 +49,12 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 | 层级 | 当前事实 |
 |---|---|
 | 仓库状态 | 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfa`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
-| 当前候选 | 当前 checkout 的 package version 为 `1.2.0`，对应高密度工作台、Dynamic Island、错题 v2 与 Web 治理门禁的稳定 Release；未执行 production apply |
-| A -> B 本地进度 | v1.3 与 v1.4-v1.9 默认关闭候选已由 PR #56/#57 合并；独立通知入口、动态运行态及持久 worker 后续在分支推进。内核、排名通知和完整 EXPORT 已形成本地隔离实现；导出支持本人记录/READY 附件、私有 ZIP、一次性 POST 下载和副本回收。排名重建、DELETE、持久搜索/配额/MFA/观测以及新 Release、共享/生产 migration 与运营证据仍缺 |
-| 线上基线 | `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 与 verified production runtime identity 已验证 |
+| 当前候选 | 当前 checkout 的 package version 仍为 `1.2.0`；新增 v2.0 分域候选不因版本号与既有 Release 相同而视为发布或上线 |
+| A -> B 本地进度 | v1.3 与 v1.4-v1.9 默认关闭候选已由 PR #56/#57 合并；内核、通知、EXPORT 已有分域本地证据。独立 DELETE 已通过 53-migration 合成库的 17 组运行态及真实 API/桌面/390px/320px 浏览器验收。root-agent 执行、排名重建、持久搜索/配额/MFA/观测、新 Release、共享/生产与运营证据仍缺；v2.0 整体保持 partial |
+| 生产交付记录 | 归档基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；不是当前公网版本的新鲜证明 |
+| 公网只读观测 | 2026-09-14 `05:39:05Z` health 报告 `v1.2.0` / `018cdfa` / verified；本批未执行更新，服务器迁移/备份/agent/回滚证据待独立核验 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
-| 当前收口 | `v1.2.0` 已完成全量检查、桌面/移动验收、受保护 PR、annotated tag、稳定 Release 与严格资产校验；本次未执行 production apply，生产和回滚目标仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变 |
+| 当前收口 | `v1.2.0` 的既有 Release 制品记录已完成；公网观测与旧生产交付记录有版本差异，详见 operational-readiness。本批未执行 production apply，不改自动策略，不关闭 residual；v2.0 综合门禁仍 partial |
 | 状态详情 | 只读快照用 `pnpm ops:status --summary`；其中旧版本默认绑定只能作为历史证据，当前生产事实以公网 health、服务器 updater 状态与 [运营 readiness](docs/development/operational-readiness.md) 为准，剩余缺口见 [残余风险台账](docs/development/residual-risk-ledger.md) |
 
 深入的状态证据入口：[长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[docs 100% 完成记录](docs/development/docs-100-completion-record.md)、[版本历史](CHANGELOG.md)。
@@ -63,12 +64,12 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 v2.0 首批持久后台任务执行内核已形成本地候选：持久退避/死信、租约代次、暂停/取消/重放、事务提交及独立进程恢复。
 最新 51-migration 专用导出合成库的 15 组内核、11 组通知、14 组导出 runtime，以及桌面/390px/320px 导出浏览器/API 证据见 `tasks/backlog/0041-data-lifecycle.md` 和 `0045-platform-hardening.md`；原任务仍缺 DELETE、排名重建及共享/生产交付，不等于 v2.0 完成。
 
-- 稳定 Release 和当前生产仍是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；已合并 `main` 但默认关闭的 v1.4-v1.5 候选提供邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
+- 稳定 Release 的产品边界是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；已合并 `main` 但默认关闭的 v1.4-v1.5 候选提供邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
 - PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
 - AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题；外部 Provider 还需当前浏览器在 `/settings/ai` 显式开启，Provider key 不进入客户端。
 - 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
 - Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
-- v1.5-v1.9 候选已提供 RBAC、对象分享、Coach、受控运维请求、私有挑战/投影/申诉与持久通知；完整导出已有本地文件、权限、崩溃恢复和浏览器验收。物理删除、备份删除账本、root-agent 执行链、排名重建和删除完整联动仍未实现。小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
+- v1.5-v1.9 候选已提供 RBAC、对象分享、Coach、受控运维请求、私有挑战/投影/申诉与持久通知；完整导出、物理删除与备份账本重放已有各自本地验收。root-agent 执行链、排名重建与完整跨域联动仍缺，不能描述为只差发版。小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
 
 ## 技术架构
 

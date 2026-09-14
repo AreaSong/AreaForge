@@ -1889,7 +1889,7 @@ pnpm ops:ops-001:preflight
 
 **确认状态（2026-09-05）**：用户已明确同意按上述边界完成 v1.4 本地实现。当前工作树已形成 schema/migration、账户安全、邀请制身份、Workspace/Membership 生命周期、默认关闭开关、最小成员可见性和隔离 PostgreSQL runtime；最终标准 pnpm 门禁、共享测试池浏览器验收、文档/Git 检查点仍在收口。本确认不授权或证明 v1.5 RBAC、完整账户导出、物理删除、Release/tag、生产 migration/apply、生产 SMTP smoke、备份恢复、服务器命令或 residual 关闭。
 
-## A -> B 后续高风险确认包登记（未确认）
+## A -> B 后续高风险确认包登记（逐包确认）
 
 本节只是下一轮确认包的登记和最低字段，不是实施授权。每个包必须在对应版本开始前，根据当时的 schema、API、数据清单和生产基线补全精确文件/表/API/页面、migration preimage、测试命令、回滚开关和确认句；一个包的确认不得替代另一个包，也不得替代生产 migration/apply 的独立确认。
 
@@ -1897,8 +1897,8 @@ pnpm ops:ops-001:preflight
 |---|---|---|---|---|---|
 | `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 本地实施已确认；Release/生产未确认 |
 | `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 本地实施已确认；Release/生产未确认 |
-| `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 未确认 |
-| `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 未确认 |
+| `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 本地已确认；Release/生产未确认 |
+| `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 本地已确认；Release/生产未确认 |
 | `OPS` | v1.7 | 白名单 operation catalog、参数 schema、风险等级、审批、expected-before/TTL/nonce/hash、请求状态机、root-agent journal | 任意命令/路径/env 拒绝、重放/漂移/超时/崩溃/取消/重试/hold/reconciliation、逐动作生产证据 | agent 进入 hold，按 phase journal 和固定 rollback target 恢复；Web 永不接管执行 | 未确认 |
 | `RANKING` | v1.8 | 指标、`scoreVersion`、窗口/时区/并列、隐私字段禁区、opt-in、挑战状态机、反作弊/申诉、退出/删除联动 | 重算确定性、异常/重复 session、跨租户、挑战 CRUD/参与者/所有权、退出/删除重建 | 关闭挑战与排名投影并重建，不改写个人学习源事实 | 未确认 |
 
@@ -2111,9 +2111,9 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 回退与停止：新增不明依赖、安装权限或安全回归时停止升级，保留差异证据；可回退本批本地依赖/应用提交用于定位，但保持安全审计阻断，不把旧易受影响版本标为已修补。不自动回滚或更新生产，不创建 Release/tag，不修改自动更新策略或关闭 residual。
 - 验证通过后允许提交推送 `codex/v19-platform-hardening`。本包只授权依赖补丁；DATA-EXPORT、到期状态对齐、其他高风险域与生产动作仍分别确认。
 
-## DATA-DELETE 下一批本地实施确认包（待确认，不可执行）
+## DATA-DELETE 下一批本地实施确认包（本地已确认）
 
-本包是 EXPORT 之后的独立范围，当前仅准备计划；“允许继续”对先前 EXPORT 的确认不覆盖本包。
+本包是 EXPORT 之后的独立范围。2026-09-13 维护者在收到本包的影响、风险、验证、回退与禁止范围，以及 HEAD/远端、51 条 migration 和 schema preimage 核验后，明确回复“同意，允许”。本次批准仅覆盖下列本地实施、限定合成删除/恢复验收及验收后提交推送，不来自先前 EXPORT 授权，不授权其他域、Release 或生产。
 
 - 基线：完成并验收的 EXPORT 检查点、51 条 canonical migration；当前 schema SHA-256 为 `c7941109994b70f5b7eb5a091b4f995ea320355be1c04b667097cb28a44a2bcb`。进入实施前核对该 schema、owner/权限模型及 Git preimage，漂移时先重新界定范围。
 - 拟实现：本人对象回收站/恢复、账户与 Workspace 删除影响预览、近期重新验证、24 小时冷静期、冻结范围、取消及独立 DELETE worker；对象回收站沿用现有纯规则的 30 天恢复期，未到期不能物理清除，不修改真实环境的保留策略。
@@ -2124,4 +2124,32 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 验证：双用户/双 Workspace、权限撤销与所有权变化、预览与执行 fingerprint 一致、冷静期/恢复期边界、取消/恢复/旧租约、文件与 SQL 各提交点强杀、幂等补偿、独立恢复及防复活、API 与桌面/窄视口、完整 `pnpm check` 和安全/文件/文档门禁。测试池只能使用本批专用槽位和合成资源。
 - 回退：关闭新删除请求/消费，保留意图、回执和最小账本；只有已明确列出的合成恢复目标可恢复，不自动重放生产数据、不 DROP、不覆盖其他库/目录。通过验收后允许提交推送当前分支；不授权 Release/tag、共享/生产 migration/apply、真实源数据/附件删除、root 运维、MFA/配额、排名重建或 residual 关闭。
 
-待维护者确认：同意上述 DATA-DELETE 本地实现、限定合成删除/恢复验证和验收后提交推送；不包含真实用户数据、共享库或生产。
+已确认范围：上述 DATA-DELETE 本地实现、限定合成删除/恢复验证和验收后提交推送；不包含真实用户数据、共享库或生产。开工时保留原工作区 56 个预先暂存文件，从 `5f5b5a67b0ae959d3b60176f834a72bdcd9b675a` 的独立工作树实施。2026-09-14 恢复执行时，维护者已将这些原有修改提交推送为 `3c30b76da1a1c9c05bccdaafedcd6fcc6efa91ca`；临时工作树与合成资源目录已不存在，主代理仅从本任务成功补丁记录恢复代码到当前持久工作区，保留新 HEAD，重新创建本包允许的合成资源并验收。批准不等于实现或验收完成。
+
+## OPS 下一批 root-agent 本地实施确认包（待确认，不可执行）
+
+本包只准备下一批范围，不复用 DATA-DELETE、EXPORT、历史 OPS 或 Release/生产确认。
+
+### Preimage 与已知缺口
+
+- 核对锚点为 `3c30b76da1a1c9c05bccdaafedcd6fcc6efa91ca` 及其后本批 DELETE 变更；不要求回退。当前 schema SHA-256 为 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`，共 53 条 migration。执行前仍核对实际 HEAD/索引和下列文件，保留后续用户修改。
+- `controlled-operation.ts` / `controlled-operation-request-service.ts` / `controlled-operation-journal.ts` 的 SHA-256 依次为 `8d98dc7eca0df2b4b564a5f4b2d70edf975d0af2023f221c57ddbb8362eec1d9`、`ef3b1e5f2f4d7492b8657fcd48bf8373f4abb05c7a0e87709122a4eead03f51a`、`df47a830b612873fc84172998e7c85825abe117d2de6f8ca73619777108a6e4b`；Core lifecycle 为 `8d53361cac3ed1e58696865b6ef71a4bd60b0ba9bde7bab3364b8d44e0f8852e`。root `ops/update-agent` 与 `ops/github-release-updater` Git 树对象分别为 `4a7eff3ad1e35465138bf2309e3aa04003bc9167`、`ab5910c9f28501e527d2d680a35d8f0295d679e0`。
+- 当前 `ControlledOperationRequest` 已有 nonce/hash/revision/审批/lease/结果字段，但未接 root。其 tag-only 意图和 hash 域不能直接冒充旧 updater V2 的完整 expected-before/Release 身份；report-only journal 固定 `executionAttempted=false`，不能冒充真实执行。另有 hold 的 reasonCode 被二次 strict binding 解析拒绝、RUNNING hold 清租约却未确认外部执行停止等缺口。
+
+### 拟允许的本地范围
+
+1. 写集限 `packages/core/src/controlled-operation-*`、相应 DB 访问层、Web 受控运维 service/contract/API/UI、独立 root adapter、现有 updater/agent 的必要集成点及对应测试/文档；不扩大 Operator 权限，不新增任意命令、路径、env 或新的 operation code。
+2. 仅连接六个既有白名单动作：`CHECK_RELEASE`、`BACKUP_PREVIEW`、`DIAGNOSTIC_HEALTH`、`APPLY_RELEASE`、`ROLLBACK_RELEASE`、`MAINTENANCE_HOLD`。`BACKUP_PREVIEW` 永远只预览。生产适配器保留签名/checksum/不可变 digest、两次 expected-before/TTL、备份与固定回滚目标的既有门禁；Web 永不启动命令或持有服务器凭据。
+3. 在现有 operation JSON 中保存版本化严格执行绑定，包含完整 expected-before、不可变 Release/manifest/镜像身份、原请求 hash/nonce/revision 和固定 rollback source。绑定须先于确认/审批冻结；旧 tag-only 请求拒绝执行，不能在消费时重算并视为原批准。本批不新增业务 schema；如实现必须新增 DDL，先另列精确 migration preimage 再确认。
+4. 实施 root-owned 持久请求桥接、跨进程锁、不可覆盖阶段日志、执行代次、心跳、取消/hold 屏障和重启 reconciliation。修复既有 hold 解析；RUNNING 请求不能仅清租约就标为已暂停/取消。原始执行事实与 Web 脱敏投影分别绑定 hash，未知阶段保持需要对账，不重复执行不确定副作用。
+5. 仅允许新建 loopback `areaforge_v20_ops_*` 合成库部署当前 53 条 migration，以及当前 UID/仓库绑定的 `areaforge-v20-ops-*` 私有临时根。root 进程、锁、日志、文件桥接和强杀恢复可真实执行，但副作用适配器只操作本批合成资源/受控测试命令；如需签名 fixture，仅使用本批合成测试密钥，不读取真实签名密钥。不得借用 DELETE/EXPORT/共享库、真实上传/备份、生产 state 目录或历史请求。
+6. 浏览器/API 复用受控三槽池的专用空槽，或在核对后释放本任务槽 3 再绑定新 OPS fixture，保留槽 1/2。不得创建长期额外 Web 容器、挂载 docker.sock 到 Web、安装宿主 systemd 服务或执行 SSH/生产命令。新执行入口默认关闭。
+
+### 风险、验证与回退
+
+- 风险：审批与实际执行身份不一致、旧请求重放、并发双执行、进程被杀后状态与文件不一致、取消/hold 假成功、错误回滚和日志泄漏。发现跨目标、副作用计数异常或无法解释阶段时停止消费并保留对账材料。
+- 验证：Core/DB/Web/协议测试、完整 canonical migration ledger、跨进程双 claim/锁顺序、过期与漂移/旧代次、同请求重放、逐阶段 SIGKILL、取消/hold 与执行竞争、journal hash/篡改/截断、重启恢复和执行后 DB 写回失败；真实 API、桌面/窄视口；`pnpm check`、updater preflight/shellcheck、governance/risk/secrets/docs 与 ops readiness/handoff。模拟副作用证据必须标为 local fixture，不能标为生产 backup/apply/rollback。
+- 回退：关闭新入口和消费，保留请求、不可变 journal、claim 与最小回执；不静默重放不确定操作，不自动恢复数据库或切换生产。通过本批验收后允许只提交自己的变更并推送当前分支、核对新 CI。
+- 明确不包含：真实数据/附件删除、共享或生产 migration/apply/backup/restore/rollback、官方 Release/tag/GHCR 发布、自动策略变更、MFA/配额、排名重建、宿主全局安装/权限修改或任何 residual 关闭。公网 health 的 `v1.2.0` 观测不授权这些动作。
+
+待维护者确认：同意上述 OPS root-agent 本地实施、限定新合成资源与强杀/恢复/API/浏览器验证、验收后提交推送；不包含正式发布或生产操作。

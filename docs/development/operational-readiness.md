@@ -4,15 +4,17 @@
 
 本文件是 AreaForge 的只读运营证据聚合入口。它不替代生产 runbook，也不授予 Web runtime 服务器命令能力；它只定义长期运营时应收集哪些证据、多久视为新鲜、缺失时如何降级。
 
-当前生产身份以 `https://forge.areasong.top/api/health` 的 verified runtime identity、已应用的 GitHub `v1.1.1` Release/tag 和服务器 updater 状态交叉确认。最新稳定 GitHub Release 为 `v1.2.0`，但本次未执行 production apply；Release 资产本身仍不能替代生产证据。仓库内旧生产记录与 `docs/development/release-v1.2.0-record.md` release-only redacted 记录均为历史证据，不能替代当前 `v1.1.1` 生产证据；v1.2.0 的 production-evidence 状态为 pending。
+归档生产交付记录以 GitHub `v1.1.1` Release/tag、当时 verified runtime identity 和 updater 状态交叉确认；最新稳定 GitHub Release 为 `v1.2.0`。2026-09-14 公网 health 已观测到 `v1.2.0`，但它不能替代服务器侧完整交付证据。仓库内旧生产记录与 `docs/development/release-v1.2.0-record.md` release-only redacted 记录均为历史证据，不能替代新鲜的生产交付证据；v1.2.0 的 production-evidence 状态仍为 pending。
 
 ## 当前基线
 
+- 公网只读观测（2026-09-14 `05:39:05.709Z`）：`GET https://forge.areasong.top/api/health` 返回 `ok=true`、`version=1.2.0`、`runtimeIdentity.status=verified`、commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`、identity hash `sha256:be059682bdd6328be40a9a6bd9bfdbffe2fc37fcddbcb81b1e4e052e264520af`。本批未执行该更新，也未登录生产、运行服务器命令或读取生产凭据。与下方归档交付记录的版本差异保持 `needs_live_evidence`；缺新鲜 agent、migration、三类备份 hash、authenticated smoke 和回滚目标，不能据此升级生产或 v2.0 门禁。
+
 - 当前默认分支：package version 为 `1.2.0`；PR #49、main push CI 与后续 fresh readback 均完成，`v1.2.0` annotated tag 已指向 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`。最新稳定 GitHub Release 为 `v1.2.0`，workflow run `33521890241` 成功，严格供应链资产校验通过；Release-only 证据不改变当前 `v1.1.1` 生产事实。生产 migration/update、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
 - 线上地址：`https://forge.areasong.top/`
-- 生产基线：`1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；公网 health 已于 2026-08-01 只读验证。
-- 生产 Web 镜像：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`。
-- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；当前生产与 `v1.2.0` 后续受控更新的回滚目标均为 `v1.1.1`。
+- 归档生产基线：`1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；公网 health 的旧验证日期为 2026-08-01，不作为当前在线版本。
+- 归档生产 Web 镜像：`ghcr.io/areasong/areaforge-web:v1.1.1@sha256:46f32025693d3d7a16585984d77c9c6c4b6a2603456bad92c223dd1147a9daeb`；当前运行镜像 digest 尚未从服务器重新核验。
+- compatibility floor：应用写入 v1.1 workspace 数据后不得回滚到 `v0.1.7`；归档回滚目标登记为 `v1.1.1`，当前实际 rollback source/digest 尚未重新核验，不能据此直接执行回滚。
 - `v1.2.0` Release 资产：Web digest `sha256:db01d7275e6a22870dddf8c51b56e7b65eb23db479963cdd189eebda22c648bd`；migration digest `sha256:3e8d4530fe2cf6375a11fc2a22058528c1d7c44774d8a6c6558f1fd9c27da58d`；strict 供应链证据哈希 `sha256:92c67cb7e144df7c8bcd5b9bc8b0640a29e9e72442b1cb3d74ba15e4bb07ded8`。`v1.1.2` 资产仍保留为历史证据。
 - 2026-08-01 Web 受控更新：旧 `v1.1.0` processing claim 在 root-only 控制状态备份后完成隔离，原始 `NEEDS_RECONCILIATION / MIGRATION_STATE_UNCERTAIN` 审计记录保留，状态投影重建后解除 blocker。随后 Web 请求完成 `v1.1.1` apply；最近操作为 `SUCCEEDED / APPLY_COMPLETED`，队列 0、blocker null、Web/PostgreSQL healthy、migration `24 finished / 0 unfinished / 0 rolled back / 24 total`、health/extra smoke PASS、journal clean。更新流程创建并校验数据库、上传目录和环境配置备份，未执行 restore、rollback、业务数据修复或 residual 状态变化；`AREAFORGE_AUTO_APPLY=none` 保持不变。
 - 2026-07-31 生产数据收口：已创建并校验 `manual-data-fix-20260731T112330Z` 数据库与上传目录备份（数据库 SHA-256 `094c3e3e1946951ab4ae03ab28e61daffd39f98d8cb768f36882eae7fe7f3abc`；上传归档 SHA-256 `934aa349f1377648376ead64bcde39e5a6dd9b7099d3fdb41128ea85d75c010d`）。单事务将 workspace revision `4 -> 5`、12 个活动科目收敛为 7 个，将新高等数学的 1 次真实 session 和 1 张真实 note 迁移至保留的 legacy `MATH`，保留并重命名数学及四个 408 科目，删除 5 个重复科目；同时删除已盘点的合成业务数据、22 条对应审计事件、2 条附件 metadata 和 2 个已备份合成文件。审计事件的批准计数为 14，实际删除 22；额外 8 条均属于同批合成对象，具体为 2 条 `attachment-created`、3 条 `session-start` 和 3 条 `session-end`。这不涉及真实学习记录，但违反了批准的严格计数门禁；双备份继续保留，可用于受控恢复决策。
@@ -23,6 +25,7 @@
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
 - A -> B 后续路线：`AF-RISK-DATA-002` 已由 active v1.4 任务承接并可在已确认范围内继续本地验证；`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 仍是不可执行的 `deferred-work`。三者都不是当前生产能力，也不提供 RBAC、生产 migration/apply、数据删除、排名共享或服务器动作授权。
 - DATA-EXPORT 本地证据：2026-09-13 的专用 51-migration 合成库通过 15 内核/11 通知/14 导出专项，导出任务中心的桌面/窄视口和真实 API 验收通过；仅更新本地测试池专属槽 2。`DATA_EXPORT_ENABLED=false` 默认关闭，未生成新 Release、未执行共享或生产 migration/apply、备份恢复、源数据删除或 residual 关闭；该候选不更新上述生产 identity/回滚目标，详情见 `tasks/backlog/0041-data-lifecycle.md`。
+- DATA-DELETE 本地证据：2026-09-14 在独立批准的新建 53-migration 合成环境完成 17 组运行态及当前源码 API/桌面/390px/320px 验收；包含五类回收站对象、权限/并发/死信、五个强杀点、根对象删除、画布原生查询冻结过滤和备份水位防复活。只更新专属槽 3，所有删除/恢复均限本批合成资源；未执行共享/生产 migration、生产源数据删除、生产恢复、Release 或 residual 关闭，不改变生产 identity、回滚目标或自动策略。详情见 `tasks/backlog/0041-data-lifecycle.md`。
 
 ## 运营状态
 

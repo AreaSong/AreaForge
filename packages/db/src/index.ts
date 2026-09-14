@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
+import { withDeletionVisibility } from "./data-delete-visibility";
 
 type Queryable = {
   queryRaw: (...args: unknown[]) => Promise<unknown>;
@@ -12,21 +13,22 @@ type Adapter = object & {
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
+  deletionControlPrisma?: PrismaClient;
 };
 
 let processPrisma = globalForPrisma.prisma;
 
-export function createPrismaClient(connectionString = process.env.DATABASE_URL): PrismaClient {
+export function createPrismaClient(connectionString = process.env.DATABASE_URL, pool: { max?: number; connectionTimeoutMillis?: number } = {}): PrismaClient {
   if (!connectionString) {
     throw new Error("DATABASE_URL is required to create PrismaClient.");
   }
 
-  const adapter = createSerializedPrismaPg(connectionString);
+  const adapter = createSerializedPrismaPg(connectionString, pool);
   return new PrismaClient({ adapter });
 }
 
-function createSerializedPrismaPg(connectionString: string): PrismaPg {
-  const factory = new PrismaPg({ connectionString });
+function createSerializedPrismaPg(connectionString: string, pool: { max?: number; connectionTimeoutMillis?: number }): PrismaPg {
+  const factory = new PrismaPg({ connectionString, ...pool });
 
   return new Proxy(factory, {
     get(target, property, receiver) {
@@ -81,12 +83,22 @@ function serializeQueryable<T extends Queryable>(queryable: T): T {
 }
 
 export function getPrismaClient(): PrismaClient {
-  const client = globalForPrisma.prisma ?? processPrisma ?? createPrismaClient();
+  if (globalForPrisma.prisma ?? processPrisma) return (globalForPrisma.prisma ?? processPrisma)!;
+  const raw = createPrismaClient();
+  globalForPrisma.deletionControlPrisma = raw;
+  const client = withDeletionVisibility(raw);
 
   processPrisma = client;
   globalForPrisma.prisma = client;
 
   return client;
+}
+
+/** 仅供带本人权限检查的数据生命周期控制面使用，不用于普通学习查询。 */
+export function getDeletionControlClient(): PrismaClient {
+  getPrismaClient();
+  if (!globalForPrisma.deletionControlPrisma) throw new Error("DATA_DELETE_CONTROL_CLIENT_UNAVAILABLE");
+  return globalForPrisma.deletionControlPrisma;
 }
 
 export const prisma = new Proxy({} as PrismaClient, {
@@ -98,7 +110,7 @@ export const prisma = new Proxy({} as PrismaClient, {
 });
 
 export type { PrismaClient };
-export type { Prisma } from "../generated/prisma/client";
+export { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
 export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from "./data-job-queue";
 export { heartbeatQueuedDataJob, commitQueuedDataJob, failQueuedDataJob } from "./data-job-queue-lease";
@@ -112,3 +124,6 @@ export { beginDataExportArtifact, publishDataExportPackage, requirePublishedData
 export { issueDataExportDownloadGrant, reserveDataExportDownload, consumeDataExportDownload, releaseDataExportDownload, revokeDataExportDownloads, type ExportDownloadActor, type ReservedExportDownload } from "./data-export-downloads";
 export { listReclaimableDataExports, beginDataExportReclaim, finishDataExportReclaim, listReclaimedDataExports } from "./data-export-reclaim";
 export { dataExportAttachmentSource } from "./data-export-file-sources";
+export { previewDatabaseDeletion, createDatabaseDeletion, controlDatabaseDeletion, listDatabaseDeletions, readDeletionReceipt, type DeleteActor } from "./data-delete-intents";
+export { listDeletionCandidates } from "./data-delete-candidates";
+export { queryDeletionVisibleRows } from "./data-delete-visibility";

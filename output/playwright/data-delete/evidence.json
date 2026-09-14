@@ -1,0 +1,38 @@
+{
+  "scope": "DATA-DELETE synthetic browser/API",
+  "checkedAt": "2026-09-14T05:18:51.450Z",
+  "pool": {
+    "slot": 3,
+    "container": "areaforge-dev-test-3",
+    "port": 43173,
+    "url": "http://127.0.0.1:43173",
+    "status": "running",
+    "note": "DATA-DELETE isolated acceptance",
+    "generation": 1789362934255,
+    "commit": "3c30b76da1a1c9c05bccdaafedcd6fcc6efa91ca",
+    "sourceFingerprint": "sha256:6ae12cc9091f0f1ac8fe3bab7e1863cb9ad630c9c29b62b308817cd94c4e593b",
+    "buildId": "sha256:6a32adaadc3f3c4728a482d0cd2161994da4acba697ff6328a088ca06bb161e8",
+    "fixtureId": "231b07e1c49980ca53df88416f37d19bdca8c52fa7e0a9980e8f8943729c216b"
+  },
+  "viewports": [
+    "1440x1000",
+    "390x844",
+    "320x844"
+  ],
+  "passed": [
+    "unauthenticated-rejected",
+    "scope-reset",
+    "reauth",
+    "preview-confirm",
+    "lost-response-idempotency",
+    "trash-hide-restore",
+    "cross-user",
+    "canvas-frozen-projection",
+    "failed-refresh-retains-controls",
+    "cooldown-cancel",
+    "account-erasure-receipt",
+    "keyboard-targets"
+  ],
+  "pageErrors": [],
+  "productionTouched": false
+}

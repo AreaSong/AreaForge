@@ -64,7 +64,7 @@
 
 ## 学习行动中心（已进入生产）
 
-本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。当前生产为 `v1.1.1`，`v1.2.0` 已形成稳定 Release 但未 production apply；v1.3-v1.9 现有默认关闭候选均已合并 main，但还没有新 Release 或生产激活证据。Release 资产证据不改变既有生产事实，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。归档生产交付记录基线为 `v1.1.1`，新鲜公网 health 已观测到稳定 Release `v1.2.0`，但服务器完整交付证据仍待核验，差异见 operational-readiness；v1.3-v1.9 默认关闭候选均已合并 main，后续分域实现没有新 Release 或生产激活证据。Release 资产和 health 观测不能替代生产门禁，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
 
 | 功能项 | 当前状态 | 当前证据 | 后续承接 |
 |---|---|---|---|
@@ -96,11 +96,11 @@
 | 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期、same-origin/CSRF 边界、actor/workspace fail-closed 和 owner-only 学习正文边界；隔离 PostgreSQL runtime、本地总门禁、六类身份 desktop/mobile 可见性、代表性写入和 17 项失败矩阵见 `output/playwright/v15-role-matrix/evidence.json`、`output/playwright/v15-write-matrix/evidence.json` 与 `output/playwright/v15-failure-matrix/evidence.json`。member-only 登录入口和成员只读考试页的管理查询旁路已修复；候选由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988`。默认多人开关仍关闭，新 Release 和生产证据尚缺 | `tasks/active/0040-multi-user-rbac.md` |
 | 预设角色、分享授权与 Coach 协作 | 隔离已实现 | v1.5 默认关闭候选已形成 Admin/Coach/Viewer、统一 policy service、Owner-only 角色调整、USER/ROLE/WORKSPACE grant、NOTE/MISTAKE/ATTACHMENT 共享、CoachSuggestion/PlanInbox 确认链、脱敏 Operator 账户目录和无 Workspace 全局工具门禁；成员自有笔记、分享目标排除自己、App Shell/每日复盘的同 Workspace actor/owner 查询和六类身份 desktop/mobile 可见性矩阵已通过。代表性写入见 `output/playwright/v15-write-matrix/evidence.json`；17 项浏览器失败矩阵见 `output/playwright/v15-failure-matrix/evidence.json`，覆盖邀请/角色/grant/Coach/Operator、撤销/移除/暂停即时失效，意外 console/page error 和横向溢出为 0。owner-required follow-up 已在全新 49-migration 隔离库通过；候选由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988`。新 Release 与生产证据仍缺 | `tasks/active/0044-rbac-privacy-collaboration.md` |
 | 完整账户/Workspace 导出 | 隔离已实现 | 独立确认下实现新协议 EXPORT worker、本人记录/READY 附件私有流式 ZIP、权限快照重验、一次性 POST 下载与精确副本回收；90 个 model 按 83 included / 6 security / 1 derived 分类。51-migration 专用合成库的 14 组运行态（含四个真实 SIGKILL 点）、独立 ZIP/hash、关系保留、撤销/过期/控制/失败回收及桌面/390px/320px 浏览器/API 验收通过。默认开关关闭，尚无新 Release 或共享/生产交付证据 | `tasks/backlog/0041-data-lifecycle.md`；协议见 `docs/modules/data-export.md` |
-| 数据任务中心、回收站、物理删除与账户关闭 | 基础版 | 数据任务中心已支持 preview/排队/取消/重试、worker lease/CAS 和删除 preview；纯 Core 回收站协议覆盖影响预览、恢复期/恢复/到期与 fail-closed purge eligibility，删除状态机覆盖重新验证、冷静期、冻结、scope fingerprint、kill-point、补偿后重试，deletion ledger 覆盖哈希链与历史备份 replay plan。所有执行开关固定关闭；尚无数据库回收站、物理删除、附件清理、账本持久化或真实重放 | `tasks/backlog/0041-data-lifecycle.md` |
+| 数据任务中心、回收站、物理删除与账户关闭 | 隔离已实现 | 独立 DELETE 已完成持久意图/回收站/冻结、本人范围、冷静期、租约与重试、物理文件/数据库删除、最小账本及按备份水位重放；53-migration 专用库的 17 组运行态覆盖五类对象、真实权限变化、并发/死信、五个强杀点、根对象删除和防复活。知识画布原生查询已补冻结过滤，最终 API 与桌面/390px/320px 验收通过，证据见 `output/playwright/data-delete/evidence.json`。默认关闭，旧 preview 不升级执行；仍缺新 Release 与共享/生产交付，不关闭 residual | `tasks/backlog/0041-data-lifecycle.md`；协议见 `docs/modules/data-deletion.md` |
 | 受控运维中心 | 基础版 | 已增加只读 catalog、strict intent、持久候选请求/确认/审批/hold/retry/lease API、Operator UI，以及 report-only 的 hash-chain journal/reconciliation 契约；尚无 root-agent 实际执行、跨进程锁、真实 updater/生产动作；Web runtime 仍不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md` |
 | 个人成长指标、私有挑战与排名 | 基础版 | core 计分/策略、反作弊、opt-in、挑战/参与者 CRUD、可重建 projection、独立 projection 开关、持久申诉与成员/Owner UI、持久排名通知和删除 preview 已形成本地候选；通知只保存受控种类/Workspace 标签，不保存挑战名称或申诉正文。挑战、本人参与/申诉和通知均进入用户导出预览；隔离事务链证明成员关闭 opt-in 后参与转 `LEFT`、投影归零且账户删除预览为 `READY`，未转移挑战的 Owner 保持 `BLOCKED`。成员确认中心 scope 已修复；申诉与通知均有 390×844/1440×900 隔离浏览器证据。默认相关开关关闭，完整导出已有独立本地证据；仍缺真实物理删除、完整跨租户浏览器矩阵、共享/生产 migration 与生产证据 | `tasks/backlog/0043-ranking-platform-hardening.md` |
-| 平台化加固 | 基础版 | Core 规则、Operator-only 脱敏审计、只读容量 `OBSERVED_ONLY`、ACTIVE Workspace 限定直接数据库搜索 `indexed=false`、独立通知入口和跨设备状态已形成候选。持久内核、排名通知与 EXPORT 在 51-migration 导出合成库通过 15/11/14 组运行态；导出另通过真实 API 和桌面/窄视口验收。独立 CLI 默认关闭，Web 不启动进程；尚缺排名重建、DELETE、持久搜索、配额执行、MFA/Passkey、多租户指标/告警、灾备与共享/生产交付 | `tasks/backlog/0045-platform-hardening.md` |
-| v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT 已有分域本地证据，但六类高风险包的完整验收、受保护合并、新签名 Release、生产与运营终态证据尚未齐备 | `tasks/backlog/0046-v2-platform-gate.md` |
+| 平台化加固 | 基础版 | Core 规则、脱敏审计、只读容量、直接数据库搜索和持久通知已有候选。内核/通知/EXPORT/DELETE 各有分域本地验收；DELETE 有 17 组隔离运行态和当前源码浏览器证据。独立 CLI 默认关闭，Web 不启动进程；root-agent、排名重建、持久搜索、配额、MFA/Passkey、全域观测/灾备、共享与生产交付仍缺 | `tasks/backlog/0045-platform-hardening.md` |
+| v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE 已有分域本地证据，但 OPS、排名重建、平台加固及全域回归、受保护合并、新签名 Release、生产与运营终态证据尚未齐备 | `tasks/backlog/0046-v2-platform-gate.md` |
 
 ## 暂缓项
 

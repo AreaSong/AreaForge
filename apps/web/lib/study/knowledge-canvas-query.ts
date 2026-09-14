@@ -6,11 +6,17 @@ import {
   type KnowledgeCanvasEntityType,
   type KnowledgeCanvasNodeInput,
 } from "@areaforge/core";
-import { prisma } from "@areaforge/db";
+import { Prisma, prisma, queryDeletionVisibleRows } from "@areaforge/db";
 
 const MAX_CONTEXT_ROWS_PER_CANDIDATE = 8;
 const MAX_PARENT_CONTEXT_DEPTH = KNOWLEDGE_CANVAS_MAX_DEPTH * 2;
 const MAX_STALE_LAYOUT_CANDIDATES = 100;
+const canvasDeletionModel = Prisma.sql`CASE entity_type
+  WHEN 'WORKSPACE' THEN 'ExamWorkspace' WHEN 'SUBJECT_GROUP' THEN 'SubjectGroup'
+  WHEN 'SUBJECT' THEN 'Subject' WHEN 'SYLLABUS_NODE' THEN 'SyllabusNode'
+  WHEN 'NOTE' THEN 'Note' WHEN 'MISTAKE' THEN 'Mistake' WHEN 'STUDY_RESOURCE' THEN 'StudyResource'
+  WHEN 'TASK' THEN 'StudyTask' WHEN 'MILESTONE' THEN 'PlanMilestone'
+  WHEN 'STUDY_SESSION' THEN 'StudySession' WHEN 'REVIEW_SCHEDULE' THEN 'ReviewSchedule' END`;
 
 interface CanvasIndexNodeRow {
   node_key: string;
@@ -142,7 +148,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
   const queryPattern = query ? escapeLikePattern(query) : null;
   const cursor = input.cursor?.trim() || null;
 
-  const rows = await prisma.$queryRaw<CanvasIndexAggregateRow[]>`
+  const rows = await queryDeletionVisibleRows<CanvasIndexAggregateRow>(prisma, visible => Prisma.sql`
     WITH RECURSIVE
     all_nodes AS (
       SELECT
@@ -274,6 +280,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
       SELECT all_nodes.*,
         ROW_NUMBER() OVER (ORDER BY node_key COLLATE "C") - 1 AS sort_index
       FROM all_nodes
+      WHERE ${visible(canvasDeletionModel, Prisma.sql`entity_id`)}
     ),
     candidate_nodes AS (
       SELECT * FROM indexed_nodes WHERE candidate_visible
@@ -526,7 +533,7 @@ export async function queryKnowledgeCanvasIndexPage(input: {
         SELECT 1 FROM ranked_relation_context r
         WHERE r.relation_rank > ${MAX_CONTEXT_ROWS_PER_CANDIDATE}
       ) AS relation_truncated
-  `;
+  `);
 
   const aggregate = rows[0];
   if (!aggregate) throw new Error("knowledge canvas index query returned no aggregate row");

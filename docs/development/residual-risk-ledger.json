@@ -266,7 +266,7 @@
       "id": "AF-RISK-DATA-001",
       "type": "deferred-work",
       "reviewAt": "2026-10-21",
-      "currentImpact": "独立确认的 EXPORT 已实现本人/Workspace 记录与 READY 附件私有流式 ZIP、权限版本重验、一次性 POST 下载及精确副本回收；90 个模型按 83 included/6 security/1 derived 分类，14 组运行态含四个进程强杀点及桌面/窄视口 API/浏览器验收通过。源数据与备份策略未改；仍缺数据库回收站、物理删除、源附件清理、删除账本持久化/恢复后真实重放及共享/生产交付，导出证据不关闭本残余项",
+      "currentImpact": "EXPORT 的私有 ZIP、权限重验、一次性下载与副本回收已有独立本地验收；新增六个删除协议模型后清单为 96 个模型（83 included/12 security/1 derived）。独立 DELETE 已实现持久回收站/冻结、物理文件与数据库删除、最小账本及备份水位重放，53-migration 专用合成库通过 17 组运行态和当前源码 API/桌面/390px/320px 验收。共享/生产源数据及备份策略未改；签名 Release、生产交付、生产恢复与全域联动证据仍缺。本次仅同步证据摘要，不改变 residual 类型、复核日期、可执行状态或关闭条件，不关闭本残余项",
       "executableNow": false,
       "closeCondition": "关闭：owner 鉴权/软归档/backup-restore/一次性导出临时资源释放 fixture 与 redaction matrix 齐备，且未来物理删除/撤销路线有单独确认包与实现证据后，方可人工关账。重开：缩短保留期、物理删除、备份副本同步删除、完整账户导出、扩大到 AI history、跨用户可见、或 confirm 落库策略变化",
       "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle 已确认）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close/reopen condition",

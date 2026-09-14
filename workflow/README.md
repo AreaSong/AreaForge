@@ -26,7 +26,7 @@
 
 - 后续候选已增加持久 worker、受控排名通知和完整 EXPORT 文件链路；51 条 migration 与 15/11/14 组内核/通知/导出 runtime、导出桌面/窄视口浏览器/API 验收通过。排名重建、DELETE、共享/生产 migration 和 v2.0 门禁仍未完成，PR #57 / `b04ba98` 已合并。
 
-- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
+- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；归档生产交付/回滚基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。新鲜公网 health 已观测到 `v1.2.0`，但完整服务器交付证据未核验，差异以 operational-readiness 为准。
 - 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
 - `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。

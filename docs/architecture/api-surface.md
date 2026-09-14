@@ -97,6 +97,15 @@
 
 ### Platform / Audit
 
+独立删除接口不执行文件 IO 或服务器命令，协议见[本人数据回收站与删除](../modules/data-deletion.md)：
+
+- `GET /api/system/deletions`：当前用户的最小回收站/删除状态；不返回冻结正文、路径、租约或 token hash。
+- `GET /api/system/deletions/candidates`：有效工作区中本人对象的有限标题列表，支持名称筛选。
+- `POST /api/system/deletions/preview`：近期重新验证后生成精确影响快照和当前目标标签。
+- `POST /api/system/deletions`：匹配预览指纹、确认词和幂等键后创建冻结意图；账户/工作区冷静期与对象恢复期均由服务端决定。
+- `PATCH /api/system/deletions/:intentId`：近期重新验证及 `expectedRevision` 后取消、恢复或重新确认同一冻结集合。
+- `POST /api/system/deletions/receipt`：同源、短时高熵能力凭据读取最小回执；账户删除后仍可用，不授予控制或正文访问权，token 不进入 URL。
+
 `/api/system/data-jobs` 按协议分流：新 EXPORT 使用 `queueVersion=1`，删除仍为旧协议影响预览。
 旧手工 worker 接口仅处理 `queueVersion=0`，不能领取、完成或通过幂等键接管独立 worker 任务。
 本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。

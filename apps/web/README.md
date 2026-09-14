@@ -2,14 +2,15 @@
 
 `apps/web` 是 AreaForge 的 Next.js 私有 Web 应用。它承载开始学习、今日、知识、检验、路线、确认中心、设置以及版本中心 UI。
 
-最新稳定 GitHub Release 为 `v1.2.0`；公网 `https://forge.areasong.top/` 生产和回滚基线仍为 `v1.1.1`。本次 `v1.2.0` 发布未执行 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
+最新稳定 GitHub Release 为 `v1.2.0`；归档生产交付/回滚记录基线为 `v1.1.1`。公网 `https://forge.areasong.top/` 的新鲜 health 已观测到 `v1.2.0` / `018cdfa`，但服务器 migration、备份、agent 和回滚证据尚未核验，详见根 README 与 operational-readiness。本批未执行 production apply；Web 运行时仍只处理业务请求和受控更新请求写入，不直接执行 Docker、备份、恢复、migration 或服务器命令。
 
-当前 checkout 的 package version 为 `1.2.0`，对应已发布的 `v1.2.0` 稳定 Release；生产仍未更新，生产证据与 Release 工件证据保持分离。
+当前 checkout 的 package version 仍为 `1.2.0`，不代表新增候选已经发布；生产观测、完整交付证据与 Release 工件证据保持分离。
 
 v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作以及 v1.6-v1.9 数据任务预览、受控运维请求、私有挑战/排名投影与持久排名通知候选，已由 PR #57 在两套 `verify` 成功后合并 `main` commit `b04ba98`。后续分支已补独立通知路由、顶部栏入口、动态运行态和受控通知 worker 处理器本地候选。默认 `AUTH_MULTI_USER_ENABLED=false`、`AUTH_RBAC_ENABLED=false`、`DATA_LIFECYCLE_ENABLED=false`、`RANKING_ENABLED=false`、`PLATFORM_NOTIFICATIONS_ENABLED=false`、`PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`；候选 migration 未 apply 到共享测试库或生产，新 Release 与 production apply 证据仍缺，敏感学习正文仍只允许资源 owner 或持有有效 grant 的成员读取。
 
 持久 worker 首批候选通过 `queueVersion` 与现有数据预览接口隔离，Web 不启动后台进程。
-独立执行内核见 `docs/modules/background-jobs.md`；通知域有 11 组专项，EXPORT 有 14 组运行态及桌面/390px/320px 浏览器/API 验收。导出通过独立 worker 复制本人 READY 附件并生成私有 ZIP，经一次性 POST 下载，Web 不写归档或执行回收；`DATA_EXPORT_ENABLED=false` 默认关闭。排名重建、DELETE 与共享/生产交付尚未完成。
+独立执行内核见 `docs/modules/background-jobs.md`；通知域有 11 组专项，EXPORT 有 14 组运行态及桌面/390px/320px 浏览器/API 验收。导出通过独立 worker 复制本人 READY 附件并生成私有 ZIP，经一次性 POST 下载，Web 不写归档或执行回收；`DATA_EXPORT_ENABLED=false` 默认关闭。
+DELETE 的回收站、近期重新验证、精确确认和只读回执已有独立本地/API/浏览器验收，物理删除由独立进程完成；普通 ORM 与知识画布原生查询都过滤冻结对象。默认 `DATA_DELETE_ENABLED=false` / `DATA_DELETE_WORKER_ENABLED=false`，详见 `docs/modules/data-deletion.md` 和 `tasks/backlog/0041-data-lifecycle.md`。排名重建、root-agent、跨域综合门禁与共享/生产交付仍缺。
 
 ## Getting Started
 
