@@ -56,6 +56,7 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   assert.equal(defaults.DATA_EXPORT_ENABLED, false);
   assert.equal(defaults.RANKING_ENABLED, false);
   assert.equal(defaults.RANKING_PROJECTION_ENABLED, false);
+  assert.equal(defaults.RANKING_REBUILD_QUEUE_ENABLED, false);
   assert.equal(defaults.PLATFORM_NOTIFICATIONS_ENABLED, false);
   assert.equal(defaults.PLATFORM_NOTIFICATION_QUEUE_ENABLED, false);
   assert.equal(defaults.DATA_JOB_WORKER_ENABLED, false);

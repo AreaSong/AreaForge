@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { validateDataJobLeaseDuration } from "../../packages/core/src/index";
-import { claimQueuedDataJob, recoverQueuedDataJobs, type DataJobPartition, type DataQueueClient } from "../../packages/db/src/index";
+import { claimQueuedDataJob, recoverQueuedDataJobs, isDataJobScopeBusy, type DataJobPartition, type DataQueueClient } from "../../packages/db/src/index";
 import type { DataJobHandler } from "./data-job-handler";
 import { executeDataJob, type DataJobExecutionResult } from "./data-job-execution";
 
@@ -30,9 +30,7 @@ export async function runDataJobWorker(options: DataJobWorkerOptions): Promise<{
   while (!options.signal.aborted) {
     await options.beforePoll?.();
     if (options.signal.aborted) break;
-    await recoverQueuedDataJobs(options.client, { kinds, partition: options.partition });
-    if (options.signal.aborted) break;
-    const lease = await claimQueuedDataJob(options.client, { workerId: options.workerId, kinds, leaseMs, partition: options.partition });
+    const lease = await pollDataJob(options, kinds, leaseMs);
     if (lease) {
       const result = await executeDataJob({ client: options.client, lease, leaseMs, handler: handlers.get(lease.kind)!, signal: options.signal });
       processed += 1;
@@ -42,6 +40,17 @@ export async function runDataJobWorker(options: DataJobWorkerOptions): Promise<{
     if (!lease) await waitForNextPoll(pollIntervalMs, options.signal);
   }
   return { processed };
+}
+
+async function pollDataJob(options: DataJobWorkerOptions, kinds: DataJobHandler["kind"][], leaseMs: number) {
+  try {
+    await recoverQueuedDataJobs(options.client, { kinds, partition: options.partition });
+    if (options.signal.aborted) return null;
+    return await claimQueuedDataJob(options.client, { workerId: options.workerId, kinds, leaseMs, partition: options.partition });
+  } catch (error) {
+    if (kinds.includes("RANKING_REBUILD") && isDataJobScopeBusy(error)) return null;
+    throw error;
+  }
 }
 
 export function validateWorkerOptions(options: Pick<DataJobWorkerOptions, "workerId" | "handlers">, leaseMs: number, pollIntervalMs: number): void {

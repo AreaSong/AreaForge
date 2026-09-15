@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-09-14（本次更新 DATA-DELETE 与 OPS 本地实现和隔离验收；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
+快照日期：2026-09-15（本次更新 RANKING 持久重建本地实现与隔离验收；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
 
 ## 四态与映射
 
@@ -63,7 +63,7 @@
 | `module.analytics` | 基础统计 | done | `packages/core/analytics-summary.ts`、`/api/analytics/summary` | CheckIn 快照 + 长期风险 DTO 已接入 |
 | `module.persistence` | 数据持久化 | done | `prisma/schema.prisma`（以当前 Prisma schema 为准） | PostgreSQL 主状态源；生产备份/恢复/回滚证据以对应 Release/ops 记录为准 |
 | `scope.multi-user` | 多用户系统 | partial | `workflow/versions/v1.3-v2.0-platform-evolution.md`、`tasks/active/0040-multi-user-rbac.md` | A→B 路线中的邀请制多人能力已进入 v1.4 本地实现；Release/生产证据仍缺，不能按稳定能力开放 |
-| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`apps/web/lib/ranking/`、`apps/web/lib/notifications/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 个人成长/私有挑战计分、opt-in、挑战/参与者 CRUD、反作弊、投影、持久申诉、成员/Owner 申诉 UI、持久排名通知和删除预览已进入默认关闭的本地候选；完整删除/导出联动和 Release/生产证据仍缺，不做全站公开榜 |
+| `scope.ranking` | 排名系统 | partial | `packages/core/src/ranking-metrics.ts`、`docs/modules/ranking-rebuild.md`、`apps/web/lib/ranking/`、`tasks/backlog/0043-ranking-platform-hardening.md` | 私有挑战/申诉/通知基础之外，独立持久重建已通过 26/12 组本地运行态/浏览器验收，含权限/来源漂移、冻结/恢复/合成删除、原子整榜、两处强杀与桌面/窄屏。默认关闭；完整版本/跨域、Release/生产证据仍缺，不做全站公开榜 |
 | `scope.rbac` | 复杂权限系统 | partial | `tasks/active/0044-rbac-privacy-collaboration.md`、`output/playwright/v15-role-matrix/evidence.json`、`output/playwright/v15-write-matrix/evidence.json`、`output/playwright/v15-failure-matrix/evidence.json` | v1.5 预设角色、对象分享、Coach 协作、成员 PlanInbox 转 actor-owned 任务、脱敏 Operator 账户目录、六类身份可见性、代表性浏览器写入、17 项浏览器失败矩阵、App Shell/每日复盘 actor/owner 查询隔离和 `StudyTask.ownerUserId` 非空收紧已进入本地候选；runner 检查点 `6568c87` / branch CI `34119581102` 已通过；受保护 PR/合并与 Release/生产证据仍缺 |
 
 ## 3. 第二阶段长期闭环
@@ -123,7 +123,7 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
-| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/data-export-handler.ts`、`scripts/workers/data-delete-worker.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT 的 15/11/14 组分域运行态已通过；独立 DELETE 另有 53-migration 专用库的 17 组运行态和当前源码浏览器验收。OPS 本地候选另有 38 组运行态及真实 API/桌面/390px/320px 验收；排名重建、正式交付、平台加固与共享/生产启用仍缺 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/ranking-rebuild-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT/DELETE/OPS 已有各自分域验收；RANKING 新增 26 组运行态与 12 组浏览器/API 验收，复用 53 条 migration，无新增 DDL。持久搜索及平台加固、全域回归、正式交付与共享/生产启用仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |

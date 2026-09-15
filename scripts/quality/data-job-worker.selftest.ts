@@ -40,6 +40,23 @@ test("EXPORT 只通过双开关显式注册，缺少依赖时在触碰数据库�
   assert.deepEqual(enabledDataJobKinds({ ...env, DATA_DELETE_ENABLED: "true", DATA_JOB_HANDLER: "arbitrary" }), ["EXPORT"]);
 });
 
+test("RANKING 只有六个开关精确开启才注册，关闭任一个均不触碰数据库", () => {
+  const flags = ["AUTH_MULTI_USER_ENABLED", "AUTH_RBAC_ENABLED", "RANKING_ENABLED",
+    "RANKING_PROJECTION_ENABLED", "RANKING_REBUILD_QUEUE_ENABLED", "DATA_JOB_WORKER_ENABLED"];
+  const env: Record<string, string | undefined> = Object.fromEntries(flags.map(key => [key, "true"]));
+  const client = new Proxy({} as DataQueueClient, { get() { throw new Error("DATABASE_MUST_NOT_BE_TOUCHED"); } });
+  assert.deepEqual(enabledDataJobKinds(env), ["RANKING_REBUILD"]);
+  assert.throws(() => createDataJobHandlers(env), /RANKING_REBUILD_CLIENT_REQUIRED/);
+  assert.deepEqual(createDataJobHandlers(env, client).map(value => value.kind), ["RANKING_REBUILD"]);
+  for (const key of flags) {
+    for (const value of [undefined, "false", "TRUE", "1"]) {
+      const disabled = { ...env, [key]: value };
+      assert.deepEqual(enabledDataJobKinds(disabled), [], `${key}=${value}`);
+      assert.deepEqual(createDataJobHandlers(disabled, client), [], `${key}=${value}`);
+    }
+  }
+});
+
 test("未响应 abort 的准备任务也不能交出晚到的提交函数", async () => {
   const controller = new AbortController();
   let resolvePreparation!: (value: string) => void;

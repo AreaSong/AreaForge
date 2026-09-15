@@ -35,6 +35,7 @@ export const serverEnvSchema = z.object({
   EXPORT_DIR: optionalNonEmptyString,
   RANKING_ENABLED: booleanFromString.default(false),
   RANKING_PROJECTION_ENABLED: booleanFromString.default(false),
+  RANKING_REBUILD_QUEUE_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATION_QUEUE_ENABLED: booleanFromString.default(false),
   DATA_JOB_WORKER_ENABLED: booleanFromString.default(false),

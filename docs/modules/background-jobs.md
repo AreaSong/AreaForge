@@ -20,6 +20,11 @@ EXPORT 使用独立固定处理器，只有 `DATA_LIFECYCLE_ENABLED=true` 与 `D
 `--reclaim-exports` 是独立显式维护模式，不得与消费参数混用；关闭导出后可回收登记副本，不注册或消费任何处理器。
 排名重建、DELETE 和搜索处理器不因 EXPORT 可用而自动启用。
 
+RANKING_REBUILD 通过独立固定处理器接入；除 AUTH/RBAC 和排名/投影开关外，还要求
+`RANKING_REBUILD_QUEUE_ENABLED=true` 与 `DATA_JOB_WORKER_ENABLED=true`。Web 只检查排队许可，不启动进程。
+权限/来源快照、generation、删除栅栏、整榜原子发布及资源预算见 [持久排名重建](ranking-rebuild.md)。
+新的排名请求和控制返回最小任务 DTO，不把内部 payload 当作通用任务结果输出。
+
 ## 持久协议
 
 - `queueVersion=0` 是旧手工预览协议，`queueVersion=1` 是独立 worker 协议；新增字段默认零，不自动提升旧任务。

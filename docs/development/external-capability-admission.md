@@ -71,6 +71,18 @@ OPS 本地确认包仅授权 `fixture_only`：新建 loopback `areaforge_v20_ops
 - 生产适配器默认关闭，保留原 updater 的签名/前态/备份/回滚门禁；本地批准不授权生产配置、root 安装、SSH、共享库、真实备份/上传、正式发布、自动策略或 residual 关闭。
 - 回退是关闭入口和消费者并保留请求/journal/claim，不静默重放未知副作用，也不清理历史数据库或目录。验证执行 OPS 专项、测试池、updater、治理、安全和文档门禁。
 
+### RANKING 隔离模式
+
+RANKING 持久重建仅在独立确认的本地范围运行；采用 `AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT`、
+`AREAFORGE_RANKING_REBUILD_ISOLATED_DB=1` 和精确数据库 URL，与其他 fixture 模式互斥。
+
+- 只连接新建 `areaforge_v20_ranking_*` loopback 库；marker 绑定 canonical 私有根、UID/GID、仓库、端口、不可变 PostgreSQL 镜像及专属有标签数据卷，secret 文件必须为本人所有、0600、普通文件且禁止 symlink。
+- 只显式刷新专用槽 3；若仍由上批 OPS fixture 占用，先核对身份并按已确认范围释放这个 Web 实例。不得放松跨 fixture 覆盖检查；槽 1/2、原库/卷和证据保留。
+- Web 仅挂载本批空 uploads/exports 为只读，不叠加共享上传卷、不挂载 Docker socket 或执行器目录；关闭 EXPORT/DELETE/OPS、通知外呼与 AI/SMTP。
+- 排名生产者也检查 `DATA_JOB_WORKER_ENABLED`，因此该专用 Web 配置可显式设置此许可；这不启动进程，消费者仍只由独立 CLI 运行。任意 Web/server 命令入口仍禁止。
+- 库内冻结/取消/数据库删除验证只针对本批新建合成对象并走既有协议，不清除附件、不执行备份恢复、不改保留期。新建库与数据卷保留，不自动清理历史资源。
+- 验证使用排名专用 marker/ledger/source fingerprint、独立 runtime/browser runner 和原测试池门禁；不授权共享/生产 migration、真实用户数据、Release 或 residual 关闭。
+
 ### 提交级 Secret Scan 准入
 
 ```text

@@ -61,6 +61,7 @@
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
 - `modules/background-jobs.md`：持久后台任务、租约代次、重试、死信和事务提交边界。
+- `modules/ranking-rebuild.md`：持久排名申请、权限/来源快照、代次、冻结过滤和整榜原子发布。
 - `modules/data-export.md`：本人数据/READY 附件导出、私有 ZIP、一次性下载、保留与精确副本回收。
 - `modules/data-deletion.md`：本人回收站、冻结范围、独立删除执行器、文件意图与备份账本重放边界。
 - `modules/controlled-operations.md`：受控运维冻结绑定、root 独立执行、停止屏障与阶段证据；执行器说明见 `ops/controlled-operation-agent/README.md`。

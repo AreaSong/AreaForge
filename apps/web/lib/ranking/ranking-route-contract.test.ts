@@ -25,7 +25,9 @@ test("ranking routes remain feature-gated, authenticated and projection-only", a
     assert.match(route, /requireApiUser/);
     assert.match(route, /apiErrorResponse/);
   }
-  assert.match(projection, /rebuildChallengeProjection/);
+  assert.match(projection, /requestRankingRebuild/);
+  assert.match(projection, /status: 202/);
+  assert.doesNotMatch(projection, /rebuildChallengeProjection/);
   assert.match(deletion, /previewRankingDeletion/);
   assert.match(transfer, /transferPrivateChallengeOwnership/);
   assert.match(appeals, /listRankingAppeals/);

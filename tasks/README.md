@@ -18,7 +18,7 @@
 - `v1.2.0` 发布准备第一阶段已由 `tasks/done/0037-v12-release-preparation.md` 完成；第二阶段已从 fresh readback 的 `main` commit 创建 annotated tag、完成 Release workflow 和 strict 供应链资产校验，证据见 `docs/development/release-v1.2.0-record.md` 与 `docs/development/release-supply-chain-v1.2.0.md`。production apply 仍需后续独立确认。
 - A -> B 平台演进的 M0 已归档；v1.3 已由 PR #56 合并但等待独立 Release/production disposition，v1.4-v1.9 默认关闭候选已由 PR #57 合并 `main` commit `b04ba98`。六类身份 desktop/mobile、代表性写入和 17 项失败矩阵已有隔离证据；`0045` 后续承接尚未完成的 worker 域处理器、搜索/配额/MFA/观测，`0046` 承接 v2.0 综合门禁。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据；任务进入 active 不等于执行授权。
 - 长期运营 residual 以 `docs/development/residual-risk-ledger.md` 为准，task-facing 视图见 `indexes/residuals.md`；current blocker、accepted exception 和逐项证据状态以台账为源事实。
-- `0045` 的 worker 内核、通知与 `0041` 的独立 EXPORT 域已在 51-migration 专用合成库通过 15/11/14 组 runtime；导出桌面/390px/320px 浏览器/API 验收通过。DELETE 另有 17 组运行态与浏览器验收，OPS 另有 38 组运行态及真实 API/桌面/390px/320px 验收。排名重建、持久搜索/配额/MFA/观测、共享/生产启用与 v2.0 门禁仍未完成；PR #57 不再作为待合并阻塞。
+- `0045` 的 worker 内核、通知与 `0041` 的独立 EXPORT 域已在 51-migration 专用合成库通过 15/11/14 组 runtime；导出桌面/390px/320px 浏览器/API 验收通过。DELETE 另有 17 组运行态与浏览器验收，OPS 另有 38 组运行态及真实 API/桌面/390px/320px 验收。`0043` 的 RANKING 持久重建新增 26/12 组运行态/浏览器验收，复用既有 53 条 migration。持久搜索/配额/MFA/观测、完整跨域门禁、后续分支受保护合并、新 Release 与共享/生产启用仍缺；PR #57 不再作为待合并阻塞，v2.0 保持 partial。
 - 仓库候选版本与生产基线见根 README 状态节和 `docs/development/operational-readiness.md`。
 
 ## 使用规则

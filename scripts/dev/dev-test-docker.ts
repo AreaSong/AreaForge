@@ -141,7 +141,7 @@ export class DockerClient {
         "--mount", `type=bind,src=${fixture.uploadRoot},dst=/app/uploads,readonly`,
         "--mount", `type=bind,src=${fixture.exportRoot},dst=/app/exports,readonly`);
       if (fixture?.kind === "OPS") args.push("--mount", `type=bind,src=${fixture.operationContextRoot},dst=/app/ops-context,readonly`);
-      else args.push("-v", `${UPLOADS_VOLUME}:/app/uploads`);
+      if (!fixture) args.push("-v", `${UPLOADS_VOLUME}:/app/uploads`);
       args.push(identity.imageTag);
       return this.run(args).trim();
     } finally {

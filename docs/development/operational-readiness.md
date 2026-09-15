@@ -23,10 +23,11 @@
 - 更新模式：Web 版本中心提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚。
 - 默认自动策略：`AREAFORGE_AUTO_APPLY=none`
 - Web runtime 边界：不得执行 Docker、备份、恢复、migration、回滚、shell 或服务器命令。
-- A -> B 后续路线：`AF-RISK-DATA-002` 已由 active v1.4 任务承接；`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 的 residual 分类仍为 `deferred-work`。OPS 独立本地确认已覆盖本批实现与合成验证，不授权生产或 residual 关闭；分类与本地批准不能混淆。三者都不能作为生产能力或生产写入授权。
+- A -> B 后续路线：`AF-RISK-DATA-002` 已由 active v1.4 任务承接；`AF-RISK-DATA-003` 和 `AF-RISK-OPS-009` 的 residual 分类仍为 `deferred-work`。OPS 与 RANKING 分别获独立本地实现/合成验证确认，不授权生产或 residual 关闭；分类与本地批准不能混淆。三者都不能作为生产能力或生产写入授权。
 - DATA-EXPORT 本地证据：2026-09-13 的专用 51-migration 合成库通过 15 内核/11 通知/14 导出专项，导出任务中心的桌面/窄视口和真实 API 验收通过；仅更新本地测试池专属槽 2。`DATA_EXPORT_ENABLED=false` 默认关闭，未生成新 Release、未执行共享或生产 migration/apply、备份恢复、源数据删除或 residual 关闭；该候选不更新上述生产 identity/回滚目标，详情见 `tasks/backlog/0041-data-lifecycle.md`。
 - DATA-DELETE 本地证据：2026-09-14 在独立批准的新建 53-migration 合成环境完成 17 组运行态及当前源码 API/桌面/390px/320px 验收；包含五类回收站对象、权限/并发/死信、五个强杀点、根对象删除、画布原生查询冻结过滤和备份水位防复活。只更新专属槽 3，所有删除/恢复均限本批合成资源；未执行共享/生产 migration、生产源数据删除、生产恢复、Release 或 residual 关闭，不改变生产 identity、回滚目标或自动策略。详情见 `tasks/backlog/0041-data-lifecycle.md`。
 - OPS 本地证据：2026-09-14 独立批准后实现冻结执行绑定、root-owned 桥接登记/文件、跨进程锁、不可覆盖日志、停止屏障和回执恢复；38 组合成运行态和真实 API/桌面/390px/320px 浏览器验收通过。仅新建 OPS 专用 loopback 库部署既有 53 条 migration，副作用适配器只写合成计数；只替换专属槽 3，槽 1/2、旧库/卷保留。生产适配器未运行，生产 identity、rollback target、自动策略和 residual 状态不变；缺失的生产证据不能由本地结果补齐。详见 `tasks/backlog/0042-controlled-operations-center.md`。
+- RANKING 本地证据：2026-09-15 独立批准后完成持久重建、权限/来源历史绑定、原子整榜和旧代次/失效过滤；26 组运行态及 12 组真实浏览器/API 验收通过，涵盖权限撤销、冻结/恢复/合成数据库删除、两处强杀、桌面/390px/320px 与键盘历史折叠。新 RANKING 库仅 deploy/repeat deploy 既有 53 条 migration，无新增 DDL；槽 3 经核验后替换，槽 1/2、旧 OPS 库/卷/证据保留。六开关默认关闭，未执行共享/生产迁移、备份/恢复、服务器命令、Release 或 residual 关闭；生产身份、回滚目标和自动策略不变。证据见 `tasks/backlog/0043-ranking-platform-hardening.md`。
 
 ## 运营状态
 

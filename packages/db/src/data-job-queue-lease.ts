@@ -1,6 +1,7 @@
 import { planDataJobFailure, validateDataJobLeaseDuration } from "@areaforge/core";
 import { DataJobQueueError, type DataJobLease, type DataQueueClient, type DataQueueTransaction, type QueuedDataJob } from "./data-job-queue-types";
 import { assertQueueLease, assertQueueScope, auditQueuedDataJob, lockQueuedDataJob, queueClock, releasedQueueLease, updateQueuedDataJob } from "./data-job-queue-store";
+import { guardRankingQueueTransaction } from "./data-job-ranking-guard";
 
 export async function heartbeatQueuedDataJob(client: DataQueueClient, input: { lease: DataJobLease; leaseMs: number; progress?: number }): Promise<"RUNNING" | "PAUSED" | "CANCELLED"> {
   validateDataJobLeaseDuration(input.leaseMs);
@@ -8,6 +9,7 @@ export async function heartbeatQueuedDataJob(client: DataQueueClient, input: { l
     throw new DataJobQueueError("DATA_JOB_PROGRESS_INVALID");
   }
   return client.$transaction(async (tx) => {
+    await guardRankingQueueTransaction(tx, [input.lease.kind], input.lease.jobId);
     const row = await lockQueuedDataJob(tx, input.lease.jobId);
     const now = await queueClock(tx);
     assertQueueLease(row, input.lease, now);
@@ -28,6 +30,7 @@ export async function commitQueuedDataJob(client: DataQueueClient, input: {
   effect: (tx: DataQueueTransaction, job: Readonly<QueuedDataJob>) => Promise<void>;
 }): Promise<"SUCCEEDED" | "PAUSED" | "CANCELLED"> {
   return client.$transaction(async (tx) => {
+    await guardRankingQueueTransaction(tx, [input.lease.kind], input.lease.jobId);
     const row = await lockQueuedDataJob(tx, input.lease.jobId);
     assertQueueLease(row, input.lease, await queueClock(tx));
     const stopped = await settleQueueControl(tx, row);
@@ -41,11 +44,12 @@ export async function commitQueuedDataJob(client: DataQueueClient, input: {
     });
     await auditQueuedDataJob(tx, finished, "DATA_JOB_SUCCEEDED");
     return "SUCCEEDED";
-  }, { timeout: 15_000 });
+  }, { timeout: 15_000, ...(input.lease.kind === "RANKING_REBUILD" ? { isolationLevel: "Serializable" as const } : {}) });
 }
 
 export async function failQueuedDataJob(client: DataQueueClient, input: { lease: DataJobLease; errorCode: string; retryable: boolean }): Promise<"FAILED" | "PAUSED" | "CANCELLED"> {
   return client.$transaction(async (tx) => {
+    await guardRankingQueueTransaction(tx, [input.lease.kind], input.lease.jobId);
     const row = await lockQueuedDataJob(tx, input.lease.jobId);
     const now = await queueClock(tx);
     assertQueueLease(row, input.lease, now);

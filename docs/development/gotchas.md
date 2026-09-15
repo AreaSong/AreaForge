@@ -25,6 +25,13 @@
 
 ## 并发与事务
 
+### 对象递归排序序列化会悄悄丢失 Date，恢复原值还可能绕过内容指纹
+
+- 触发：把数据库 session 的 Date 直接交给 `stableStringify` 构造来源指纹；或修改学习时长后又恢复原值。
+- 根因：递归按对象键序列化的实现不调用 `Date.toJSON`，无可枚举键的日期变成空对象；仅比较最终内容也识别不了“改过再改回”的 ABA 历史。
+- 规避：日期先显式转换 ISO 字符串，来源快照同时绑定可信行修订；排名使用 session `xmin`，并在准备和提交时重读比较。保持摘要内部可见，不把修订当作学习指标或 DTO 字段。
+- 关联：`packages/db/src/ranking-rebuild-snapshot.ts`、`scripts/quality/ranking-rebuild-runtime.selftest.ts`、`docs/modules/ranking-rebuild.md`。
+
 ### 删除事务的记录时间不能当作备份快照水位
 
 - 触发：删除已写入 `completedAt` 但事务未提交时启动数据库备份；按备份时间筛选恢复账本。

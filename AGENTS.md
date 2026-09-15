@@ -11,18 +11,20 @@
 - 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`）；Release 于 2026-09-01 发布，workflow run `33521890241` 成功，manifest、SBOM、provenance、checksum、签名资产与不可变镜像 digest 已严格验证。`v1.2.0` 是 annotated tag，tag 本身没有 GPG signature，不能写成“签名 tag”。
 - 当前默认分支的 workspace package version 已统一为 `1.2.0`；PR #49 已于 2026-09-01 经 CI run `33505174259` 成功后 squash 合并到 `main`，其后 main push CI run `33506280124` 也已成功。`v1.2.0` tag、GitHub Release 和 GHCR 镜像已创建；生产 apply 尚未执行。
 - 已归档的生产交付/回滚记录基线为 `v1.1.1`（commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`），对应 2026-08-01 受控 production apply。2026-09-14 `05:39:05Z` 公网 health 的新鲜只读观测已报告 `v1.2.0` / `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` / verified；这不是本批执行的更新。缺少本次版本对应的服务器 migration、备份、agent、smoke 和回滚证据，完整生产交付仍待核验，不能把 health 观测当作 production apply 闭环。
-- A -> B 当前进度：v1.3 动态个人版已由 PR #56 合并 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，尚缺独立 Release/production disposition；v1.4 AUTH、v1.5 RBAC/隐私授权/Coach、v1.6 数据任务/删除预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影以及 v1.9 纯规则/持久排名通知基础，已由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988ec32c1f6172ade06605b0cc1ce39788c`。当前后续分支正补独立通知入口和动态运行态；排名重建、持久搜索索引、配额执行、MFA/观测等剩余 runtime 尚未完成。所有候选 migration 均未 apply 到共享测试库或生产，仍缺新 Release、production apply 和对应运营证据；v2.0 综合门禁尚未完成。
+- A -> B 当前进度：v1.3 动态个人版已由 PR #56 合并 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，尚缺独立 Release/production disposition；v1.4 AUTH、v1.5 RBAC/隐私授权/Coach、v1.6 数据任务/删除预览、v1.7 受控运维请求、v1.8 私有挑战/排名投影以及 v1.9 纯规则/持久排名通知基础，已由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988ec32c1f6172ade06605b0cc1ce39788c`。后续分支已有独立通知入口和分域动态运行态；RANKING 持久重建也已完成本地专项验收，持久搜索索引、配额执行、MFA/观测与完整跨域门禁仍缺。所有候选 migration 均未 apply 到共享测试库或生产，仍缺受保护合并、新 Release、production apply 和对应运营证据；v2.0 综合门禁尚未完成。
 - 当前主线仍是学习行动中心（`workflow/versions/v1.1-learning-action-center.md`）；开始学习、今日、知识、检验、路线构成五个一级业务入口，设置位于侧栏底部工具区，确认中心作为共享工作流入口。`/focus` 是独立一级入口，知识点是可跨阶段/考纲/检验复用的核心对象，报告、阶段建议、模拟考试、专项复测和 AI 草稿统一进入确认中心。当前只保留一套 canonical 路由，旧 `/plan/*`、`/review/*`、`/quick-review/*`、计时详情、重复设置路径、`/today/*`、`/stage/*` 和根级旧业务页面已移除，不再提供兼容重定向。本地优先计时在真实 session 同步后才进入证据接力。发布与 production apply 状态仍以本文件前述稳定基线和对应 evidence 文档为准。阶段索引见 `docs/development/v11-phase-packages.md`。
 - Package A-E 和 docs 100% 当前证据已闭环，证据见 `docs/development/docs-100-completion-record.md`。学习行动中心规划能力不计入该完成声明。
 - 自动更新采用 Web 版本中心受控请求和服务器侧 root update-agent/updater；当前 `AREAFORGE_AUTO_APPLY=none`，不会静默自动更新。
 - Web runtime 不直接执行 Docker、备份、恢复、migration 或服务器命令。
 - 只读 `ops:data-integrity:doctor` 已用于发现重复活跃计时、task/session 状态矛盾和附件 reconciliation 缺口；它不修复数据。`AF-RISK-OPS-006` 的 partial unique index、task/session CAS、结束计时单次副作用和 CheckIn 锁已在生产 migration、controlled probe、before/after doctor 与 smoke 账号 write-smoke 中验证，并随 Phase B 关账记为 `closed-evidence`。
 
-- v2.0 持久 worker 的内核、排名通知和独立 DATA-EXPORT 已形成本地隔离实现：51 条 migration 的专用导出合成库通过 15/11/14 组内核/通知/导出运行态；EXPORT 包含本人记录/READY 附件私有 ZIP、一次性 POST 下载、精确副本回收和四个进程强杀点，桌面/390px/320px 浏览器/API 验收通过。详见 `tasks/backlog/0041-data-lifecycle.md` 与 `0045-platform-hardening.md`。DELETE 与 OPS 另有独立本地验收；排名重建、共享/生产 migration、Release 和 v2.0 综合门禁仍未完成，所有新增开关默认关闭。
+- v2.0 持久 worker 的内核、排名通知和独立 DATA-EXPORT 已形成本地隔离实现：51 条 migration 的专用导出合成库通过 15/11/14 组内核/通知/导出运行态；EXPORT 包含本人记录/READY 附件私有 ZIP、一次性 POST 下载、精确副本回收和四个进程强杀点，桌面/390px/320px 浏览器/API 验收通过。详见 `tasks/backlog/0041-data-lifecycle.md` 与 `0045-platform-hardening.md`。DELETE、OPS 与 RANKING 另有独立本地验收；共享/生产 migration、Release 和 v2.0 综合门禁仍未完成，所有新增开关默认关闭。
 
 DATA-DELETE 已在独立本地批准下完成持久回收站/冻结、独立删除执行器和最小账本；53-migration 专用合成库通过 17 组运行态（含五个强杀点、真实权限变化、五类对象、并发/死信和备份快照竞争），真实 API 与桌面/390px/320px 浏览器验收通过。知识画布原生查询已接入冻结过滤，恢复重放以可信账本水位而非时间筛选。详见 `tasks/backlog/0041-data-lifecycle.md`；整体 v2.0 仍 partial，稳定 Release、生产与 residual 状态未由本地验收改变。
 
 OPS 已在独立本地批准下实现冻结绑定、root-owned 桥接登记/文件、跨进程锁、不可覆盖日志、停止屏障和回执恢复；38 组合成运行态及真实 API/桌面/390px/320px 浏览器验收通过。仅部署既有 53 条 migration 到新 OPS 合成库，未新增 DDL；测试池只更新专属槽 3，槽 1/2 和既有数据库/卷保留。新入口默认关闭，生产适配器未运行；最终门禁和 Git/CI 交付见 `tasks/backlog/0042-controlled-operations-center.md`，不代表 Release、生产或 v2.0 综合门禁完成。
+
+RANKING 持久重建已在独立本地批准下实现严格任务/权限/来源绑定、整榜原子发布、旧代次拒绝和当前榜失效过滤；53-migration 专用合成库通过 26 组运行态及 12 组真实浏览器/API 验收（桌面/390px/320px、权限撤销、冻结/恢复、两处强杀）。无新增 DDL，只替换经核验的槽 3，保留槽 1/2 和旧库/卷；六开关默认关闭，Web 不启动消费者或同步重算。详见 `tasks/backlog/0043-ranking-platform-hardening.md`，不代表完整 v1.8/v2.0、Release、生产或 residual 关闭。
 
 ## 源事实
 

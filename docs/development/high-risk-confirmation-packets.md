@@ -2153,3 +2153,36 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 明确不包含：真实数据/附件删除、共享或生产 migration/apply/backup/restore/rollback、官方 Release/tag/GHCR 发布、自动策略变更、MFA/配额、排名重建、宿主全局安装/权限修改或任何 residual 关闭。公网 health 的 `v1.2.0` 观测不授权这些动作。
 
 已确认范围：上述 OPS root-agent 本地实施、限定新合成资源与强杀/恢复/API/浏览器验证、验收后提交推送；不包含正式发布或生产操作。
+
+## RANKING 持久重建本地实施确认包（本地已确认）
+
+状态：2026-09-15 本地已确认。维护者在本包及风险、验证、回退、合成资源和提交推送边界已展示后明确回复“可以，继续完成”。主代理重读 HEAD、schema 和下列 Git 树，均与准备基线匹配；仅保留本包准备产生的两份文档修改。本次确认覆盖本节本地范围，不追认或复用其他包，不包含正式发布或生产；实现与验收结果须另行记录。
+
+### Preimage 与实现边界
+
+- 核验基线为干净 `149de93b249bff8d32925e60c4bc552889bebbf6`；schema SHA-256 为 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`，共 53 条 canonical migration，migration Git 树为 `02fdc8d6add97b57a94191f3a112b8c39c074930`。本节准备文档不属于产品源码变更；实施前重读实际 HEAD、工作区与相关源码，不回退后续用户修改。
+- 相关 Git 树：`apps/web/lib/ranking` 为 `eb252a299c583226a337c77230ceb88b45764cf5`，`packages/db/src` 为 `9e0ca2cd424be461f1082ee39a5f8eab12ab1856`，`scripts/workers` 为 `55ba8afa1a76091b2ba276a6d96a50b8285bce9a`。树对象只固定核查来源，不把整个目录都变为允许写集。
+- 现有 `DataJobKind.RANKING_REBUILD`、任务 JSON/指纹/幂等/租约与 `RankingProjection` 可支持最小候选。拟复用现有 53 条 migration，不新增 DDL；如无法在既有结构内满足旧代次拒绝、原子发布或有界执行，先提出精确 schema/migration preimage 再确认，不临时扩大本包。
+- 当前 `rebuildChallengeProjection` 在 Web 的 Serializable 事务内同步重算，通用处理器仅注册 NOTIFICATION/EXPORT。队列最低 scope 检查只验证当前 ACTIVE 状态，不能替代排名域的逐参与者权限历史、冻结可见性和规则/来源版本重验。
+
+### 拟允许的本地范围
+
+1. 写集限排名重建 Core 协议、DB 查询/提交适配、固定 worker handler、既有排名 service/contract/API/UI 与生命周期失效接点，以及必要的队列集成、测试池隔离适配、测试/配置说明和对应文档。业务计分仍使用 `private-challenge-v1`；不改变指标、权重、窗口、时区、并列规则、角色权限或 opt-in 默认值。
+2. 将既有 Owner 显式重建入口接入 `RANKING_REBUILD` 持久任务，提供真实排队/进度/暂停/取消/失败/重试/结果状态；不增加定时自动重建或任意通用执行入口。新队列开关拟为 `RANKING_REBUILD_QUEUE_ENABLED=false`，须与既有排名/投影及独立 worker 开关共同满足，生产者、准备和提交时都检查；Web 不启动消费者。
+3. 严格协议绑定请求者、Workspace、challengeId、challenge revision、scoreVersion/rulesVersion、数据截止边界、幂等键和完整指纹；权限快照覆盖账户 authRevision、Membership ID/revision、挑战所有权、参与记录 revision、opt-in 与字段授权 revision。拒绝未知字段、跨 scope、自报 actor、正文或路径；任务 JSON 不直接经通用 DTO 返回，也不得在失败/重试中覆盖丢失协议。
+4. 计分查询只读取既有 session ID/起止时间/有效分钟/有效标记白名单；昵称及发布字段继续受挑战、参与者和本人授权交集限制。不得读取或写入动机、情绪、复盘、笔记/错题正文、附件内容、AI prompt、私有任务标题或 Provider 信息；不得用排名回写个人学习源事实。
+5. 明确加入/退出/移除、opt-in/字段变更、挑战规则/状态/所有权、成员和账户状态、工作区归档，以及学习来源变更、冻结/恢复/删除对旧榜的影响。撤销隐私与冻结必须先于聚合、排序、计数和返回生效，不能等待后台重建；撤销后重新加入或恢复不得复活旧任务或旧投影。
+6. 在既有删除栅栏、账户/Workspace/Membership、挑战和任务锁之间固定顺序，准备后及提交前重验完整快照与来源指纹；同一传入事务原子发布整榜并提交任务成功。跨任务竞争、旧租约、取消/暂停、数据漂移、事务超时或部分失败不得留下半榜或错误成功；15 秒提交预算不足时应有界失败，不能截断来源后发布，不能静默放宽通用事务预算。
+7. 确认后仅新建 loopback `areaforge_v20_ranking_*` 合成库并 deploy/repeat deploy 既有 53 条 migration，以及当前 UID/仓库绑定的私有 `areaforge-v20-ranking-*` fixture 根。仅创建本批合成账户、工作区、学习记录、挑战、参与者、任务和投影；跨域删除用例仅对本批新建、明确登记的合成对象调用既有冻结/恢复/数据库删除协议，不修改 DELETE 权限或保留期，不执行附件清除或备份恢复。禁止借用 EXPORT/DELETE/OPS/共享库、真实上传/备份、生产配置或凭据；本批库、卷和证据在收尾保留，不自动清理历史资源。
+8. 浏览器/API 使用既有三槽测试池：只使用专用空槽，或在重新核对所有权后停止/替换上批 OPS 专用槽 3 为 RANKING fixture；保留槽 1/2 及原 OPS 数据库、私有目录、卷和证据。新增隔离模式必须有精确库名、fixture marker、UID/仓库/源指纹绑定；不能回落到共享 `.env.local` 或共享库，也不得另建长期 Web 容器。
+
+### 风险、验证与回退
+
+- 风险：跨租户计分泄漏、已撤销成员重新上榜、权限/数据检查与提交竞争、旧任务覆盖新榜、半榜/重复成功、锁序死锁、超时造成学习主链受阻，以及任务/审计泄露内部快照。遇到范围或身份不一致时拒绝发布并保留脱敏失败证据，不自动修复源数据。
+- 静态与协议验证：严格字段/完整指纹、旧协议隔离、默认关闭、Web 不启动进程、DTO/日志脱敏；运行 Core/DB/Web 对应测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm db:validate`、`pnpm check` 及 docs/tasks/residual/risk/governance/secrets/diff 门禁。
+- 确认后新增排名域独立 runtime/browser 入口并登记 package scripts；核对全部 migration 名称/实际顺序/SQL checksum/完成状态，覆盖双用户/双 Workspace、Owner 与参与者权限、退出重入、冻结恢复/删除、来源变更、规则确定性、异常/重复 session、并发幂等与同键冲突、旧代次、开关运行中关闭、暂停/取消/死信重放、锁冲突与预算边界，以及 prepare 和投影写入后事务提交前的真实进程强杀。内核 15 组与通知 11 组既有结果不能替代本域证据；跨域消费者在本批新库运行时仍须各自 guard。
+- 实际 UI/API 验收覆盖 Owner 请求与控制、Member/Viewer/跨 Workspace 拒绝、响应丢失同任务重试、真实状态/错误恢复、退出/冻结后列表/排名/计数排除、刷新与会话变化，包含桌面、390px、320px 和键盘路径；必须复用本批测试池返回且源指纹匹配的 URL。
+- 回退：关闭新重建生产者和消费者，保留任务、审计和派生数据供对账；继续维持当前权限/冻结过滤，将不可证明有效的榜单标为 stale 或拒绝展示。不得恢复已撤销分享、让旧同步入口接管新任务、盲目重放或回写学习源事实。通过本批最终验收后，只提交本批变更并推送当前分支，核对新 CI。
+- 不包含：真实用户数据操作、共享/生产 migration、生产冻结/删除/恢复、公开全站排名、计分规则改版、持久搜索、配额/MFA、外部通知或 Provider/SMTP 外呼、root/SSH/服务器配置、Release/tag/GHCR、production apply/backup/restore/rollback、自动策略或 residual 关闭。v2.0 发布上线仍须后续独立包、完整验证和生产证据，不由本地 RANKING 验收替代。
+
+已确认范围：上述 RANKING 持久重建本地实现、限定新合成资源与生命周期/强杀/API/浏览器验收，以及验收后提交推送；正式发布和生产操作不在本包内。

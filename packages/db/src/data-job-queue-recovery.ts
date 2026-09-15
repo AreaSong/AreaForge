@@ -4,6 +4,7 @@ import { DataJobQueueError, type DataJobPartition, type DataQueueClient } from "
 import { queuePartitionSql } from "./data-job-queue";
 import { auditQueuedDataJob, partitionWhere, queueClock, releasedQueueLease, updateQueuedDataJob, validateQueueKinds } from "./data-job-queue-store";
 import { persistQueueFailure, settleQueueControl } from "./data-job-queue-lease";
+import { guardRankingQueueTransaction, rankingQueueVisibleSql } from "./data-job-ranking-guard";
 
 export async function recoverQueuedDataJobs(client: DataQueueClient, input: { kinds: readonly DataJobKind[]; partition?: DataJobPartition; limit?: number }): Promise<number> {
   validateQueueKinds(input.kinds);
@@ -11,9 +12,10 @@ export async function recoverQueuedDataJobs(client: DataQueueClient, input: { ki
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new DataJobQueueError("DATA_JOB_RECOVERY_LIMIT_INVALID");
   const partition = queuePartitionSql(input.partition);
   return client.$transaction(async (tx) => {
+    await guardRankingQueueTransaction(tx, input.kinds);
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id" FROM "DataJob" WHERE "queueVersion" = ${DATA_JOB_QUEUE_VERSION}
-        AND "kind"::text IN (${Prisma.join([...input.kinds])}) ${partition}
+        AND "kind"::text IN (${Prisma.join([...input.kinds])}) ${partition} ${rankingQueueVisibleSql(input.kinds)}
         AND "status" IN ('QUEUED', 'RUNNING', 'CANCEL_REQUESTED', 'FAILED', 'PAUSED')
         AND (("status" IN ('RUNNING', 'CANCEL_REQUESTED') AND "leaseExpiresAt" <= clock_timestamp())
           OR ("expiresAt" <= clock_timestamp() AND "deadLetteredAt" IS NULL))

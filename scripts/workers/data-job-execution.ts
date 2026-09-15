@@ -1,8 +1,8 @@
-import { commitQueuedDataJob, DataJobQueueError, failQueuedDataJob, type DataJobLease, type DataQueueClient } from "../../packages/db/src/index";
+import { commitQueuedDataJob, DataJobQueueError, failQueuedDataJob, isDataJobScopeBusy, type DataJobLease, type DataQueueClient } from "../../packages/db/src/index";
 import { abortableJobPreparation, DataJobHandlerError, type DataJobHandler } from "./data-job-handler";
 import { DataJobControlError, startDataJobHeartbeat } from "./data-job-heartbeat";
 
-export type DataJobExecutionResult = "SUCCEEDED" | "FAILED" | "PAUSED" | "CANCELLED" | "LEASE_LOST";
+export type DataJobExecutionResult = "SUCCEEDED" | "FAILED" | "PAUSED" | "CANCELLED" | "LEASE_LOST" | "DEFERRED";
 
 export async function executeDataJob(input: {
   client: DataQueueClient;
@@ -40,12 +40,16 @@ export async function executeDataJob(input: {
 async function settleExecutionFailure(input: { client: DataQueueClient; lease: DataJobLease }, error: unknown): Promise<DataJobExecutionResult> {
   if (error instanceof DataJobControlError) return error.status;
   if (error instanceof DataJobQueueError && error.code === "DATA_JOB_LEASE_LOST") return "LEASE_LOST";
-  const code = error instanceof DataJobHandlerError || error instanceof DataJobQueueError ? error.code : "DATA_JOB_HANDLER_FAILED";
-  const retryable = error instanceof DataJobHandlerError ? error.retryable : !(error instanceof DataJobQueueError);
+  if (input.lease.kind === "RANKING_REBUILD" && error instanceof DataJobQueueError && error.code === "DATA_JOB_QUEUE_NOT_FOUND") return "LEASE_LOST";
+  const busy = input.lease.kind === "RANKING_REBUILD" && isDataJobScopeBusy(error);
+  const code = busy ? "DATA_JOB_SCOPE_BUSY" : error instanceof DataJobHandlerError || error instanceof DataJobQueueError ? error.code : "DATA_JOB_HANDLER_FAILED";
+  const retryable = busy || (error instanceof DataJobHandlerError ? error.retryable : !(error instanceof DataJobQueueError));
   try {
     return await failQueuedDataJob(input.client, { lease: input.lease, errorCode: code, retryable });
   } catch (failure) {
     if (failure instanceof DataJobQueueError && failure.code === "DATA_JOB_LEASE_LOST") return "LEASE_LOST";
+    if (input.lease.kind === "RANKING_REBUILD" && failure instanceof DataJobQueueError && failure.code === "DATA_JOB_QUEUE_NOT_FOUND") return "LEASE_LOST";
+    if (input.lease.kind === "RANKING_REBUILD" && isDataJobScopeBusy(failure)) return "DEFERRED";
     throw failure;
   }
 }

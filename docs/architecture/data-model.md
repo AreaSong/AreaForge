@@ -55,6 +55,10 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 领取由队列索引和 `FOR UPDATE SKIP LOCKED` 支持，不修改其他业务模型或自动执行旧任务。
 副作用和成功状态在同一事务提交，机制与业务处理器的区别见 [`持久后台任务`](../modules/background-jobs.md)。
 
+`RANKING_REBUILD` 复用既有任务结构，在内部 JSON 保存严格协议、权限/来源指纹与挑战 generation；失败和取消任务也参与代次上界。
+`RankingProjection.sourceFingerprint` 绑定整榜快照，公开排序前重验当前来源、授权与删除可见性；空投影需成功任务证明。
+这些字段不构成新的学习源事实，详见 [持久排名重建](../modules/ranking-rebuild.md)。
+
 ### 导出文件与下载授权
 
 - `DataExportArtifact`：文件写入前的持久意图，唯一 `(jobId, leaseVersion)` 和随机 `objectKey`；状态为 `STAGING/PUBLISHED/RECLAIMING/RECLAIMED`，保留快照/到期/发布/回收时间及有界错误码。FK 与 CHECK 约束防止解绑、非法 key 和矛盾终态。

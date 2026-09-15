@@ -24,7 +24,7 @@
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 后续候选已增加持久 worker、受控排名通知和完整 EXPORT 文件链路；51 条 migration 与 15/11/14 组内核/通知/导出 runtime、导出桌面/窄视口浏览器/API 验收通过。DELETE 和 OPS 各有独立本地闭环；OPS 38 组合成运行态与真实 API/桌面/390px/320px 验收通过。排名重建、共享/生产 migration 和 v2.0 门禁仍未完成，PR #57 / `b04ba98` 已合并。
+- 后续候选已增加持久 worker、受控排名通知和完整 EXPORT 文件链路；51 条 migration 与 15/11/14 组内核/通知/导出 runtime、导出桌面/窄视口浏览器/API 验收通过。DELETE 和 OPS 各有独立本地闭环；RANKING 持久重建也已完成 26 组运行态和 12 组浏览器/API 验收，无新增 DDL。持久搜索/配额/MFA/观测、完整跨域门禁、后续分支受保护合并、新 Release 和共享/生产交付仍缺，v2.0 保持 partial；PR #57 / `b04ba98` 已合并。
 
 - 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；归档生产交付/回滚基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。新鲜公网 health 已观测到 `v1.2.0`，但完整服务器交付证据未核验，差异以 operational-readiness 为准。
 - 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。

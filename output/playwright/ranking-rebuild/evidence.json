@@ -1,0 +1,39 @@
+{
+  "scope": "RANKING local fixture browser/API",
+  "checkedAt": "2026-09-15T11:24:16.295Z",
+  "pool": {
+    "slot": 3,
+    "container": "areaforge-dev-test-3",
+    "port": 43173,
+    "url": "http://127.0.0.1:43173",
+    "status": "running",
+    "note": "RANKING isolated acceptance",
+    "generation": 1789470021025,
+    "commit": "149de93b249bff8d32925e60c4bc552889bebbf6",
+    "sourceFingerprint": "sha256:25e501e538ec49f33e4b59a9229546a81a858240a68c0fe35b4726b4af13a33c",
+    "buildId": "sha256:97fa02d0d689a356f2248bb132223dc13c3a20f9a564c14afee183f4b9a88877",
+    "fixtureId": "6e0c4ae959528c5706e4cbedb1863e5b1f8b42a30adba15e8a57109284fcc071"
+  },
+  "sourceFingerprint": "sha256:d1bf875a3c709a60ed2f1d2d1b229a683d458eb42544e015c1216e0cdef3a5e3",
+  "viewports": [
+    "1440x1000",
+    "390x844",
+    "320x844"
+  ],
+  "passed": [
+    "unauthenticated-and-real-login",
+    "incomplete-202-keeps-request-identity",
+    "late-refresh-does-not-replace-new-job",
+    "worker-publishes-and-private-dto",
+    "pause-ack-resume-and-cancel",
+    "failed-refresh-preserves-controls-and-hides-scores",
+    "member-and-cross-workspace-rejected",
+    "viewer-permission-and-challenge-revision",
+    "desktop-390-320-and-keyboard",
+    "strict-input-and-revoked-session-clears-view",
+    "ownership-change-clears-pending-scope",
+    "exit-freeze-rebuild-and-restore-visibility"
+  ],
+  "pageErrors": [],
+  "productionTouched": false
+}

@@ -10,7 +10,9 @@ v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作以及 v1.
 
 持久 worker 首批候选通过 `queueVersion` 与现有数据预览接口隔离，Web 不启动后台进程。
 独立执行内核见 `docs/modules/background-jobs.md`；通知域有 11 组专项，EXPORT 有 14 组运行态及桌面/390px/320px 浏览器/API 验收。导出通过独立 worker 复制本人 READY 附件并生成私有 ZIP，经一次性 POST 下载，Web 不写归档或执行回收；`DATA_EXPORT_ENABLED=false` 默认关闭。
-DELETE 的回收站、近期重新验证、精确确认和只读回执已有独立本地/API/浏览器验收，物理删除由独立进程完成；普通 ORM 与知识画布原生查询都过滤冻结对象。默认 `DATA_DELETE_ENABLED=false` / `DATA_DELETE_WORKER_ENABLED=false`，详见 `docs/modules/data-deletion.md` 和 `tasks/backlog/0041-data-lifecycle.md`。OPS 独立执行绑定、root 桥接/锁/日志/恢复已有 38 组合成运行态及真实 API/桌面/390px/320px 验收；Web 只读脱敏前态与阶段投影，不启动进程。排名重建、跨域综合门禁与共享/生产交付仍缺。
+DELETE 的回收站、近期重新验证、精确确认和只读回执已有独立本地/API/浏览器验收，物理删除由独立进程完成；普通 ORM 与知识画布原生查询都过滤冻结对象。默认 `DATA_DELETE_ENABLED=false` / `DATA_DELETE_WORKER_ENABLED=false`，详见 `docs/modules/data-deletion.md` 和 `tasks/backlog/0041-data-lifecycle.md`。OPS 独立执行绑定、root 桥接/锁/日志/恢复已有 38 组合成运行态及真实 API/桌面/390px/320px 验收；Web 只读脱敏前态与阶段投影，不启动进程。
+
+RANKING 持久重建已通过 26 组隔离运行态和 12 组浏览器/API 验收，复用 53 条 migration，无新增 DDL。Web 仅提交 Owner 显式请求、控制和读取脱敏任务/有效投影；新入口默认 `RANKING_REBUILD_QUEUE_ENABLED=false`，关闭或失效时不回退到同步重算。最新任务、当前排名和折叠历史支持桌面/390px/320px 与键盘，详情见 `tasks/backlog/0043-ranking-platform-hardening.md`。跨域综合门禁、完整版本验收与共享/生产交付仍缺。
 
 ## Getting Started
 

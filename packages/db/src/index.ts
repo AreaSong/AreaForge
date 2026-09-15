@@ -114,6 +114,7 @@ export * from "./controlled-operation-protocol";
 export * from "./controlled-operation-store";
 export { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
+export { isDataJobScopeBusy } from "./data-job-ranking-guard";
 export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from "./data-job-queue";
 export { heartbeatQueuedDataJob, commitQueuedDataJob, failQueuedDataJob } from "./data-job-queue-lease";
 export { controlQueuedDataJob, controlQueuedDataJobInTransaction, type DataJobQueueControl } from "./data-job-queue-control";
@@ -129,3 +130,5 @@ export { dataExportAttachmentSource } from "./data-export-file-sources";
 export { previewDatabaseDeletion, createDatabaseDeletion, controlDatabaseDeletion, listDatabaseDeletions, readDeletionReceipt, type DeleteActor } from "./data-delete-intents";
 export { listDeletionCandidates } from "./data-delete-candidates";
 export { queryDeletionVisibleRows } from "./data-delete-visibility";
+export { enqueueRankingRebuild, listRankingRebuildJobs, controlRankingRebuild, prepareRankingRebuild, commitRankingRebuild,
+  getSafeRankingProjection, rankingRebuildJobView, validatedRankingJob } from "./ranking-rebuild-jobs";

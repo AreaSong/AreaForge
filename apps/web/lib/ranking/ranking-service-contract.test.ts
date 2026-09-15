@@ -36,13 +36,16 @@ test("ranking writes enqueue only typed durable notifications", async () => {
 });
 
 test("projection loader has a narrow source-field allowlist and workspace fence", async () => {
-  const source = await readFile(path.join(rankingRoot, "projection-service.ts"), "utf8");
-  assert.match(source, /workspaceId,\s*userId/);
+  const source = await readFile(path.resolve(rankingRoot, "../../../../packages/db/src/ranking-rebuild-snapshot.ts"), "utf8");
+  assert.match(source, /workspaceId:\s*challenge\.workspaceId/);
   assert.match(source, /status:\s*"COMPLETED"/);
   assert.match(source, /effectiveMinutes:\s*true/);
   assert.match(source, /isEffective:\s*true/);
   assert.doesNotMatch(source, /row\.(title|note|content|summary|mood|prompt|attachment)/i);
-  assert.match(source, /RANKING_PROJECTION_REBUILT/);
+  assert.match(source, /guardRankingQueueTransaction/);
+  assert.match(source, /dataDeletionFence/);
+  const web = await readFile(path.join(rankingRoot, "projection-service.ts"), "utf8");
+  assert.match(web, /getSafeRankingProjection/);
 });
 
 test("challenge mutations keep owner/member queries behind active workspace membership", async () => {

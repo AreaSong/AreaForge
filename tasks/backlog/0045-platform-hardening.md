@@ -39,7 +39,7 @@ releaseRequired: true
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，响应明确 `indexed=false`，当前仍是直接数据库候选而非持久搜索索引。
 - 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE 与 OPS 另有独立本地验收；排名重建、持久搜索、配额写入、MFA/Passkey、监控外呼及共享/生产启用仍缺，不改变整体 `status: backlog` 和前置 blocker。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。持久搜索、配额写入、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收
@@ -100,6 +100,12 @@ releaseRequired: true
 
 - 大数据量、并发、队列故障、恢复和灾备的全域验收仍属于后续综合门禁；故障不得阻断个人学习主链。
 - 桌面、移动和无障碍旅程通过，所有页面和后台任务明确显示 Workspace scope。
+
+### RANKING 独立本地接力（2026-09-15）
+
+- `0043` 已在独立批准下完成持久重建协议/worker、权限与来源历史绑定、代次拒绝、原子整榜和当前可见性重验；26 组隔离运行态与 12 组真实浏览器/API 验收通过，包含桌面/390px/320px、键盘历史折叠和两处进程强杀。
+- 新 RANKING 合成库仅部署既有 53 条 migration，未新增 DDL；测试池只替换经核验的槽 3，保留旧库/卷/证据。六个开关均须精确开启，默认关闭，Web 不启动进程或同步重算；CI 默认检查新增排名类型检查与隔离 guard 自测，但不冒充需合成库的运行态/浏览器测试。
+- 历史章节中的“排名重建未完成”仅代表当时范围，不覆盖本次本地证据；完整版本 UI/跨域矩阵、持久搜索、配额、MFA/观测、受保护合并、Release 和生产仍是后续门禁，不关闭 residual。
 
 ## 回滚
 

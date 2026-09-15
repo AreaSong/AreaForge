@@ -107,6 +107,13 @@
 
 Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费；新独立执行结果不能由旧手工 worker 接口伪造。
 
+排名与持久重建使用独立 Owner/参与者边界，协议见 [持久排名重建](../modules/ranking-rebuild.md)：
+
+- `GET /api/ranking/challenges/:id/projection`：仅有效参与者读取经当前权限、来源与冻结过滤的安全投影；失效快照返回 `stale=true` 与空 `entries`。
+- `POST /api/ranking/challenges/:id/projection`：挑战 Owner 显式提交严格 `expectedRevision`、`idempotencyKey`，返回 `202` 与最小 `job`；不在 Web 同步发布排名，不接受 actor、workspace、源数据或处理器参数。
+- `GET /api/ranking/challenges/:id/rebuilds`：挑战 Owner 读取本人最近任务与排队可用性；不返回 payload、权限/来源指纹或租约。
+- `PATCH /api/ranking/challenges/:id/rebuilds/:jobId`：本人、挑战归属与当前 session 重验后，接受 `expectedRevision` 和 `PAUSE/RESUME/CANCEL/REPLAY`；恢复/重试不得重绑旧快照，运行中的控制需执行器确认。
+
 独立删除接口不执行文件 IO 或服务器命令，协议见[本人数据回收站与删除](../modules/data-deletion.md)：
 
 - `GET /api/system/deletions`：当前用户的最小回收站/删除状态；不返回冻结正文、路径、租约或 token hash。

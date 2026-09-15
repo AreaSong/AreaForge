@@ -2,11 +2,14 @@ import { createRankingNotificationHandler } from "./ranking-notification-handler
 import type { DataJobHandler } from "./data-job-handler";
 import { createDataExportHandler } from "./data-export-handler";
 import type { DataQueueClient } from "../../packages/db/src/index";
+import { rankingRebuildQueueEnabled } from "../../packages/core/src/index";
+import { createRankingRebuildHandler } from "./ranking-rebuild-handler";
 
 export function enabledDataJobKinds(env: Readonly<Record<string, string | undefined>>): DataJobHandler["kind"][] {
   const kinds: DataJobHandler["kind"][] = [];
   if (env.PLATFORM_NOTIFICATIONS_ENABLED === "true" && env.PLATFORM_NOTIFICATION_QUEUE_ENABLED === "true") kinds.push("NOTIFICATION");
   if (env.DATA_LIFECYCLE_ENABLED === "true" && env.DATA_EXPORT_ENABLED === "true") kinds.push("EXPORT");
+  if (rankingRebuildQueueEnabled(env)) kinds.push("RANKING_REBUILD");
   return kinds;
 }
 
@@ -18,6 +21,10 @@ export function createDataJobHandlers(env: Readonly<Record<string, string | unde
   if (kinds.includes("EXPORT")) {
     if (!client) throw new TypeError("DATA_EXPORT_CLIENT_REQUIRED");
     handlers.push(createDataExportHandler(client, env));
+  }
+  if (kinds.includes("RANKING_REBUILD")) {
+    if (!client) throw new TypeError("RANKING_REBUILD_CLIENT_REQUIRED");
+    handlers.push(createRankingRebuildHandler(client, env));
   }
   return handlers;
 }

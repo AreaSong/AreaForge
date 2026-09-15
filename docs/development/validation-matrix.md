@@ -608,6 +608,17 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 - 测试池改动补 `dev:test:selftest` / `dev:test:typecheck` / latest / doctor / snapshot dry-run；同时运行 `github-release-updater:preflight`、`shellcheck:updater`、原 OPS-005/OPS-008 selftest、governance/risk/secrets/docs、ops readiness/handoff 与 `git diff --check`。
 - 只允许本批新建合成库/目录及固定测试命令，不借用 DELETE/EXPORT/共享数据。本地日志与结果必须标为 `local_fixture`，不证明生产签名/backup/apply/rollback、Release、长期运营或 residual 关闭。
 
+## 持久排名重建专项
+
+涉及 `ranking-rebuild-*`、排名 HTTP 重建入口、当前投影过滤或 RANKING 专用测试池时，先核对独立 RANKING 本地确认包：
+
+- Core/DB/Web/config 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm worker:rankings:typecheck`、`pnpm worker:rankings:isolation:selftest`、`pnpm check`。
+- `pnpm worker:rankings:runtime:selftest <private-fixture-root>`：精确 RANKING marker/UID/仓库/数据库/镜像/卷和当前 53 条 migration ledger/checksum；覆盖来源日期及 xmin、代次、身份历史、并发/锁冲突、控制、容量拒绝、空榜证据、真实权限与数据库删除联动、两个进程强杀点、事务中租约过期及标准独立 CLI。`--case=<name>` 仅用于定位，不生成完整验收记录。
+- `pnpm worker:rankings:browser:selftest <private-fixture-root>`：复用 RANKING 专用 latest 并校验产品/fixture 指纹；覆盖 Owner 请求/控制、Member/Viewer/跨工作区拒绝、丢失或残缺 202 同请求重试、乱序刷新、权限/版本变化、冻结可见性及桌面/390px/320px。不得用静态合同测试替代实际页面。
+- runtime 与 browser 输出绑定 `rankingRebuildSourceFingerprint`；采集期间源码变化必须失败。最终编辑后重跑受影响记录，不用相同 base commit 替代当前源码指纹。
+- 测试池改动补 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；所有 fixture 仅挂载其私有 uploads/exports 为只读，不叠加共享上传卷。
+- 同步模块/API/配置/任务/状态入口，运行 docs/links/evergreen、tasks/residual/risk/governance/secrets 和 diff 门禁。独立内核/通知旧运行结果不替代排名域；本地结果不证明 Release、共享/生产 migration、生产启用或残余风险关闭。
+
 ## 当前已知验证阻塞
 
 DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。
