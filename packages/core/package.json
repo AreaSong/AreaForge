@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@types/mdast": "4.0.4",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "mdast-util-directive": "3.1.0",
