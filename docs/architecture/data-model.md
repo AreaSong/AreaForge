@@ -59,6 +59,10 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 `RankingProjection.sourceFingerprint` 绑定整榜快照，公开排序前重验当前来源、授权与删除可见性；空投影需成功任务证明。
 这些字段不构成新的学习源事实，详见 [持久排名重建](../modules/ranking-rebuild.md)。
 
+`SEARCH_INDEX_REBUILD` 绑定请求用户、工作区、分区、代次与来源指纹。
+`WorkspaceSearchPartition` 按 `(userId, workspaceId)` 唯一；`WorkspaceSearchDocument` 通过复合分区外键与六类精确源外键保存标题副本，CHECK 拒绝类型/来源错配。
+两表均受冻结协议保护并从用户导出排除；发布与任务成功同事务，冻结旧副本不能被重建覆盖。参见[工作区持久搜索](../modules/workspace-search.md)。
+
 ### 导出文件与下载授权
 
 - `DataExportArtifact`：文件写入前的持久意图，唯一 `(jobId, leaseVersion)` 和随机 `objectKey`；状态为 `STAGING/PUBLISHED/RECLAIMING/RECLAIMED`，保留快照/到期/发布/回收时间及有界错误码。FK 与 CHECK 约束防止解绑、非法 key 和矛盾终态。

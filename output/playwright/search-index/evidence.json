@@ -1,0 +1,94 @@
+{
+  "scope": "SEARCH local fixture browser/API",
+  "checkedAt": "2026-09-16T03:26:03.711Z",
+  "pool": {
+    "slot": 3,
+    "container": "areaforge-dev-test-3",
+    "port": 43173,
+    "url": "http://127.0.0.1:43173",
+    "status": "running",
+    "note": "SEARCH isolated acceptance",
+    "generation": 1789529000794,
+    "commit": "434c510e7e61d7b4ddf482fc6ef53e1d40f7ad7b",
+    "sourceFingerprint": "sha256:34f17d58810dbf47da1f0f2ec28047e10ce47a1ea5672af9b72fb13d845fbe33",
+    "buildId": "sha256:e19c42cb71e470c53209fec3dbd6f8dbdffa1229c9b6f9e1ace96f6e8a1b2b8d",
+    "fixtureId": "8bb440f489b193d82e70b1f63a485d66751f1692411e0ea72f06a9f3f4b5d58e"
+  },
+  "sourceFingerprint": "sha256:d6dfe51404a401f642e83f9e6750df86e0b044e82e5268a4c92305d49f8baff8",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "cssZoom": 1
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "cssZoom": 1
+    },
+    {
+      "width": 320,
+      "height": 844,
+      "cssZoom": 1
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "cssZoom": 1
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "cssZoom": 1
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "cssZoom": 1
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "cssZoom": 1
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "cssZoom": 1.25
+    }
+  ],
+  "nativeZoom": {
+    "requested": "125%",
+    "mechanism": "Chrome default zoom in temporary profile",
+    "selectedValue": "1.25",
+    "baseline": {
+      "innerWidth": 1440,
+      "devicePixelRatio": 2
+    },
+    "zoomed": {
+      "innerWidth": 1152,
+      "devicePixelRatio": 2.5
+    },
+    "passed": true
+  },
+  "passed": [
+    "unauthenticated-and-real-login",
+    "incomplete-202-keeps-request-identity",
+    "late-refresh-does-not-replace-new-job",
+    "independent-worker-publishes-private-index",
+    "global-dynamic-search-uses-current-title-only-index",
+    "latest-query-wins-and-error-recovery",
+    "pause-acknowledge-resume-and-cancel",
+    "failed-refresh-hides-index-count-and-keeps-recovery",
+    "viewer-own-index-and-cross-user-workspace-rejection",
+    "workspace-switch-discards-pending-old-receipt",
+    "selected-workspace-also-binds-global-search",
+    "renamed-source-invalidates-old-title-and-rebuilds",
+    "freeze-rebuild-restore-does-not-revive-old-index",
+    "seven-viewports-search-and-keyboard",
+    "native-browser-125-percent-zoom",
+    "strict-input-and-revoked-session-clears-private-view"
+  ],
+  "pageErrors": [],
+  "productionTouched": false
+}

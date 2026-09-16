@@ -26,7 +26,7 @@ test("every Prisma model has an explicit export lifecycle disposition", async ()
   assert.deepEqual(dispositionCounts, {
     INCLUDED_PREVIEW: 83,
     EXCLUDED_SECURITY: 12,
-    DERIVED_REBUILDABLE: 1,
+    DERIVED_REBUILDABLE: 3,
   });
 });
 
@@ -48,7 +48,7 @@ test("included preview delegates and security exclusions stay aligned with imple
     .sort();
   assert.deepEqual([...new Set(includedDelegates)].sort(), classifiedIncluded);
 
-  for (const item of DATA_EXPORT_MODEL_DISPOSITIONS.filter((entry) => entry.disposition === "EXCLUDED_SECURITY")) {
+  for (const item of DATA_EXPORT_MODEL_DISPOSITIONS.filter((entry) => ["EXCLUDED_SECURITY", "DERIVED_REBUILDABLE"].includes(entry.disposition))) {
     assert.equal(includedDelegates.includes(item.model), false, `${item.model} must stay outside export preview`);
   }
   assert.doesNotMatch(

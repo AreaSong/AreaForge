@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["search-index-*.ts", "../workers/workspace-search-handler.ts", "../dev/dev-test-search-fixture.ts"]
+}

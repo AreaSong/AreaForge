@@ -57,6 +57,18 @@ test("RANKING 只有六个开关精确开启才注册，关闭任一个均不触
   }
 });
 
+test("SEARCH 仅在五开关精确开启后注册，关闭任一开关不访问数据库", () => {
+  const flags = ["AUTH_MULTI_USER_ENABLED", "AUTH_RBAC_ENABLED", "SEARCH_INDEX_ENABLED", "SEARCH_INDEX_QUEUE_ENABLED", "DATA_JOB_WORKER_ENABLED"];
+  const env = Object.fromEntries(flags.map(key => [key, "true"]));
+  const client = new Proxy({} as DataQueueClient, { get() { throw new Error("DATABASE_MUST_NOT_BE_TOUCHED"); } });
+  assert.deepEqual(enabledDataJobKinds(env), ["SEARCH_INDEX_REBUILD"]);
+  assert.throws(() => createDataJobHandlers(env), /SEARCH_INDEX_CLIENT_REQUIRED/);
+  assert.deepEqual(createDataJobHandlers(env, client).map(item => item.kind), ["SEARCH_INDEX_REBUILD"]);
+  for (const key of flags) for (const value of [undefined, "false", "TRUE", "1"]) {
+    assert.deepEqual(createDataJobHandlers({ ...env, [key]: value }, client), []);
+  }
+});
+
 test("未响应 abort 的准备任务也不能交出晚到的提交函数", async () => {
   const controller = new AbortController();
   let resolvePreparation!: (value: string) => void;

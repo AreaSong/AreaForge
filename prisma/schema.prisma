@@ -194,6 +194,7 @@ enum DataJobKind {
   DELETE
   RANKING_REBUILD
   NOTIFICATION
+  SEARCH_INDEX_REBUILD
 }
 
 enum DataJobScope {
@@ -534,6 +535,7 @@ model User {
   rankingInvitationsSent       PrivateChallengeParticipant[] @relation("RankingParticipantInviter")
   rankingAppealsSubmitted      RankingAppeal[]                @relation("RankingAppealSubmitter")
   rankingAppealsReviewed       RankingAppeal[]                @relation("RankingAppealReviewer")
+  searchPartitions             WorkspaceSearchPartition[]
 }
 
 model AuthSession {
@@ -604,6 +606,7 @@ model ExamWorkspace {
   rankingPreferences           RankingPreference[]
   privateChallenges            PrivateChallenge[]
   userNotifications            UserNotification[]
+  searchPartitions             WorkspaceSearchPartition[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -963,6 +966,7 @@ model Subject {
   relatedKnowledgePoints   KnowledgePointSubject[]
   knowledgeGroups          KnowledgeGroup[]
   learningArrangements     LearningArrangement[]
+  searchDocuments          WorkspaceSearchDocument[] @relation("SearchSourceSubject")
 
   @@index([workspaceId])
   @@index([groupId])
@@ -1069,6 +1073,7 @@ model StudyTask {
   studyResourceLinks      StudyResourceTaskLink[]
   stageLinks              StudyTaskStageLink[]
   knowledgePointLinks     StudyTaskKnowledgePoint[]
+  searchDocuments         WorkspaceSearchDocument[] @relation("SearchSourceTask")
 
   @@index([plannedDate])
   @@index([ownerUserId, plannedDate])
@@ -1335,6 +1340,7 @@ model Note {
   mistakeLinks         NoteMistakeLink[]
   studyResourceLinks   StudyResourceNoteLink[]
   reviewSchedules      ReviewSchedule[]
+  searchDocuments      WorkspaceSearchDocument[] @relation("SearchSourceNote")
 
   @@index([subjectId])
   @@index([ownerUserId, archivedAt])
@@ -1419,6 +1425,7 @@ model Mistake {
   attempts            MistakeAttempt[]
   simulationLossItems SimulationLossItem[]
   reviewSchedules     ReviewSchedule[]
+  searchDocuments     WorkspaceSearchDocument[] @relation("SearchSourceMistake")
 
   @@index([subjectId])
   @@index([ownerUserId, archivedAt])
@@ -1848,6 +1855,7 @@ model StudyResource {
   mistakeLinks          StudyResourceMistakeLink[]
   syllabusNodeLinks     StudyResourceSyllabusNodeLink[]
   reviewSchedules       ReviewSchedule[]
+  searchDocuments       WorkspaceSearchDocument[] @relation("SearchSourceResource")
 
   @@unique([workspaceId, stableKey])
   @@index([workspaceId])
@@ -2325,6 +2333,7 @@ model KnowledgePoint {
   retestLinks       KnowledgeRetestPoint[]
   evidence          KnowledgeEvidence[]
   taskLinks         StudyTaskKnowledgePoint[]
+  searchDocuments   WorkspaceSearchDocument[] @relation("SearchSourceKnowledgePoint")
 
   @@unique([workspaceId, userId, stableKey])
   @@index([workspaceId, masteryState, archivedAt])
@@ -2689,6 +2698,63 @@ model RankingAppeal {
  * v1.8/v1.9 local candidate. Content is rendered from the controlled kind;
  * private challenge names, appeal bodies and learning text are never stored.
  */
+// 派生标题副本按查看者分区，不是学习源事实或用户导出内容。
+model WorkspaceSearchPartition {
+  id                  String                    @id @default(cuid())
+  userId              String
+  workspaceId         String
+  generation          Int                       @default(0)
+  publishedGeneration Int?
+  sourceFingerprint   String?
+  documentCount       Int                       @default(0)
+  indexedAt           DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace           ExamWorkspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents           WorkspaceSearchDocument[]
+
+  @@unique([userId, workspaceId])
+  @@unique([id, workspaceId])
+  @@index([workspaceId])
+}
+
+// 多代保留只用于不覆盖仍在回收站冻结的旧副本；发布指针只指向完整的一代。
+model WorkspaceSearchDocument {
+  id               String                   @id @default(cuid())
+  partitionId      String
+  workspaceId      String
+  generation       Int
+  kind             String
+  sourceId         String
+  title            String
+  sourceRevision   String
+  sourceUpdatedAt  DateTime
+  sortOrder        Int                      @default(0)
+  subjectId        String?
+  taskId           String?
+  knowledgePointId String?
+  noteId           String?
+  mistakeId        String?
+  resourceId       String?
+  partition        WorkspaceSearchPartition @relation(fields: [partitionId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  subject          Subject?                 @relation("SearchSourceSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  task             StudyTask?               @relation("SearchSourceTask", fields: [taskId], references: [id], onDelete: Cascade)
+  knowledgePoint   KnowledgePoint?          @relation("SearchSourceKnowledgePoint", fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  note             Note?                    @relation("SearchSourceNote", fields: [noteId], references: [id], onDelete: Cascade)
+  mistake          Mistake?                 @relation("SearchSourceMistake", fields: [mistakeId], references: [id], onDelete: Cascade)
+  resource         StudyResource?           @relation("SearchSourceResource", fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([partitionId, generation, kind, sourceId], map: "WorkspaceSearchDocument_scope_source_key")
+  @@index([partitionId, generation, kind])
+  @@index([subjectId])
+  @@index([taskId])
+  @@index([knowledgePointId])
+  @@index([noteId])
+  @@index([mistakeId])
+  @@index([resourceId])
+}
+
 model UserNotification {
   id               String               @id @default(cuid())
   recipientUserId  String

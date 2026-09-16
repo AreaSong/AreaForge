@@ -5,7 +5,7 @@ import { deletePathPredicate } from "./data-delete-query";
 
 test("删除清单覆盖每个生成的业务模型且 owner/parent/主键路径均存在", () => {
   const models = sourceDeleteModels();
-  assert.equal(models.length, 90);
+  assert.equal(models.length, 92);
   for (const [model, field] of Object.entries({ ...deleteOwnerFields, ...deleteParentFields })) {
     assert.ok(deleteModel(model).fields.some(candidate => candidate.name === field), model + "." + field);
   }

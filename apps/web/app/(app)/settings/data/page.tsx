@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { DataJobCenterClient } from "@/components/data-job-center-client";
 import { DataDeletionCenter } from "@/components/data-deletion-center";
 import { RankingChallengeClient } from "@/components/ranking-challenge-client";
+import { SearchIndexPanel } from "@/components/search-index-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
@@ -19,7 +20,7 @@ export default async function SettingsDataPage() {
   if (!user) redirect("/login");
   const dataLifecycleEnabled = process.env.DATA_LIFECYCLE_ENABLED === "true";
   const rankingEnabled = process.env.RANKING_ENABLED === "true";
-  const workspaces = dataLifecycleEnabled || rankingEnabled ? await listExamWorkspaces(user.id) : [];
+  const workspaces = await listExamWorkspaces(user.id);
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
@@ -175,6 +176,8 @@ export default async function SettingsDataPage() {
           </section>
           <DataDeletionCenter key={user.id + "-deletion"} enabled={dataLifecycleEnabled && process.env.DATA_DELETE_ENABLED === "true"}
             workspaces={workspaces.filter(workspace => workspace.status === "ACTIVE").map(workspace => ({ id: workspace.id, name: workspace.name, role: workspace.membershipRole }))} />
+          <SearchIndexPanel key={user.id + "-search"} actorId={user.id} enabled={process.env.SEARCH_INDEX_ENABLED === "true"}
+            workspaces={workspaces.filter(workspace => workspace.status === "ACTIVE").map(workspace => ({ id: workspace.id, name: workspace.name }))} />
           <section aria-labelledby="ranking-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="ranking-center-title" className="text-base font-semibold text-white">成长指标与私有挑战</h2>

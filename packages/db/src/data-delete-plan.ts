@@ -5,6 +5,7 @@ import { accountOnlyDeleteModels, deleteLinkModels, deleteModel, deleteOwnerFiel
   deleteRelations, deleteRetainedModels, sourceDeleteModels, type DeleteRelation } from "./data-delete-models";
 import { deleteKeyPredicate, deleteScopePredicate, quotedDeleteName, readDeleteRecords, type DeleteRecord, type DeleteTx } from "./data-delete-query";
 import { deleteSoftReferences, softDeletePredicate } from "./data-delete-references";
+import { isAuthorizedSearchCopy } from "./data-delete-search";
 
 type PlanContext = { tx: DeleteTx; target: DataDeleteTarget; records: Map<string, DeleteRecord>; blockers: Set<string>; relations: DeleteRelation[]; intentId?: string; recovery: boolean };
 
@@ -108,7 +109,8 @@ async function includeAffected(context: PlanContext, model: string, rows: Delete
     if (deleteRetainedModels.includes(model as never)) { context.blockers.add("DATA_DELETE_RETAINED_REFERENCE"); continue; }
     const permitted = deleteLinkModels.includes(model as never) ? await ownedLink(context, row)
       : (await readDeleteRecords(context.tx, model, Prisma.sql`${deleteKeyPredicate(row.key)} AND (${deleteScopePredicate(model, context.target)})`)).length === 1;
-    if (permitted) addRecords(context, [row]); else context.blockers.add("DATA_DELETE_FOREIGN_REFERENCE");
+    if (permitted || await isAuthorizedSearchCopy(context.tx, row, context.records.values())) addRecords(context, [row]);
+    else context.blockers.add("DATA_DELETE_FOREIGN_REFERENCE");
   }
 }
 

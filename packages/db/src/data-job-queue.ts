@@ -3,7 +3,7 @@ import { DATA_JOB_QUEUE_VERSION, validateDataJobAttempts, validateDataJobLeaseDu
 import { Prisma } from "../generated/prisma/client";
 import { DataJobQueueError, type ClaimDataJobInput, type DataJobLease, type DataJobPartition, type DataQueueClient, type DataQueueTransaction, type EnqueueDataJobInput } from "./data-job-queue-types";
 import { assertQueueScope, auditQueuedDataJob, partitionWhere, queueClock, queueIdentifier, releasedQueueLease, toDataJobLease, updateQueuedDataJob, validateQueueKinds } from "./data-job-queue-store";
-import { guardRankingQueueTransaction, rankingQueueVisibleSql } from "./data-job-ranking-guard";
+import { guardDerivedQueueTransaction, derivedQueueVisibleSql } from "./data-job-derived-guard";
 
 export async function enqueueDataJob(client: DataQueueClient, input: EnqueueDataJobInput) {
   validateEnqueue(input);
@@ -81,10 +81,10 @@ export async function claimQueuedDataJob(client: DataQueueClient, input: ClaimDa
   validateDataJobLeaseDuration(input.leaseMs);
   const partition = queuePartitionSql(input.partition);
   return client.$transaction(async (tx) => {
-    await guardRankingQueueTransaction(tx, input.kinds);
+    await guardDerivedQueueTransaction(tx, input.kinds);
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id" FROM "DataJob" WHERE "queueVersion" = ${DATA_JOB_QUEUE_VERSION}
-        AND "kind"::text IN (${Prisma.join([...input.kinds])}) ${partition} ${rankingQueueVisibleSql(input.kinds)}
+        AND "kind"::text IN (${Prisma.join([...input.kinds])}) ${partition} ${derivedQueueVisibleSql(input.kinds)}
         AND "expiresAt" > clock_timestamp() AND "nextAttemptAt" <= clock_timestamp()
         AND "attempt" < "maxAttempts" AND "deadLetteredAt" IS NULL AND NOT "pauseRequested"
         AND ("status" = 'QUEUED' OR ("status" = 'FAILED' AND "retryable"))

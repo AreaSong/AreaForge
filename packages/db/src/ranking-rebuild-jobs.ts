@@ -5,7 +5,7 @@ import { DataJobQueueError, type DataQueueClient, type QueuedDataJob } from "./d
 import { enqueueDataJobInTransaction } from "./data-job-queue";
 import { controlQueuedDataJobInTransaction, type DataJobQueueControl } from "./data-job-queue-control";
 import { queueClock } from "./data-job-queue-store";
-import { guardRankingQueueTransaction } from "./data-job-ranking-guard";
+import { guardDerivedQueueTransaction } from "./data-job-derived-guard";
 import { captureRankingSnapshot, rankingDatabaseError, type RankingRebuildSnapshot } from "./ranking-rebuild-snapshot";
 import { assertRankingRebuildSnapshot, publishRankingRebuild, readRankingProjection } from "./ranking-rebuild-projection";
 import { latestRankingGeneration, assertLatestRankingGeneration } from "./ranking-rebuild-generation";
@@ -23,7 +23,7 @@ export async function enqueueRankingRebuild(client: RankingRebuildClient, input:
   rankingIdentifier(input.actorId); rankingIdentifier(input.challengeId); rankingIdentifier(input.idempotencyKey); rankingRevision(input.expectedRevision);
   try {
     return await client.$transaction(async tx => {
-      await guardRankingQueueTransaction(tx, ["RANKING_REBUILD"]);
+      await guardDerivedQueueTransaction(tx, ["RANKING_REBUILD"]);
       await requireRankingSession(tx, input.actorId, input.sessionId);
       await requireRankingJobOwner(tx, input.actorId, input.challengeId);
       const existing = await tx.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: { requestedByUserId: input.actorId, idempotencyKey: input.idempotencyKey } } });
@@ -44,7 +44,7 @@ export async function enqueueRankingRebuild(client: RankingRebuildClient, input:
 export async function listRankingRebuildJobs(client: RankingRebuildClient, actorId: string, challengeId: string): Promise<RankingRebuildJobView[]> {
   try {
     return await client.$transaction(async tx => {
-      await guardRankingQueueTransaction(tx, ["RANKING_REBUILD"]);
+      await guardDerivedQueueTransaction(tx, ["RANKING_REBUILD"]);
       await requireRankingJobOwner(tx, actorId, challengeId);
       const rows = await tx.dataJob.findMany({ where: { queueVersion: 1, kind: "RANKING_REBUILD", requestedByUserId: actorId,
         resultJson: { path: ["challengeId"], equals: challengeId } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 10 });
@@ -59,7 +59,7 @@ export async function controlRankingRebuild(client: RankingRebuildClient, input:
   if (input.action !== "CANCEL") requireRankingRebuildEnabled(env);
   try {
     return await client.$transaction(async tx => {
-      await guardRankingQueueTransaction(tx, ["RANKING_REBUILD"]);
+      await guardDerivedQueueTransaction(tx, ["RANKING_REBUILD"]);
       await requireRankingSession(tx, input.actorId, input.sessionId);
       await requireRankingJobOwner(tx, input.actorId, input.challengeId);
       const row = await tx.dataJob.findUnique({ where: { id: rankingIdentifier(input.jobId) } });

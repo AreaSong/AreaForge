@@ -1,4 +1,4 @@
-export const dataJobKinds = ["EXPORT", "DELETE", "RANKING_REBUILD", "NOTIFICATION"] as const;
+export const dataJobKinds = ["EXPORT", "DELETE", "RANKING_REBUILD", "NOTIFICATION", "SEARCH_INDEX_REBUILD"] as const;
 export type DataJobKind = typeof dataJobKinds[number];
 
 export const dataJobStatuses = [

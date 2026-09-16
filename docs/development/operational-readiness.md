@@ -29,6 +29,8 @@
 - OPS 本地证据：2026-09-14 独立批准后实现冻结执行绑定、root-owned 桥接登记/文件、跨进程锁、不可覆盖日志、停止屏障和回执恢复；38 组合成运行态和真实 API/桌面/390px/320px 浏览器验收通过。仅新建 OPS 专用 loopback 库部署既有 53 条 migration，副作用适配器只写合成计数；只替换专属槽 3，槽 1/2、旧库/卷保留。生产适配器未运行，生产 identity、rollback target、自动策略和 residual 状态不变；缺失的生产证据不能由本地结果补齐。详见 `tasks/backlog/0042-controlled-operations-center.md`。
 - RANKING 本地证据：2026-09-15 独立批准后完成持久重建、权限/来源历史绑定、原子整榜和旧代次/失效过滤；26 组运行态及 12 组真实浏览器/API 验收通过，涵盖权限撤销、冻结/恢复/合成数据库删除、两处强杀、桌面/390px/320px 与键盘历史折叠。新 RANKING 库仅 deploy/repeat deploy 既有 53 条 migration，无新增 DDL；槽 3 经核验后替换，槽 1/2、旧 OPS 库/卷/证据保留。六开关默认关闭，未执行共享/生产迁移、备份/恢复、服务器命令、Release 或 residual 关闭；生产身份、回滚目标和自动策略不变。证据见 `tasks/backlog/0043-ranking-platform-hardening.md`。
 
+- SEARCH 本地证据（2026-09-16）：独立批准下完成用户×Workspace 标题索引、显式任务/控制、原子发布、权限/来源/冻结重验与安全直查。专用合成库的 54 条 migration ledger/checksum、33 组运行态及 16 组浏览器/API 专项通过，包含两处强杀、跨查看者删除/导出排除、容量边界、七档视口及真实 125% 缩放。仅更新槽 3，保留槽 1/2 和旧库/卷；五开关默认关闭。证据见 `tasks/backlog/0045-platform-hardening.md`；未改变生产 identity、备份/回滚目标、自动策略或 residual 状态，不代表综合 v2.0、Release 或生产交付完成。
+
 ## 运营状态
 
 运营状态之外，SLO、事故状态转换和能力退役使用独立的只读机器契约：

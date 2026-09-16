@@ -42,7 +42,7 @@ test("projection loader has a narrow source-field allowlist and workspace fence"
   assert.match(source, /effectiveMinutes:\s*true/);
   assert.match(source, /isEffective:\s*true/);
   assert.doesNotMatch(source, /row\.(title|note|content|summary|mood|prompt|attachment)/i);
-  assert.match(source, /guardRankingQueueTransaction/);
+  assert.match(source, /await guardDerivedQueueTransaction\(tx,\s*\["RANKING_REBUILD"\]\);\s*const visibility = await rankingVisibility\(tx\)/);
   assert.match(source, /dataDeletionFence/);
   const web = await readFile(path.join(rankingRoot, "projection-service.ts"), "utf8");
   assert.match(web, /getSafeRankingProjection/);

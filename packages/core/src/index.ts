@@ -774,3 +774,4 @@ function createRecoveryReason(input: RecoveryPlanInput): string {
 export * from "./data-delete-plan";
 export * from "./data-delete-ledger";
 export * from "./ranking-rebuild-job";
+export * from "./workspace-search-job";

@@ -45,6 +45,25 @@ export function listWorkspaceCapabilities(role: WorkspaceRole): WorkspaceCapabil
 export type WorkspaceShareGrantScope = "USER" | "ROLE" | "WORKSPACE";
 export type WorkspaceShareGrantAccess = "VIEW" | "COACH";
 
+export interface ActiveWorkspaceGrant {
+  scope: WorkspaceShareGrantScope;
+  granteeUserId: string | null;
+  granteeRole: WorkspaceRole | null;
+  access: WorkspaceShareGrantAccess;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+
+/** Web 资源访问与独立搜索消费者共用同一授权判定，不从索引缓存推导权限。 */
+export function workspaceGrantAllowsActor(grant: ActiveWorkspaceGrant, actor: { actorId: string; role: WorkspaceRole },
+  requiredAccess: WorkspaceShareGrantAccess, now = new Date()): boolean {
+  if (grant.revokedAt || (grant.expiresAt && grant.expiresAt <= now)) return false;
+  if (requiredAccess === "COACH" && (grant.access !== "COACH" || actor.role !== "COACH")) return false;
+  if (grant.scope === "USER") return grant.granteeUserId === actor.actorId && !grant.granteeRole;
+  if (grant.scope === "ROLE") return !grant.granteeUserId && grant.granteeRole === actor.role;
+  return grant.scope === "WORKSPACE" && requiredAccess === "VIEW" && grant.access === "VIEW" && !grant.granteeUserId && !grant.granteeRole;
+}
+
 export interface WorkspaceShareGrantTarget {
   scope: WorkspaceShareGrantScope;
   granteeUserId?: string | null;

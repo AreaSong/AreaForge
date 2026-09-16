@@ -41,6 +41,8 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `RANKING_ENABLED` | `false` | v1.8 私有挑战/排名候选闸门；默认关闭，不开放公开榜或通知外呼 |
 | `RANKING_PROJECTION_ENABLED` | `false` | 独立排名投影故障开关；关闭时挑战/个人学习主链仍可用，但投影读取与重建 fail closed |
 | `RANKING_REBUILD_QUEUE_ENABLED` | `false` | 持久排名重建开关；须与 AUTH/RBAC、排名/投影及 worker 总开关同时满足，在入队、准备和提交时检查；不开放公开榜 |
+| `SEARCH_INDEX_ENABLED` | `false` | 本人工作区标题索引读取闸门；同时要求 AUTH/RBAC。关闭、失效或无法验证时使用受保护源直查，不保存查询历史 |
+| `SEARCH_INDEX_QUEUE_ENABLED` | `false` | 显式索引重建闸门；入队、准备和提交还要求索引与 worker 总开关，不启动定时任务或 Web 内消费者 |
 | `PLATFORM_NOTIFICATIONS_ENABLED` | `false` | v1.8/v1.9 持久通知中心开关；关闭时排名流程不读写 `UserNotification`，不影响既有前台浏览器提醒 |
 | `PLATFORM_NOTIFICATION_QUEUE_ENABLED` | `false` | 将排名通知在业务事务内写入持久 `DataJob`；须同时开启通知总开关，消费前重验权限和源实体；关闭后新事件走直接事务路径，已有队列不自动重放 |
 | `DATA_JOB_WORKER_ENABLED` | `false` | 独立执行总开关，排名生产者也检查该许可；`worker:data-jobs:run` 要求非空显式处理器，可用 `--once` 和 `--workspace=<id>` 限定消费；`worker:exports:reclaim` 只回收登记副本，导出关闭后仍可显式运行；Web 不启动 worker |

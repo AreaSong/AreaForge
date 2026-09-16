@@ -35,11 +35,34 @@ releaseRequired: true
 
 ## 当前候选基础
 
+### 持久搜索本地包（本地专项已验证）
+
+- 维护者已明确批准用户 × Workspace 的标题白名单索引、新增派生表/任务枚举、专属合成库 migration 与撤权/删除/强杀/浏览器验证，以及通过后提交推送。精确边界见 `docs/development/high-risk-confirmation-packets.md` 的 SEARCH 确认包。
+- 基线 `434c510`、53 条迁移；新增索引为派生数据，不改变学习源事实、角色/grant、导出权或生产状态。已形成独立本地实现与专项证据；配额、MFA/观测及综合交付仍缺，整体任务保持 `backlog/planning`。
+- 验证必须包含过期权限标题、跨查看者源删除副本和冻结旧代次，不执行既有删除完整运行器中的 backup/restore；不复用旧域 fixture 或把历史 53 条记录改为新候选证据。
+
+#### SEARCH 独立本地证据（2026-09-16）
+
+- 已实现 `WorkspaceSearchPartition` / `WorkspaceSearchDocument`、严格 `SEARCH_INDEX_REBUILD` 协议、独立固定 worker、原子整代发布、代次/租约与五开关拒绝；不写学习源事实，不保存正文或搜索历史。源事实见 `docs/modules/workspace-search.md`。
+- 专属 loopback 合成库完成 canonical 54 条 migration deploy、repeat deploy 与逐条 ledger/checksum 校验；既有 53 条 SQL 未改。fixture scope 为 `c5015d7817c24e2567c8f8fc9b06ae8f50dce7d7bfde78be3f0a77eefba3fb0e`，不记录私有目录、连接串或合成凭据。
+- `pnpm worker:search:runtime:selftest <private-fixture-root>`：32/33 组通过。覆盖六类源、双用户/工作区、真实成员/角色/所有权/账户撤销、grant 目标/权限/到期、ABA 源变化、幂等/并发/控制/死信、两处 SIGKILL、提交后租约过期、五开关、导出排除、跨查看者冻结/恢复/删除、五类对象与 Workspace 删除、同 ID 不同类型及 FK/冻结 guard。
+- 容量包含 10,000/10,001 文档、8,192/8,193 UTF-8 字节和 16 MiB 总标题；10,001 grant 及超过 20,000 条真实冻结 fence 后仍安全直查，可取消已有任务。分区占锁会结束原事务后重新授权直查，删除屏障仍拒绝。源跨 Workspace 后的旧搜索副本可清除，旧 grant 等非搜索引用继续阻断，未放宽通用删除权。
+- `pnpm worker:search:browser:selftest <private-fixture-root>`：16/16 组通过。真实登录/API、202 同请求重试、乱序刷新/查询、暂停确认/恢复/取消、跨身份拒绝、Workspace 迟到回执隔离、动态搜索、源变化/冻结恢复及失败恢复均通过；320/390/768/820/1024/1280/1440 七档视口和键盘验证通过。原生 Chrome 125% 缩放实测 `innerWidth 1440 → 1152`、`devicePixelRatio 2 → 2.5`；CSS zoom 仅为附加检查，临时 Chrome profile 已清理。
+- 修复了极窄屏顶部搜索继承 32px 图标锚点宽度的问题：折叠为可操作搜索图标，展开占视口可用宽度，保留原学习状态和命令入口。
+- 收尾修复了排名契约仍引用旧屏障函数名导致的总检查失败；断言改为明确验证 `RANKING_REBUILD` 在可见性读取前进入共享派生屏障，并增加排名/搜索、冻结拒绝和混合队列 mock 回归。另补提交末端源修改与 grant 到期两种竞态；成功回执不替代当前读取重验，旧标题或过期共享副本不会进入查询结果。
+- 最终记录：`output/search-index/runtime-evidence.json`、`output/playwright/search-index/evidence.json`；同一本域源码指纹为 `sha256:d6dfe51404a401f642e83f9e6750df86e0b044e82e5268a4c92305d49f8baff8`。截图位于同一 browser 目录；失败诊断截图不作为成功证据。
+- 本批更新测试池槽 3，端口 `43173`，URL `http://127.0.0.1:43173`，产品源码指纹 `sha256:34f17d58810dbf47da1f0f2ec28047e10ce47a1ea5672af9b72fb13d845fbe33`，fixtureId `8bb440f489b193d82e70b1f63a485d66751f1692411e0ea72f06a9f3f4b5d58e`。仅替换原槽 3 Web；槽 1/2、旧 RANKING/OPS 数据库、卷、目录与证据保留。
+- 最终代码/文档门禁按验证矩阵执行 `pnpm check`、SEARCH/worker/测试池专项、docs/tasks/residual/risk/governance/secrets/audit 与只读运维交接检查；Git/CI 回执与本地专项分开核对。该记录只证明本地合成环境，不使旧域证据自动变为当前源码证据。
+- 最高实际运行写边界为 R1；未操作共享/生产、真实用户数据/附件、备份恢复、Provider/SMTP、服务器/root 配置、Release/tag/GHCR、自动策略或 residual 关闭。`AF-RISK-DATA-001/002/003`、`AF-RISK-OPS-009` 的分类、复核日期和关闭条件未改；完整 v1.9/v2.0 仍 partial。
+- 接力审阅边界见 `docs/development/search-index-checkpoint-review-record.md`；旧排名 guard 断言修复后完整检查已通过，新增竞态与本域运行态/浏览器证据已重新采集。提交与 CI 回执仍须独立核对，不以本地截图或运维结构预检替代。
+
+### 已有基础
+
 - `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
-- 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，响应明确 `indexed=false`，当前仍是直接数据库候选而非持久搜索索引。
+- 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，本次响应按当前授权/来源/冻结校验返回 `indexed/indexState/indexedAt`；索引关闭、缺失、失效、超限或占锁时安全直查，不返回旧索引标题、计数或时间。
 - 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。持久搜索、配额写入、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。SEARCH 已有本节独立本地专项；配额写入、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收

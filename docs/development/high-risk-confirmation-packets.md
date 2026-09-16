@@ -2186,3 +2186,20 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 不包含：真实用户数据操作、共享/生产 migration、生产冻结/删除/恢复、公开全站排名、计分规则改版、持久搜索、配额/MFA、外部通知或 Provider/SMTP 外呼、root/SSH/服务器配置、Release/tag/GHCR、production apply/backup/restore/rollback、自动策略或 residual 关闭。v2.0 发布上线仍须后续独立包、完整验证和生产证据，不由本地 RANKING 验收替代。
 
 已确认范围：上述 RANKING 持久重建本地实现、限定新合成资源与生命周期/强杀/API/浏览器验收，以及验收后提交推送；正式发布和生产操作不在本包内。
+
+## SEARCH 持久索引本地实施确认包（本地已确认）
+
+状态：维护者在已展示「用户 × 工作区隔离、仅授权可见标题、新增索引表和队列枚举、新合成库迁移/撤权删除/强杀/桌面窄屏验收、失败回退安全直查、验收后提交推送、不含共享库/生产/Release」以及风险后，明确回复“可以，继续下一个”。本节固定该本地批准及其工程边界，不复用 RANKING 的零新增 DDL 承诺。
+
+- Preimage：干净 `434c510e7e61d7b4ddf482fc6ef53e1d40f7ad7b`；schema SHA-256 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`、53 条 migration、migration Git 树 `02fdc8d6add97b57a94191f3a112b8c39c074930`。现有搜索为六类标题直查，`indexed=false`，没有搜索表或搜索任务 kind。
+- 数据范围：SUBJECT/TASK/KNOWLEDGE_POINT/NOTE/MISTAKE/RESOURCE 的名称或标题及必要标识/版本/排序元数据；每份索引固定请求用户和 Workspace。科目按既有工作区可见规则，其余本人资源或既有有效 NOTE/MISTAKE grant；Workspace Owner/Operator 不因此获得他人索引或私有标题。
+- 新增结构限派生分区 `WorkspaceSearchPartition`、派生文档 `WorkspaceSearchDocument` 和 `DataJobKind.SEARCH_INDEX_REBUILD` 的 additive migration。分区保存请求/发布代次、指纹、时间和数量；文档绑定分区、代次、六类精确源外键和标题。数据库约束确保恰好一个源外键、kind/sourceId 一致，新增表安装既有冻结 guard；不修改学习源字段、角色或 grant 权限模型，不增加外部搜索服务、扩展或依赖。
+- 新增开关默认关闭；生产者、准备、提交均显式检查，Web 仅登记/控制任务，不启动进程。先支持用户显式重建、真实进度、暂停/取消/恢复/重放，不增加定时任务或查询历史留存。查询语义保留现有不区分大小写的子串搜索、六类结果、结果上限和 canonical href。
+- 权限、grant（含到期）、源归属/归档/修订与冻结在入队、准备、提交和读取重验；generation 防止旧请求覆盖新代次。无法证明当前索引有效时不得返回旧标题、计数或截断信息，回退到同样受保护的源查询；不把索引本身视为授权源。
+- 删除/导出联动仅覆盖新增派生副本：两张表从用户导出排除；查看者删除只清自己的分区/副本，不反向删除他人源。源所有者删除可纳入已授权精确源 FK 对应的搜索副本，必须核对 Workspace、kind/sourceId 和既有闭包，不放宽其他模型的外人引用阻断。冻结旧代次保留原 rowHash/fence，重建排除冻结源后发布新代次，仅回收本分区未冻结旧副本，不借用删除执行器绕过 guard。
+- 资源护栏：单分区最多 10,000 个可见文档、单标题最多 8 KiB、整次标题数据最多 16 MiB；超限拒绝索引发布并保留安全直查。采用既有删除共享栅栏、有限锁等待、租约/控制与 15 秒提交预算，整代文档、发布指针和任务成功同事务提交；不把护栏升级为用户配额或阻断学习源写入。
+- 本地资源：仅新建 loopback `areaforge_v20_search_*` 合成库、同 UID/仓库绑定的私有 SEARCH fixture，并部署/重复部署 canonical 迁移。只创建和操作本批登记的合成身份、六类源、grant、索引、任务与冻结/删除案例；不读取旧库/真实附件，不运行备份/恢复。浏览器验收按三槽池规则，经核验后复用槽 3 Web，保留槽 1/2 及旧 RANKING/OPS 库、卷、目录和证据，不新增长期 Web 容器。
+- 风险：复制过期权限标题、误导出的他人索引、源删除遗漏副本、冻结计划被重建破坏、旧代次/半批发布、锁竞争阻断学习、索引与直查语义不一致。出现 scope/身份/集合不一致即拒绝并记录脱敏代码，不修复或回写源事实。
+- 验证：完整 migration ledger/checksum 与重复 deploy；Core/DB/Web、派生分类和冻结 guard 正负测；新库运行态覆盖六类源、双用户/双 Workspace、grant 撤销/到期/恢复、改名/归档/源修改、跨查看者删除、代次/并发/控制/死信/容量、prepare 与文档写入后提交前真实 SIGKILL。实际 API/桌面/390px/320px 覆盖独立索引请求与动态搜索、同请求重试、Workspace/身份切换和错误回退。运行 `pnpm check`、数据库/worker/测试池专项、docs/tasks/residual/risk/governance/secrets/audit 与 diff 门禁。
+- 回退：关闭生产者与消费者、查询回退安全直查；保留兼容表、任务、审计和冻结证据，不 DROP 或回滚旧数据，不恢复已撤销访问。验收通过后只提交本批变更、推送当前分支并核对新 CI。
+- 明确不含：共享/生产 migration、真实用户数据/附件操作、备份恢复、SSH/root/服务器配置、Provider/SMTP/外部搜索调用、配额/MFA/外部观测实施、Release/tag/GHCR、自动策略或 residual 关闭。新结构不使旧分域记录自动成为当前源码证据，后续综合门禁须独立重采。

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { RankingRebuildError, RANKING_REBUILD_MAX_PARTICIPANTS, RANKING_REBUILD_MAX_SESSIONS,
   intersectRankingShareFields, rankingIdentifier, stableStringify, type RankingRebuildAuthorization } from "@areaforge/core";
 import { Prisma } from "../generated/prisma/client";
-import { guardRankingQueueTransaction, isDataJobScopeBusy } from "./data-job-ranking-guard";
+import { guardDerivedQueueTransaction, isDataJobScopeBusy } from "./data-job-derived-guard";
 
 const challengeSelect = { id: true, workspaceId: true, ownerUserId: true, status: true, revision: true, scoreVersion: true,
   rulesVersion: true, timezone: true, startDate: true, endDate: true, targetEffectiveMinutesPerDay: true, publishedFields: true } as const;
@@ -25,7 +25,7 @@ export interface RankingRebuildSnapshot {
 export async function captureRankingSnapshot(tx: Prisma.TransactionClient, actorId: string, challengeId: string,
   ownerOnly = true): Promise<RankingRebuildSnapshot> {
   rankingIdentifier(actorId); rankingIdentifier(challengeId);
-  await guardRankingQueueTransaction(tx, ["RANKING_REBUILD"]);
+  await guardDerivedQueueTransaction(tx, ["RANKING_REBUILD"]);
   const visibility = await rankingVisibility(tx);
   if (visibility.hidden("User").includes(actorId) || visibility.hidden("PrivateChallenge").includes(challengeId)) notFound();
   if (ownerOnly) await tx.$queryRaw`SELECT id FROM "PrivateChallenge" WHERE id=${challengeId} FOR UPDATE NOWAIT`;

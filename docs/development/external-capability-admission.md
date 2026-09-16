@@ -83,6 +83,14 @@ RANKING 持久重建仅在独立确认的本地范围运行；采用 `AREAFORGE_
 - 库内冻结/取消/数据库删除验证只针对本批新建合成对象并走既有协议，不清除附件、不执行备份恢复、不改保留期。新建库与数据卷保留，不自动清理历史资源。
 - 验证使用排名专用 marker/ledger/source fingerprint、独立 runtime/browser runner 和原测试池门禁；不授权共享/生产 migration、真实用户数据、Release 或 residual 关闭。
 
+### SEARCH 隔离模式
+
+- 使用独立 `AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT`、`AREAFORGE_SEARCH_INDEX_ISOLATED_DB=1` 和精确的 `areaforge_v20_search_*` loopback 库；与其他四种 fixture 双向互斥，不回落到共享库或 `.env.local`。
+- 当前 UID/仓库绑定、canonical 私有目录、0600 no-follow 合成凭据、不可变 PostgreSQL 镜像和标签卷必须通过验证；新库仅在 SEARCH 独立本地批准内 deploy/repeat deploy canonical migration。
+- 按已准入的三槽池显式使用槽 3；先核对并释放该槽原 Web，再以 SEARCH fixture 刷新，不放宽跨 fixture 覆盖检查。槽 1/2、旧库/卷和证据保留。Web 只读挂载空 uploads/exports，不挂载共享上传卷或执行器目录。
+- Web 仅具有索引请求许可，不启动 worker；显式关闭 EXPORT/DELETE/OPS/RANKING、通知及 AI/SMTP。索引验证仅针对本批六类合成源和精确派生副本，冻结/删除沿既有协议，不执行附件清除或备份恢复。
+- 专项包括隔离 guard、54 条完整 migration ledger/checksum、用户×Workspace/source 指纹、进程强杀和桌面/窄屏/API；新结构不授权重写旧域的固定 migration/hash、共享/生产、Release、历史清理或 residual 关闭。
+
 ### 提交级 Secret Scan 准入
 
 ```text

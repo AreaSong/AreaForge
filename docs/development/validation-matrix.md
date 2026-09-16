@@ -619,6 +619,19 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 - 测试池改动补 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；所有 fixture 仅挂载其私有 uploads/exports 为只读，不叠加共享上传卷。
 - 同步模块/API/配置/任务/状态入口，运行 docs/links/evergreen、tasks/residual/risk/governance/secrets 和 diff 门禁。独立内核/通知旧运行结果不替代排名域；本地结果不证明 Release、共享/生产 migration、生产启用或残余风险关闭。
 
+## 持久搜索索引专项
+
+涉及 `workspace-search-*`、`search-index-*`、搜索 HTTP 入口、派生副本删除或 SEARCH 测试池时，先核对独立 SEARCH 确认包：
+
+- Core/DB/Web/config 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm worker:search:typecheck`、`pnpm worker:search:isolation:selftest`、`pnpm check`。
+- `pnpm worker:search:runtime:selftest <private-fixture-root>`：仅本批 `areaforge_v20_search_*` 库，检查完整 canonical migration ledger、SQL checksum 与重复 deploy。覆盖六类源、双用户/工作区、权限/grant/到期/源修订、旧代次、并发、控制/死信、两处真实 SIGKILL、租约过期、冻结保真、精确跨查看者删除及导出排除。
+- 容量覆盖 10,000/10,001 文档、8 KiB 单标题与 16 MiB 总标题；大量 grant/fence、分区占锁与关闭索引时仍安全直查，取消已有任务不依赖索引集合未超限。直查只锁最终候选授权并在返回前重验到期。
+- 提交末端复用 `written` 检查点，在有效租约内并发改源标题或等待 grant 到期；校验事务成功或回滚均无半代副作用，随后查询只返回当前授权可见源，不能交付旧索引标题、计数或时间。
+- `pnpm worker:search:browser:selftest <private-fixture-root>`：复用 SEARCH 专用 latest，校验产品与本域 source fingerprint。覆盖真实登录、请求/控制、202 回执同请求重试、乱序响应、用户与工作区切换、源变化/冻结恢复和错误回退；桌面/390px/320px 必测。涉及顶部共享搜索布局时补七档宽度及真实浏览器 125% 缩放，CSS zoom 只作补充；临时浏览器 profile 不修改用户日常浏览器设置。
+- `--case=<name>` 只定位单项，不保存完整验收记录；最终源码变化后重跑受影响 runtime/browser。新结构不自动升级旧域固定 53 条 migration/hash 的历史证据。
+- 测试池变化运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 和 package-e preflight；核对槽 1/2、旧数据库/卷未变，仅使用当前 SEARCH fixture 的只读空 uploads/exports 挂载。
+- 同步模块、API、配置、体验和状态入口，执行 docs/tasks/residual/risk/governance/secrets/audit 与 diff 门禁。本地结果不证明共享/生产 migration、真实用户数据操作、Release、生产启用或 residual 关闭。
+
 ## 当前已知验证阻塞
 
 DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。

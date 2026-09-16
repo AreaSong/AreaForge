@@ -14,6 +14,8 @@ DELETE 的回收站、近期重新验证、精确确认和只读回执已有独�
 
 RANKING 持久重建已通过 26 组隔离运行态和 12 组浏览器/API 验收，复用 53 条 migration，无新增 DDL。Web 仅提交 Owner 显式请求、控制和读取脱敏任务/有效投影；新入口默认 `RANKING_REBUILD_QUEUE_ENABLED=false`，关闭或失效时不回退到同步重算。最新任务、当前排名和折叠历史支持桌面/390px/320px 与键盘，详情见 `tasks/backlog/0043-ranking-platform-hardening.md`。跨域综合门禁、完整版本验收与共享/生产交付仍缺。
 
+SEARCH 标题索引已通过 33 组隔离运行态和 16 组浏览器/API 专项；独立请求与进度面板位于 `/settings/data`，顶部搜索使用当前授权有效的索引或安全直查。包含用户/工作区切换、回执重试、冻结恢复、七档视口与真实 125% 缩放；极窄屏使用搜索图标触发全宽浮层。`SEARCH_INDEX_ENABLED=false` / `SEARCH_INDEX_QUEUE_ENABLED=false` 默认关闭；五开关共同控制入队与独立消费，Web 不启动进程。协议见 `docs/modules/workspace-search.md`，实际证据与未完成边界见 `tasks/backlog/0045-platform-hardening.md`。
+
 ## Getting Started
 
 在仓库根目录启动本地开发：

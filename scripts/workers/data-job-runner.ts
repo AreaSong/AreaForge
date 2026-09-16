@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { validateDataJobLeaseDuration } from "../../packages/core/src/index";
-import { claimQueuedDataJob, recoverQueuedDataJobs, isDataJobScopeBusy, type DataJobPartition, type DataQueueClient } from "../../packages/db/src/index";
+import { claimQueuedDataJob, recoverQueuedDataJobs, isDataJobScopeBusy, isDerivedQueueKind, type DataJobPartition, type DataQueueClient } from "../../packages/db/src/index";
 import type { DataJobHandler } from "./data-job-handler";
 import { executeDataJob, type DataJobExecutionResult } from "./data-job-execution";
 
@@ -48,7 +48,7 @@ async function pollDataJob(options: DataJobWorkerOptions, kinds: DataJobHandler[
     if (options.signal.aborted) return null;
     return await claimQueuedDataJob(options.client, { workerId: options.workerId, kinds, leaseMs, partition: options.partition });
   } catch (error) {
-    if (kinds.includes("RANKING_REBUILD") && isDataJobScopeBusy(error)) return null;
+    if (kinds.some(isDerivedQueueKind) && isDataJobScopeBusy(error)) return null;
     throw error;
   }
 }

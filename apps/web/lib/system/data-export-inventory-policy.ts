@@ -97,6 +97,8 @@ export const DATA_EXPORT_MODEL_DISPOSITIONS = [
   excluded("DataDeletionLedger", "restore anti-resurrection ledger requires an independently trusted head"),
   excluded("DataDeletionVisibility", "global internal visibility cache generation"),
   derived("RankingProjection", "rebuildable from opt-in challenge source facts"),
+  derived("WorkspaceSearchPartition", "actor-scoped derived index metadata is not portable source data"),
+  derived("WorkspaceSearchDocument", "derived copies may include granted titles, not owned export records"),
 ] as const satisfies readonly DataExportModelDisposition[];
 
 export type DataExportDisposition = "INCLUDED_PREVIEW" | "PLANNED_MINIMIZED" | "EXCLUDED_SECURITY" | "DERIVED_REBUILDABLE";

@@ -49,6 +49,8 @@ AreaForge/
 
   scripts/
     dev/
+    workers/
+    quality/
     deploy/
     db/
     release/

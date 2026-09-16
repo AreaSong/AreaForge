@@ -114,7 +114,11 @@ export * from "./controlled-operation-protocol";
 export * from "./controlled-operation-store";
 export { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
-export { isDataJobScopeBusy } from "./data-job-ranking-guard";
+export { isDataJobScopeBusy, isDerivedQueueKind } from "./data-job-derived-guard";
+export { enqueueWorkspaceSearchIndex, getWorkspaceSearchIndexStatus, controlWorkspaceSearchIndex,
+  prepareWorkspaceSearchIndex, commitWorkspaceSearchIndex } from "./workspace-search-jobs";
+export { captureSearchScope, searchDatabaseError } from "./workspace-search-scope";
+export { queryWorkspaceSearch } from "./workspace-search-index";
 export { enqueueDataJob, enqueueDataJobInTransaction, claimQueuedDataJob } from "./data-job-queue";
 export { heartbeatQueuedDataJob, commitQueuedDataJob, failQueuedDataJob } from "./data-job-queue-lease";
 export { controlQueuedDataJob, controlQueuedDataJobInTransaction, type DataJobQueueControl } from "./data-job-queue-control";

@@ -132,7 +132,7 @@ flowchart TB
 | `/settings/learning` | 学习与提醒 | 通知、提醒窗口和界面偏好 |
 | `/settings/notifications` | 通知中心 | 账户与 Workspace 隔离的成员、私有挑战和申诉事件；已读、隐藏与恢复状态跨设备同步 |
 | `/settings/ai` | AI 与隐私 | Provider、隐私边界和 AI 偏好 |
-| `/settings/data` | 数据与安全 | 数据导入导出、存储和安全状态 |
+| `/settings/data` | 数据与安全 | 本人数据任务、回收站、搜索索引、私有挑战及安全状态 |
 | `/settings/system` | 系统与更新 | 版本、诊断和更新入口 |
 
 ## 已移除的旧路由

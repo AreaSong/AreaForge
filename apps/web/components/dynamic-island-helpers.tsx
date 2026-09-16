@@ -10,6 +10,8 @@ import {
   type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
+import { IconButton } from "@/components/ui/button";
 import { getTimerElapsedSeconds } from "@areaforge/core";
 import {
   GLOBAL_COMMANDS,
@@ -42,6 +44,15 @@ const serverNowSnapshot = 0;
 let nowSnapshot = serverNowSnapshot;
 let nowTimer: number | null = null;
 const nowListeners = new Set<() => void>();
+
+/** 极窄屏的32px锚点只作触发器，展开内容由父级切换到视口可用宽度。 */
+export function DynamicIslandCompactTrigger(props: { enabled: boolean; onOpen: () => void; inputRef: RefObject<HTMLInputElement | null> }) {
+  if (!props.enabled) return null;
+  return <IconButton label="打开全局搜索" type="button" className="hidden h-9 w-8 shrink-0 max-[359px]:inline-flex"
+    onClick={() => { props.onOpen(); window.setTimeout(() => props.inputRef.current?.focus(), 10); }}>
+    <Search size={16} aria-hidden="true" />
+  </IconButton>;
+}
 
 export function subscribeNow(listener: () => void): () => void {
   nowListeners.add(listener);

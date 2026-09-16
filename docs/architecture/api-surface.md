@@ -134,7 +134,10 @@ Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费
 - `POST /api/system/data-jobs/download-grants/redeem`：strict token body、当前会话、同句柄完整性校验后原子消费，成功直接返回 `application/zip` 二进制，失败仍为标准 JSON 错误；不是 JSON 下载 descriptor。凭证不进入 URL，响应 `private, no-store` / `nosniff`，语义见 [`本人数据导出`](../modules/data-export.md)。
 - `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
 - `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。尚未确认配额数值与执行政策，因此响应明确为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不将观测值解释为限额，不拒绝任何业务写入。
-- `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读搜索；返回活动科目，以及当前 actor 自有任务/知识点/笔记/错题/资料和通过有效对象 grant 可见的笔记/错题。查询先校验 Membership 与授权，再返回标题、资源类型和 canonical href；不搜索或返回正文、附件名、动机档案、情绪、AI prompt/响应或内部路径。响应 `indexed=false` 表明当前直接查询 PostgreSQL，不伪装为已完成的持久搜索索引。
+- `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读标题搜索，仅含活动科目、本人资源与有效 NOTE/MISTAKE grant 资源。`indexed/indexState/indexedAt` 表示本次是否使用经过当前权限、来源与冻结校验的索引；关闭、缺失、失效或索引占锁时安全直查，不返回旧索引计数或时间。不搜索正文、附件名、动机、情绪、AI 内容或内部路径，也不自动申请重建。
+- `GET /api/search/index?workspaceId=`：本人分区及最近任务状态；不返回内部 payload、权限/来源指纹或租约材料。
+- `POST /api/search/index`：strict `{workspaceId, expectedGeneration, idempotencyKey}`，从会话确定请求者，返回 `202` 与最小任务回执。
+- `PATCH /api/search/index/jobs/:jobId`：strict `{workspaceId, expectedRevision, action}`，仅请求者可以 `PAUSE/RESUME/CANCEL/REPLAY`；新权限或源集合不能复用旧请求。协议与回退见[工作区持久搜索](../modules/workspace-search.md)。
 
 ### Analytics
 

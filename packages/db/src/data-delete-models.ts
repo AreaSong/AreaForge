@@ -17,6 +17,7 @@ export const deleteOwnerFields: Readonly<Record<string, string>> = {
   LearningTreeImportBatch: "actorId", AuditEvent: "actorId", DataJob: "requestedByUserId",
   DataExportDownloadGrant: "requestedByUserId", PrivateChallenge: "ownerUserId", PrivateChallengeParticipant: "userId",
   RankingAppeal: "submittedByUserId", WorkspaceInvitation: "invitedByUserId", WorkspaceShareGrant: "resourceOwnerUserId",
+  WorkspaceSearchPartition: "userId",
 };
 
 export const deleteParentFields: Readonly<Record<string, string>> = {
@@ -25,6 +26,7 @@ export const deleteParentFields: Readonly<Record<string, string>> = {
   StudyResourceTag: "resource", ReviewEvent: "reviewSchedule", MistakeAttempt: "mistake",
   KnowledgeCanvasNodeLayout: "layout", StudySessionCloseout: "session", LearningTreeImportItem: "batch",
   DataExportArtifact: "job", DataExportPackage: "job", RankingProjection: "participant",
+  WorkspaceSearchDocument: "partition",
 };
 
 export const deleteLinkModels = ["StudyTaskRelatedSyllabusNode", "StudyTaskStageLink", "StudyTaskKnowledgePoint",

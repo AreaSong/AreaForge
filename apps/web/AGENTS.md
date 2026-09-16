@@ -23,6 +23,8 @@ Next.js 自动生成提醒只适用于 Next route、config、server/client bound
 
 Web 层边界：
 
+- 搜索索引仅收录当前用户在所选工作区有权查看的标题；Web 只申请/控制本人任务，独立 worker 原子发布。失效或关闭时安全直查，身份/工作区变化丢弃旧回执；默认 `SEARCH_INDEX_ENABLED=false` / `SEARCH_INDEX_QUEUE_ENABLED=false`。本地专项与交付限制以 `tasks/backlog/0045-platform-hardening.md` 为准。
+
 - 页面和组件不直接调用 Prisma。
 - 共享 UI 原语归口 `components/ui/**`；业务 TSX 不新增非豁免 raw `input/select/textarea/button`。豁免和 legacy budget 以 `docs/architecture/web-shared-capability-inventory.json`、`docs/development/validation-matrix.md`、`scripts/quality/web-ui-primitives-boundary.ts` 为准，测试、fixture 和 generated 目录不被误当成生产业务 TSX。
 - 浏览器请求和 DTO 分别归口 `lib/api/**`、`lib/contracts/**`；浏览器组件/client adapter 不直接 `fetch`、解析 response body、访问 storage global 或显式比较 `401/409`。

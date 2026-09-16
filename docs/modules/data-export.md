@@ -25,6 +25,7 @@ worker 在读取快照、发布和下载前重新校验；暂停后恢复、移�
 学习证据的 `sessionId` 仅在明确的学习实体中映射为 `studySessionId`；认证会话字段仍脱敏。
 `StudyResource.attachmentId`、任务/计时的复习、复测和模拟考试引用属于业务关系，保留以便解释记录。
 模型分类由 `data-export-inventory-policy.test.ts` 与 Prisma schema/实际查询 delegate 双向核验，新增模型不能静默漏分类。
+`WorkspaceSearchPartition` 与 `WorkspaceSearchDocument` 属于可重建派生副本，均排除；查看权限不会把他人的共享标题变成导出者自有数据。搜索任务仅包含脱敏生命周期字段，不导出索引 payload 或内部指纹。
 
 ## 快照与文件协议
 
