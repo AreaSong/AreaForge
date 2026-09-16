@@ -29,6 +29,12 @@ RANKING_REBUILD 通过独立固定处理器接入；除 AUTH/RBAC 和排名/投�
 `SEARCH_INDEX_QUEUE_ENABLED` 与 worker 总开关。用户与工作区隔离、来源/授权重验、冻结副本保真、
 整代原子发布和安全直查回退见[工作区持久搜索](workspace-search.md)。搜索、排名和通知都不回写学习源数据。
 
+## 新任务准入配额
+
+EXPORT、SEARCH_INDEX_REBUILD 与 RANKING_REBUILD 可在显式开启后共用本人分区的活跃名额和滚动导出次数。
+授权和同键复用先于配额检查；开启时三个生产入口使用同一可序列化协议，额度判断与任务插入原子提交。
+配额不会拦截查询、通知、删除或既有任务控制，也不等于实际执行器进程数限制；详见[后台任务准入配额](data-job-quotas.md)。
+
 ## 持久协议
 
 - `queueVersion=0` 是旧手工预览协议，`queueVersion=1` 是独立 worker 协议；新增字段默认零，不自动提升旧任务。

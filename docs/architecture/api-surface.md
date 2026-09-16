@@ -126,6 +126,7 @@ Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费
 `/api/system/data-jobs` 按协议分流：新 EXPORT 使用 `queueVersion=1`，删除仍为旧协议影响预览。
 旧手工 worker 接口仅处理 `queueVersion=0`，不能领取、完成或通过幂等键接管独立 worker 任务。
 本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。
+三个域的新请求在启用配额时统一执行[本人分区准入](../modules/data-job-quotas.md)：超限返回 `DATA_JOB_QUOTA_ACTIVE_LIMIT` 或 `DATA_JOB_QUOTA_EXPORT_LIMIT`（HTTP 429），配置、隔离或锁竞争使用有界 503；不返回内部计数或配置原文，同键复用和已有任务控制不重新计量。
 
 - `POST /api/system/data-jobs/preview`：本人 ACCOUNT/WORKSPACE 的脱敏对象清单，不返回正文或创建包。
 - `GET|POST /api/system/data-jobs`：读取本人回执，或在近期重新验证后幂等申请；新 EXPORT 同时要求生命周期和导出开关。
@@ -133,7 +134,7 @@ Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费
 - `POST|DELETE /api/system/data-jobs/:id/download-grants`：本人已验证包的短时凭证签发/撤销；不存在或非本人任务统一拒绝，不将历史描述信息视为可下载包。
 - `POST /api/system/data-jobs/download-grants/redeem`：strict token body、当前会话、同句柄完整性校验后原子消费，成功直接返回 `application/zip` 二进制，失败仍为标准 JSON 错误；不是 JSON 下载 descriptor。凭证不进入 URL，响应 `private, no-store` / `nosniff`，语义见 [`本人数据导出`](../modules/data-export.md)。
 - `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
-- `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。尚未确认配额数值与执行政策，因此响应明确为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不将观测值解释为限额，不拒绝任何业务写入。
+- `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读工作区总容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。工作区总量/成员/存储配额尚未启用，响应仍为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不执行写入准入，也不代表独立的本人任务分区配额关闭。
 - `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读标题搜索，仅含活动科目、本人资源与有效 NOTE/MISTAKE grant 资源。`indexed/indexState/indexedAt` 表示本次是否使用经过当前权限、来源与冻结校验的索引；关闭、缺失、失效或索引占锁时安全直查，不返回旧索引计数或时间。不搜索正文、附件名、动机、情绪、AI 内容或内部路径，也不自动申请重建。
 - `GET /api/search/index?workspaceId=`：本人分区及最近任务状态；不返回内部 payload、权限/来源指纹或租约材料。
 - `POST /api/search/index`：strict `{workspaceId, expectedGeneration, idempotencyKey}`，从会话确定请求者，返回 `202` 与最小任务回执。

@@ -6,6 +6,7 @@ import { getSearchIndex, requestSearchIndex, controlSearchIndex, searchIndexAcce
 import type { SearchIndexStatus } from "@/lib/api/search-index-schema";
 import { createExclusiveOperationGate, createLatestOperationGate } from "@/lib/client/operation-gates";
 import { createSearchIndexIdentity } from "@/lib/client/search-index-request";
+import { dataJobQuotaErrorText } from "@/lib/api/data-job-quota-errors";
 
 /** 调用方用用户×工作区作为组件 key；卸载时两类在途操作同时作废。 */
 export function useSearchIndex(workspaceId: string) {
@@ -75,6 +76,7 @@ export function useSearchIndex(workspaceId: string) {
 }
 
 function searchIndexErrorText(code?: string): string {
+  const quotaError = dataJobQuotaErrorText(code); if (quotaError) return quotaError;
   if (/SUPERSEDED|SNAPSHOT_CHANGED|GENERATION_CONFLICT/.test(code ?? "")) return "权限、来源或索引代次已变化；请刷新状态后重新申请，旧任务不会重绑权限。";
   if (/DISABLED/.test(code ?? "")) return "索引重建当前关闭；搜索仍可安全直查，已有任务可取消。";
   if (/LIMIT/.test(code ?? "")) return "本次索引超过安全容量，未发布部分结果；搜索继续使用安全直查。";

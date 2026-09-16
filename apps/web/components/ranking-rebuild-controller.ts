@@ -8,6 +8,7 @@ import { controlRankingRebuild, listRankingRebuildJobs, rankingRebuildAccessLost
 import { createExclusiveOperationGate, createLatestOperationGate } from "@/lib/client/operation-gates";
 import { createRankingRebuildIdentity } from "@/lib/client/ranking-rebuild-request";
 import type { RankingProjectionViewDto } from "@/lib/ranking/contracts";
+import { dataJobQuotaErrorText } from "@/lib/api/data-job-quota-errors";
 
 export function useRankingRebuild(input: { challengeId: string; actorId: string; revision: number; canManage: boolean }) {
   const scopeKey = `${input.challengeId}:${input.actorId}:${input.canManage}`;
@@ -96,6 +97,7 @@ export function useRankingRebuild(input: { challengeId: string; actorId: string;
 }
 
 export function rankingRebuildErrorText(code?: string): string {
+  const quotaError = dataJobQuotaErrorText(code); if (quotaError) return quotaError;
   if (/SUPERSEDED|SNAPSHOT_CHANGED/.test(code ?? "")) return "原任务的权限或来源已变化，请刷新挑战后重新申请；旧任务不会重绑新权限。";
   if (/DISABLED/.test(code ?? "")) return "后台重建当前关闭；已保存任务不会转回同步执行。";
   if (/NOT_FOUND|SESSION_REVOKED|UNAUTHORIZED/.test(code ?? "")) return "当前身份或挑战权限已失效，请重新登录或刷新工作区。";

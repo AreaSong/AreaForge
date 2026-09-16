@@ -91,6 +91,14 @@ RANKING 持久重建仅在独立确认的本地范围运行；采用 `AREAFORGE_
 - Web 仅具有索引请求许可，不启动 worker；显式关闭 EXPORT/DELETE/OPS/RANKING、通知及 AI/SMTP。索引验证仅针对本批六类合成源和精确派生副本，冻结/删除沿既有协议，不执行附件清除或备份恢复。
 - 专项包括隔离 guard、54 条完整 migration ledger/checksum、用户×Workspace/source 指纹、进程强杀和桌面/窄屏/API；新结构不授权重写旧域的固定 migration/hash、共享/生产、Release、历史清理或 residual 关闭。
 
+### QUOTA 隔离模式
+
+- 只使用独立 `AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT`、`AREAFORGE_DATA_JOB_QUOTA_ISOLATED_DB=1` 与精确 `areaforge_v20_quota_*` loopback 数据库；与五种既有 fixture 模式双向互斥，不回落到共享库或宿主配置。
+- 当前 UID/仓库绑定、canonical 私有根、0600 no-follow 合成凭据、不可变 PostgreSQL 镜像与有标签数据卷必须匹配；只部署/重复部署已有 54 条 migration，不改旧域固定 ledger/hash，不新增 DDL。
+- 仅启用 EXPORT/SEARCH/RANKING 的请求许可；Web 不启动进程，本批验收不运行这些业务消费者、ZIP/下载/回收、删除或运维执行器。uploads/exports 为空且只读挂载；新业务配额只作用于合成新请求，不限学习主链。
+- 测试池显式选槽并保持跨 fixture 覆盖拒绝；更换既有槽前核对精确身份与当前授权，保留旧库/卷/目录/证据，不增加第四个 Web 实例或自动清理历史资源。
+- 合成准入、额度/计时/幂等、并发与强杀/回滚/API/窄屏证据仅证明 QUOTA 本地范围；共享/生产、成员/存储配额、MFA、Release、自动策略和 residual 关闭不在本次准入。
+
 ### 提交级 Secret Scan 准入
 
 ```text

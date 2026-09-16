@@ -28,3 +28,9 @@ test("权限失败清理当前作用域，但单独关闭队列仍可查看和�
   assert.equal(rankingRebuildAccessLost({ ...result, status: 404, body: { error: "RANKING_REBUILD_DISABLED" } }), false);
   assert.equal(rankingRebuildAccessLost({ ...result, status: 503, body: { error: "RANKING_REBUILD_SCOPE_BUSY" } }), false);
 });
+
+test("配额429保留当前任务与权限视图，不进入不明确回执分支", () => {
+  const result = { ok: false, status: 429, body: { error: "DATA_JOB_QUOTA_ACTIVE_LIMIT" }, headers: new Headers() };
+  assert.equal(rankingRebuildResponseUncertain(result), false);
+  assert.equal(rankingRebuildAccessLost(result), false);
+});

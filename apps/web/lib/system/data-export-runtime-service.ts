@@ -3,6 +3,7 @@ import { DataExportError } from "@areaforge/core";
 import { assertDataExportAuthorization, consumeDataExportDownload, controlQueuedDataJobInTransaction, dataExportEnabled, enqueueDataExportJob, exportDatabaseError, issueDataExportDownloadGrant, prisma, releaseDataExportDownload, requireDataExportEnabled, requirePublishedDataExport, reserveDataExportDownload, revokeDataExportDownloads, DataJobQueueError, type DataJobQueueControl, type ReservedExportDownload } from "@areaforge/db";
 import { createAttachmentResponseHeaders, dataExportStorageRoots, exportArchiveStream, openVerifiedExportArchive, DataExportStorageError } from "@areaforge/storage";
 import { ApiError } from "@/lib/api/responses";
+import { dataJobQuotaErrorStatus } from "@/lib/api/data-job-quota-errors";
 import { requireFreshAccountSession } from "@/lib/auth/account-service";
 import type { CurrentUser } from "@/lib/auth/session";
 
@@ -20,7 +21,7 @@ export async function createDurableDataExport(actor: CurrentUser, input: { scope
     return await prisma.$transaction(async tx => {
       await requireFreshAccountSession(tx, actor);
       return enqueueDataExportJob(tx, { requesterId: actor.id, scope: input.scope, workspaceId: input.workspaceId ?? null, idempotencyKey: input.idempotencyKey });
-    });
+    }, process.env.DATA_JOB_QUOTA_ENABLED === "true" ? { isolationLevel: "Serializable" } : undefined);
   } catch (error) { throwDataExportApiError(error); }
 }
 
@@ -94,7 +95,7 @@ export function throwDataExportApiError(error: unknown): never {
       : error.code.includes("UNAVAILABLE") || error.code.includes("CONFIG_REQUIRED") ? 503 : 409;
     throw new ApiError(error.code, status);
   }
-  if (error instanceof DataJobQueueError) throw new ApiError(error.code, error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : 409);
+  if (error instanceof DataJobQueueError) throw new ApiError(error.code, dataJobQuotaErrorStatus(error.code) ?? (error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : 409));
   try { exportDatabaseError(error); }
   catch (mapped) { if (mapped instanceof DataExportError) throw new ApiError(mapped.code, mapped.code === "DATA_EXPORT_SCOPE_BUSY" ? 409 : 503); }
   throw new ApiError("DATA_EXPORT_UNAVAILABLE", 503);

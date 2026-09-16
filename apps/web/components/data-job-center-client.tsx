@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { dataJobQuotaErrorText } from "@/lib/api/data-job-quota-errors";
 import {
   cancelDataLifecycleJob,
   createExportDownloadGrant,
@@ -255,8 +256,8 @@ export function DataJobCenterClient(props: {
           <Button disabled={pending !== null || !previewMatchesForm || (kind === "EXPORT" && !props.exportEnabled)} onClick={() => void createJob()} type="button"><FileArchive className="size-4" aria-hidden="true" />{kind === "DELETE" ? "创建删除预览任务" : "创建导出任务"}</Button>
         </div>
 
-        {preview ? <PreviewPanel preview={preview} /> : <p className="rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-xs text-zinc-500">尚未生成预览；不会在后台猜测范围。</p>}
         {notice ? <Alert tone={notice.tone} role={notice.tone === "danger" ? "alert" : "status"}>{notice.text}</Alert> : null}
+        {preview ? <PreviewPanel preview={preview} /> : <p className="rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-xs text-zinc-500">尚未生成预览；不会在后台猜测范围。</p>}
         {!props.exportEnabled ? <Alert tone="warning">完整导出尚未开启；可查看范围预览，不会创建归档文件。</Alert> : null}
         {refreshError ? <Alert tone="warning" role="status">{refreshError}</Alert> : null}
       </SectionCard>
@@ -353,6 +354,7 @@ function deleteBlockerLabel(blocker: string): string {
 }
 
 function dataRequestError(status: number, error?: string): string {
+  const quotaError = dataJobQuotaErrorText(error); if (quotaError) return quotaError;
   if (status === 0) return "网络响应未确认，服务端可能已经处理；请刷新核对后重试。";
   if (error === "DATA_EXPORT_DISABLED") return "完整导出未启用，不能创建或下载归档。";
   if (error === "DATA_EXPORT_AUTHORIZATION_CHANGED") return "权限或范围版本已变化，请重新预览并提交新的导出。";

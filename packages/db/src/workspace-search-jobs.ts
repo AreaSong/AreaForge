@@ -32,7 +32,7 @@ export async function enqueueWorkspaceSearchIndex(client: DataQueueClient, input
       partitionId: partition.id, generation, sourceFingerprint: snapshot.fingerprint, requestedAt: requestedAt.toISOString() });
     const row = await enqueueDataJobInTransaction(tx, { kind: "SEARCH_INDEX_REBUILD", scope: "WORKSPACE", requestedByUserId: input.actorId,
       workspaceId: input.workspaceId, idempotencyKey: input.idempotencyKey, requestFingerprint: workspaceSearchJobFingerprint(payload),
-      expiresAt: new Date(requestedAt.getTime() + 3_600_000), payloadJson: payload as unknown as Prisma.InputJsonValue });
+      expiresAt: new Date(requestedAt.getTime() + 3_600_000), payloadJson: payload as unknown as Prisma.InputJsonValue }, env);
     await assertSearchScopeTime(tx, scope);
     return workspaceSearchJobView(row);
   }, { isolationLevel: "Serializable", timeout: 15_000 }); } catch (error) { return searchDatabaseError(error); }

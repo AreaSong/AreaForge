@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "scope": "QUOTA local admission browser/API",
+  "checkedAt": "2026-09-16T06:52:21.373Z",
+  "sourceFingerprint": "sha256:a1f0b4e9f99d53cc7b13f201573d5ac6305014b2efeb242bc4ad117b885152ce",
+  "pool": {
+    "slot": 3,
+    "container": "areaforge-dev-test-3",
+    "port": 43173,
+    "url": "http://127.0.0.1:43173",
+    "status": "running",
+    "note": "QUOTA isolated admission acceptance",
+    "generation": 1789541507461,
+    "commit": "e9e0389c37990e31e0ebc0b94f2a4d2ec8c430db",
+    "sourceFingerprint": "sha256:908b8c81804249aeb82d2f213a91dae3124640b58664513c963e3e0f61d3be07",
+    "buildId": "sha256:fad4b8a121fb41b9f5729d5a428f243fd8a18e507b5bec34a2afe6f18d726bfd",
+    "fixtureId": "de4e7fe0e51df0848b4555720a67e3ce7a7530f6450b6b4913dd010cbd4f728a"
+  },
+  "viewports": [
+    1440,
+    390,
+    320
+  ],
+  "screenshots": [
+    "1440-export-active.png",
+    "390-export-active.png",
+    "320-export-active.png",
+    "1440-search-active.png",
+    "390-search-active.png",
+    "320-search-active.png",
+    "1440-ranking-active.png",
+    "390-ranking-active.png",
+    "320-ranking-active.png",
+    "1440-export-window.png",
+    "390-export-window.png",
+    "320-export-window.png"
+  ],
+  "passed": [
+    "unauthenticated-and-real-login",
+    "two-real-exports-fill-partition-without-consuming",
+    "export-active-quota-feedback-desktop-and-narrow",
+    "search-active-quota-feedback-desktop-and-narrow",
+    "ranking-active-quota-feedback-desktop-and-narrow",
+    "learning-write-and-search-read-remain-available",
+    "forged-actor-and-cross-workspace-do-not-consume",
+    "cancel-frees-slot-and-search-can-recover",
+    "ranking-can-recover-after-slot-release",
+    "export-can-recover-but-cancellation-does-not-refund-window",
+    "lost-search-receipt-reuses-key-when-quota-is-full",
+    "no-consumers-artifacts-or-browser-errors"
+  ],
+  "pageErrors": [],
+  "domainConsumersExecuted": false,
+  "productionTouched": false
+}

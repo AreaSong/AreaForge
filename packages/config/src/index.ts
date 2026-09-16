@@ -41,6 +41,10 @@ export const serverEnvSchema = z.object({
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATION_QUEUE_ENABLED: booleanFromString.default(false),
   DATA_JOB_WORKER_ENABLED: booleanFromString.default(false),
+  // 严格限额校验仅在新任务准入执行，坏配置不能阻断身份、学习或既有任务控制。
+  DATA_JOB_QUOTA_ENABLED: booleanFromString.default(false),
+  DATA_JOB_QUOTA_MAX_ACTIVE_JOBS: optionalNonEmptyString,
+  DATA_JOB_QUOTA_MAX_EXPORTS_24H: optionalNonEmptyString,
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),

@@ -60,6 +60,13 @@
 - 规避：`packages/db` 已对 transaction 内查询串行化；升级 `pg` / `@prisma/adapter-pg` 前先运行 `pnpm pg:trace-deprecation` 复核。
 - 关联：`packages/db`、residual `AF-RISK-SC-003`（closed-evidence）。
 
+### 原生 SQL 的序列化冲突不一定直接返回 P2034
+
+- 触发：并发/旧快照测试只判断 Prisma 顶层错误码，把正常中止误判为未知失败。
+- 根因：pg adapter 可用 `P2010` 包装原生 SQL 错误，真实 SQLSTATE 位于 metadata 或 driver cause；ORM 冲突与 raw query 的外层代码不同。
+- 规避：只识别受控的 `40001`、`40P01`、`55P03` 和相应 ORM 冲突；重试必须开启新事务并保留原幂等键，不能把所有 `P2010` 当成可重试错误，也不打印原始驱动消息。
+- 关联：`packages/db/src/data-job-derived-guard.ts`、`scripts/quality/quota-runtime-support.ts`、`quota-concurrency-runtime.ts` 的旧快照专项。
+
 ### Prisma schema 无法表达「仅活跃行唯一」，伪造 `@@unique([status])` 会约束全部历史状态
 
 - 触发：想约束「每用户最多一条 RUNNING/PAUSED session」时直接在 schema 加唯一索引。

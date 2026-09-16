@@ -62,6 +62,7 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   assert.equal(defaults.PLATFORM_NOTIFICATIONS_ENABLED, false);
   assert.equal(defaults.PLATFORM_NOTIFICATION_QUEUE_ENABLED, false);
   assert.equal(defaults.DATA_JOB_WORKER_ENABLED, false);
+  assert.equal(defaults.DATA_JOB_QUOTA_ENABLED, false);
 
   const enabled = parseServerEnv({
     ...baseEnv,
@@ -76,4 +77,13 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   assert.equal(enabled.RANKING_PROJECTION_ENABLED, true);
   assert.equal(enabled.PLATFORM_NOTIFICATIONS_ENABLED, true);
   assert.equal(enabled.PLATFORM_NOTIFICATION_QUEUE_ENABLED, true);
+});
+
+test("配额原始限额独立于身份配置，缺失或错误不得阻断登录和既有控制", () => {
+  for (const limit of [undefined, "", "bad", "-1", "1.5", "999999999999999999999"]) {
+    const parsed = parseServerEnv({ ...baseEnv, DATA_JOB_QUOTA_ENABLED: "true", DATA_JOB_QUOTA_MAX_ACTIVE_JOBS: limit });
+    assert.equal(parsed.DATA_JOB_QUOTA_ENABLED, true);
+    assert.equal(parsed.DATA_JOB_QUOTA_MAX_ACTIVE_JOBS, limit || undefined);
+    assert.equal(parsed.AUTH_SESSION_SECRET, baseEnv.AUTH_SESSION_SECRET);
+  }
 });

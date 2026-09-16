@@ -632,6 +632,17 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 - 测试池变化运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 和 package-e preflight；核对槽 1/2、旧数据库/卷未变，仅使用当前 SEARCH fixture 的只读空 uploads/exports 挂载。
 - 同步模块、API、配置、体验和状态入口，执行 docs/tasks/residual/risk/governance/secrets/audit 与 diff 门禁。本地结果不证明共享/生产 migration、真实用户数据操作、Release、生产启用或 residual 关闭。
 
+## 后台任务准入配额专项
+
+涉及 `data-job-quota*`、`quota-*` 或三域准入接点时，先核对独立 QUOTA 确认包：
+
+- Core/config/DB/Web 单测与类型检查、`pnpm quota:typecheck`、`pnpm quota:isolation:selftest`、`pnpm check`。配额配置错误只在新准入失败，不得使通用身份配置解析失败。
+- `pnpm quota:runtime:selftest <private-fixture-root>`：仅新建 `areaforge_v20_quota_*` 合成库，54 条 canonical migration 的完整 ledger/checksum 及重复 deploy；不修改旧域固定 hash，不新增 DDL。
+- 覆盖三域真实入队、本人/Workspace/ACCOUNT 分区、同键与跨 key 并发、六个独立进程、滚动窗口与时钟回拨、失败/暂停/取消的名额保留、旧快照先建立后竞争提交、非 Serializable 拒绝、事务回滚及计数后/写入后两处 SIGKILL。仅抢锁失败不能替代旧快照序列化冲突证据。
+- `pnpm quota:browser:selftest <private-fixture-root>`：复用专属测试池 latest 并核对产品与本域源码指纹；实际登录/重新验证、三入口 429/中文恢复反馈、额度满时学习写入与安全直查、越权/未知字段拒绝、取消后恢复、导出不退款及回执丢失同键重试。至少桌面/390px/320px、焦点、状态播报与横向溢出检查。
+- 本批只用合成状态和队列控制模拟结算，不运行 EXPORT/SEARCH/RANKING 业务消费者、ZIP/下载/回收、删除或运维执行器。uploads/exports 为空且 Web 只读挂载；断言无导出包/文件、搜索文档或排名发布副作用。
+- 测试池变更运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；同步 docs/tasks/risk/governance/secrets/audit。范围内最高 R1，不证明成员/存储或全站配额、完整跨域门禁、共享/生产、Release 或 residual 关闭。
+
 ## 当前已知验证阻塞
 
 DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。

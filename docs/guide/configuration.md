@@ -46,6 +46,9 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `PLATFORM_NOTIFICATIONS_ENABLED` | `false` | v1.8/v1.9 持久通知中心开关；关闭时排名流程不读写 `UserNotification`，不影响既有前台浏览器提醒 |
 | `PLATFORM_NOTIFICATION_QUEUE_ENABLED` | `false` | 将排名通知在业务事务内写入持久 `DataJob`；须同时开启通知总开关，消费前重验权限和源实体；关闭后新事件走直接事务路径，已有队列不自动重放 |
 | `DATA_JOB_WORKER_ENABLED` | `false` | 独立执行总开关，排名生产者也检查该许可；`worker:data-jobs:run` 要求非空显式处理器，可用 `--once` 和 `--workspace=<id>` 限定消费；`worker:exports:reclaim` 只回收登记副本，导出关闭后仍可显式运行；Web 不启动 worker |
+| `DATA_JOB_QUOTA_ENABLED` | `false` | 仅开启本人分区的 EXPORT/SEARCH/RANKING 新任务准入配额；不启动消费者，不限制学习、查询或已有任务控制 |
+| `DATA_JOB_QUOTA_MAX_ACTIVE_JOBS` | 未设置 | 开启配额时必填：`0` 或不以零开头的十进制整数，最大 `2147483647`；有效期内可恢复/重放的失败任务仍占名额，成功、确认取消或到期释放 |
+| `DATA_JOB_QUOTA_MAX_EXPORTS_24H` | 未设置 | 开启配额时必填，格式同上；滚动 24 小时已接纳导出数，取消不退次数，同键重试不重复计量；零表示拒绝新导出 |
 | `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
 | `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
 | `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |

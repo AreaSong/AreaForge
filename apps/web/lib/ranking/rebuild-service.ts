@@ -3,6 +3,7 @@ import { enqueueRankingRebuild, listRankingRebuildJobs, controlRankingRebuild, D
   prisma, type DataJobQueueControl } from "@areaforge/db";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/responses";
+import { dataJobQuotaErrorStatus } from "@/lib/api/data-job-quota-errors";
 import type { CurrentUser } from "@/lib/auth/session";
 import { requireRankingFeature } from "./feature-gate";
 
@@ -37,7 +38,8 @@ export function throwRankingRebuildApiError(error: unknown): never {
       : /NOT_FOUND|DISABLED/.test(error.code) ? 404 : /PAYLOAD_INVALID/.test(error.code) ? 400 : error.retryable ? 503 : 409;
     throw new ApiError(error.code, status);
   }
-  if (error instanceof DataJobQueueError) throw new ApiError(error.code, error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : error.code === "DATA_JOB_SCOPE_BUSY" ? 503 : 409);
+  if (error instanceof DataJobQueueError) throw new ApiError(error.code, dataJobQuotaErrorStatus(error.code)
+    ?? (error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : error.code === "DATA_JOB_SCOPE_BUSY" ? 503 : 409));
   if (isDataJobScopeBusy(error)) throw new ApiError("RANKING_REBUILD_SCOPE_BUSY", 503);
   throw new ApiError("RANKING_REBUILD_UNAVAILABLE", 503);
 }

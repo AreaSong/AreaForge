@@ -8,7 +8,7 @@ export function loadDevTestDeleteFixture(repository: string, env: NodeJS.Process
   if (!root) return undefined;
   try {
     if (env.AREAFORGE_DATA_DELETE_ISOLATED_DB !== "1" || env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT
-      || env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT) throw new Error();
+      || env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT) throw new Error();
     const fixture = loadDataDeleteFixture(root, repository);
     const expected = deleteFixtureEnvironment(fixture).DATABASE_URL;
     if (!expected || env.AREAFORGE_DEV_TEST_DATABASE_URL !== expected) throw new Error();

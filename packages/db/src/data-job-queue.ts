@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { DATA_JOB_QUEUE_VERSION, validateDataJobAttempts, validateDataJobLeaseDuration } from "@areaforge/core";
+import { DATA_JOB_QUEUE_VERSION, isDataJobQuotaKind, validateDataJobAttempts, validateDataJobLeaseDuration, type DataJobQuotaEnvironment } from "@areaforge/core";
 import { Prisma } from "../generated/prisma/client";
 import { DataJobQueueError, type ClaimDataJobInput, type DataJobLease, type DataJobPartition, type DataQueueClient, type DataQueueTransaction, type EnqueueDataJobInput } from "./data-job-queue-types";
 import { assertQueueScope, auditQueuedDataJob, partitionWhere, queueClock, queueIdentifier, releasedQueueLease, toDataJobLease, updateQueuedDataJob, validateQueueKinds } from "./data-job-queue-store";
 import { guardDerivedQueueTransaction, derivedQueueVisibleSql } from "./data-job-derived-guard";
+import { checkDataJobQuotaAdmission } from "./data-job-quota";
 
-export async function enqueueDataJob(client: DataQueueClient, input: EnqueueDataJobInput) {
+export async function enqueueDataJob(client: DataQueueClient, input: EnqueueDataJobInput, env: DataJobQuotaEnvironment = process.env) {
   validateEnqueue(input);
   try {
-    return await client.$transaction((tx) => enqueueDataJobInTransaction(tx, input));
+    return await client.$transaction((tx) => enqueueDataJobInTransaction(tx, input, env),
+      isDataJobQuotaKind(input.kind) && env.DATA_JOB_QUOTA_ENABLED === "true" ? { isolationLevel: "Serializable" } : undefined);
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
     const identity = { requestedByUserId: input.requestedByUserId, idempotencyKey: input.idempotencyKey };
@@ -22,6 +24,7 @@ export async function enqueueDataJob(client: DataQueueClient, input: EnqueueData
 export async function enqueueDataJobInTransaction(
   tx: DataQueueTransaction,
   input: EnqueueDataJobInput,
+  env: DataJobQuotaEnvironment = process.env,
 ) {
   validateEnqueue(input);
   const { payloadJson, ...queueInput } = input;
@@ -29,15 +32,16 @@ export async function enqueueDataJobInTransaction(
   await assertQueueScope(tx, input);
   const existing = await tx.dataJob.findUnique({ where: { requestedByUserId_idempotencyKey: identity } });
   if (existing) return assertSameRequest(existing, input);
-  const now = await queueClock(tx);
+  const admittedAt = await checkDataJobQuotaAdmission(tx, input, env);
+  const now = admittedAt ?? await queueClock(tx);
   if (input.expiresAt <= now) throw new DataJobQueueError("DATA_JOB_EXPIRED");
   const id = randomUUID();
   // 空 update 的 ORM upsert 可能降为先读后写；数据库 ON CONFLICT 才能原子去重且不触碰已有 revision。
   await tx.$executeRaw`
-    INSERT INTO "DataJob" (id, kind, scope, "requestedByUserId", "workspaceId", "idempotencyKey", "requestFingerprint", "expiresAt", "maxAttempts", "queueVersion", "nextAttemptAt", status, "resultJson", "updatedAt")
+    INSERT INTO "DataJob" (id, kind, scope, "requestedByUserId", "workspaceId", "idempotencyKey", "requestFingerprint", "expiresAt", "maxAttempts", "queueVersion", "nextAttemptAt", status, "resultJson", "updatedAt", "createdAt")
     VALUES (${id}, ${queueInput.kind}::"DataJobKind", ${queueInput.scope}::"DataJobScope", ${queueInput.requestedByUserId}, ${queueInput.workspaceId},
       ${queueInput.idempotencyKey}, ${queueInput.requestFingerprint}, ${queueInput.expiresAt}, ${queueInput.maxAttempts ?? 5}, ${DATA_JOB_QUEUE_VERSION},
-      ${now}, 'QUEUED', ${payloadJson === undefined ? null : JSON.stringify(payloadJson)}::jsonb, ${now})
+      ${now}, 'QUEUED', ${payloadJson === undefined ? null : JSON.stringify(payloadJson)}::jsonb, ${now}, ${admittedAt ?? Prisma.sql`DEFAULT`})
     ON CONFLICT ("requestedByUserId", "idempotencyKey") DO NOTHING
   `;
   const row = await tx.dataJob.findUniqueOrThrow({ where: { requestedByUserId_idempotencyKey: identity } });

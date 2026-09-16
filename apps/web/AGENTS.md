@@ -23,6 +23,8 @@ Next.js 自动生成提醒只适用于 Next route、config、server/client bound
 
 Web 层边界：
 
+- QUOTA 仅在已授权新请求的共同入队处计量；开启时三域使用 Serializable，坏限额不影响通用身份/学习/控制路径。错误反馈归 API 层，不在类型专用 contracts 导出运行时函数；范围与验证见 `docs/modules/data-job-quotas.md`。
+
 - 搜索索引仅收录当前用户在所选工作区有权查看的标题；Web 只申请/控制本人任务，独立 worker 原子发布。失效或关闭时安全直查，身份/工作区变化丢弃旧回执；默认 `SEARCH_INDEX_ENABLED=false` / `SEARCH_INDEX_QUEUE_ENABLED=false`。本地专项与交付限制以 `tasks/backlog/0045-platform-hardening.md` 为准。
 
 - 页面和组件不直接调用 Prisma。

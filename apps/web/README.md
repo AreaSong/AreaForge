@@ -16,6 +16,8 @@ RANKING 持久重建已通过 26 组隔离运行态和 12 组浏览器/API 验�
 
 SEARCH 标题索引已通过 33 组隔离运行态和 16 组浏览器/API 专项；独立请求与进度面板位于 `/settings/data`，顶部搜索使用当前授权有效的索引或安全直查。包含用户/工作区切换、回执重试、冻结恢复、七档视口与真实 125% 缩放；极窄屏使用搜索图标触发全宽浮层。`SEARCH_INDEX_ENABLED=false` / `SEARCH_INDEX_QUEUE_ENABLED=false` 默认关闭；五开关共同控制入队与独立消费，Web 不启动进程。协议见 `docs/modules/workspace-search.md`，实际证据与未完成边界见 `tasks/backlog/0045-platform-hardening.md`。
 
+QUOTA 后台任务准入已有独立 24 组运行态和 12 组浏览器/API 本地证据：按本人工作区/账户分区限制新 EXPORT/SEARCH/RANKING 请求，保留幂等和既有控制，不限制学习主链。`DATA_JOB_QUOTA_ENABLED=false` 默认关闭；限额须显式配置，不代表成员/存储、全站或生产配额已开放。协议见 `docs/modules/data-job-quotas.md`，证据见 `tasks/backlog/0045-platform-hardening.md`。
+
 ## Getting Started
 
 在仓库根目录启动本地开发：

@@ -35,7 +35,7 @@ export async function enqueueRankingRebuild(client: RankingRebuildClient, input:
       const payload = makePayload(snapshot, input.actorId, dataCutoff, generation);
       const row = await enqueueDataJobInTransaction(tx, { kind: "RANKING_REBUILD", scope: "WORKSPACE", requestedByUserId: input.actorId,
         workspaceId: snapshot.challenge.workspaceId, idempotencyKey: input.idempotencyKey, requestFingerprint: rankingRebuildJobFingerprint(payload),
-        expiresAt: new Date(dataCutoff.getTime() + 3_600_000), payloadJson: payload as unknown as Prisma.InputJsonValue });
+        expiresAt: new Date(dataCutoff.getTime() + 3_600_000), payloadJson: payload as unknown as Prisma.InputJsonValue }, env);
       return rankingRebuildJobView(row);
     }, { isolationLevel: "Serializable", timeout: 15_000 });
   } catch (error) { return rankingDatabaseError(error); }

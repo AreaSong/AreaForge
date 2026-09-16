@@ -2,6 +2,7 @@ import { WorkspaceSearchError } from "@areaforge/core";
 import { DataJobQueueError, controlWorkspaceSearchIndex, enqueueWorkspaceSearchIndex, getWorkspaceSearchIndexStatus, isDataJobScopeBusy, prisma } from "@areaforge/db";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/responses";
+import { dataJobQuotaErrorStatus } from "@/lib/api/data-job-quota-errors";
 import type { CurrentUser } from "@/lib/auth/session";
 
 const workspaceId = z.string().regex(/^[A-Za-z0-9_-]{1,191}$/);
@@ -29,7 +30,7 @@ export function throwSearchIndexApiError(error: unknown): never {
       : /PAYLOAD_INVALID/.test(error.code) ? 400 : error.retryable ? 503 : 409;
     throw new ApiError(error.code, status);
   }
-  if (error instanceof DataJobQueueError) throw new ApiError(error.code, error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : 409);
+  if (error instanceof DataJobQueueError) throw new ApiError(error.code, dataJobQuotaErrorStatus(error.code) ?? (error.code === "DATA_JOB_QUEUE_NOT_FOUND" ? 404 : 409));
   if (isDataJobScopeBusy(error)) throw new ApiError("SEARCH_INDEX_SCOPE_BUSY", 503);
   throw new ApiError("SEARCH_INDEX_UNAVAILABLE", 503);
 }

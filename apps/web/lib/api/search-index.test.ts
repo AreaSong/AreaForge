@@ -37,3 +37,9 @@ test("权限丢失清空视图，关闭开关不冒充身份失效", () => {
   assert.equal(searchIndexAccessLost(result), true);
   assert.equal(searchIndexAccessLost({ ...result, status: 404, body: { error: "SEARCH_INDEX_DISABLED" } }), false);
 });
+
+test("配额429是确定拒绝，不冒充丢失回执或身份失效", () => {
+  const result = { ok: false, status: 429, body: { error: "DATA_JOB_QUOTA_ACTIVE_LIMIT" }, headers: new Headers() };
+  assert.equal(searchIndexUncertain(result), false);
+  assert.equal(searchIndexAccessLost(result), false);
+});

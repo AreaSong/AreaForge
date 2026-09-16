@@ -35,10 +35,35 @@ releaseRequired: true
 
 ## 当前候选基础
 
+### QUOTA 后台任务准入本地包（本地专项已验证）
+
+- 维护者已批准默认关闭、显式配置的 EXPORT/SEARCH/RANKING 新请求配额、新本地合成库验收及通过后提交推送。边界见高风险确认包的 QUOTA 节，协议见 `docs/modules/data-job-quotas.md`。
+- 复用 `e9e0389` 的 54 条 migration，不新增 DDL；按本人任务分区计活跃名额与滚动 24 小时导出，幂等/控制不重复计量，不限制学习主链。
+- 本地实现与 24/12 组运行态/浏览器专项通过；最终门禁和 Git/CI 回执独立核对。整体仍为 `backlog/planning`，成员/存储及跨工作区总量配额、MFA、完整跨域与交付仍缺，不改变 Release、生产或 residual 状态。
+
+#### QUOTA 本地验收证据（2026-09-16）
+
+- 三个生产入口在配额开启时统一 Serializable；共同准入在授权及同键复用后，按本人 × scope × Workspace 计数，并与任务插入同事务提交。默认关闭，两个限额必须显式配置；坏配置不影响登录、学习、查询及已有任务控制。不新增表、使用历史或删除后账本。
+- 新专属合成库完成现有 54 条 migration deploy、repeat deploy 及逐条 ledger/checksum 验证，schema 仍为 `6001f7ef0e030295a589f4e845eba3f75ba3b214885863f9251e637aa4ae4583`。fixture scope 为 `2ee2122414790a426047236561d094ee307c8c59fc66176d74cfde5ca8dcc893`；没有修改 SQL 或连接旧域/共享/生产数据库。
+- `pnpm quota:runtime:selftest <private-fixture-root>`：24/24 组通过。覆盖三域真实入队、ACCOUNT/Workspace/用户分区、零限额/坏配置/关闭模式、同键与不同键并发、六独立进程、滚动窗口及回拨、所有可恢复状态保留名额、非 Serializable 拒绝、事务回滚、两处 SIGKILL，以及先建立旧快照后竞争提交的 SQLSTATE 40001 中止。Prisma 原生 SQL 错误包装与 ORM 错误分开识别，不把抢锁失败当作旧快照证据。
+- `pnpm quota:browser:selftest <private-fixture-root>`：12/12 组通过。真实登录/重新验证、三入口 429 及恢复提示、取消释放名额、导出不退款、满额下同请求回执重试、越权/未知字段拒绝，以及满额时实际学习任务创建和搜索直查均通过。桌面/390px/320px 的焦点、状态播报及无横向溢出通过，12 张成功截图随结构化记录保存。
+- 记录为 `output/quota/runtime-evidence.json`、`output/playwright/quota/evidence.json`；共同源码指纹 `sha256:a1f0b4e9f99d53cc7b13f201573d5ac6305014b2efeb242bc4ad117b885152ce`。配额错误映射放在 API 层，contracts 仍只含类型声明。失败诊断截图不作为成功证据。
+- 本批更新槽 3，端口 `43173`，URL `http://127.0.0.1:43173`，产品源码指纹 `sha256:908b8c81804249aeb82d2f213a91dae3124640b58664513c963e3e0f61d3be07`，fixtureId `de4e7fe0e51df0848b4555720a67e3ce7a7530f6450b6b4913dd010cbd4f728a`。先核对旧 SEARCH 身份后只替换该 Web；保留旧镜像、槽 1/2、旧库/卷及证据，不放宽跨 fixture 覆盖检查。
+- 最高 R1，仅本地合成准入与状态控制；没有运行 EXPORT/SEARCH/RANKING 业务消费者，uploads/exports 为空，无归档、搜索文档或排名发布副作用。共享/生产、成员/存储及全站配额、MFA、Release、备份恢复、外呼、自动策略与 residual 关闭均不在本包；旧域记录不自动成为当前源码证据。
+- 截图复核后把导出错误反馈移到提交按钮旁，避免被长预览遮蔽；验收要求提示与恢复按钮同时位于视口内且命中测试不被固定栏覆盖，并采用实际视口截图。最终 24/12 组证据已在该修正后重新采集。
+
+检查点审阅（仅本批，不替代完整仓库或生产评审）：
+
+- `reviewedAt`：`2026-09-16T07:17:34Z`；基线 `e9e0389c37990e31e0ebc0b94f2a4d2ec8c430db`，已审阅 QUOTA 的 84 个代码/文档/成功证据路径，排除两张失败诊断截图。
+- `worktreeStatusHash`：`sha256:1bc8d2f2664b617e0b337954e0beef64406b755ef26d491cf5e79e2a00fcca55`；对应暂存后的路径状态，不作为内容指纹。
+- `protectedPathFingerprint`：`sha256:4fa404d227034dedb4b3552ab8120dc7764e6b0de1f666496184837e25b34e2f`，scope 为 `read_only_side_effect_guard_inputs`；本域代码内容另由上方运行态/浏览器源码指纹绑定。
+- 发现与处置：未发现本批阻断项；原生 SQL 冲突包装已按受控 SQLSTATE 核验，运行时反馈归 API 层，导出反馈遮挡已修正并复验。未改 schema/SQL、原始学习数据规则、残余台账、生产或发布策略。
+- 未证明项：全仓审阅、后续工作树持续干净、完整成员/存储/全站配额、v2.0、Release、生产健康/apply、备份恢复、历史其他域源码新鲜度及 residual 关闭；Git/CI 以实际回执为准。
+
 ### 持久搜索本地包（本地专项已验证）
 
 - 维护者已明确批准用户 × Workspace 的标题白名单索引、新增派生表/任务枚举、专属合成库 migration 与撤权/删除/强杀/浏览器验证，以及通过后提交推送。精确边界见 `docs/development/high-risk-confirmation-packets.md` 的 SEARCH 确认包。
-- 基线 `434c510`、53 条迁移；新增索引为派生数据，不改变学习源事实、角色/grant、导出权或生产状态。已形成独立本地实现与专项证据；配额、MFA/观测及综合交付仍缺，整体任务保持 `backlog/planning`。
+- 基线 `434c510`、53 条迁移；新增索引为派生数据，不改变学习源事实、角色/grant、导出权或生产状态。已形成独立本地实现与专项证据；成员/存储及跨工作区总量配额、MFA/观测及综合交付仍缺，整体任务保持 `backlog/planning`。
 - 验证必须包含过期权限标题、跨查看者源删除副本和冻结旧代次，不执行既有删除完整运行器中的 backup/restore；不复用旧域 fixture 或把历史 53 条记录改为新候选证据。
 
 #### SEARCH 独立本地证据（2026-09-16）
@@ -61,8 +86,8 @@ releaseRequired: true
 - `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，本次响应按当前授权/来源/冻结校验返回 `indexed/indexState/indexedAt`；索引关闭、缺失、失效、超限或占锁时安全直查，不返回旧索引标题、计数或时间。
-- 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取 active member/job、最近 24 小时导出/失败任务、附件数量/字节和最老活动任务时间；其他成员统一 404。当前没有获确认的配额政策，因此响应固定 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`，不写死阈值、不拒绝业务写入。
-- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。SEARCH 已有本节独立本地专项；配额写入、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
+- 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取工作区总容量，其他成员统一 404。总量/成员/存储配额尚未启用，响应继续为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；这不代表上方独立本人任务分区准入关闭。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。SEARCH 与 QUOTA 已有各自独立本地专项；成员/存储及跨工作区总量配额、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收

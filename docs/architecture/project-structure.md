@@ -110,6 +110,12 @@ AreaForge/
 - `assets/brand/final/**`：当前品牌素材包，包含数字 Logo、Web/PWA 图标、macOS/iOS/Android/Windows 原生图标、社交预览和 SVG/PDF/CMYK 印刷交付；当前 checkout 已接入 Web runtime，但不代表线上版本已发布更新。
 - `scripts/brand/**`、`scripts/quality/brand-assets-validate.ts`：品牌导出、runtime 同步和完整性校验入口。
 
+## 后台任务准入
+
+`packages/core/src/data-job-quota.ts` 只解析显式策略并判断额度；`packages/db/src/data-job-quota.ts` 在共同入队事务内执行分区计数与串行化保护。
+三个 Web 服务复用 `lib/api/data-job-quota-errors.ts` 的错误反馈；`lib/contracts/**` 仍只存类型声明。
+`scripts/quality/quota-*` 负责独立合成验收，不是业务 worker；不读取旧域私有 fixture，也不在 Web 中启动消费者。
+
 ## 当前取舍
 
 - 第一版只实现 `apps/web`。
