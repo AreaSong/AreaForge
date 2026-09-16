@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadRankingFixture, rankingFixtureEnvironment } from "./ranking-rebuild-fixture";
 import { loadDevTestExportFixture, exportFixtureEnvironment, type DevTestExportFixture } from "../dev/dev-test-export-fixture";
 import { DockerClient } from "../dev/dev-test-docker";
+import { loadDevTestRankingFixture } from "../dev/dev-test-ranking-fixture";
 
 const root = realpathSync(process.cwd());
 const directory = realpathSync(mkdtempSync(path.join(tmpdir(), "areaforge-v20-ranking-")));
@@ -23,6 +24,8 @@ try {
     const fixture = loadRankingFixture(directory, root); const env = rankingFixtureEnvironment(fixture);
     const poolEnv = { ...env, AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT: directory, AREAFORGE_DEV_TEST_DATABASE_URL: env.DATABASE_URL };
     const pool = loadDevTestExportFixture(root, poolEnv)!; assert.equal(pool.kind, "RANKING");
+    assert.equal(loadDevTestRankingFixture(root, poolEnv)?.id, pool.id);
+    assert.throws(() => loadDevTestRankingFixture(root, { ...poolEnv, AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT: directory }), /FIXTURE_INVALID/);
     const runtime = exportFixtureEnvironment(pool, 3, 43173, "1.2.0");
     assert.equal(runtime.RANKING_REBUILD_QUEUE_ENABLED, "true"); assert.equal(runtime.DATA_JOB_WORKER_ENABLED, "true");
     for (const key of ["DATA_EXPORT_ENABLED", "DATA_DELETE_ENABLED", "DATA_LIFECYCLE_ENABLED", "OPS_EXECUTION_ENABLED", "PLATFORM_NOTIFICATIONS_ENABLED", "AI_ENABLED"]) assert.equal(runtime[key], "false");

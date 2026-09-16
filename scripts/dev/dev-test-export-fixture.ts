@@ -9,9 +9,11 @@ import { loadDevTestRankingFixture } from "./dev-test-ranking-fixture";
 import { loadDevTestSearchFixture } from "./dev-test-search-fixture";
 import { loadDevTestQuotaFixture } from "./dev-test-quota-fixture";
 import { QUOTA_FIXTURE_LIMITS } from "../quality/quota-fixture";
+import { loadDevTestCapacityFixture } from "./dev-test-capacity-fixture";
+import { capacityQuotaEnvironment } from "../quality/capacity-fixture";
 
 export interface DevTestExportFixture {
-  kind?: "DELETE" | "OPS" | "RANKING" | "SEARCH" | "QUOTA";
+  kind?: "DELETE" | "OPS" | "RANKING" | "SEARCH" | "QUOTA" | "CAPACITY";
   operationContextRoot?: string;
   operationScopeId?: string;
   operatorEmail?: string;
@@ -28,7 +30,9 @@ export interface DevTestExportFixture {
 
 export function loadDevTestExportFixture(repository: string, env: NodeJS.ProcessEnv = process.env): DevTestExportFixture | undefined {
   if ([env.AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT,
-    env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT].filter(Boolean).length > 1) throw new Error("TEST_FIXTURE_MODES_CONFLICT");
+    env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT,
+    env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT].filter(Boolean).length > 1) throw new Error("TEST_FIXTURE_MODES_CONFLICT");
+  if (env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT) return loadDevTestCapacityFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT) return loadDevTestQuotaFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT) return loadDevTestSearchFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT) return loadDevTestRankingFixture(repository, env);
@@ -67,6 +71,7 @@ export function loadDevTestExportFixture(repository: string, env: NodeJS.Process
 }
 
 export function assertExportFixtureSlot(selection: SlotSelection, fixture?: DevTestExportFixture): void {
+  if (fixture?.kind === "CAPACITY" && selection.slot !== 3) throw new Error("CAPACITY_TEST_FIXTURE_SLOT_REFUSED");
   const previous = selection.replacing?.fixtureId;
   if ((fixture && selection.replacing && previous !== fixture.id) || (previous && previous !== fixture?.id)) {
     throw new Error("DATA_EXPORT_TEST_FIXTURE_SLOT_MISMATCH");
@@ -75,23 +80,25 @@ export function assertExportFixtureSlot(selection: SlotSelection, fixture?: DevT
 
 export function exportFixtureEnvironment(fixture: DevTestExportFixture, slot: number, port: number, appVersion: string): Record<string, string> {
   if (fixture.kind === "OPS" && (!fixture.operationContextRoot || !fixture.operationScopeId || !fixture.operatorEmail)) throw new Error("OPS_TEST_FIXTURE_INVALID");
+  if (fixture.kind === "CAPACITY" && slot !== 3) throw new Error("CAPACITY_TEST_FIXTURE_SLOT_REFUSED");
   const database = new URL(fixture.databaseUrl); database.hostname = "host.docker.internal";
-  const quota = fixture.kind === "QUOTA";
+  const quota = fixture.kind === "QUOTA"; const capacity = fixture.kind === "CAPACITY"; const admission = quota || capacity;
   return { DATABASE_URL: database.href, APP_URL: `http://127.0.0.1:${port}`, APP_VERSION: appVersion,
     AUTH_SESSION_COOKIE_NAME: `af_dev_test_${slot}`, AUTH_SESSION_SECRET: fixture.sessionSecret, AUTH_ACTION_TOKEN_SECRET: fixture.actionSecret,
-    AUTH_MULTI_USER_ENABLED: "true", AUTH_RBAC_ENABLED: "true", DATA_LIFECYCLE_ENABLED: !fixture.kind || fixture.kind === "DELETE" || quota ? "true" : "false", DATA_EXPORT_ENABLED: !fixture.kind || quota ? "true" : "false",
+    AUTH_MULTI_USER_ENABLED: "true", AUTH_RBAC_ENABLED: "true", DATA_LIFECYCLE_ENABLED: !fixture.kind || fixture.kind === "DELETE" || admission ? "true" : "false", DATA_EXPORT_ENABLED: !fixture.kind || admission ? "true" : "false",
     DATA_DELETE_ENABLED: fixture.kind === "DELETE" ? "true" : "false", DATA_DELETE_WORKER_ENABLED: "false",
     // 派生任务的 Web 只检查排队许可；独立 CLI 是唯一进程启动入口。
-    DATA_JOB_WORKER_ENABLED: fixture.kind === "RANKING" || fixture.kind === "SEARCH" || quota ? "true" : "false", UPLOAD_DIR: "/app/uploads", EXPORT_DIR: "/app/exports", TRUST_PROXY: "false",
+    DATA_JOB_WORKER_ENABLED: fixture.kind === "RANKING" || fixture.kind === "SEARCH" || admission ? "true" : "false", UPLOAD_DIR: "/app/uploads", EXPORT_DIR: "/app/exports", TRUST_PROXY: "false",
     DATA_JOB_QUOTA_ENABLED: quota ? "true" : "false", DATA_JOB_QUOTA_MAX_ACTIVE_JOBS: quota ? QUOTA_FIXTURE_LIMITS.maxActiveJobs : "",
     DATA_JOB_QUOTA_MAX_EXPORTS_24H: quota ? QUOTA_FIXTURE_LIMITS.maxExports24h : "",
+    ...capacityQuotaEnvironment(capacity), ...(capacity ? { APP_ENV: "test" } : {}),
     OPS_AGENT_ENABLED: "false", OPS_EXECUTION_ENABLED: fixture.kind === "OPS" ? "true" : "false",
     ...(fixture.kind === "OPS" ? { AUTH_ADMIN_EMAIL: fixture.operatorEmail!, OPS_EXECUTION_LOCAL_FIXTURE: "true", OPS_EXECUTION_SCOPE_ID: fixture.operationScopeId!, OPS_EXECUTION_CONTEXT_FILE: "/app/ops-context/execution-context.json" } : {}),
-    ...(fixture.kind === "RANKING" || fixture.kind === "SEARCH" || quota ? { AUTH_ADMIN_EMAIL: fixture.operatorEmail! } : {}),
+    ...(fixture.kind === "RANKING" || fixture.kind === "SEARCH" || admission ? { AUTH_ADMIN_EMAIL: fixture.operatorEmail! } : {}),
     AI_ENABLED: "false", AI_LOG_PROMPTS: "false", AI_ALLOW_SENSITIVE_CONTEXT: "false",
-    RANKING_ENABLED: fixture.kind === "RANKING" || quota ? "true" : "false", RANKING_PROJECTION_ENABLED: fixture.kind === "RANKING" || quota ? "true" : "false",
-    SEARCH_INDEX_ENABLED: fixture.kind === "SEARCH" || quota ? "true" : "false", SEARCH_INDEX_QUEUE_ENABLED: fixture.kind === "SEARCH" || quota ? "true" : "false",
-    RANKING_REBUILD_QUEUE_ENABLED: fixture.kind === "RANKING" || quota ? "true" : "false", PLATFORM_NOTIFICATIONS_ENABLED: "false", PLATFORM_NOTIFICATION_QUEUE_ENABLED: "false" };
+    RANKING_ENABLED: fixture.kind === "RANKING" || admission ? "true" : "false", RANKING_PROJECTION_ENABLED: fixture.kind === "RANKING" || admission ? "true" : "false",
+    SEARCH_INDEX_ENABLED: fixture.kind === "SEARCH" || admission ? "true" : "false", SEARCH_INDEX_QUEUE_ENABLED: fixture.kind === "SEARCH" || admission ? "true" : "false",
+    RANKING_REBUILD_QUEUE_ENABLED: fixture.kind === "RANKING" || admission ? "true" : "false", PLATFORM_NOTIFICATIONS_ENABLED: "false", PLATFORM_NOTIFICATION_QUEUE_ENABLED: "false" };
 }
 
 export function exportFixtureBuildEnvironment(fixture: DevTestExportFixture, environment: Record<string, string>) {

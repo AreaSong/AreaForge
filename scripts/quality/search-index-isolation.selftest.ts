@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadSearchIndexFixture, searchIndexFixtureEnvironment } from "./search-index-fixture";
 import { loadDevTestExportFixture, exportFixtureEnvironment, type DevTestExportFixture } from "../dev/dev-test-export-fixture";
 import { DockerClient } from "../dev/dev-test-docker";
+import { loadDevTestSearchFixture } from "../dev/dev-test-search-fixture";
 
 const root = realpathSync(process.cwd());
 const directory = realpathSync(mkdtempSync(path.join(tmpdir(), "areaforge-v20-search-")));
@@ -23,6 +24,8 @@ try {
     const fixture = loadSearchIndexFixture(directory, root); const env = searchIndexFixtureEnvironment(fixture);
     const poolEnv = { ...env, AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT: directory, AREAFORGE_DEV_TEST_DATABASE_URL: env.DATABASE_URL };
     const pool = loadDevTestExportFixture(root, poolEnv)!; assert.equal(pool.kind, "SEARCH");
+    assert.equal(loadDevTestSearchFixture(root, poolEnv)?.id, pool.id);
+    assert.throws(() => loadDevTestSearchFixture(root, { ...poolEnv, AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT: directory }), /FIXTURE_INVALID/);
     const runtime = exportFixtureEnvironment(pool, 3, 43173, "1.2.0");
     assert.equal(runtime.SEARCH_INDEX_QUEUE_ENABLED, "true"); assert.equal(runtime.DATA_JOB_WORKER_ENABLED, "true");
     for (const key of ["RANKING_ENABLED", "RANKING_PROJECTION_ENABLED", "RANKING_REBUILD_QUEUE_ENABLED", "DATA_EXPORT_ENABLED", "DATA_DELETE_ENABLED", "DATA_LIFECYCLE_ENABLED", "OPS_EXECUTION_ENABLED", "PLATFORM_NOTIFICATIONS_ENABLED", "AI_ENABLED"]) assert.equal(runtime[key], "false");

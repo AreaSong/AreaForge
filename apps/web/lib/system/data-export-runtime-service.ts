@@ -1,6 +1,6 @@
 import type { FileHandle } from "node:fs/promises";
-import { DataExportError } from "@areaforge/core";
-import { assertDataExportAuthorization, consumeDataExportDownload, controlQueuedDataJobInTransaction, dataExportEnabled, enqueueDataExportJob, exportDatabaseError, issueDataExportDownloadGrant, prisma, releaseDataExportDownload, requireDataExportEnabled, requirePublishedDataExport, reserveDataExportDownload, revokeDataExportDownloads, DataJobQueueError, type DataJobQueueControl, type ReservedExportDownload } from "@areaforge/db";
+import { DataExportError, requiresDataJobQuotaSerializable } from "@areaforge/core";
+import { assertDataExportAuthorization, consumeDataExportDownload, controlQueuedDataJobInTransaction, dataExportEnabled, enqueueDataExportJob, exportDatabaseError, isDataJobScopeBusy, issueDataExportDownloadGrant, prisma, releaseDataExportDownload, requireDataExportEnabled, requirePublishedDataExport, reserveDataExportDownload, revokeDataExportDownloads, DataJobQueueError, type DataJobQueueControl, type ReservedExportDownload } from "@areaforge/db";
 import { createAttachmentResponseHeaders, dataExportStorageRoots, exportArchiveStream, openVerifiedExportArchive, DataExportStorageError } from "@areaforge/storage";
 import { ApiError } from "@/lib/api/responses";
 import { dataJobQuotaErrorStatus } from "@/lib/api/data-job-quota-errors";
@@ -15,14 +15,24 @@ export interface DataExportAvailability {
 }
 
 export async function createDurableDataExport(actor: CurrentUser, input: { scope: "ACCOUNT" | "WORKSPACE"; workspaceId?: string; idempotencyKey: string }): Promise<Job> {
+  const totalQuotaEnabled = process.env.DATA_JOB_TOTAL_QUOTA_ENABLED === "true";
   try {
     requireDataExportEnabled();
     await configuredRoots();
     return await prisma.$transaction(async tx => {
       await requireFreshAccountSession(tx, actor);
       return enqueueDataExportJob(tx, { requesterId: actor.id, scope: input.scope, workspaceId: input.workspaceId ?? null, idempotencyKey: input.idempotencyKey });
-    }, process.env.DATA_JOB_QUOTA_ENABLED === "true" ? { isolationLevel: "Serializable" } : undefined);
-  } catch (error) { throwDataExportApiError(error); }
+    }, requiresDataJobQuotaSerializable(process.env) ? { isolationLevel: "Serializable" } : undefined);
+  } catch (error) { throwDataExportAdmissionApiError(error, totalQuotaEnabled); }
+}
+
+export function throwDataExportAdmissionApiError(error: unknown, totalQuotaEnabled: boolean): never {
+  // 只归一化新总量准入事务的竞争，不改变旧导出、控制和下载的冲突契约。
+  if (totalQuotaEnabled && (isDataJobScopeBusy(error)
+    || (error instanceof DataExportError && error.code === "DATA_EXPORT_SCOPE_BUSY" && error.retryable))) {
+    throw new ApiError("DATA_JOB_QUOTA_BUSY", 503);
+  }
+  throwDataExportApiError(error);
 }
 
 export async function controlDurableDataExport(actor: CurrentUser, jobId: string, expectedRevision: number, action: DataJobQueueControl): Promise<Job> {

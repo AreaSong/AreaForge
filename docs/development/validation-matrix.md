@@ -643,6 +643,17 @@ DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker ty
 - 本批只用合成状态和队列控制模拟结算，不运行 EXPORT/SEARCH/RANKING 业务消费者、ZIP/下载/回收、删除或运维执行器。uploads/exports 为空且 Web 只读挂载；断言无导出包/文件、搜索文档或排名发布副作用。
 - 测试池变更运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；同步 docs/tasks/risk/governance/secrets/audit。范围内最高 R1，不证明成员/存储或全站配额、完整跨域门禁、共享/生产、Release 或 residual 关闭。
 
+## 成员席位与活跃任务总量专项
+
+涉及 `capacity-quotas`、`workspace-member-quota`、`data-job-total-quota`、邀请接受或 CAPACITY 隔离适配时，先核对独立 QUOTA-CAPACITY 确认：
+
+- Core/config/DB/Web 单测和类型检查、`pnpm capacity:typecheck`、`pnpm capacity:isolation:selftest`、`pnpm capacity:fixture:selftest`、`pnpm check`；新开关或坏限额不能使通用身份/个人学习配置失效。 fixture 自测须覆盖失败请求排空、屏障提前结束/超时，以及固定迁移内容与额外文件/软链接拒绝。
+- `pnpm capacity:runtime:selftest <private-fixture-root>` 仅使用新建的专属 CAPACITY 合成库；先核对 54 条 canonical migration 名称、ledger/checksum 与重复 deploy，部署前和运行态均绑定批准的 55 文件内容摘要，不只比较数量或当前工作树 checksum；无新增 DDL。覆盖 Owner 预留、停用/冻结/归档不释放、退出/移除与重新加入、所有权转移、邀请重放及失败完整回滚。
+- 三维任务总量覆盖本人跨 Workspace/ACCOUNT、工作区跨请求者、实例跨域；含新旧开关四组合、同键、全部可恢复状态、到期、并发、旧快照先建立后提交、多进程及计数后/写入后强杀。真实 adapter 的 40001/55P03/57014 不得误报为成功或暴露原始异常。
+- `pnpm capacity:browser:selftest <private-fixture-root>` 使用槽 3 的匹配 fixture/source identity，验证真实邀请接受/429/重试、无半账户、失败输入保留与焦点、预览恢复、三个任务入口超限/取消恢复、学习不受限、权限负向以及桌面/390px/320px。
+- 测试池运行原 selftest/typecheck/latest/doctor/dry-run，并验证 CAPACITY 仅槽 3、七种模式互斥、旧 QUOTA 不接受 CAPACITY 库、只读空 uploads/exports。文件/数据库只保留本批合成写入，不清理历史资源，不运行业务消费者、物理删除或备份恢复。
+- 最终同步 docs/tasks/config/security 并运行风险、治理、密钥、依赖审计和 diff 门禁；记录本域运行态/浏览器源码指纹与当前产品指纹，后续编辑导致漂移时重采。通过只证明本地包，不证明完整 v2.0、其他配额、Release、生产或 residual 关闭。
+
 ## 当前已知验证阻塞
 
 DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。

@@ -20,6 +20,7 @@ try {
   const fixture = loadDataDeleteFixture(root); const databaseUrl = deleteFixtureEnvironment(fixture).DATABASE_URL;
   const env = { AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT: root, AREAFORGE_DATA_DELETE_ISOLATED_DB: "1", AREAFORGE_DEV_TEST_DATABASE_URL: databaseUrl };
   const pool = loadDevTestDeleteFixture(process.cwd(), env); assert.ok(pool);
+  assert.throws(() => loadDevTestDeleteFixture(process.cwd(), { ...env, AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT: root }), /FIXTURE_INVALID/);
   assert.equal(exportFixtureEnvironment(pool, 3, 43173, "1.2.0").DATA_DELETE_ENABLED, "true");
   assert.equal(exportFixtureEnvironment(pool, 3, 43173, "1.2.0").DATA_DELETE_WORKER_ENABLED, "false");
   assert.equal(exportFixtureEnvironment(pool, 3, 43173, "1.2.0").DATA_EXPORT_ENABLED, "false");

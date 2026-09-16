@@ -3,7 +3,7 @@
 > **视图型状态入口，不是第二套权威真相。** 功能状态与批次证据的权威入口是 [`feature-traceability.md`](feature-traceability.md)，残余缺口以 [`residual-risk-ledger.md`](residual-risk-ledger.md) 为准；三者冲突时以后两者为准，并在同一轮修正本文。
 > Cursor Canvas `areaforge-feature-map.canvas.tsx`（工作区 canvases 目录）是本文的可视化投影，状态变化时同步更新。
 
-快照日期：2026-09-15（本次更新 RANKING 持久重建本地实现与隔离验收；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
+快照日期：2026-09-16（更新 SEARCH、QUOTA 与 CAPACITY 本地证据及未完成边界；生产状态不由本地结果推断，以 operational-readiness 和匹配运行态证据为准）
 
 ## 四态与映射
 
@@ -123,7 +123,8 @@
 | ID | 名称 | 状态 | 关键路径 | 备注 |
 |---|---|---|---|---|
 | `eng.monorepo` | pnpm monorepo 分层 | done | `apps/web` + `packages/{core,db,ai,auth,config,storage,ui}` | core 平台无关且有单测；db 集中 Prisma 访问 |
-| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/ranking-rebuild-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT/DELETE/OPS 已有各自分域验收；RANKING 新增 26 组运行态与 12 组浏览器/API 验收，复用 53 条 migration，无新增 DDL。持久搜索及平台加固、全域回归、正式交付与共享/生产启用仍缺 |
+| `eng.durable-jobs` | 持久后台任务执行内核 | partial | `packages/db/src/data-job-queue.ts`、`scripts/workers/data-job-runner.ts`、`scripts/workers/ranking-rebuild-handler.ts`、`tasks/backlog/0045-platform-hardening.md` | 内核/通知/EXPORT/DELETE/OPS 已有各自分域验收；RANKING 新增 26 组运行态与 12 组浏览器/API 验收，复用 53 条 migration，无新增 DDL。SEARCH 另有 33/16 组、QUOTA 有 24/12 组本地证据；存储/MFA/观测等平台加固、全域回归、正式交付与共享/生产启用仍缺 |
+| `eng.capacity-admission` | 成员席位与活跃任务总量 | partial | `docs/modules/capacity-quotas.md`、`tasks/backlog/0045-platform-hardening.md` | CAPACITY 已有 33/18 组本地运行态/浏览器证据，覆盖原始占用、三维总量、并发/旧快照/强杀和邀请恢复。默认关闭；存储、跨分区滚动导出计量、完整跨域与正式交付仍缺 |
 | `eng.arch-boundary` | Prisma 分层边界静态检查 | done | `scripts/quality/arch-layer-boundary.ts` | 已入 `pnpm check` |
 | `eng.docs-gates` | docs 链接完整性 + evergreen 检查 | done | `docs-link-integrity.ts`、`docs-evergreen-check.ts` | 防长期文档回归 |
 | `eng.check-gate` | `pnpm check` 聚合门禁 | done | 根 `package.json` | brand/arch/docs/typecheck/test/lint/db:validate/build |

@@ -252,8 +252,8 @@ export function DataJobCenterClient(props: {
         </fieldset>
 
         <div className="flex flex-wrap gap-2">
-          <Button disabled={pending !== null} onClick={() => void runPreview()} type="button" variant="secondary"><Eye className="size-4" aria-hidden="true" />生成范围预览</Button>
-          <Button disabled={pending !== null || !previewMatchesForm || (kind === "EXPORT" && !props.exportEnabled)} onClick={() => void createJob()} type="button"><FileArchive className="size-4" aria-hidden="true" />{kind === "DELETE" ? "创建删除预览任务" : "创建导出任务"}</Button>
+          <Button disabled={pending !== null} onClick={() => void runPreview()} size="lg" type="button" variant="secondary"><Eye className="size-4" aria-hidden="true" />生成范围预览</Button>
+          <Button disabled={pending !== null || !previewMatchesForm || (kind === "EXPORT" && !props.exportEnabled)} onClick={() => void createJob()} size="lg" type="button"><FileArchive className="size-4" aria-hidden="true" />{kind === "DELETE" ? "创建删除预览任务" : "创建导出任务"}</Button>
         </div>
 
         {notice ? <Alert tone={notice.tone} role={notice.tone === "danger" ? "alert" : "status"}>{notice.text}</Alert> : null}

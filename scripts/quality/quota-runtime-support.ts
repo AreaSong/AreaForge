@@ -5,7 +5,7 @@ export function quotaRuntimeCode(error: unknown): string {
   const meta = field(error, "meta"); const cause = field(field(meta, "driverAdapterError"), "cause");
   // Prisma 原生 SQL 可能以 P2010 包装 SQLSTATE，而不是返回 ORM 的 P2034。
   for (const code of [field(meta, "code"), field(cause, "originalCode"), field(cause, "code")]) {
-    if (["40001", "40P01", "55P03"].includes(String(code))) return String(code);
+    if (["40001", "40P01", "55P03", "57014"].includes(String(code))) return String(code);
   }
   const value = "code" in error ? error.code : "";
   return typeof value === "string" && /^[A-Z0-9_]{1,80}$/.test(value) ? value : "UNKNOWN";

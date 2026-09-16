@@ -35,6 +35,57 @@ releaseRequired: true
 
 ## 当前候选基础
 
+### QUOTA-CAPACITY（本地专项已验证）
+
+- 2026-09-16 维护者已在精确包展示后回复“可以，允许，继续”，批准成员席位及跨用户/工作区/实例活跃任务总量的本地实现、新合成库/槽 3 验收和通过后提交推送。默认关闭、显式限额、无新增 DDL；精确范围见[高风险确认包](../../docs/development/high-risk-confirmation-packets.md)的 QUOTA-CAPACITY 节，契约见[容量准入](../../docs/modules/capacity-quotas.md)。
+- 静态核对后不复用普通可见性统计：停用/冻结/归档不代表成员席位或文件已释放；Owner 预留、原始占用和准入事务需要专项证明。既有配额的 8 项纯规则/mock 基线通过，不代表新包实现或运行态完成。
+- Core/DB 准入、成员接受及三域错误反馈已实现；独立 CAPACITY fixture、33 组运行态和 18 组浏览器/API 专项通过。本地最终门禁与 Git/CI 须按本批检查点独立核对，不把专项记录升级为全平台交付。存储预留/可证释放、跨分区滚动导出次数的删除后计量、MFA/观测、最终跨域验收以及 Release/生产继续承接，未因拆包降出原目标；整体任务和 residual 状态不变。
+
+#### CAPACITY 本地验收证据（2026-09-16）
+
+- 成员按 canonical Owner 预留一席与原始 ACTIVE membership 计量；停用/冻结/归档不提前释放。邀请接受沿既有身份、有效期和 revision 校验，失败回滚账户、个人空间、成员、邀请状态和审计，已消费凭证仍按原规则拒绝。
+- 三域活跃任务按用户（含 ACCOUNT）、工作区及实例总量共同准入，保留旧分区配额；授权与同键复用优先，计数与任务/审计/搜索代次同事务提交。学习、退出及已有任务控制不因新限额或坏配置被新增阻断。
+- 专用 fixture scope 为 `7e5926480b33f0fa64545d7fbf6607fcac0c69dfdfcdd5d79fa8998d5b994bf7`。仅部署/重复部署既有 54 条 migration，逐条核对 ledger/checksum；固定批准 tree 对应 55 个文件的内容摘要 `c0bef75c08d04669d96db7b204dba5a649a8fa1f3c5e84ea0036260083a66413`，拒绝同数量 SQL 变更、额外文件、软链接与 schema 漂移，无新增 DDL。
+- `pnpm capacity:runtime:selftest <private-fixture-root>`：33/33 组，包含 Owner/退出/重入、停用/冻结/归档/转移、账户失败回滚、三维总量/新旧开关、同键/三域竞争、旧快照 40001、多进程、搜索与注册四处 SIGKILL。真实 57014/55P03 也验证 EXPORT 新准入错误映射；总量关闭及控制/下载保留旧冲突语义。
+- `pnpm capacity:browser:selftest <private-fixture-root>`：18/18 组、21 张成功截图。实际邀请预览失败恢复、锁竞争/双击、满额/退出后重试、注册无半账户、三个任务入口超限/取消恢复、丢失回执同键重试、越权/伪造字段、满额下学习与安全直查，以及桌面/390px/320px 焦点、主触控尺寸和无横向溢出通过；两处模拟传输失败单独标记。
+- 记录为 `output/capacity/runtime-evidence.json` 和 `output/playwright/capacity/evidence.json`，最终本域源码指纹 `sha256:1ee9b7e2508ed8b53d4919ff69eadcc60994f2603479b77451617a93a77290a0`。后续源码变化必须重采；失败诊断图片不计入成功证据。
+- 本批更新槽 3，端口 `43173`，URL `http://127.0.0.1:43173`；产品源码指纹 `sha256:e2ca16fa785a1b50005b337158ef90f7225b709787735feca0bf08185fc545ad`，fixtureId `195dc564d672e88f35be7c626d7cb00c94de47d1369a56dd98c88c473b083aa4`。精确核对旧 QUOTA Web 后替换，原镜像、槽 1/2、旧库/卷/目录与证据保留，不放宽跨 fixture 覆盖拒绝。
+- 独立只读复核提出的并发 fail-fast 提前结算、屏障无界等待和 migration preimage 绑定问题已修复，新增 3 项回归进入默认测试链；两项窄复核未发现新增阻断。浏览器发现的锁查询 void 解码及相关主操作触控尺寸也已修复。复核不替代上述实测。
+- 最终本地门禁：冻结安装、`pnpm check`、固定迁移 repeat deploy（无待执行项）、33/18 组重新采集、测试池 selftest/typecheck/doctor/dry-run、原隔离模式与 worker 自测、审阅记录校验、docs/tasks/residual/risk/governance/secrets 及全量/生产依赖审计通过。两项依赖审计为 0 漏洞；ops readiness/handoff/bundle/alert 仅证明只读结构和缺口投影，不证明生产健康。Git/CI 交付回执按本批分支检查点独立核对。
+- 最高 R1，仅本批合成准入与控制；无 EXPORT/SEARCH/RANKING 消费者、物理删除、导出回收、备份恢复或外呼，uploads/exports 为空。核验槽 1/2、既有数据库容器/卷名称及原 QUOTA 镜像仍保留。默认开关保持关闭，不连接共享/生产、不发布 Release、不改自动策略或关闭 residual。
+
+#### CAPACITY 只读交接审阅
+
+本节记录继承改动及修正的只读复核；safetyFacts 只描述审阅动作，不替代上文 R1 合成验证。
+
+```text
+recordId: protected-path-review-capacity-20260916
+reviewedAt: 2026-09-16T11:36:45.583Z
+reviewer: Codex 主代理与两项独立只读复核
+reviewScope: 7620816 之后的 CAPACITY 准入、错误反馈、隔离脚本及受影响治理入口
+sourceCommit: 762081688d71f3e437a5800ee61f4069bc88f48c
+worktreeState: dirty-reviewed
+worktreeStatusHash: sha256:173886285048d1e1c798a7746c76ecc0e5ec602638758fc7161cb24bde6774a7
+protectedPathScope: read_only_side_effect_guard_inputs
+protectedPathFingerprint: sha256:6dd6f20c6248235619f1be64b0fb5954979c8655314acd220acc4115b4b30e2c
+protectedPaths: README.md, package.json, docs/development/high-risk-confirmation-packets.md, docs/development/validation-matrix.md
+reviewCommand: git status --short; pnpm ops:status; pnpm governance:preflight
+reviewDecision: pass
+findings: 原有 CAPACITY 改动与新增修正已分范围复核；并发排空、屏障退出及固定迁移内容护栏已补回归，限域导出错误映射保留旧语义；旧失败图片不进入本批成功证据
+followUpRefs: tasks/backlog/0045-platform-hardening.md, tasks/backlog/0046-v2-platform-gate.md
+doesNotProve: production health; all repository paths were reviewed; git worktree cleanliness after review; updater apply; backup/restore; migration; rollback; residual ledger closure
+result: reviewed
+safetyFacts:
+  productionWriteAttempted: no
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  updaterApplyAttempted: no
+  rollbackAttempted: no
+  secretValuePrinted: no
+  residualLedgerUpdated: no
+```
+
 ### QUOTA 后台任务准入本地包（本地专项已验证）
 
 - 维护者已批准默认关闭、显式配置的 EXPORT/SEARCH/RANKING 新请求配额、新本地合成库验收及通过后提交推送。边界见高风险确认包的 QUOTA 节，协议见 `docs/modules/data-job-quotas.md`。
@@ -86,8 +137,8 @@ releaseRequired: true
 - `packages/core/src/platform-hardening.ts` 已提供无副作用规则：后台任务指数退避、最大尝试与死信判定；Workspace 活动任务/每日导出/成员/存储配额；固定窗口限流；存储/队列容量健康、预警和阻断状态。
 - 审计查询只接受规范化 Workspace/actor/action/time/limit；本地候选已提供 Operator-only `GET /api/system/audit-events`，在查询前使用统一规范化器，按 Workspace metadata、actor、action 前缀和时间窗过滤，并只返回严格 allowlist 的脱敏标量摘要。全局搜索候选在投影前按 selected Workspace、ACTIVE membership、owner/share/workspace visibility 过滤，跨租户和未授权私有结果不进入输出。
 - 本地候选已提供鉴权只读 `GET /api/search`：仅在显式 ACTIVE Workspace 中搜索活动科目，以及当前 actor 自有的任务/知识点/笔记/错题/资料和获有效 grant 的笔记/错题。服务端先做 Membership/owner/grant 过滤，再返回标题和 canonical href；不搜索正文、附件名、动机/情绪/AI 内容，本次响应按当前授权/来源/冻结校验返回 `indexed/indexState/indexedAt`；索引关闭、缺失、失效、超限或占锁时安全直查，不返回旧索引标题、计数或时间。
-- 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取工作区总容量，其他成员统一 404。总量/成员/存储配额尚未启用，响应继续为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；这不代表上方独立本人任务分区准入关闭。
-- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。SEARCH 与 QUOTA 已有各自独立本地专项；成员/存储及跨工作区总量配额、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
+- 本地候选已提供只读 `GET /api/system/capacity`：Platform Operator 或目标 Workspace Owner 可读取工作区观察量，其他成员统一 404。该观察面不投射准入策略配置，响应继续为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；独立 QUOTA 与 CAPACITY 准入分别受各自开关控制，不能用观察值替代原始占用。
+- 原有平台候选包含纯规则、只读审计检索和 `UserNotification` 基础；持久内核、通知与独立 EXPORT 在 51-migration 专用合成库通过 15/11/14 组运行态，EXPORT 桌面/窄视口验收通过。DELETE、OPS 与 RANKING 另有独立本地验收；排名重建的 26/12 组运行态/浏览器证据见 `0043`。SEARCH、QUOTA 与 CAPACITY 已有各自独立本地专项；存储及跨分区滚动导出计量、MFA/Passkey、监控外呼、全域综合门禁及共享/生产启用仍缺，不改变整体 `status: backlog` 和交付 blocker。
 - `UserNotification` 已作为默认关闭的持久通知基础进入本地候选：排名事件可走直接事务或受控 `DataJob` worker，鉴权列表/状态 API、独立通知路由、顶部栏直达入口和未读/全部/已隐藏 UI 支持跨设备状态；本人导出包含脱敏通知记录。通知自身不授予 EXPORT、DELETE、排名重建、外部投递或其他域的执行权限，EXPORT 由独立确认与处理器承接。
 
 ## 验收

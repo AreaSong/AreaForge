@@ -128,6 +128,10 @@ Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费
 本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。
 三个域的新请求在启用配额时统一执行[本人分区准入](../modules/data-job-quotas.md)：超限返回 `DATA_JOB_QUOTA_ACTIVE_LIMIT` 或 `DATA_JOB_QUOTA_EXPORT_LIMIT`（HTTP 429），配置、隔离或锁竞争使用有界 503；不返回内部计数或配置原文，同键复用和已有任务控制不重新计量。
 
+独立[容量准入](../modules/capacity-quotas.md)启用时，三域还检查本人、工作区及实例活跃总量，分别以 `DATA_JOB_QUOTA_USER_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_WORKSPACE_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_INSTANCE_ACTIVE_LIMIT` 返回 429，不附带他人计数。
+总量开启时，新 EXPORT 准入的已识别数据库竞争返回 `DATA_JOB_QUOTA_BUSY`（503），客户端保留同一幂等键与预览；关闭模式及既有控制/下载仍使用原错误映射。
+`POST /api/workspace-invitations/accept` 在原一次性邀请/身份检查后原子检查席位；满额返回 `WORKSPACE_MEMBER_QUOTA_LIMIT`（429），暂时竞争或坏配置返回受控 503，工作区不可加入为 404。拒绝不留下新账户、个人空间或已消费邀请；实际已消费 token 仍走原 409，退出/移除不受新限额限制。
+
 - `POST /api/system/data-jobs/preview`：本人 ACCOUNT/WORKSPACE 的脱敏对象清单，不返回正文或创建包。
 - `GET|POST /api/system/data-jobs`：读取本人回执，或在近期重新验证后幂等申请；新 EXPORT 同时要求生命周期和导出开关。
 - `GET|PATCH /api/system/data-jobs/:id`：本人状态及带 `expectedRevision` 的 `cancel/retry/pause/resume`；进度为 0–1，客户端显示百分比。DTO 仅增加公开调度/可下载状态，不暴露租约或存储 key。

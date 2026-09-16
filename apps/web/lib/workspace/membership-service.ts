@@ -7,9 +7,10 @@ import {
   isPasswordPolicySatisfied,
   isWorkspaceInvitationUsable,
 } from "@areaforge/auth";
-import { hasWorkspaceCapability, type WorkspaceCapability } from "@areaforge/core";
-import { prisma, type Prisma } from "@areaforge/db";
+import { hasWorkspaceCapability, WorkspaceMemberQuotaError, type WorkspaceCapability } from "@areaforge/core";
+import { checkWorkspaceMemberQuotaAdmission, isDataJobScopeBusy, prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
+import { workspaceMemberQuotaErrorStatus } from "@/lib/api/workspace-member-quota-errors";
 import { getAuthEnv } from "@/lib/auth/env";
 import { sendAuthMail } from "@/lib/auth/mail";
 import { normalizeEmail, type CurrentUser } from "@/lib/auth/session";
@@ -175,11 +176,11 @@ export async function acceptWorkspaceInvitation(input: {
   token: string;
   actor: CurrentUser | null;
   password?: string;
-}): Promise<{ user: { id: string; email: string; authRevision: number }; workspaceId: string; createdAccount: boolean }> {
+}, client: typeof prisma = prisma): Promise<{ user: { id: string; email: string; authRevision: number }; workspaceId: string; createdAccount: boolean }> {
   requireMultiUser();
   const tokenHash = hashWorkspaceInvitationToken(input.token, actionTokenSecret());
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await client.$transaction(async (tx) => {
       const invitation = await tx.workspaceInvitation.findUnique({
         where: { tokenHash },
         include: { workspace: { select: { status: true } } },
@@ -188,6 +189,7 @@ export async function acceptWorkspaceInvitation(input: {
         throw invitationContinuationRequired();
       }
       const resolved = await resolveInvitationUser(tx, invitation.emailNormalized, input.actor, input.password);
+      await checkWorkspaceMemberQuotaAdmission(tx, { workspaceId: invitation.workspaceId, userId: resolved.user.id });
       const acceptedAt = new Date();
       const changed = await tx.workspaceInvitation.updateMany({
         where: { id: invitation.id, status: "PENDING", revision: invitation.revision, expiresAt: { gt: acceptedAt } },
@@ -221,6 +223,10 @@ export async function acceptWorkspaceInvitation(input: {
       return { ...resolved, workspaceId: invitation.workspaceId };
     }, { isolationLevel: "Serializable" });
   } catch (error) {
+    if (error instanceof WorkspaceMemberQuotaError) throw new ApiError(error.code, workspaceMemberQuotaErrorStatus(error.code) ?? 503);
+    if (process.env.WORKSPACE_MEMBER_QUOTA_ENABLED === "true" && isDataJobScopeBusy(error)) {
+      throw new ApiError("WORKSPACE_MEMBER_QUOTA_BUSY", 503);
+    }
     if (isPrismaConcurrencyConflict(error)) throw invitationContinuationRequired();
     throw error;
   }

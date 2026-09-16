@@ -1,4 +1,5 @@
 import { createJsonRequest, requestApiResult, type ApiResult } from "./client";
+import { workspaceMemberQuotaErrorText } from "./workspace-member-quota-errors";
 
 export interface WorkspaceMemberView {
   id: string;
@@ -126,4 +127,21 @@ export function acceptWorkspaceInvitation(token: string, password?: string): Pro
 
 export function rejectWorkspaceInvitation(token: string): Promise<ApiResult<MembershipResponse>> {
   return requestApiResult("/api/workspace-invitations/reject", createJsonRequest("POST", { token }));
+}
+
+export function invitationAcceptErrorText(result: Pick<ApiResult<MembershipResponse>, "status" | "body">): string {
+  const quota = workspaceMemberQuotaErrorText(result.body?.error);
+  if (quota) return quota;
+  if (result.status === 0) return "网络连接不可用，请恢复后重试。";
+  if (result.body?.error === "WORKSPACE_INVITATION_CONTINUATION_REQUIRED") {
+    return "请使用受邀账户登录，或检查邀请是否仍有效；新账户需要设置符合策略的密码。";
+  }
+  if (result.status >= 500) return "邀请服务暂时不可用，请稍后重试。";
+  return "邀请无效、已使用或已过期。";
+}
+
+export function invitationPreviewFailure(result: Pick<ApiResult<MembershipResponse>, "status" | "body">) {
+  const retryable = result.status === 0 || result.status >= 500;
+  return { retryable, message: result.status === 0 ? "网络连接不可用，请恢复后重试。"
+    : retryable ? "暂时无法读取邀请，请稍后重试。" : "邀请无效、已使用或已过期。" };
 }

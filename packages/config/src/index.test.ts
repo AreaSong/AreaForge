@@ -63,6 +63,8 @@ test("local candidate feature gates are parsed centrally and default closed", ()
   assert.equal(defaults.PLATFORM_NOTIFICATION_QUEUE_ENABLED, false);
   assert.equal(defaults.DATA_JOB_WORKER_ENABLED, false);
   assert.equal(defaults.DATA_JOB_QUOTA_ENABLED, false);
+  assert.equal(defaults.DATA_JOB_TOTAL_QUOTA_ENABLED, false);
+  assert.equal(defaults.WORKSPACE_MEMBER_QUOTA_ENABLED, false);
 
   const enabled = parseServerEnv({
     ...baseEnv,
@@ -85,5 +87,17 @@ test("配额原始限额独立于身份配置，缺失或错误不得阻断登�
     assert.equal(parsed.DATA_JOB_QUOTA_ENABLED, true);
     assert.equal(parsed.DATA_JOB_QUOTA_MAX_ACTIVE_JOBS, limit || undefined);
     assert.equal(parsed.AUTH_SESSION_SECRET, baseEnv.AUTH_SESSION_SECRET);
+  }
+});
+
+test("成员和总量坏限额不阻断通用身份配置解析", () => {
+  for (const limit of [undefined, "", "bad", "0", "-1", "1.5", "999999999999999999999"]) {
+    const parsed = parseServerEnv({ ...baseEnv, DATA_JOB_TOTAL_QUOTA_ENABLED: "true", WORKSPACE_MEMBER_QUOTA_ENABLED: "true",
+      DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_USER: limit, DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_WORKSPACE: limit,
+      DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_INSTANCE: limit, WORKSPACE_MEMBER_QUOTA_MAX_SEATS: limit });
+    assert.equal(parsed.AUTH_SESSION_SECRET, baseEnv.AUTH_SESSION_SECRET);
+    assert.equal(parsed.DATA_JOB_TOTAL_QUOTA_ENABLED, true);
+    assert.equal(parsed.WORKSPACE_MEMBER_QUOTA_ENABLED, true);
+    assert.equal(parsed.WORKSPACE_MEMBER_QUOTA_MAX_SEATS, limit || undefined);
   }
 });

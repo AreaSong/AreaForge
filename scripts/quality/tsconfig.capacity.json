@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["capacity-*.ts", "admission-runtime-fixture.ts", "../dev/dev-test-capacity-fixture.ts"]
+}

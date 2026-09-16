@@ -99,6 +99,14 @@ RANKING 持久重建仅在独立确认的本地范围运行；采用 `AREAFORGE_
 - 测试池显式选槽并保持跨 fixture 覆盖拒绝；更换既有槽前核对精确身份与当前授权，保留旧库/卷/目录/证据，不增加第四个 Web 实例或自动清理历史资源。
 - 合成准入、额度/计时/幂等、并发与强杀/回滚/API/窄屏证据仅证明 QUOTA 本地范围；共享/生产、成员/存储配额、MFA、Release、自动策略和 residual 关闭不在本次准入。
 
+### QUOTA-CAPACITY 隔离模式
+
+- 仅在独立本地确认后使用 `AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT`、`AREAFORGE_CAPACITY_ISOLATED_DB=1` 与精确 `areaforge_v20_capacity_*` loopback 库。私有根、marker、UID/GID、仓库、0600 合成凭据、不可变数据库镜像及有标签卷独立绑定，不接受旧 QUOTA marker/库，也不回落到共享配置。 migration 部署前及 ledger 校验必须验证批准基线的固定文件集合/内容摘要与 schema，不接受同数量 SQL 漂移或软链接替换。
+- 与六种旧 fixture 在聚合入口和各自 loader 双向互斥；共享种子只复用数据结构，旧 QUOTA 与新 CAPACITY wrapper 各自检查数据库族与实际库名。不得伪造 fixture 类型绕过旧运行器限制。
+- 只允许槽 3；先核对原 QUOTA Web 的精确身份，再按本包批准替换。保留槽 1/2、旧镜像/库/卷/私有目录/证据，保持不同 fixtureId 拒绝覆盖，不创建第四个长期 Web。
+- 仅对本批合成账户、邀请、成员、工作区、任务和冻结状态写入；三域只打开请求许可，Web 不启动消费者。uploads/exports 为空且只读，不运行领域处理器、物理删除、导出回收、OPS、备份恢复或真实 AI/SMTP/监控外呼。
+- 验收包含成员席位、三维活跃总量、旧快照、多进程、提交前强杀、同键回执、拒绝后完整回滚、冻结/停用/归档恢复及桌面/窄屏/API。新的身份和源码证据不升级旧域证据，不授权共享/生产、Release、其他配额或 residual 关闭。
+
 ### 提交级 Secret Scan 准入
 
 ```text

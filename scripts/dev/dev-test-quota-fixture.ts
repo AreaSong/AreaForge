@@ -9,7 +9,8 @@ export function loadDevTestQuotaFixture(repository: string, env: NodeJS.ProcessE
   try {
     if (env.AREAFORGE_DATA_JOB_QUOTA_ISOLATED_DB !== "1" || env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT
       || env.AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT
-      || env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT) throw new Error();
+      || env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT
+      || env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT) throw new Error();
     const fixture = loadQuotaFixture(root, repository); const expected = quotaFixtureEnvironment(fixture).DATABASE_URL;
     if (!expected || env.AREAFORGE_DEV_TEST_DATABASE_URL !== expected) throw new Error();
     const id = createHash("sha256").update(JSON.stringify({ root, scopeId: fixture.scopeId, policy: QUOTA_FIXTURE_LIMITS,

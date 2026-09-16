@@ -32,6 +32,7 @@
 - SEARCH 本地证据（2026-09-16）：独立批准下完成用户×Workspace 标题索引、显式任务/控制、原子发布、权限/来源/冻结重验与安全直查。专用合成库的 54 条 migration ledger/checksum、33 组运行态及 16 组浏览器/API 专项通过，包含两处强杀、跨查看者删除/导出排除、容量边界、七档视口及真实 125% 缩放。仅更新槽 3，保留槽 1/2 和旧库/卷；五开关默认关闭。证据见 `tasks/backlog/0045-platform-hardening.md`；未改变生产 identity、备份/回滚目标、自动策略或 residual 状态，不代表综合 v2.0、Release 或生产交付完成。
 
 - QUOTA 本地证据（2026-09-16）：新专用 54-migration 合成库通过 24 组准入运行态和 12 组浏览器/API（桌面/390px/320px）；包含三域并发、同键、旧快照、六进程和两处强杀。只替换槽 3 Web，旧镜像/库/卷及槽 1/2 保留；不运行业务消费者、外呼或生产动作。默认关闭，不代表完整平台配额、v2.0、Release 或 residual 关闭；详见 `tasks/backlog/0045-platform-hardening.md`。
+- CAPACITY 本地证据（2026-09-16）：专用 54-migration 合成库通过 33 组运行态和 18 组浏览器/API（桌面/390px/320px）；包含成员原始占用、三维总量、邀请完整回滚、旧快照、多进程及强杀，源码/fixture/迁移内容均绑定。仅替换槽 3 Web，保留原 QUOTA 镜像、槽 1/2 和旧库/卷/目录；无业务消费者、外呼或生产操作。默认关闭，不证明完整配额、v2.0、Release 或 residual 关闭，详见 `tasks/backlog/0045-platform-hardening.md`。
 
 ## 运营状态
 

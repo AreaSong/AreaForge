@@ -21,6 +21,7 @@ try {
   const fixture = loadOperationFixture(root);
   const env = { AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT: root, AREAFORGE_OPS_ISOLATED_DB: "1", AREAFORGE_DEV_TEST_DATABASE_URL: operationFixtureEnvironment(fixture).DATABASE_URL };
   const pool = loadDevTestOpsFixture(process.cwd(), env)!; assert.ok(pool);
+  assert.throws(() => loadDevTestOpsFixture(process.cwd(), { ...env, AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT: root }), /FIXTURE_INVALID/);
   const runtime = exportFixtureEnvironment(pool, 3, 43173, "1.2.0");
   assert.equal(runtime.AUTH_ADMIN_EMAIL, marker.operatorEmail); assert.equal(runtime.OPS_EXECUTION_ENABLED, "true");
   for (const key of ["DATA_LIFECYCLE_ENABLED", "DATA_EXPORT_ENABLED", "DATA_DELETE_ENABLED", "DATA_DELETE_WORKER_ENABLED", "DATA_JOB_WORKER_ENABLED", "OPS_AGENT_ENABLED", "RANKING_ENABLED", "AI_ENABLED"]) assert.equal(runtime[key], "false");

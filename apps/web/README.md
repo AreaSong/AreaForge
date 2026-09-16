@@ -18,6 +18,8 @@ SEARCH 标题索引已通过 33 组隔离运行态和 16 组浏览器/API 专项
 
 QUOTA 后台任务准入已有独立 24 组运行态和 12 组浏览器/API 本地证据：按本人工作区/账户分区限制新 EXPORT/SEARCH/RANKING 请求，保留幂等和既有控制，不限制学习主链。`DATA_JOB_QUOTA_ENABLED=false` 默认关闭；限额须显式配置，不代表成员/存储、全站或生产配额已开放。协议见 `docs/modules/data-job-quotas.md`，证据见 `tasks/backlog/0045-platform-hardening.md`。
 
+CAPACITY 成员席位与三维活跃任务总量已有 33 组运行态、18 组浏览器/API 本地证据。邀请拒绝保留输入和未消费凭证，不留下半账户；三类任务按本人、工作区及实例共同准入。`WORKSPACE_MEMBER_QUOTA_ENABLED=false`、`DATA_JOB_TOTAL_QUOTA_ENABLED=false` 默认关闭，不限制学习或既有控制。规则见 `docs/modules/capacity-quotas.md`，交付边界见 `tasks/backlog/0045-platform-hardening.md`；存储/滚动导出总量与完整跨域、Release/生产仍缺。
+
 ## Getting Started
 
 在仓库根目录启动本地开发：

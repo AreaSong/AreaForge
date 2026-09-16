@@ -5,7 +5,7 @@ import path from "node:path";
 /** 只绑定准入、调用方、验证器与构建来源，不读取私有 fixture 或证据自身。 */
 export function quotaSourceFingerprint(root = process.cwd()): string {
   const files = ["package.json", "pnpm-lock.yaml", "prisma/schema.prisma", "packages/core/src/index.ts", "packages/config/src/index.ts",
-    "scripts/quality/tsconfig.quota.json", "apps/web/app/(app)/settings/data/page.tsx"];
+    "scripts/quality/tsconfig.quota.json", "scripts/quality/admission-runtime-fixture.ts", "apps/web/app/(app)/settings/data/page.tsx"];
   const groups: Array<[string, RegExp]> = [
     ["packages/core/src", /^(data-job|data-export-job|ranking-rebuild|workspace-search)/],
     ["packages/db/src", /^(data-job|data-export|ranking-rebuild|workspace-search)/],

@@ -9,7 +9,7 @@ export function loadDevTestSearchFixture(repository: string, env: NodeJS.Process
   try {
     if (env.AREAFORGE_SEARCH_INDEX_ISOLATED_DB !== "1" || env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT
       || env.AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT
-      || env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT) throw new Error();
+      || env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT || env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT) throw new Error();
     const fixture = loadSearchIndexFixture(root, repository); const expected = searchIndexFixtureEnvironment(fixture).DATABASE_URL;
     if (!expected || env.AREAFORGE_DEV_TEST_DATABASE_URL !== expected) throw new Error();
     const id = createHash("sha256").update(JSON.stringify({ root, scopeId: fixture.scopeId,

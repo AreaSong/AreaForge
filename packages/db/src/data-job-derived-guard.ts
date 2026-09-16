@@ -27,7 +27,7 @@ export function isDataJobScopeBusy(error: unknown): boolean {
   const adapter = error.meta?.driverAdapterError;
   const cause = field(adapter, "cause");
   return error.code === "P2034" || [error.meta?.code, field(cause, "originalCode"), field(cause, "code")]
-    .some(code => ["55P03", "40P01", "40001"].includes(String(code)));
+    .some(code => ["55P03", "40P01", "40001", "57014"].includes(String(code)));
 }
 
 function field(value: unknown, key: string): unknown {

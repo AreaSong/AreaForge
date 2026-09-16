@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DATA_JOB_QUEUE_VERSION, isDataJobQuotaKind, validateDataJobAttempts, validateDataJobLeaseDuration, type DataJobQuotaEnvironment } from "@areaforge/core";
+import { DATA_JOB_QUEUE_VERSION, isDataJobQuotaKind, requiresDataJobQuotaSerializable, validateDataJobAttempts, validateDataJobLeaseDuration, type DataJobQuotaEnvironment } from "@areaforge/core";
 import { Prisma } from "../generated/prisma/client";
 import { DataJobQueueError, type ClaimDataJobInput, type DataJobLease, type DataJobPartition, type DataQueueClient, type DataQueueTransaction, type EnqueueDataJobInput } from "./data-job-queue-types";
 import { assertQueueScope, auditQueuedDataJob, partitionWhere, queueClock, queueIdentifier, releasedQueueLease, toDataJobLease, updateQueuedDataJob, validateQueueKinds } from "./data-job-queue-store";
@@ -10,7 +10,7 @@ export async function enqueueDataJob(client: DataQueueClient, input: EnqueueData
   validateEnqueue(input);
   try {
     return await client.$transaction((tx) => enqueueDataJobInTransaction(tx, input, env),
-      isDataJobQuotaKind(input.kind) && env.DATA_JOB_QUOTA_ENABLED === "true" ? { isolationLevel: "Serializable" } : undefined);
+      isDataJobQuotaKind(input.kind) && requiresDataJobQuotaSerializable(env) ? { isolationLevel: "Serializable" } : undefined);
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
     const identity = { requestedByUserId: input.requestedByUserId, idempotencyKey: input.idempotencyKey };

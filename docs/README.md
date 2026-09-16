@@ -62,6 +62,7 @@
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
 - `modules/background-jobs.md`：持久后台任务、租约代次、重试、死信和事务提交边界。
 - `modules/data-job-quotas.md`：本人分区的新任务准入、活跃名额、滚动导出次数、幂等与可恢复控制。
+- `modules/capacity-quotas.md`：成员席位、用户/工作区/实例三维活跃任务总量、冻结占用及失败回退。
 - `modules/ranking-rebuild.md`：持久排名申请、权限/来源快照、代次、冻结过滤和整榜原子发布。
 - `modules/workspace-search.md`：用户与工作区隔离的标题索引、显式重建、冻结副本保真及安全直查回退。
 - `modules/data-export.md`：本人数据/READY 附件导出、私有 ZIP、一次性下载、保留与精确副本回收。

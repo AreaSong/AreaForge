@@ -49,6 +49,12 @@ Web runtime 的变量由 `packages/config` 的 schema 统一解析校验；标�
 | `DATA_JOB_QUOTA_ENABLED` | `false` | 仅开启本人分区的 EXPORT/SEARCH/RANKING 新任务准入配额；不启动消费者，不限制学习、查询或已有任务控制 |
 | `DATA_JOB_QUOTA_MAX_ACTIVE_JOBS` | 未设置 | 开启配额时必填：`0` 或不以零开头的十进制整数，最大 `2147483647`；有效期内可恢复/重放的失败任务仍占名额，成功、确认取消或到期释放 |
 | `DATA_JOB_QUOTA_MAX_EXPORTS_24H` | 未设置 | 开启配额时必填，格式同上；滚动 24 小时已接纳导出数，取消不退次数，同键重试不重复计量；零表示拒绝新导出 |
+| `DATA_JOB_TOTAL_QUOTA_ENABLED` | `false` | 独立启用三域活跃任务总量，叠加但不替代本人分区配额；不限制学习或既有控制 |
+| `DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_USER` | 未设置 | 总量开关开启时必填：本人全部工作区及 ACCOUNT 任务总额，规范非负整数，最大 `2147483647` |
+| `DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_WORKSPACE` | 未设置 | 同一工作区所有请求者的三域活跃任务总额；ACCOUNT 不进入工作区桶，格式同上 |
+| `DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_INSTANCE` | 未设置 | 本实例三域活跃任务总额；含未过期可恢复状态，不是操作系统进程并发数，格式同上 |
+| `WORKSPACE_MEMBER_QUOTA_ENABLED` | `false` | 独立启用邀请接受时的工作区成员席位检查；邀请不预占，已有超额成员不驱逐 |
+| `WORKSPACE_MEMBER_QUOTA_MAX_SEATS` | 未设置 | 开启成员配额时必填：至少 `1` 的规范整数，最大 `2147483647`；含 Owner 预留席，停用/冻结/归档不释放 |
 | `AUTH_ACTION_TOKEN_SECRET` | 多人/邮件流程必填 | 邀请、邮箱验证和密码重置 token 的 purpose-separated HMAC 密钥，至少 32 字符且必须与 session secret 分离 |
 | `AUTH_REAUTH_MAX_AGE_SECONDS` | `600` | 高风险成员操作允许的最近重新验证时间 |
 | `AUTH_INVITATION_TTL_SECONDS` | `259200` | 邀请链接有效期，默认 72 小时 |

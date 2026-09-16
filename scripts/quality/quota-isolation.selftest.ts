@@ -8,6 +8,7 @@ import { loadDevTestExportFixture, exportFixtureEnvironment, assertExportFixture
 import type { SlotSelection } from "../dev/dev-test-pool-core";
 import { DockerClient } from "../dev/dev-test-docker";
 import { quotaRuntimeCode, quotaTransient } from "./quota-runtime-support";
+import { loadDevTestQuotaFixture } from "../dev/dev-test-quota-fixture";
 
 const root = realpathSync(process.cwd());
 const directory = realpathSync(mkdtempSync(path.join(tmpdir(), "areaforge-v20-quota-")));
@@ -26,6 +27,8 @@ try {
     const fixture = loadQuotaFixture(directory, root); const env = quotaFixtureEnvironment(fixture);
     const poolEnv = { ...env, AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT: directory, AREAFORGE_DEV_TEST_DATABASE_URL: env.DATABASE_URL };
     const pool = loadDevTestExportFixture(root, poolEnv)!; assert.equal(pool.kind, "QUOTA");
+    assert.equal(loadDevTestQuotaFixture(root, poolEnv)?.id, pool.id);
+    assert.throws(() => loadDevTestQuotaFixture(root, { ...poolEnv, AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT: directory }), /FIXTURE_INVALID/);
     const runtime = exportFixtureEnvironment(pool, 3, 43173, "1.2.0");
     for (const key of ["DATA_JOB_QUOTA_ENABLED", "SEARCH_INDEX_QUEUE_ENABLED", "RANKING_REBUILD_QUEUE_ENABLED", "DATA_EXPORT_ENABLED", "DATA_JOB_WORKER_ENABLED"]) assert.equal(runtime[key], "true");
     for (const key of ["DATA_DELETE_ENABLED", "DATA_DELETE_WORKER_ENABLED", "OPS_EXECUTION_ENABLED", "PLATFORM_NOTIFICATIONS_ENABLED", "AI_ENABLED"]) assert.equal(runtime[key], "false");
@@ -33,7 +36,7 @@ try {
     assert.equal(runtime.DATA_JOB_QUOTA_MAX_EXPORTS_24H, QUOTA_FIXTURE_LIMITS.maxExports24h);
     assert.throws(() => loadDevTestExportFixture(root, { ...poolEnv, AREAFORGE_DATA_JOB_QUOTA_ISOLATED_DB: "0" }));
     assert.throws(() => loadDevTestExportFixture(root, { ...poolEnv, AREAFORGE_DEV_TEST_DATABASE_URL: "postgresql://remote.example/other" }));
-    for (const mode of ["EXPORT", "DELETE", "OPS", "RANKING", "SEARCH"]) {
+    for (const mode of ["EXPORT", "DELETE", "OPS", "RANKING", "SEARCH", "CAPACITY"]) {
       assert.throws(() => loadDevTestExportFixture(root, { ...poolEnv, [`AREAFORGE_DEV_TEST_${mode}_FIXTURE_ROOT`]: directory }), /MODES_CONFLICT/);
     }
     assert.throws(() => loadQuotaFixture(directory, `${root}/other`));

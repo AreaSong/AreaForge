@@ -4,11 +4,17 @@ import { DATA_JOB_QUOTA_ACTIVE_STATUSES, DATA_JOB_QUOTA_KINDS, DATA_JOB_QUOTA_WI
 import { Prisma } from "../generated/prisma/client";
 import { DataJobQueueError, type DataQueueTransaction, type EnqueueDataJobInput } from "./data-job-queue-types";
 import { queueClock } from "./data-job-queue-store";
+import { checkDataJobTotalQuotaAdmission } from "./data-job-total-quota";
 
 type Admission = Pick<EnqueueDataJobInput, "kind" | "scope" | "workspaceId" | "requestedByUserId">;
 
 /** 必须在授权与同键复用之后执行；数据库事务同时保护额度判断和随后的任务插入。 */
 export async function checkDataJobQuotaAdmission(tx: DataQueueTransaction, input: Admission, env: DataJobQuotaEnvironment): Promise<Date | undefined> {
+  const totalAdmission = await checkDataJobTotalQuotaAdmission(tx, input, env);
+  return await checkPartitionQuotaAdmission(tx, input, env) ?? totalAdmission;
+}
+
+async function checkPartitionQuotaAdmission(tx: DataQueueTransaction, input: Admission, env: DataJobQuotaEnvironment): Promise<Date | undefined> {
   if (!isDataJobQuotaKind(input.kind)) return;
   let policy;
   try { policy = readDataJobQuotaPolicy(env); }
