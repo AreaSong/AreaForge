@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -24,12 +26,9 @@ test("事务屏障在连接失败、提前结束或缺信号时有界退出", as
 });
 
 test("迁移准入绑定批准内容并拒绝同数量SQL漂移、额外文件、软链接和schema漂移", () => {
-  assert.equal(assertCapacityMigrationPreimage(), 54);
   const root = mkdtempSync(path.join(tmpdir(), "areaforge-capacity-preimage-"));
   try {
-    mkdirSync(path.join(root, "prisma"));
-    cpSync("prisma/migrations", path.join(root, "prisma/migrations"), { recursive: true });
-    copyFileSync("prisma/schema.prisma", path.join(root, "prisma/schema.prisma"));
+    restoreApprovedPreimage(root);
     assert.equal(assertCapacityMigrationPreimage(root), 54);
     const migrations = path.join(root, "prisma/migrations");
     const first = readdirSync(migrations).sort().find(name => /^\d+_/.test(name))!;
@@ -38,6 +37,9 @@ test("迁移准入绑定批准内容并拒绝同数量SQL漂移、额外文件�
     assert.throws(() => assertCapacityMigrationPreimage(root), /CAPACITY_MIGRATION_PREIMAGE_CHANGED/); writeFileSync(sql, original);
     const extra = path.join(migrations, ".ignored.sql"); writeFileSync(extra, "SELECT 1;");
     assert.throws(() => assertCapacityMigrationPreimage(root), /CAPACITY_MIGRATION_PREIMAGE_CHANGED/); unlinkSync(extra);
+    const added = path.join(migrations, "20990101000000_synthetic_unapproved");
+    mkdirSync(added); writeFileSync(path.join(added, "migration.sql"), "SELECT 1;");
+    assert.throws(() => assertCapacityMigrationPreimage(root), /CAPACITY_MIGRATION_PREIMAGE_CHANGED/); rmSync(added, { recursive: true });
     unlinkSync(sql); symlinkSync(path.resolve("prisma/migrations", first, "migration.sql"), sql);
     assert.throws(() => assertCapacityMigrationPreimage(root), /CAPACITY_MIGRATION_PREIMAGE_CHANGED/);
     unlinkSync(sql); writeFileSync(sql, original);
@@ -45,3 +47,20 @@ test("迁移准入绑定批准内容并拒绝同数量SQL漂移、额外文件�
     assert.throws(() => assertCapacityMigrationPreimage(root), /CAPACITY_MIGRATION_PREIMAGE_CHANGED/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+function restoreApprovedPreimage(root: string) {
+  const snapshot = JSON.parse(readFileSync(path.resolve("scripts/quality/fixtures/capacity/approved-migration-preimage.json"), "utf8"));
+  assert.equal(snapshot.sourceCommit, "ddf690de7e030b103b36be3d9359ffc32ecaf6bd");
+  assert.equal(snapshot.encoding, "gzip-base64"); assert.equal(snapshot.files, 56);
+  const bytes = gunzipSync(Buffer.from(snapshot.content, "base64"), { maxOutputLength: 4 * 1024 * 1024 });
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), snapshot.uncompressedSha256);
+  const files = JSON.parse(bytes.toString("utf8")) as Record<string, unknown>;
+  assert.equal(Object.keys(files).length, 56);
+  for (const [relative, body] of Object.entries(files)) {
+    assert.match(relative, /^prisma\/(schema\.prisma|migrations\/(migration_lock\.toml|\d+_[A-Za-z0-9_]+\/migration\.sql))$/);
+    assert.equal(typeof body, "string");
+    const file = path.join(root, relative);
+    mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    writeFileSync(file, body as string, { flag: "wx", mode: 0o600 });
+  }
+}

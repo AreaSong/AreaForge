@@ -116,6 +116,9 @@ export { Prisma } from "../generated/prisma/client";
 export * from "./data-job-queue-types";
 export { isDataJobScopeBusy, isDerivedQueueKind } from "./data-job-derived-guard";
 export { checkWorkspaceMemberQuotaAdmission } from "./workspace-member-quota";
+export { checkWorkspaceStorageQuotaAdmission, storageQuotaTransactionOptions, readStorageQuotaFileClaims,
+  lockAttachmentFileOperation, guardAttachmentStorageTransaction, isWorkspaceStorageQuotaBusy,
+  type StorageQuotaTransaction, type StorageQuotaFileClaim } from "./workspace-storage-quota";
 export { enqueueWorkspaceSearchIndex, getWorkspaceSearchIndexStatus, controlWorkspaceSearchIndex,
   prepareWorkspaceSearchIndex, commitWorkspaceSearchIndex } from "./workspace-search-jobs";
 export { captureSearchScope, searchDatabaseError } from "./workspace-search-scope";

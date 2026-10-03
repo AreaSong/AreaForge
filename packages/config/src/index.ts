@@ -51,6 +51,8 @@ export const serverEnvSchema = z.object({
   DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_INSTANCE: optionalNonEmptyString,
   WORKSPACE_MEMBER_QUOTA_ENABLED: booleanFromString.default(false),
   WORKSPACE_MEMBER_QUOTA_MAX_SEATS: optionalNonEmptyString,
+  WORKSPACE_STORAGE_QUOTA_ENABLED: booleanFromString.default(false),
+  WORKSPACE_STORAGE_QUOTA_MAX_BYTES: optionalNonEmptyString,
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),

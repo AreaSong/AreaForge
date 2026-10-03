@@ -32,7 +32,7 @@ export async function verifyFrozenDeletePlan(tx: Prisma.TransactionClient, row: 
   return plan;
 }
 
-export async function commitDatabaseDeletion(client: PrismaClient, lease: DataDeleteLease, afterSql?: () => Promise<void>, verifyPlan: DeletePlanVerifier = verifyFrozenDeletePlan, beforeCommit?: () => Promise<void>) {
+export async function commitDatabaseDeletion(client: PrismaClient, lease: DataDeleteLease, afterSql?: (tx: Prisma.TransactionClient) => Promise<void>, verifyPlan: DeletePlanVerifier = verifyFrozenDeletePlan, beforeCommit?: () => Promise<void>) {
   requireDataDeleteEnabled();
   return client.$transaction(async tx => {
     const initial = await lockedDeleteLease(tx, lease);
@@ -59,7 +59,7 @@ export async function commitDatabaseDeletion(client: PrismaClient, lease: DataDe
     for (const item of plan.items) {
       if ((await readDeleteRecords(tx, item.model, deleteKeyPredicate(item.key))).length) throw new DataDeleteError("DATA_DELETE_RECORD_REMAINING");
     }
-    await afterSql?.();
+    await afterSql?.(tx);
     assertDeleteLease(row, lease, await deleteClock(tx));
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(718420260914::bigint)`;
     const previous = await tx.dataDeletionLedger.findFirst({ orderBy: { sequence: "desc" }, select: { entryHash: true, sequence: true } });

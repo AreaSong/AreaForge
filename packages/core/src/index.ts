@@ -777,3 +777,4 @@ export * from "./ranking-rebuild-job";
 export * from "./workspace-search-job";
 export * from "./data-job-quota";
 export * from "./capacity-quotas";
+export * from "./workspace-storage-quota";

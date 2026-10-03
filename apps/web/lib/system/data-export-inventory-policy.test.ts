@@ -53,6 +53,6 @@ test("included preview delegates and security exclusions stay aligned with imple
   }
   assert.doesNotMatch(
     implementation,
-    /passwordHash:\s*true|tokenHash:\s*true|ipHash:\s*true|userAgentHash:\s*true|apiKeyCiphertext:\s*true|encryptedApiKey:\s*true|objectKey:\s*true|nonce:\s*true|previewNonce:\s*true|idempotencyKey:\s*true|requestFingerprint:\s*true|intentHash:\s*true|requestHash:\s*true|workerId:\s*true|leaseToken:\s*true/,
+    /passwordHash:\s*true|tokenHash:\s*true|ipHash:\s*true|userAgentHash:\s*true|apiKeyCiphertext:\s*true|encryptedApiKey:\s*true|objectKey:\s*true|nonce:\s*true|previewNonce:\s*true|idempotencyKey:\s*true|requestFingerprint:\s*true|intentHash:\s*true|requestHash:\s*true|workerId:\s*true|leaseToken:\s*true|storageWorkspaceId:\s*true|storageReleasedAt:\s*true|storageReleaseProof:\s*true/,
   );
 });

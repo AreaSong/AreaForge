@@ -101,3 +101,12 @@ test("成员和总量坏限额不阻断通用身份配置解析", () => {
     assert.equal(parsed.WORKSPACE_MEMBER_QUOTA_MAX_SEATS, limit || undefined);
   }
 });
+
+test("存储限额的错误不影响通用身份配置，开关默认关闭", () => {
+  assert.equal(parseServerEnv(baseEnv).WORKSPACE_STORAGE_QUOTA_ENABLED, false);
+  for (const limit of [undefined, "", "bad", "-1", "1.5", "9007199254740992"]) {
+    const parsed = parseServerEnv({ ...baseEnv, WORKSPACE_STORAGE_QUOTA_ENABLED: "true", WORKSPACE_STORAGE_QUOTA_MAX_BYTES: limit });
+    assert.equal(parsed.AUTH_SESSION_SECRET, baseEnv.AUTH_SESSION_SECRET);
+    assert.equal(parsed.WORKSPACE_STORAGE_QUOTA_MAX_BYTES, limit || undefined);
+  }
+});

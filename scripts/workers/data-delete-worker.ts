@@ -9,7 +9,7 @@ import { readDeleteAuthorization } from "../../packages/db/src/data-delete-plan"
 import { deleteClock, requireDataDeleteEnabled } from "../../packages/db/src/data-delete-intents";
 import { inspectDeletionFile, removeDeletionFile, DataDeleteStorageError, type DeletionFileDescriptor, type DeletionFileRoots } from "../../packages/storage/src/data-delete-files";
 
-export interface DataDeleteHooks { afterIntent?: () => Promise<void>; afterFileIntent?: () => Promise<void>; afterUnlink?: () => Promise<void>; afterSql?: () => Promise<void>; beforeCommit?: () => Promise<void> }
+export interface DataDeleteHooks { afterIntent?: () => Promise<void>; afterFileIntent?: () => Promise<void>; afterUnlink?: () => Promise<void>; afterSql?: (tx: Prisma.TransactionClient) => Promise<void>; beforeCommit?: () => Promise<void> }
 export interface DataDeleteAuthority { verifyPlan: DeletePlanVerifier; beforeFile: (...args: Parameters<DeletePlanVerifier>) => Promise<unknown>; signal?: AbortSignal }
 const normalAuthority: DataDeleteAuthority = { verifyPlan: verifyFrozenDeletePlan, beforeFile: async (tx, row) => {
   if (await readDeleteAuthorization(tx, deletionTarget(row), true) !== row.authorizationHash) throw new DataDeleteError("DATA_DELETE_AUTHORIZATION_CHANGED");

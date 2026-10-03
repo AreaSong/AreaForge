@@ -2252,3 +2252,267 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 - 主要风险为并发漏计、冻结/停用造成提前释放、Owner 被配额阻断、跨 scope 计量泄漏、锁竞争扩大和拒绝后残留新账户。遇到不一致按受控错误拒绝，不吞错、不猜 owner、不把异常降级为放行。
 - 回退为关闭本包两个新增准入开关，保留旧分区配额、任务、成员、审计及其他域开关；不驱逐成员、不删除任务、不释放未知文件、不修改已有删除协议或自动更新策略。
 - 不包含存储配额、待接受邀请数量/邮件滥用配额、跨分区滚动导出次数及删除后计量账本、支付计费、MFA、真实外呼、共享/生产 migration/apply、真实数据/附件操作、root/SSH、Release/tag/GHCR、备份恢复或 residual 关闭。这些继续属于原 v2.0 目标的后续独立范围，本包通过不代表完整配额或 v2.0 已完成。
+
+## QUOTA-STORAGE 工作区附件与资料字节配额本地确认包（本地已确认）
+
+状态：2026-09-16，维护者在收到本包范围、兼容迁移、新合成库/文件及恢复验证、风险、回退和通过后提交推送说明后，明确回复“继续下一步”。本包本地实现与限定合成验证已获独立批准，开始实施；不复用 CAPACITY 批准，不替代后续 Release、共享或生产确认。
+
+### Preimage 与目标
+
+- 代码基线为 `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`，CAPACITY 的 [CI run 35093378182](https://github.com/AreaSong/AreaForge/actions/runs/35093378182) 已成功。仍为 54 条 canonical migration、schema SHA-256 `6001f7ef0e030295a589f4e845eba3f75ba3b214885863f9251e637aa4ae4583`；本节本身不是新 schema 或生产批准。
+- `Attachment` 已有 `ownerUserId`、大小、状态和文件身份，没有独立持久的工作区计量归属；暂存工作区只进入 intent 审计。资料 skip/reuse 先提交决策、再调用文件清理；`FAILED`、解除关系或冻结都不能证明字节已释放。删除执行器则先完成精确文件删除与目录 fsync、记录 REMOVED，再提交源行删除。
+- 本包只落实每工作区的 note 附件和 FILE 资料字节准入；不将 `GET /api/system/capacity` 的可见性统计作为源事实。已明确的跨分区滚动导出次数仍待独立包；`EXPORT_DIR` 副本容量、用户/实例级存储总额不在本包，是否需要扩展由后续总门禁另行定界，不把未确定的粒度写成既定需求。
+
+### 拟允许的实现范围
+
+- 增加兼容旧行的持久工作区计量归属与最小预留/释放状态，可使用 Attachment 的 additive 字段、必要内部计量表及索引/约束；不删除、改名或重解释旧字段。仅保存当前占用及释放证明，沿用对象生命周期，不额外延长保留期或增加删除后的长期使用历史。新增模型/字段须明确进入既有导出、冻结和删除分类，不泄露内部路径或他人信息。
+- 独立存储开关默认关闭，启用时显式配置每工作区字节上限，不选择生产阈值。原授权、工作区和文件策略先行；在任何文件写入前，与既有 PENDING intent 同一事务原子预留，计量身份绑定附件而非可变资料关系或当前活动工作区。未知归属、损坏计量或配置不得按零用量放行。
+- READY、PENDING、FAILED、归档、冻结以及清理失败的文件继续占位；按真实文件身份计量，同 hash 副本不能当作免费去重。资料 copy/finalize 不再次扣除已预留字节，reuse/skip 只有在本次精确 staging/final 文件完成安全清理和持久证明后，才按附件身份 CAS 结算一次；不以单个布尔返回或状态字符串作为永久释放依据。
+- DATA-DELETE 的额度结算只能在文件全部 REMOVED 后的源行删除事务中完成；不得提前改写冻结对象、破坏 rowHash 或绕过既有删除范围/身份/账本门禁。取消冻结不返还字节；恢复副本在可信账本重放和占用核验完成前不得开放新准入，不新增备份系统或修改既有保留策略。
+- 旧记录兼容仅用本包合成样例验证：唯一 Note/StudyResource 归属可形成受控转换证据，无归属、多引用、双文件、非法路径等只报告并阻断不安全启用。不得读取、回填或修复旧域、共享库或生产数据，不自动清理历史 orphan。
+- 限额只拒绝增加文件占用的请求；文本学习、已有附件鉴权下载、读取与已有任务控制不因满额或坏配置新增限制。API/UI 返回受控超限和恢复提示，保留用户输入、重复决策与幂等语义，不显示其他工作区明细。
+- 写集限现有附件/资料入口、Core/DB/Storage 计量与文件收口、既有删除/恢复的必要接点、配置/兼容 migration、用户反馈、文档和专项测试；不改变角色/grant/会话或 AI 隐私策略。若需扩大真实数据、长期留存或生产边界，停止该部分重新确认。
+
+### 本地资源、验证与交付
+
+- 仅新建 loopback `areaforge_v20_storage_*` 数据库及同 UID/仓库绑定的 0700 私有 STORAGE 根、0600 合成凭据和本包小型合成文件。允许部署/重复部署本包兼容 migration，并核对完整 ledger/checksum；旧 CAPACITY/QUOTA/SEARCH/RANKING 等库、卷、目录与记录保留。
+- 允许对本包新建文件执行上传、复制、精确 skip/reuse 清理和已确认删除协议；允许生成本包静止合成快照，恢复到全新的本包恢复库/目录并按既有可信账本重放。不得读取已有备份、真实附件或共享 uploads，不执行生产备份恢复，不改变保留策略。AI/SMTP/监控外呼关闭。
+- 浏览器只用三槽池的槽 3，执行前重新核对当前 CAPACITY Web 的精确身份和产品指纹；允许精确替换该 Web，保留其镜像、槽 1/2 与所有旧数据库/卷/私有目录。保持跨 fixture 覆盖拒绝、私有挂载和 Web 服务器命令禁区，不增加第四个长期 Web。
+- 验证并发最后字节、跨用户/工作区、未知旧记录、重复请求、copy/reuse/skip、失败补偿/清理失败、PENDING/FAILED/冻结保留占用，以及预留/落盘/清理/结算之间真实进程强杀。补上传/下载授权、metadata/hash/字节一致、软/硬链接及路径漂移、恢复重放与桌面/390px/320px 的实际 API/UI。
+- 既有域的固定 migration/hash 和历史证据不得被自动升级。新增迁移后的普通测试应将旧域护栏放在其批准快照中验证，新增 STORAGE 运行态使用新专用库；不能改旧常量使历史证据冒充新结构验收。
+- 最终运行 Core/DB/Storage/Web、migration/schema、`pnpm check`、文件/删除/测试池专项、docs/tasks/residual/risk/governance/secrets/audit 与差异门禁，安排独立只读复核。全部本地验收通过后，只提交本包、推送当前分支并核对 CI；不创建 Release 或合并主分支。
+
+### 风险、回退与排除
+
+- 风险：并发超额、暂存漏计、提前归还、重复归还、冻结指纹漂移、恢复后错误用量以及未知旧记录误放行。不能证明占用或清理完成时拒绝新文件准入，不吞错、不猜归属。
+- 回退：关闭新增字节准入开关，停止本包维护收口，保留附件、计量状态和审计以供恢复；不 DROP、删除真实文件、清空账本或恢复已撤销权限。关闭配额不关闭原有文件安全和删除确认规则。
+- 不包含真实用户数据/旧库迁移或回填、历史 orphan 清理、生产/共享 apply、root/SSH、Release/tag/GHCR、支付计费、角色权限变化、MFA、外部观测、跨分区滚动导出计量、导出副本容量、用户/实例级存储总额、自动更新策略或 residual 关闭。完整 v2.0 与生产交付仍需后续独立门禁。
+
+
+## DEP 本地依赖修补确认包（DEP-0；待确认、未实施）
+
+以下 DEP-0 小节保留准备时的历史状态；当前批准消费及结果见本文件末尾“DEP-1 本地执行回执”。
+
+2026-10-03 DEP-0 仅完成诊断与准备；DEP-1 尚未批准。此包独立于历史“依赖安全补丁本地实施确认包”，不复用其提交推送授权，不扩展 STORAGE 原批准，不关闭任何生产 residual。已有可证明的局部修补路径，但 **braces 仍阻断全量 high/critical 门禁**；批准局部降低风险不等于接受例外或批准发布。
+
+### 内容基线与新鲜审计
+
+- 项目 `/Users/as/Ai-Project/project/AreaForge`，分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；索引为空，前序 STORAGE 和根 package.json 修改保留。
+- 依赖输入集合：根与全部八个 workspace package.json、pnpm-lock.yaml、pnpm-workspace.yaml、全部现有 patches。内容聚合 SHA-256：`c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72`。算法为路径→文件 SHA-256 映射按 key 排序、紧凑 JSON UTF-8 后再 SHA-256；完整清单与安装树快照见 [baseline.json](../../output/dependency-audit/dep-0/baseline.json)。实施前重算，漂移必须核对，不能用 HEAD 替代工作区内容。
+- 关键 preimage：根 package.json `92ac240bf921bddc7832af0f0ca8c5d29aa2430507b060ab3706523be218903c`；Web package.json `4c9f645f3275b1cdb5d76bf3ef8cf8a49fac4d937638541f3b02bd525da04419`；lockfile `3be0848b961adafb28cd720cf4078b00109e99e4a764913d37f3b8c2acd7e345`；workspace YAML `5e237ba1bcf905406b1f9b7731d5d283d77d8552c3dd7dc583bbfaaf3e5f32e2`。
+- 2026-10-03 北京时间 **10:36:04–10:36:07**：`pnpm audit:all` 退出 1，1 critical / 7 high / 5 moderate / 0 low；`pnpm audit:prod` 退出 1，1 critical / 4 high / 4 moderate / 0 low。两者为 registry 返回漏洞命中，无网络/工具故障，未重试原始审计。日志采用 subprocess 捕获并单独记录真实退出码，无管道掩盖；见 [all 日志](../../output/dependency-audit/dep-0/audit-all.log)、[prod 日志](../../output/dependency-audit/dep-0/audit-prod.log) 和同目录 `audit-*-result.json`。
+- 同目录 `audit-all.json` / `audit-prod.json` 为追加 `--json` 的独立新鲜结果。为读取被 high 显示过滤隐藏的 moderate，另执行 `pnpm audit:all --json --audit-level low`，仅本次明细展示与更严格退出级别，不修改脚本、CI 阈值或政策；[完整明细](../../output/dependency-audit/dep-0/audit-details.json) 为 13 条公告。最初 JSON 包装解析遇到尾部生命周期文本，修正解析后重新采集；不影响原始两次审计结果。
+- 历史 `output/storage-quota/stage-1a-audit.log` 保持原样，不沿用其数量作当前结果。CI `.github/workflows/ci.yml:65–69` 与 Release `.github/workflows/release.yml:77–81` 均要求两项审计；[依赖策略](dependency-policy.md) 的 high/critical 阻断不变。
+
+### 精确候选、链与分类
+
+| 包 | 当前声明 / lock 与安装版本 | DEP-1 精确目标 | 理由与入口 |
+| --- | --- | --- | --- |
+| next / eslint-config-next | Web dependencies / devDependencies 均 16.3.3；实际均 16.3.3 | 均 16.3.6 | 配套框架与 lint 版本；修复 next/og critical |
+| nodemailer | Web dependencies 10.0.0；实际 10.0.0 | 10.0.9 | high 最低修复 10.0.6，额外同线 patch 消除收件人错误等三项 moderate；认证邮件真实运行入口 |
+| fast-uri | 无直接声明；override 3.1.6；实际 3.1.6 | override 3.1.8 | 3.1.7 修复两项 high，3.1.8 再修复大小写规范化 moderate；不升级 Prisma |
+| brace-expansion | 无直接声明；override 5.0.9；实际 5.0.9 | override 5.0.12 | 5.0.11 修复两项 high，5.0.12 再修复 CPU DoS moderate；保留 minimatch patch |
+| braces | 无直接声明/override；实际 3.0.3 | 暂无可批准版本 | registry latest 仍 3.0.3；不能安装尚不存在的 3.0.4 |
+| prisma / @prisma/client / @prisma/adapter-pg | 根 dev / DB dependencies 均 ^7.9.1；实际均 7.9.1 | 保持 7.9.1 | 不用范围代替解析版本；无需为了 fast-uri 升级数据库引擎/客户端 |
+
+[安装链](../../output/dependency-audit/dep-0/dependency-tree.json)、[glob 链](../../output/dependency-audit/dep-0/glob-tree.json)、[lock/安装对照](../../output/dependency-audit/dep-0/lock-installed-comparison.json) 已核验上述包版本一致；未以安装修复差异。完整全树可重现性尚未经冻结安装验证。
+
+- fast-uri：根 dev `prisma@7.9.1 → @prisma/dev@0.24.17 → @prisma/streams-local@0.1.11 → ajv@8.20.0 → fast-uri@3.1.6`；另一链从 DB 的 prod `@prisma/client@7.9.1` 经 optional peer Prisma 进入同链，因此被 prod audit 纳入。审计聚合 finding 标记 optional=false 不等于每条边都非可选。ESLint 的 ajv@6 使用 uri-js，不是此 fast-uri 链。
+- brace-expansion：Web dev eslint@9.39.4 → @eslint/config-array/@eslint/eslintrc → minimatch@3.1.5；另有 eslint-config-next → typescript-eslint → typescript-estree → minimatch@10.2.6。override 统一到 5.0.9，audit 报告 96 路径。现有 patch SHA-256 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36` 恢复函数/`{ expand }` 导出兼容，不能删除。
+- braces：Web dev eslint-config-next → @next/eslint-plugin-next@16.3.3 → fast-glob@3.3.1 → micromatch@4.0.8 → braces@3.0.3。升级 eslint-config-next 本身不能假定移除此链；当前 upstream micromatch@4.0.8 与 fast-glob@3.3.3 仍保留它；已核验目标 @next/eslint-plugin-next@16.3.6 仍依赖 fast-glob@3.3.1。
+- Next 实际 standalone 服务器入口及默认图像配置见 `apps/web/next.config.ts:8`、`infra/docker/web.Dockerfile:47`；固定 SVG 的 next/image 和附件预览（`apps/web/app/(app)/knowledge/resources/[resourceId]/preview/page.tsx:55` 为 unoptimized）不证明框架端点不存在。未见应用直接 next/og 消费不豁免 critical；未运行 PoC 或生产可利用性测试。
+- SMTP：`apps/web/lib/auth/mail.ts:13`、`:19`、`:50` 为 sendAuthMail/sendMail/transport；收件人来自邀请表单或账户 email，normalizeEmail 仅 trim/lowercase，from 来自 SMTP_FROM；已有 `mail.test.ts` 主要验证正文/action URL，地址解析及 transport 回归需补证据。不能仅凭入口有 z.email 就认为解析漏洞不适用。
+- Prisma 工具链实际由 `prisma.config.ts` 与 generate/validate 脚本使用；业务运行时使用 `packages/db/src/index.ts:30` 的 pg adapter 串行化、`:85` 的冻结扩展，以及 `data-delete-result-visibility.ts:8` 的 omit 补键/移除。未见应用直接导入 fast-uri，不等于不可达证明。
+
+### 正式公告核验
+
+以下为 GitHub 正式公告公开时间（UTC）及与本次版本有关的范围；公告 JSON（含完整 references、updated_at、withdrawn_at）保存在 `output/dependency-audit/dep-0/GHSA-*.json`，本次均未撤回。
+
+| 公告 | 级别 / 包 | 发布时间 UTC | 受影响范围 → 首个修复 |
+| --- | --- | --- | --- |
+| [GHSA-vcvr-r3jv-pc5j](https://github.com/advisories/GHSA-vcvr-r3jv-pc5j) | critical / next | 2026-09-30T14:48:30Z | >= 16.2.0, < 16.3.6 → 16.3.6 |
+| [GHSA-58mr-gqgx-xq4g](https://github.com/advisories/GHSA-58mr-gqgx-xq4g) | high / fast-uri | 2026-09-28T21:23:35Z | = 3.1.6 → 3.1.7 |
+| [GHSA-6j4f-fj2g-mc7p](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p) | high / brace-expansion | 2026-09-29T23:44:58Z | >= 4.0.0, < 5.0.10 → 5.0.10 |
+| [GHSA-prgh-xp8r-p3m5](https://github.com/advisories/GHSA-prgh-xp8r-p3m5) | high / nodemailer | 2026-09-30T14:41:01Z | >= 9.1.0, <= 10.0.4 → 10.0.5 |
+| [GHSA-qhr7-859c-m2p7](https://github.com/advisories/GHSA-qhr7-859c-m2p7) | high / brace-expansion | 2026-09-29T23:45:17Z | >= 4.0.0, < 5.0.11 → 5.0.11 |
+| [GHSA-qw65-cvwx-89v3](https://github.com/advisories/GHSA-qw65-cvwx-89v3) | high / fast-uri | 2026-09-28T21:24:39Z | >= 3.0.0, < 3.1.7 → 3.1.7 |
+| [GHSA-v53p-9fqp-m79j](https://github.com/advisories/GHSA-v53p-9fqp-m79j) | high / nodemailer | 2026-09-29T23:43:36Z | <= 10.0.5 → 10.0.6 |
+| [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | high / braces | 2026-09-18T18:31:41Z | <= 3.0.3 → unknown |
+| [GHSA-6vj9-mwq6-2f5v](https://github.com/advisories/GHSA-6vj9-mwq6-2f5v) | medium / nodemailer | 2026-09-28T21:56:05Z | >= 5.0.0, < 10.0.2 → 10.0.2 |
+| [GHSA-8vvx-rff5-p5rq](https://github.com/advisories/GHSA-8vvx-rff5-p5rq) | medium / nodemailer | 2026-09-29T18:23:50Z | < 10.0.2 → 10.0.2 |
+| [GHSA-g57g-f23g-4646](https://github.com/advisories/GHSA-g57g-f23g-4646) | medium / nodemailer | 2026-09-29T23:44:04Z | >= 9.1.0, < 10.0.9 → 10.0.9 |
+| [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) | medium / fast-uri | 2026-09-29T23:54:25Z | >= 3.0.0, < 3.1.8 → 3.1.8 |
+| [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | medium / brace-expansion | 2026-09-29T23:45:39Z | >= 4.0.0, < 5.0.12 → 5.0.12 |
+
+- **fast-uri unknown 已有上游证据**：npm audit 的 GHSA-58mr-gqgx-xq4g patched=null，但 GitHub 公告明确 3.1.7；[官方 3.1.7 发布说明](https://github.com/fastify/fast-uri/releases/tag/v3.1.7) 同时点名两个 high。最终选择 3.1.8 基于 moderate 公告，不是依据“不在等号范围内”猜测安全。
+- **braces 仍无修复证据**：npm audit 给出 `>=3.0.4`，GitHub 公告 first_patched_version=null，npm registry 没有已发布 3.0.4，官方 [issue #70](https://github.com/micromatch/braces/issues/70) 仍 open。不能把 audit 推导范围当成已发布修复。可选路径是等待上游安全发布，或另做带源码/契约测试的上游替换/补丁提案并独立确认；本包不批准自制 braces patch、替换 glob 实现或大版本迁移，且不接受风险例外。
+- moderate 逐项：Nodemailer DNS cache/TLS servername 可能触及 SMTP 凭据（虽当前单套配置，不能豁免），结构化地址数组与 quoted local-part 分别影响解析深度与 envelope 正确性；10.0.9 同线覆盖三者。fast-uri percent-encoded host 规范化影响 URI 一致性，3.1.8 覆盖。brace-expansion 的 CPU 消耗影响 lint/build，5.0.12 覆盖。无 low。选择这些 patch 是同一受影响包的局部修补，不把政策改成“必须全零”。
+
+### 兼容与供应链核验范围
+
+- npm 官方 registry 元数据见同目录 `registry-*.json`，含 published、engines、peers、dependencies、optionalDependencies、license、scripts、dist integrity；只是已核实元数据，未下载执行包、未验证新 tarball 内容/签名、未生成新 lockfile。
+- Next 16.3.3→16.3.6 的 Node 要求均 >=20.9；React/React DOM peer 均包含 ^19，当前 19.2.8 匹配；eslint-config-next 要求 ESLint >=9、TypeScript >=3.3.1，当前 9.39.4/5.9.3 匹配。Next/env/SWC/Next ESLint plugin 同步 16.3.6；sharp 可选范围从 ^0.35.3 到 ^0.35.4，现有 override 0.35.4 满足，禁止顺带升级。其他直接依赖声明保持，Next/SWC 为 MIT，Sharp 既有 Apache-2.0。
+- Nodemailer 10.0.0→10.0.9 均 Node >=20、MIT-0、无运行依赖/peer；build/prepare 元数据不变，无新增 install/postinstall。fast-uri 3.1.6→3.1.8 均 BSD-3-Clause、无 engines 声明、无运行依赖/peer/安装 hook；无 engines 不是全版本 Node 兼容证明。brace-expansion 5.0.9→5.0.12 均 MIT、Node `20 || >=22`、balanced-match ^4.0.2，prepare=tshy 保持，仅新增 format:check 开发命令；CJS/ESM exports 元数据保留，真实 patch 配合仍待测试。
+- Prisma 保持三包 7.9.1，client/CLI Node `^20.19 || ^22.12 || >=24.0`、TypeScript >=5.4；adapter 绑定 driver-adapter-utils 7.9.1、pg ^8.16.3。client 可选 peer Prisma=* 不代表任意混版本已验证，本包要求现有组合不变。历史 dependency-policy 中 7.8.0 属旧证据，不用它覆盖当前 lock 7.9.1。
+- 本机 Node v25.1.0 / pnpm 11.7.0；CI/镜像 Node 24，满足上述数值要求但本机验证不能冒充 Node24/Linux native 运行验收。所有目标的实际 peer 解算、可选平台二进制、安装 hook 执行行为、构建产物及 SMTP/omit 行为均待 DEP-1；公开 release说明已核对 Next 16.3.6、Nodemailer、fast-uri。brace-expansion 的 GitHub release endpoint v5.0.11 返回404，不冒充已取得 release notes；其修复以正式公告、提交引用和已发布 registry 版本为依据。
+
+### DEP-1 拟允许写集与停止条件（未生效）
+
+1. 只修改 `apps/web/package.json` 的 next/eslint-config-next=16.3.6、nodemailer=10.0.9；`pnpm-workspace.yaml` 的 fast-uri=3.1.8、brace-expansion=5.0.12；以及 `pnpm-lock.yaml` 对应解析。根 package.json 不在依赖编辑写集，必须保留前序 STORAGE scripts。
+2. 必须配套的传递版本仅 `@next/env`、`@next/eslint-plugin-next`、既有八个 `@next/swc-*` 平台包到 16.3.6，以及上述 fast-uri/brace-expansion 的引用和 peer snapshot 标识更新。保持 balanced-match 等既有解析，不接受全树重新求解造成无关升级。若 pnpm 无法仅改变这些节点、出现新增包/许可证/安装 hook、Prisma/pg/Sharp 变化，停止展示 diff 后核对，不自动扩大批准。
+3. 保留其余所有 override：@hono/node-server 2.0.10、deepmerge-ts 8.0.0、js-yaml 4.3.2、mysql2 3.24.3、nanoid 3.3.18、postcss 8.5.23、sharp 0.35.4；minimatch@3.1.5 patch 字节和 hash 不变；onlyBuiltDependencies/allowBuilds 仍只有 @prisma/engines、esbuild、prisma、sharp、unrs-resolver。禁止 approve-builds、放宽脚本、审计忽略或修改阈值。
+4. 本地安装产物范围为当前仓库 node_modules、pnpm 管理缓存、构建输出；仅为明确版本的 registry tarball 获取和既有 build allowlist。先生成受限 lock 差异并核验，再冻结安装；不得运行包的任意 update/build/prepare 命令，不安装全局 Node/pnpm，不调用 npx/dlx。遇到新的 hook 请求停止。
+5. 证据写入限 `output/dependency-audit/dep-1/`；文档限本包、0045、dependency-policy 当前版本事实；现有测试可补 `apps/web/lib/auth/mail.test.ts`，不修改认证/冻结/计量业务。需要新脚本、额外测试文件或兼容代码修改时先列精确文件与行为再确认。
+6. **Prisma 生成/数据库单列**：本候选不升级 Prisma/pg，不要求迁移或数据库写入。`pnpm check` 经根 `typecheck` 脚本首先调用 `pnpm db:generate`，故 DEP-1 完整检查确实包含按当前未改 schema 生成客户端，仅写既定 `packages/db/generated/prisma` 和 `packages/db/generated/data-delete`（schema 第1–9行的两个 generator，含既有删除目录生成器），不包含 schema/DDL 修改。任何实际 adapter/omit/冻结数据库专项需另列 loopback 合成库名称、现有 migration/schema hash、目录/owner 和允许动作再确认；不复用 STORAGE 旧数据库批准，不授权共享或生产 migration、容器/测试池、备份恢复或真实数据。
+
+### 验证、回滚与后续整包
+
+- DEP-1 先核对基线与精确 lock diff，再 `pnpm install --frozen-lockfile`、`pnpm audit:all`、`pnpm audit:prod`、`pnpm secrets:scan`、`pnpm governance:preflight`、`pnpm check`、`git diff --check`。保留非零结果；braces 未解决时全量 gate 应继续 fail，不能宣称 DEP 修复 complete 或进入发布。
+- 按实际影响补：Next standalone 构建、固定 SVG/受控本地图像处理、Sharp 既有品牌图片检查；minimatch patch 的 CJS expand 合约和 lint glob；邮件既有内容测试、正常/边界地址解析与 JSON transport，SMTP 用进程内替代/loopback 合成收件箱验证成功/失败，不发送真实邮件或使用真实凭据。没有本地运行环境批准时页面/API 运行验收保持缺口，不自动刷新测试池。
+- Prisma/adapter/pg 版本若未变，运行现有无 DB 单测、类型检查，核对生成客户端与 schema；若解析导致这些版本变化，本包先停止，不以“补跑测试”自动扩权。独立批准后再按依赖策略跑 `pg:trace-deprecation`、真实 omit 13 项和冻结查询；这不是 DEP-0 已验证事项。
+- 最终源码 fingerprint、完整 STORAGE 浏览器/API、最终源码整包验证与必要恢复环境验收，集中在依赖稳定后的整包阶段按独立批准执行；不每改一个包就重建恢复库。本次不重跑 STORAGE 数据库、强杀、删除或恢复矩阵，旧 1B-5 证据仍只覆盖其原指纹。
+- 回滚：DEP-1 开始时保存**当前工作区**三份拟改文件 preimage 和本批 diff，回退只撤销本批字段/lock变化；若其后有别人编辑先做三方核对。必要时按恢复的 lock 受控冻结重装旧依赖，仍保留旧漏洞阻断。禁止 git reset --hard、整工作区覆盖、用 HEAD 覆盖已有 package.json、清理 STORAGE 成果或回滚数据库。生成物仅在本批确有变化时针对生成目录处理。
+- Git 提交/推送/合并、Release、生产和 residual closure 不包含在 DEP-1 本地批准内，需后续独立授权。
+
+建议后续明确批准内容（本句为草案，不是已获批准）：
+
+> 确认 DEP-1 局部本地修补，基线为本包 HEAD 与依赖输入 hash。允许 Web Next/eslint-config-next 16.3.6、Nodemailer 10.0.9、fast-uri override 3.1.8、brace-expansion override 5.0.12，以及本包列明的 lock/Next 配套节点、本地安装、既定生成目录和无真实数据库写入的验证；保留所有其他依赖、override、patch 与 build allowlist。braces 无修复仍为阻塞，不接受例外。超出写集或版本范围先停止核对。不包含数据库/容器/测试池、真实邮件、STORAGE 授权扩展、Git 交付、Release 或生产。
+
+
+### DEP-0 本轮重新核验（2026-10-03 11:20 北京时间；待确认、未实施）
+
+本节是当前接续依据，保留前述 10:36 审计和既有记录；不把历史完成声明当作本轮证据。确认标识为 **DEP-1-LOCAL-20261003**，沿用本包上述精确写集与禁止边界，尚未获实施批准。DEP-0 的完成仅指诊断、来源核对和确认包准备；依赖修补、全量审计通过和 STORAGE 整体验收均未完成。
+
+- **当前绑定**：分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；12 个依赖输入内容聚合 SHA-256 仍为 `c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72`。本轮 [baseline.json](../../output/dependency-audit/dep-0-current/baseline.json) 记录逐文件 hash、Git 索引、安装树及前序文件，不能仅用 HEAD 作为实施前置条件。
+- **新鲜审计**：2026-10-03 **11:20:50–11:20:52 +08:00**，`pnpm audit:all` 为 **1 critical / 7 high / 5 moderate / 0 low，退出 1**；`pnpm audit:prod` 为 **1 critical / 4 high / 4 moderate / 0 low，退出 1**。均为正常取得 registry 结果后的漏洞命中，无网络故障或重试。subprocess 捕获 stdout/stderr，单独保存真实退出码，未通过管道覆盖。原始 [all 日志](../../output/dependency-audit/dep-0-current/audit-all.log)、[prod 日志](../../output/dependency-audit/dep-0-current/audit-prod.log) 及同目录 `audit-*-result.json` 可核对起止 UTC 时间。随后加 `--json --audit-level low` 仅收集完整低等级明细，退出级别更严格，不修改政策或脚本。
+- **公告清单**：本轮重新获取全部 13 条正式公告（8 条 high/critical、5 条 moderate），其公告 ID、发布时间、受影响区间和修复版本与本包表格一致，均未撤回；[本轮公告摘要](../../output/dependency-audit/dep-0-current/advisory-summary.json) 和同目录 `GHSA-*.json` 保留 URL、获取时间、updated_at 和完整引用。moderate 的 SMTP DNS/TLS、结构化地址、quoted local-part、URI 规范化与 glob CPU 消耗分别评估，仍采用上述同线 patch；不是改为强制全零。
+- **依赖链复核**：本轮 `pnpm -r why ... --json` 退出 0；[安装链](../../output/dependency-audit/dep-0-current/dependency-tree.json)、[lock 对照](../../output/dependency-audit/dep-0-current/lock-comparison.json)、[实际安装 manifest](../../output/dependency-audit/dep-0-current/installed-manifests.json) 确认所有命中版本一致，`node_modules/.pnpm/lock.yaml` 与仓库 lock 解析内容完全一致。fast-uri 的 prod 命中来自 DB client 的 optional Prisma peer 链；brace-expansion 的 96 条 finding 路径和 braces 的 lint 链均为 dev。Next 的 SWC/Sharp 是可选平台依赖，不把 audit 聚合 optional=false 当成逐边分类。
+
+| 包 | 本轮实际解析 | 精确候选（需 DEP-1 批准） | 本轮修复来源 |
+| --- | --- | --- | --- |
+| next / eslint-config-next | 16.3.3 / 16.3.3 | 16.3.6 / 16.3.6 | [Next 安全发布](https://github.com/vercel/next.js/releases/tag/v16.3.6)，配套 env/SWC/ESLint plugin |
+| nodemailer | 10.0.0 | 10.0.9 | [地址解析修补](https://github.com/nodemailer/nodemailer/releases/tag/v10.0.9)，两项 high 和三项 moderate 的最小共同 patch 下界 |
+| fast-uri override | 3.1.6 | 3.1.8 | [3.1.7](https://github.com/fastify/fast-uri/releases/tag/v3.1.7) 明确修复两项 high；[3.1.8](https://github.com/fastify/fast-uri/releases/tag/v3.1.8) 再修复 moderate |
+| brace-expansion override | 5.0.9 | 5.0.12 | [最后一项修复公告](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr)，同时覆盖另两项 high |
+| braces | 3.0.3 | 无可批准已发布修复 | [正式公告](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) first_patched_version 仍为空；registry 无 3.0.4，[issue 70](https://github.com/micromatch/braces/issues/70) 仍 open |
+
+- **unknown 的区别**：fast-uri 的 npm patched=null 已被上述官方公告和发布说明补足；braces 的 audit `>=3.0.4` 仍只是范围，不能证明该版本存在。候选 Next plugin 仍依赖 fast-glob 3.3.1；升级现有候选无法消除 braces。可等待已验证上游版本，或另立精确补丁/替代 glob 提案；本包不批准自制 patch、风险例外或无依据 major 升级，故全量 high/critical 门禁仍阻塞。
+- **兼容与供应链**：本轮 `registry-*.json` 重新核对当前/目标 engines、peer、依赖、optional、license、scripts 和 integrity。Next Node >=20.9、React 19 peer 与 ESLint >=9 要求不变；Nodemailer Node >=20、MIT-0、无运行依赖；fast-uri BSD-3-Clause、无 engines 声明或运行依赖；brace-expansion Node `20 || >=22`、MIT、balanced-match ^4.0.2 不变。新增脚本仅 brace-expansion 的 `format:check`，无新增 install hook，prepare 不执行。配套 [Next 九包元数据](../../output/dependency-audit/dep-0-current/next-companions.json) 为 env 与八个 SWC 包，MIT，无安装 hook；Linux/macOS/Windows 及 libc 选择仍待实际安装验证。所有五个精确候选的 GitHub `affects=包@版本` 查询均返回空列表、无后续页，见 `target-*.json`；这只是公告快照，不替代新 lock 的 audit。
+- **保留范围**：Prisma/client/adapter 均为 7.9.1，pg 8.22.0、Sharp 0.35.4 不变；Prisma client/CLI Node `^20.19 || ^22.12 || >=24.0`、TS >=5.4，adapter 绑定 utils 7.9.1。当前本机 Node 25.1.0/pnpm 11.7.0，CI/镜像 Node24；尚未取得候选 Node24/Linux native 运行证据。只准改 Web 三个声明、workspace 两个 override 和对应 lock/peer snapshot；其余 override、minimatch patch（SHA-256 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36`）、build allowlist、根 STORAGE scripts 全部保留。新增依赖、其他版本漂移或新安装 hook 均须停止核对，不能用范围声明解释无关 churn。
+- **实际入口的限定**：独立只读复核并由主代理抽查：standalone 在 `apps/web/next.config.ts:10`；应用未检出 next/og 消费，图片端点存在不等于 next/og RCE 可利用。`apps/web/lib/auth/mail.ts:13–24` 的收件人进入 sendMail，`normalizeEmail` 仅规范化，现有正文测试不覆盖解析/envelope；未发送 SMTP。Prisma generate/validate 使用 CLI，不证明必然执行 fast-uri 解析。adapter 串行化、冻结扩展及 omit 补键/移除仍是数据库敏感契约，不能以未启用某路径豁免审计。本阶段未做攻击 PoC 或生产测试。
+- **实施与验证分离**：DEP-1 获准后先受限解析并审阅 lock diff，再冻结安装、audit:all/prod、secrets、governance、pnpm check、diff；补正常/边界邮件解析与 JSON/mock/loopback SMTP、本地图像/Next 构建、minimatch 导出/lint glob、无 DB 的 Prisma/冻结测试。`pnpm check → typecheck → db:generate` 会写 `packages/db/generated/prisma` 与 `packages/db/generated/data-delete`，须纳入本地批准。schema/迁移不变；`pg:trace-deprecation` 含真实 create，不能归为只读。本包不提供数据库资源授权；如需真实 adapter/omit/STORAGE 回归，先独立列明 loopback 合成库名、owner、目录、schema/migration hash 和动作再确认。依赖稳定后集中最终源码指纹、整包和完整浏览器/API 验收，不逐包重建恢复环境。
+- **回退与交付**：只撤回 DEP-1 实际依赖字段、lock 和本批生成物；使用当前工作区 preimage，遇后续编辑做三方核对。禁止 reset --hard 或用 HEAD 覆盖整个文件/工作区。必要旧 lock 冻结重装仍需受控，并恢复旧漏洞阻塞。提交/推送/Release/生产、共享库 migration、真实邮件、容器/测试池、备份恢复与 residual closure 均不包含；STORAGE 原批准和历史指纹不扩展。
+
+后续可明确批准：**“确认 DEP-1-LOCAL-20261003，仅按本包当前 HEAD、依赖内容 hash、五个精确候选、配套 Next 节点和受限写集进行本地安装/生成/无数据库写入验证；braces 保持阻塞，不接受例外，超范围停止；不含 Git 交付、数据库、容器、邮件外发或生产。”** 本阶段到确认包准备为止，不启动 DEP-1。
+
+本阶段收尾证据：docs:readiness、docs:links、docs:evergreen、tasks:doctor、docs:completion、risk:preflight、governance:preflight、residuals:validate 和 diff 检查均退出 0；见 [验证记录](../../output/dependency-audit/dep-0-current/validation-results.json)。这些仅是文档/静态门禁，不是升级后运行验证。独立只读复核未发现阻断问题；未独立重复远端查询或全树 hash。前后内容核对见 [未变证明](../../output/dependency-audit/dep-0-current/unchanged-proof.json)：依赖输入、39,577 个安装树文件/软链接条目、生成目录和索引保持，索引仍为空；两份文档只在原内容末尾追加，前序其他文件保留。DEP-0 complete，DEP-1 待确认，到此停止。
+
+### DEP-1 本地执行回执（2026-10-03）
+
+- **批准与绑定**：用户在本轮明确确认 `DEP-1-LOCAL-20261003`，仅用于本批局部依赖、安装、既定生成及无数据库写入验证。执行前 HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`、分支 `codex/v19-platform-hardening`、12 个逐文件 hash 与聚合 `c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72` 匹配；索引为空且 hash 匹配。与 DEP-0 原始快照相比，仅确认包和 0045 追加了既有收尾事实，其他前序工作保留。本次 [baseline 与 preimage](../../output/dependency-audit/dep-1/baseline.json) 取自当前工作区，不取 HEAD 版本覆盖文件。
+- **实际写集**：Web next/eslint-config-next=16.3.6、nodemailer=10.0.9；workspace fast-uri=3.1.8、brace-expansion=5.0.12；lock 同步 env/plugin/既有八个 SWC=16.3.6 与对应引用。精确 registry 元数据驱动的确定性生成未执行包脚本；[lock 范围核对](../../output/dependency-audit/dep-1/scope-check.json) 确认 689 个 package/snapshot 数量均不变，逆转批准版本及 integrity 后与原像全字节相同。无其他求解、许可证或安装 hook 变化。
+- **保留项**：Prisma/client/adapter 实际均 7.9.1，pg 8.22.0、Sharp 0.35.4、balanced-match 和其余依赖不变；其他 override、onlyBuiltDependencies/allowBuilds、根 STORAGE scripts、schema/migration 和 minimatch patch 均保留。patch SHA-256 仍为 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36`。按当前 schema 生成的 Prisma/client 与 deletion catalog 共 107 个文件无内容差异。
+- **本地验证**：`pnpm install --frozen-lockfile` 退出 0，明确跳过重新解析；实际安装 manifest/peer 核对通过，本机 SWC darwin-arm64 16.3.6 可加载，其他七个平台只核验 lock/元数据。`mail.test.ts` 共 7 项通过，新增覆盖三用途 JSON 邮件、正常/带引号注释地址与 envelope、深层/循环结构、长文本、sendAuthMail 成功/失败；无真实 SMTP。minimatch 旧函数与 `{ expand }` 兼容、实际 lint glob、64 份品牌 raster/12 份 runtime copy、SVG→PNG、Next 本地图像优化及坏输入拒绝通过。
+- **完整 check**：北京时间 13:28:03–13:29:20，`pnpm check` 退出 0，含两处 Prisma 生成、类型、1,364 项 workspace 测试、既有无 DB 冻结/worker 自测、lint、schema validate 和 Next standalone 构建。`secrets:scan`、`governance:preflight` 已退出 0。此前环境文件隔离影响扫描、邮件新增测试类型错误、全出站隔离阻断 Turbopack IPC 的失败日志均保留；修正测试与本地执行隔离后重新验证，没有修改产品规则或降低门禁。[执行环境](../../output/dependency-audit/dep-1/execution-environment.json) 使用合成配置、不读取真实 env；仅精确构建子进程可连接自身 argv 指定的 loopback IPC，其他连接受阻，standalone 不含真实 env 文件。
+- **新鲜审计**：北京时间 13:18:29–13:18:31，audit:all=0 critical/1 high/0 moderate/0 low、退出 1；audit:prod 全零、退出 0。13:20 JSON 明细一致。唯一剩余公告为 braces@3.0.3 / GHSA-vfj7-8cjw-p6xm，不接受例外；[原始日志与退出码](../../output/dependency-audit/dep-1/audit-summary.json) 保留，DEP-0 原证据未覆盖。
+- **后续独立包**：实际链为 eslint-config-next@16.3.6 → @next/eslint-plugin-next@16.3.6 → fast-glob@3.3.1 → micromatch@4.0.8 → braces@3.0.3。13:20:30 重新获取的 [上游来源](../../output/dependency-audit/dep-1/braces-upstream.json) 仍显示 registry latest=3.0.3、没有 3.0.4、正式公告 first_patched_version=null、issue #70 open。下一包必须有精确已发布修复或独立补丁/替换方案及批准，本包不继续处理。
+- **当前指纹与边界**：依赖输入聚合 SHA-256 为 `75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376`，逐文件见 [dependency-state.json](../../output/dependency-audit/dep-1/dependency-state.json)。本机 Node25.1.0/macOS arm64/pnpm11.7.0，不代表 Node24/Linux、真实数据库/adapter/omit、浏览器或 STORAGE 整包验收。旧 STORAGE 证据只绑定旧指纹；没有容器/测试池、真实邮件/Provider、备份恢复、Git 交付、Release、生产或 residual 关闭。
+- **停止与回退**：DEP-1 局部修补检查点已完成；依赖治理和 STORAGE 整体仍为 partial。只回退本批依赖字段/lock/实际生成差异，使用本批当前工作区 preimage；后续编辑先三方核对。受控重装旧 lock 会恢复旧漏洞阻塞。本确认已用于本批，不能复用为下一阶段或扩权授权。最终文档门禁与独立只读复核记录保存在同一 DEP-1 证据目录。
+
+## DEP-2B braces 局部深度保护确认包（DEP-2A 准备；待确认、未实施）
+
+确认标识：**DEP-2B-BRACES-DEPTH-20261003**。本包独立于已消费的 DEP-1 和 STORAGE 批准，只准备一个可审查的**局部风险缓解**候选；不承诺全量依赖门禁通过。DEP-2A 的 complete 只限调查、草案与确认包准备。上述为 DEP-2A 准备时状态；用户已明确批准本包，本轮执行结果见下方 DEP-2B 本地执行回执。依赖治理和 STORAGE 整体仍为 partial。
+
+### 绑定与最新来源
+
+- 分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；12 个依赖输入聚合 SHA-256：`75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376`。算法为逐文件 SHA-256 映射按键排序、无空格 JSON 的 SHA-256。逐文件与安装/生成目录/索引基线见 [DEP-2A baseline](../../output/dependency-audit/dep-2a/baseline.json)，已逐项匹配 DEP-1。实施前重新核验，不能仅凭 HEAD；原 STORAGE 和 DEP-1 均未提交、索引为空。
+- 2026-10-03 北京时间 **13:56–14:10** 的定向查询：[正式公告](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) / CVE-2026-93687 仍为 high，受影响 `<=3.0.3`，`first_patched_version=null`；公告更新时间 `2026-10-02T22:36:34Z`。registry latest=3.0.3，版本表无 3.0.4。`audit` 推导的 `>=3.0.4` 不是发布证明。
+- [issue #70](https://github.com/micromatch/braces/issues/70) 仍 open；相关 [PR #72](https://github.com/micromatch/braces/pull/72) 为 open、`merged=false`，head **`d0d575e55e74a4e0218e5248fafb79efc3e54ebb`**，base **`e53730e6f935498326c72d768889ac194eedc0e0`**。最新主线提交仍为该 base；PR 的 `mergeable_state=clean` 只说明可合并，不代表已合并、已验证或已发布。其余已合并维护提交不是本公告修复。
+- 已发布 Next plugin 16.3.8 与预发布 16.4.0-canary.58 均仍依赖 fast-glob 3.3.1；fast-glob latest 3.3.3 仍依赖 micromatch ^4.0.8；micromatch latest 4.0.8 仍依赖 braces ^3.0.3。不能据这些版本声明消除链。查询已结束，不轮询等待发布。[上游快照](../../output/dependency-audit/dep-2a/upstream.json)、[PR 快照](../../output/dependency-audit/dep-2a/braces-pr72.json)、[PR 文件](../../output/dependency-audit/dep-2a/braces-pr72-files.json)、[精确 registry 元数据](../../output/dependency-audit/dep-2a/exact-metadata.json) 保留 URL/时间/内容；[来源索引](../../output/dependency-audit/dep-2a/source-index.json) 同时保留失败查询，不将 404 当作取得源码。
+- 审计数字沿用 DEP-1 13:18–13:20 的实际结果：all=0 critical/1 high/0 moderate，退出 1；prod 全零、退出 0。本阶段没有重新全盘审计或安装候选，未生成“升级后审计”证据。
+
+### 完整保留路径与真实消费契约
+
+对全部 lock importers/snapshots 的 dependencies、devDependencies、optionalDependencies 查找反向边，并用 `pnpm -r why braces --json` 与真实模块解析交叉核对。只有：`@areaforge/web(devDependencies)` → `eslint-config-next@16.3.6` → `@next/eslint-plugin-next@16.3.6` → `fast-glob@3.3.1` → `micromatch@4.0.8` → `braces@3.0.3`。没有另一个 braces 版本或第二父节点；已安装 lock 与仓库 lock 解析一致。此结论限当前完整锁图/安装解析，不外推到未来图或所有 bundle 内容。[反向边](../../output/dependency-audit/dep-2a/reverse-edges.json)、[why](../../output/dependency-audit/dep-2a/pnpm-why-braces.json)、[解析路径](../../output/dependency-audit/dep-2a/resolved-paths.json) 可定位下列包相对 file:line。
+
+| 实际符号与位置 | 契约与用途 |
+| --- | --- |
+| plugin `dist/utils/get-root-dirs.js:14`，`processRootDir` | 唯一 fast-glob 执行调用，行 15 同步 `globSync(rootDir.replace(/\\/g, '/'), {onlyDirectories:true})`，返回 `string[]`；无 async、stream 或其他显式选项。 |
+| 同文件 `getRootDirs:19–32` | 未设 settings.next.rootDir 时返回 `[context.cwd]`，不 glob；字符串直接调用；数组逐字符串调用后 flat，非字符串项忽略，跨数组项不去重。负模式单项不会成为其他数组项的全局 ignore。 |
+| plugin `dist/rules/no-html-link-for-pages.js:168–202` | 用根目录查找 pages/src/pages 与 app/src/app，通过 fs 存在性过滤，建立内部 URL 正则；234–239 报告原生 `<a>` 内部导航。重复根可能产生重复报告，不能擅自全局去重。当前 Web ESLint 配置未指定 rootDir，普通 lint 不能覆盖 glob 分支。 |
+| fast-glob `out/settings.js:22–45` | cwd 默认 **process.cwd()**；onlyDirectories 将 onlyFiles 设 false；dot=false、ignore=[]、caseSensitiveMatch=true、braceExpansion/extglob/globstar/followSymbolicLinks=true、unique=true、absolute=false、markDirectories=false。不得改成 context.cwd、额外注入 ignore 或屏蔽 dot/extglob。 |
+| fast-glob `out/utils/pattern.js:130–146` | 调 micromatch.braces(pattern,{expand:true,nodupes:true})，展开结果按字符串长度排序、去空串；最终结果顺序还受 task/遍历影响，非全局字典序。相对/绝对及 `./`、目录尾斜杠来自既有实现。 |
+| 同文件 `getPatternParts:149–167`、`makeRe:169–171` | micromatch.scan(parts:true) 与 makeRe；micromatch `index.js:392、408` 本身直接转发到已安装 picomatch 2.3.2。braces 入口 `index.js:74、96、120` 还允许直接 AST，不能只保护字符串 parse。 |
+
+既有固定小 fixture 共 25 组 glob 输入、17 组展开输入；只加载已安装的库，无下载代码执行、候选安装或补丁执行。[观察脚本](../../output/dependency-audit/dep-2a/observe-existing.cjs)、[glob 结果](../../output/dependency-audit/dep-2a/glob-observations.json)、[展开结果](../../output/dependency-audit/dep-2a/expansion-observations.json)。临时目录已删除。这些是旧行为/替代库差异证据，不是补丁验收。
+
+### 选择与必须明示的取舍
+
+| 方案 | 结论、门禁与维护成本 |
+| --- | --- |
+| 已发布修复或受维护上游升级 | 当前查到的 stable 升级都保留链；没有公告对应的已发布安全 braces。暂不可作为可执行完整解法；本包不升级 Next/fast-glob/micromatch。 |
+| plugin 改用已安装 tinyglobby 0.2.17 | 即使配置 expandDirectories=false，仍观测到 `{1..5..2}` 误选 w2、目录 symlink 漏选、`**` 包含根、绝对路径/尾斜杠变化。需要额外适配和测试，不能直接换 import/别名。 |
+| fast-glob 辅助层改用 picomatch 2.3.2 + brace-expansion 5.0.12 | 保留遍历层较窄，但引号、畸形括号行为已有差异；新展开器还有截断式资源上限，不能静默少 lint 目录。若真移除 micromatch/braces，须显式批准依赖删除/新增边及包管理 manifest hook 或受维护 fork，并验证全部相关语义；仅 patch package.json 不证明 pnpm 已改变图。本包不批准该兼容开发或 hook。 |
+| **推荐：基于 PR72 的安全子集回移，保留 braces 3.0.3 身份** | 五个内部文件加深度保护，不换 glob 引擎，不改包名/版本、Next 规则和依赖边；保留既有普通语法、遍历、排序和过滤。引入的行为取舍是 >100 层嵌套受控抛错；调用方未捕获时 lint 仍可非零退出，不能称为“进程绝不退出”或通用资源 DoS 已消除。维护者需承担本地 patch 和未来移除责任。**只进入 A 类验证，B 仍阻断。** |
+
+唯一完整门禁阻塞是：没有已核验、能保留既定消费契约且在真实新依赖图上消除该 high 的候选。包名改写、自报 3.0.4、audit ignore/阈值变更或删除 lint 不属于解法。没有已验证的 A+B 方案时，不无限扩大本批兼容重构。推荐现在批准精确局部风险缓解，并继续阻断交付；若用户要求 DEP-2B 必须同时通过 B，则本包不能满足，须等待真实修复发布或另行批准兼容替换及其额外维护范围。
+
+### 精确候选与拟允许写集（尚未生效）
+
+1. 原包仍为 registry `braces@3.0.3`，来源 `https://registry.npmjs.org/braces/-/braces-3.0.3.tgz`；integrity `sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==`。本阶段未下载/安装 tarball、未验证其 registry 签名；已核对精确 metadata、现有安装版本和五文件原像。
+2. [未应用源码草案](../../output/dependency-audit/dep-2a/braces-3.0.3-depth-guard.patch)，SHA-256 **`97e90c15ea31c7bac144a42e20c8ce68e98a75d8042a3c6d9a8ce1b4f05d1141`**。只针对原包 `lib/constants.js`、`lib/parse.js`、`lib/compile.js`、`lib/expand.js`、`lib/stringify.js`。parse 在下钻前限制 brace/paren 混合深度；三个 AST 递归 walker 同样限制；默认/最大 100，允许更低上限，不能用 Infinity 提高。原 maxLength=10000、rangeLimit 默认 1000 保留；没有引入输出数量/全流程成本的新保证。
+3. 该草案不是 PR72 原样补丁：只取安全五文件，且 stringify 递归 parent 继续传 `{}`，保留 3.0.3 的 escapeInvalid 行为；排除 PR 顺带的 parent=node 语义变化和文档/其他主线变化。[静态核验](../../output/dependency-audit/dep-2a/draft-validation.json) 记录五个已安装原像与拟后像 SHA-256，hunk 精确匹配、Node 语法解析通过；没有应用、require 或执行修改后代码。
+4. DEP-2B 拟新增 **`patches/braces@3.0.3.patch`**，内容必须等于上述草案。`pnpm-workspace.yaml` 仅增加该 patchedDependencies 注册；[注册草案](../../output/dependency-audit/dep-2a/registration.diff) SHA-256 **`71414143a085442b5f62cf5c5e5ce9a0a40efc718f0254d2c912a2d2615accc6`**。pnpm-lock.yaml 只允许 patch hash/受影响 snapshot 身份与引用变化，不删 braces、不改 registry identity、不引入无关重新求解。实际 pnpm patch hash 由已批准的 lock 更新产生，不能用本节 SHA-256 冒充 pnpm 内部 hash。
+5. 允许按上述 patch/lock 做本地安装和冻结重放，安装目录只由包管理器更新；新增专项 **`scripts/quality/braces-depth-regression.cjs`**，仅无网络、无数据库的固定 fixture/AST/ESLint 回归，不增加根 package scripts。测试设计见下节。文档限本包、0045、dependency-policy 的本地补丁事实；证据限 `output/dependency-audit/dep-2b/`。**不新增 `.pnpmfile.cjs`、readPackage/afterAllResolved hook、vendored 包、fork、新依赖或 ESLint 配置变更**。
+6. 保持 DEP-1：next/eslint-config-next 16.3.6、nodemailer 10.0.9、fast-uri 3.1.8、brace-expansion 5.0.12；Prisma/client/adapter 7.9.1、pg 8.22.0、Sharp 0.35.4；全部其他 override、minimatch patch、build allowlist、安全规则和既有 STORAGE 源码/schema/migration/文档成果。不得复用 HEAD 覆盖未提交文件。
+7. 无新包准入：braces 是 MIT/CommonJS、Node >=8，无 preinstall/install/postinstall/prepare，现有依赖 fill-range 不变；PR 来源及本地变体须保留。现有 Node25.1.0/macOS arm64/pnpm11.7.0 可做本地验证，CI Node24/Linux 尚缺证据，不能自动安装系统运行时或把本机等同 CI。未来安全发布时须复核并移除 patch；维护责任为 AreaForge 维护者，不冒充上游承诺。
+
+### DEP-2B 验证、停止与回退
+
+- **A（代码风险）**：仅拟验证字符串 parse 与直接 AST compile/expand/stringify 的深度边界。固定 99/100/101 层、混合 brace/paren、未闭合、转义、引号、低 maxDepth、Infinity/NaN/超大 maxDepth、escapeInvalid；不得运行原包的无界崩溃 PoC。拒绝必须为有界 SyntaxError/RangeError，不静默过滤根目录。固定输入每子进程超时 5 秒、内存 128 MiB；旧包只跑小规模普通输入，101 层边界仅针对批准后的补丁。保留长度和 rangeLimit 的既有错误检查。A 通过不能证明一切资源耗尽风险已消除。
+- **普通行为与规则**：以已安装 DEP-1 原像在独立合成目录记录对照，再验证补丁；涵盖默认/字符串/数组 rootDir、process.cwd≠context.cwd、非字符串项、重叠/负模式、相对/绝对/反斜杠、文件/目录、dot/显式隐藏目录、ignore 默认、brace 列表/步长/嵌套/空分支、extglob、symlink/断链、路径尾斜杠、返回顺序/重复数。实际 ESLint `no-html-link-for-pages` 必测 pages/src/pages/app/src/app 内部链接命中、外链/Link/target=_blank/download 不命中、空根警告及重复根的报告数；用真实 plugin + ESLint Linter 和固定合成源码，不启动 Web、浏览器或测试池。不能只跑默认配置 lint。
+- **B（政策门禁）**：在真实 lock 和冻结安装后运行原样 `pnpm audit:all`、`pnpm audit:prod`，保留原始输出和退出码。依赖边不变且 braces 仍 3.0.3，在公告不变时 all **预期仍为 1 high/退出 1**，不是本阶段实测的补丁后结果；prod 预期无该公告。不能把预期失败记为 PASS，也不能忽略其非零退出。B 通过只能由未来实际解析和新鲜审计证明，本推荐本身不提供 B 的完整解法。
+- 生成精确 patch lock 后执行 `pnpm install --frozen-lockfile`；复核包内后像、未失效的 patch、完整反向图、完整 lock 语义差异。运行专项 `node scripts/quality/braces-depth-regression.cjs`、`pnpm secrets:scan`、`pnpm governance:preflight`、**`pnpm check`**、docs:readiness/links/evergreen、tasks:doctor、risk:preflight 与 `git diff --check`。审计预期失败后可继续独立本地检查收证，但不推进交付或改变失败分类；其他新公告/额外依赖变化/语义失败须停止该实施路径。
+- `pnpm check` 会调用 db:generate；拟允许仅按未改 schema 生成 **`packages/db/generated/prisma`、`packages/db/generated/data-delete`**，以及既有 Next build/typecheck 产物 **`apps/web/.next`、`apps/web/next-env.d.ts`、`apps/web/tsconfig.tsbuildinfo`**；不写 schema/DDL，不连接数据库。构建/测试使用合成配置并排除真实 `.env*`，关闭 SMTP/AI/遥测，沿 DEP-1 已核验隔离方式仅放行精确 loopback 构建 IPC；registry 网络只用于获准安装/audit。执行前记录这些生成路径原像，若 check 需额外写集或真实外呼则停止核对。
+- 最终实际差异、专项与检查证据完成后安排独立只读复核，特别检查语义变化、patch 是否真实生效、audit 是否被绕过。未获 Node24/Linux 证据时保留该平台缺口，不安装系统工具、不启动容器补齐。
+- 回退只撤销 DEP-2B 自身的 patch 注册、lock patch identity、专项测试和本批文档事实，恢复**实施前当前工作区原像**后按旧 lock 受控冻结重装；有后续编辑先三方核对。仅处理实际改变的生成文件。不执行 reset/整文件 HEAD 覆盖、不清理前序成果；回退后原 braces 风险和审计阻塞仍存在。
+- 不包含数据库、migration、容器/测试池、备份恢复、真实邮件/Provider、Git stage/commit/push、Release、生产或 residual closure；不继承任何 STORAGE 批准。
+
+建议批准语句（草案，不代表已批准）：
+
+> 确认 DEP-2B-BRACES-DEPTH-20261003，以本包 HEAD、12 输入 hash 和草案 SHA-256 为基线，仅实施该 braces@3.0.3 安全子集回移、patch 注册/lock、本地安装、列明的专项测试与生成目录验证。保留 DEP-1、STORAGE、audit 策略和安全规则。接受本次交付目标仅为 A 类局部深度保护验证，明确 B 类 audit:all 仍阻断；这不是漏洞例外、发布许可或依赖治理完成。超范围/版本漂移/其他门禁失败先停止，不包含数据库、容器、Git 交付或生产。
+
+DEP-2A 最终核验与边界证明见 [验证结果](../../output/dependency-audit/dep-2a/validation-results.json)、[独立只读复核](../../output/dependency-audit/dep-2a/independent-review.json)、[未变证明](../../output/dependency-audit/dep-2a/unchanged-proof.json)。这些只支持调查准备范围；不得当作 DEP-2B 实施证据。
+
+
+### DEP-2B 本地执行回执（2026-10-03）
+
+用户在本会话明确确认 `DEP-2B-BRACES-DEPTH-20261003`；绑定分支、HEAD、12 输入 hash、补丁草案 hash 与空索引均匹配。**本轮 partial / A 阻塞：patch 已注册并完成一次退出 0 的冻结安装，但实际加载的五文件仍为原包，不能声明深度保护生效。B 仍 FAIL，交付继续阻断。** 旧证据目录中的未完成尝试保留，本轮只引用 [execution 证据](../../output/dependency-audit/dep-2b/execution/)。
+
+- 原样新增 `patches/braces@3.0.3.patch`，SHA-256 `97e90c15ea31c7bac144a42e20c8ce68e98a75d8042a3c6d9a8ce1b4f05d1141`。pnpm 11.7.0 实际生成的 patch hash 恰好同值，来源分别记录，未用文件摘要冒充包管理器推导；PR72 仍仅沿用 DEP-2A 的未合并来源快照。
+- 初次离线 lock 重算产生无关 optional/peer 变化，候选已拒绝并恢复本轮原像。只移植包管理器实际生成的 patch 登记、braces snapshot 身份、micromatch 引用三项差异；归一化后三项之外完整 lock 深相等，包身份、registry integrity、全部依赖边及 DEP-1 不变，见 [lock 范围核验](../../output/dependency-audit/dep-2b/execution/lock-scope.json)。
+- 初次禁网安装因供应链校验请求 registry 而中止；其父进程虽报 0，记录明确为 interrupted，不能算通过。获准 registry 网络下 `pnpm install --frozen-lockfile` 退出 0；随后仅本地 `pnpm rebuild braces` 与冻结强制重放（不读写 side-effects cache）均未改变后像。真实 Next plugin → fast-glob → micromatch 已解析到带 patch hash 的 braces 目录，五个已加载文件却全部等于原像，见 [实际加载证明](../../output/dependency-audit/dep-2b/execution/installed-proof.json)。根因尚未定论，不把目录命名或安装退出码当作补丁应用证据；没有手改 node_modules、build allowlist 或草案字节。
+- 旧包 58 组普通 glob/展开/真实 ESLint Linter 基线通过，涵盖不同 cwd、数组/负模式/重复根及 pages/src/pages/app/src/app。重复根在根列表保留，但本 fixture 的 URL 去重保持报告数量；外链、Link、blank、download 不报告，空根产生警告。首次 fixture 对旧 app URL 行为的错误假设保留为诊断记录，修正 fixture 后才冻结旧包基线。专项脚本在安装后身份断言退出 1，未进入 99/100/101 或直接 AST 矩阵；因此深度计数、受控拒绝、超限 lint 错误传播以及补丁后普通语义均**未验证**，未在原包运行深度 PoC。
+- 北京时间 15:55:35–15:55:37 `pnpm audit:all`：0 critical / 1 high / 0 moderate / 0 low，退出 1；唯一公告 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)，braces <=3.0.3。15:56:05–15:56:08 `pnpm audit:prod` 全零、退出 0。随后 JSON 原始明细保存在同一证据目录；未改名、自报版本、隐藏依赖、忽略公告或改阈值。审计针对本次实际 lock/安装状态，不能称为有效补丁后的 A 验收。
+- 独立本地检查及最终只读复核结果见 [验证汇总](../../output/dependency-audit/dep-2b/execution/validation-results.json)。check 即使通过也只证明当前实际安装状态，不替代缺失的 A 矩阵。平台限 Node25.1.0/macOS arm64/pnpm11.7.0；Node24/Linux、数据库、容器、浏览器、STORAGE 矩阵和发布均未执行。
+- 当前原 12 输入聚合 hash `5fa77dbeb49a01c566b17a497643b30732d38b9d85f59c24f0223934792d1451`；含新补丁的 13 输入 hash `87b695d96c1bae7ee736de191cfa88df5e0b0690f95040472cb2f5f3e496f858`。原像、生成目录归档、逐文件 hash、被拒 lock 和执行日志均在本轮目录。回退仅撤销本批注册/三项 lock 身份/专项及本批文档、生成变化；遇后续编辑先三方核对，使用本轮 preimage，不 reset 或覆盖 HEAD，不清理 STORAGE。必要时恢复旧 lock 后受控冻结重装；原漏洞风险仍存在。
+- [独立只读复核](../../output/dependency-audit/dep-2b/execution/independent-review.json) 确认后像阻塞、完整 lock 等价、前序原像与索引保护，同时发现静态契约缺口：`expand` 的 invalid/dollar 分支调用 `stringify(node, options)`，后者按非 root 重新从 1 计深；“99 外层容器 + 第 100 层 invalid/dollar 容器 + 99 内层容器”整体 199 层可能通过分段 100 限制。当前专项直接 AST 只构造 paren 链，未覆盖该路径。此为经主代理抽查的静态推论，未运行候选，不是无界 DoS 已复现或消除的证明。
+- 本实施路径停止。后续建议分两项界定：先诊断同版本精确 patch 的包管理器实际应用问题；同时修订跨 walker 深度预算（或入口全树深度检查），补充不同外层深度下 invalid/dollar 的整体 99/100/101 与低 maxDepth 测试。若保持整棵 AST 上限 100 的目标，不能只解决安装后就判 A 通过；任何草案字节、工具版本或批准范围变化均须提交精确差异、新 hash 并另行确认。本轮不修改草案、不扩大替换方案，不推进 Git、Release、生产或 residual closure。
+
+### DEP-2C-1 补丁安装归因交接（2026-10-03）
+
+本阶段只读调查与两个独立临时 fixture 已执行；**partial：归因与方案已形成，但资源计数及证据保留存在缺口，当前项目未修复、A 未通过、B 仍阻断**。原样 patch 在既有 pnpm11.7.0 的干净冻结安装中五后像全部匹配，格式/注册无需先改；真实项目新进程仍加载五原像。首次漏应用的最强静态解释是增量图省略未变直接根，导致新增传递 patch 未被 buildModules 调度；缺当时进程轨迹，未将推导写成原链动态复现。DEP-2B force 重放的 Already up to date 没有重建证据，rebuild 也不是 patch 应用入口。
+
+[完整归因、假设反证与操作方案](../../output/dependency-audit/dep-2c-1/report.md) 及 [隔离产物](../../output/dependency-audit/dep-2c-1/fixture-proof.json) 独立保留，不改 DEP-2B 历史。下一阶段须重新绑定修订 patch/后像/测试输出、依赖输入与工具身份及当前安装树重建批准；建议显式关闭 optimisticRepeatInstall，受控 force 重物化并在任何安全测试前校验真实消费者五后像。该方案可能重导入全 workspace，不是仅重装 braces；本阶段未实施。expand→stringify 的总深度重置仍是未动态验证的静态缺口，移交 DEP-2C-2；没有例外、审计或发布放行。
+
+独立复核发现：DEP-2C-1 已有两组临时复现未被初始盘点识别，本轮又新增两组；三份旧同名日志和一个旧证明脚本被覆盖，旧字节尚未恢复。全部四组资源保留，已停止安装与清理；详见 [范围偏差](../../output/dependency-audit/dep-2c-1/scope-deviation.json)。前述历史保护仅覆盖 DEP-2C-1 之外的证据；当前依赖输入、安装树、生成物、索引及 DEP-2B 历史未变，不能声称所有本阶段证据完整或遵守两组上限。
+
+
+## DEP-2C-2 统一深度预算草案与下一确认包（2026-10-03）
+
+本轮仅完成**未应用草案与待确认包准备**；未安装、应用、rebuild或运行深度测试，当前项目五文件仍为原像，A未通过、B继续阻断。DEP-2C-1保持partial，四个旧fixture保留，三份旧日志和一个证明脚本的遗失字节未恢复；不改历史事实。
+
+- 五文件候选采用操作内总深度，覆盖expand invalid/dollar、range-empty和parse range-comma三处stringify委派；默认/硬上限100，有限小数取整、负数收紧到0，零剩余预算不回退。保留3.0.3 escapeInvalid parent与可见选项语义。199层仍为静态案例。
+- [独立运行登记](../../output/dependency-audit/dep-2c-2/run-20261003-01/registration.json)、[设计与委派清单](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/design.md)、[候选及工具绑定](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/artifact-binding.json)。新patch SHA-256为`e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`；原/后像、未应用专项diff均在同一sealed目录。
+- 15个hunk精确匹配、6份JavaScript语法检查、80396条独立有界整数路径模型通过；三项独立只读复核发现的问题已在草案中修订并复核。它们不证明补丁运行或安装生效，运行态/Node24/Linux仍未验证。文档门禁和前后保护以同目录最终记录为准。
+- 下一包 [DEP-2C-3-UNIFIED-DEPTH-20261003](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/next-confirmation.md) **待确认、未实施**，绑定当前HEAD/13输入、工具身份、新patch/五后像/专项diff；列明全workspace force写集、禁optimistic、原生恢复、生成物、排他证据与局部回退。没有复用旧批准，不接受漏洞例外，不改audit策略，不授权Git交付、数据库、容器或生产。DEP-2C-2到准备结束即停止。

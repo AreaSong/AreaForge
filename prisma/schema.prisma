@@ -1388,6 +1388,10 @@ model Attachment {
   reconciliationClaimedAt      DateTime?
   reconciliationLeaseExpiresAt DateTime?
   reconciliationAttempt        Int              @default(0)
+  /// 计量桶不是授权父关系，故不建 FK，不扩大既有导出或删除闭包。
+  storageWorkspaceId           String?
+  storageReleasedAt            DateTime?
+  storageReleaseProof          String?
   createdAt                    DateTime         @default(now())
   updatedAt                    DateTime         @updatedAt
   note                         Note?            @relation(fields: [noteId], references: [id])
@@ -1398,6 +1402,7 @@ model Attachment {
   @@index([ownerUserId, status])
   @@index([noteId])
   @@index([status, createdAt])
+  @@index([storageWorkspaceId, storageReleasedAt])
 }
 
 model Mistake {

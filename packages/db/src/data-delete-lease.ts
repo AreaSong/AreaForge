@@ -10,7 +10,7 @@ export async function claimDatabaseDeletion(client: PrismaClient, workerId: stri
   return client.$transaction(async tx => {
     const now = await deleteClock(tx);
     const stale = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "DataDeletionIntent" WHERE state='RUNNING'
-      AND "leaseExpiresAt"<=${now} ORDER BY "leaseExpiresAt" LIMIT 20 FOR UPDATE SKIP LOCKED`;
+      AND "leaseExpiresAt"<=${now} AND (${intentId ?? null}::text IS NULL OR id=${intentId ?? null}) ORDER BY "leaseExpiresAt" LIMIT 20 FOR UPDATE SKIP LOCKED`;
     for (const { id } of stale) {
       const row = await tx.dataDeletionIntent.findUniqueOrThrow({ where: { id } });
       await tx.dataDeletionIntent.update({ where: { id }, data: { state: row.attempt >= row.maxAttempts ? "FAILED" : "RETRY_WAIT",

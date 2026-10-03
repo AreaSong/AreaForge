@@ -2,15 +2,20 @@ import { DataDeleteError } from "@areaforge/core";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma, type PrismaClient } from "../generated/prisma/client";
 import { deleteModel, deletePrimaryKey, deletionProtocolModels } from "./data-delete-models";
+import { deletionIdentitySelection, checkedDeletionResult } from "./data-delete-result-visibility";
 import { deletionRelationWhere } from "./data-delete-visibility-where";
 
 type Args = Record<string, unknown>;
 export type DeletionVisibilitySnapshot = { revision: bigint; fences: Map<string, Record<string, string>[]> };
 const reads = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy"]);
+const rowResults = new Set(["findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "create", "update", "upsert", "delete", "createManyAndReturn", "updateManyAndReturn"]);
 const identityModels = new Set(["User", "AuthSession", "AuthActionToken"]);
 
 /** Web 查询统一排除冻结对象；独立执行器和控制面使用同一连接池的显式 raw client。 */
-export function withDeletionVisibility(base: PrismaClient): PrismaClient {
+export function withDeletionVisibility(base: PrismaClient, observation?: {
+  /** 仅同步查询完成时序；不接收/替换正文、参数或可见性快照。 */
+  afterQuery?: (event: Readonly<{ model: string; operation: string }>) => Promise<void>;
+}): PrismaClient {
   type Context = { client?: Prisma.TransactionClient; cached?: DeletionVisibilitySnapshot; batch?: boolean; fixed?: DeletionVisibilitySnapshot | null };
   const context = new AsyncLocalStorage<Context>();
   let cached: DeletionVisibilitySnapshot = { revision: BigInt(-1), fences: new Map() };
@@ -41,9 +46,12 @@ export function withDeletionVisibility(base: PrismaClient): PrismaClient {
       let before = await snapshot();
       if (!before) return query(args);
       for (let attempt = 0; attempt < 3; attempt++) {
-        const result = await query(deletionReadArgs(model, args as Args, before, reads.has(operation)) as typeof args);
+        const rewritten = deletionReadArgs(model, args as Args, before, reads.has(operation));
+        const guardResult = before.fences.size > 0 && rowResults.has(operation);
+        const result = await query((guardResult ? deletionIdentitySelection(model, rewritten) : rewritten) as typeof args);
+        await observation?.afterQuery?.(Object.freeze({ model, operation }));
         const after = await snapshot();
-        if (after?.revision === before.revision) return result;
+        if (after?.revision === before.revision) return guardResult ? checkedDeletionResult(model, result, args as Args, before.fences) : result;
         // mutation 只执行一次；并发隐藏变化时丢弃响应，不把旧正文交付，也不重放写入。
         if (!reads.has(operation)) throw new DataDeleteError("DATA_DELETE_READ_BUSY", true);
         if (!after) throw new DataDeleteError("DATA_DELETE_VISIBILITY_UNAVAILABLE");
@@ -102,7 +110,8 @@ export function deletionReadArgs(model: string, args: Args, snapshot: DeletionVi
   if (snapshot.fences.size === 0) return args;
   const result = { ...args };
   if (args.where) result.where = deletionRelationWhere(model, args.where as Args, child => hiddenPredicate(child, snapshot));
-  const predicate = hiddenPredicate(model, snapshot);
+  const predicates = [hiddenPredicate(model, snapshot), ...requiredSelectionPredicates(model, args, snapshot)].filter(Boolean);
+  const predicate = predicates.length === 1 ? predicates[0] : predicates.length ? { AND: predicates } : null;
   // 保留顶层唯一键及原有 AND/OR（尤其 owner/tenant 条件），仅追加不可见条件。
   if (predicate && filterRoot) {
     const original = result.where as Args | undefined;
@@ -122,8 +131,20 @@ function nestedSelection(model: string, selection: Args, snapshot: DeletionVisib
     if (name === "_count") { result[name] = countSelection(model, value, snapshot); continue; }
     const field = fields.find(candidate => candidate.name === name && candidate.kind === "object");
     if (!field) continue;
-    const child = deletionReadArgs(field.type, value === true ? {} : value as Args, snapshot);
+    const child = deletionReadArgs(field.type, value === true ? {} : value as Args, snapshot, field.isList || !field.isRequired);
     result[name] = Object.keys(child).length ? child : true;
+  }
+  return result;
+}
+
+/** 必选关联的谓词提升至最近能接受 where 的父查询，分页前过滤而非返回后丢行。 */
+function requiredSelectionPredicates(model: string, args: Args, snapshot: DeletionVisibilitySnapshot): Args[] {
+  const selection = { ...(args.include as Args), ...(args.select as Args) }; const result: Args[] = [];
+  for (const field of deleteModel(model).fields) {
+    if (field.kind !== "object" || field.isList || !field.isRequired || !selection[field.name]) continue;
+    const value = selection[field.name]; const child = value === true ? {} : value as Args;
+    const predicates = [hiddenPredicate(field.type, snapshot), ...requiredSelectionPredicates(field.type, child, snapshot)].filter(Boolean);
+    if (predicates.length) result.push({ [field.name]: { is: { AND: predicates } } });
   }
   return result;
 }
