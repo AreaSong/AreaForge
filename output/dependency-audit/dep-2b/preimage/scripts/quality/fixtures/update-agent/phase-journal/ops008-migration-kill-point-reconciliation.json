@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "mode": "fixture_only_updater_phase_journal",
+  "status": "reconciliation_required",
+  "operationId": "fixture_ops008_migration_kill_point",
+  "release": {
+    "tag": "v0.1.8",
+    "version": "0.1.8",
+    "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "phase": "validated",
+      "state": "started",
+      "reasonCode": "FIXTURE_VALIDATED_STARTED",
+      "uncertainPhase": null,
+      "executionAttempted": false,
+      "previousEventHash": null,
+      "eventHash": "sha256:cb59ae1c66c59089073d3b5ad1339d6b160cb0947ae5768334b16fceaa326a90",
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:00.000Z"
+    },
+    {
+      "sequence": 2,
+      "phase": "validated",
+      "state": "complete",
+      "reasonCode": "FIXTURE_VALIDATED_COMPLETE",
+      "uncertainPhase": null,
+      "executionAttempted": false,
+      "previousEventHash": "sha256:cb59ae1c66c59089073d3b5ad1339d6b160cb0947ae5768334b16fceaa326a90",
+      "eventHash": "sha256:576bd7e0996d0d47b3f085863908f5a095bc1d0fdb73b0bdd8b45f678de5d22f",
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:01.000Z"
+    },
+    {
+      "sequence": 3,
+      "phase": "backup",
+      "state": "started",
+      "reasonCode": "FIXTURE_BACKUP_STARTED",
+      "uncertainPhase": null,
+      "executionAttempted": false,
+      "previousEventHash": "sha256:576bd7e0996d0d47b3f085863908f5a095bc1d0fdb73b0bdd8b45f678de5d22f",
+      "eventHash": "sha256:2f899b514849106ff0266f1a23ad6fc7644e98348cbecf59702f06854e0c4f26",
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:02.000Z"
+    },
+    {
+      "sequence": 4,
+      "phase": "backup",
+      "state": "complete",
+      "reasonCode": "FIXTURE_BACKUP_COMPLETE",
+      "uncertainPhase": null,
+      "executionAttempted": false,
+      "previousEventHash": "sha256:2f899b514849106ff0266f1a23ad6fc7644e98348cbecf59702f06854e0c4f26",
+      "eventHash": "sha256:4c289b988c2743d44be120e748b7a2a81ce41beaaeb7765738651bb065486862",
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:03.000Z"
+    },
+    {
+      "sequence": 5,
+      "phase": "migration",
+      "state": "started",
+      "reasonCode": "FIXTURE_MIGRATION_STARTED",
+      "uncertainPhase": null,
+      "executionAttempted": false,
+      "previousEventHash": "sha256:4c289b988c2743d44be120e748b7a2a81ce41beaaeb7765738651bb065486862",
+      "eventHash": "sha256:900c076b83979056ca76a4156fde13c3894bf0d53c51d784ad5a089aa5cb9e76",
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:04.000Z"
+    },
+    {
+      "sequence": 6,
+      "operationId": "fixture_ops008_migration_kill_point",
+      "release": {
+        "tag": "v0.1.8",
+        "version": "0.1.8",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.8@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "phase": "reconciliation",
+      "state": "reconciliation_required",
+      "reasonCode": "FIXTURE_MIGRATION_KILL_POINT_RECONCILIATION",
+      "uncertainPhase": "migration",
+      "sourceKind": "automatic",
+      "source": "fixture.update-agent",
+      "requestId": null,
+      "requestHash": null,
+      "createdAt": "2026-07-15T08:00:05.000Z",
+      "executionAttempted": false,
+      "previousEventHash": "sha256:900c076b83979056ca76a4156fde13c3894bf0d53c51d784ad5a089aa5cb9e76",
+      "eventHash": "sha256:7444afd581efdf7977900513b1b9e9a5ad95f217c8c9e5debadbbc21fd92156e"
+    }
+  ],
+  "executionAttempted": false,
+  "doesNotProve": [
+    "production updater phase durability",
+    "migration success",
+    "timer or queue suspension",
+    "rollback execution",
+    "append-only event durability"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": false,
+    "serverCommandAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "residualLedgerUpdated": false
+  },
+  "journalHash": "sha256:c36979ab9257a19a4d9e43a9f1f0e75a2d5df4e917553624bae67421d709690a"
+}

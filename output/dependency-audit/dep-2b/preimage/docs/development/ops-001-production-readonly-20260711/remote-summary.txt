@@ -1,0 +1,21 @@
+generatedAt: 2026-07-11T19:26:38Z
+mode: ops001-readonly-fallback-export
+outputDir: /tmp/areaforge-ops001-fallback-20260711192636
+redactedUpdateStatusRecord: /tmp/areaforge-ops001-fallback-20260711192636/redacted-update-status.json sha256:96cd41d0ef60e554bb49410f53888092c49d54e62e8e2c3cba51ee7488692da8
+remotePrerequisites: /tmp/areaforge-ops001-fallback-20260711192636/remote-prerequisites.json sha256:9ef3b6202fe2a449f80bb24123b6a7f351d9de1b363e803f7dbbed015b984e76
+prodReadonlySmokeOutput: /tmp/areaforge-ops001-fallback-20260711192636/prod-readonly-smoke-output.log sha256:f191a5c655edb892e0330d5246ec9777b2258f152b5ead884122653a8bd19f7e
+smokeStatus: pass
+doesNotProve: OPS-001 closure, operational evidence bundle readiness, production write smoke safety, residual closure, long-term operability
+forbiddenActions: updater apply, migration, backup, restore, rollback, Docker, Nginx, compose, database writes, upload writes, secret export, residual ledger closure
+safetyFacts:
+  updaterApplyAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  rollbackAttempted: no
+  dockerComposeChanged: no
+  databaseWriteAttempted: no
+  uploadDirectoryTouched: no
+  secretValuePrinted: no
+redactedHandoffOwner: as
+redactedHandoffStatus: granted
+redactedHandoffScope: /tmp/areaforge-ops001-fallback-* only

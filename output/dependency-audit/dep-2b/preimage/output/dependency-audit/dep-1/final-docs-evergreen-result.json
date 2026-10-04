@@ -1,0 +1,13 @@
+{
+  "command": [
+    "pnpm",
+    "docs:evergreen"
+  ],
+  "cwd": "/Users/as/Ai-Project/project/AreaForge",
+  "start": "2026-10-03T05:30:33.541048+00:00",
+  "end": "2026-10-03T05:30:34.375471+00:00",
+  "exitCode": 0,
+  "networkOutboundDenied": true,
+  "envFilesExcluded": true,
+  "log": "final-docs-evergreen.log"
+}

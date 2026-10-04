@@ -1,0 +1,320 @@
+# API Surface
+
+## 原则
+
+- 所有写操作必须服务端鉴权。
+- Route Handler / Server Action 不写复杂业务规则。
+- 参数校验集中使用 schema。
+- 返回结构稳定，方便后续桌面端和移动端复用。
+- AI、上传、数据库写入都需要失败回退或明确错误。
+
+## 第一版 API 分组
+
+### Auth
+
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+认证 API 原则：
+
+- `login` 校验 email、password 和基础限速，通过后创建数据库会话并写入 `HttpOnly` Cookie。
+- `logout` 删除或失效当前会话，并清除 Cookie。
+- `me` 只返回最小用户信息，例如 id 和 email。
+- 所有认证 API 都不返回密码哈希、session token 明文或内部错误堆栈。
+
+### Dashboard
+
+- `GET /api/dashboard/today`
+
+今日作战台返回真实数据库聚合，并包含最近一次已完成计时 `latestCompletedSession`，用于刷新后继续展示结构化收口、低转化原因和补产出要求。dashboard 优先读取 active `RecoveryState`；无 active 状态时继续按 `createRecoveryPlan` 实时规则 fallback。Dashboard/Today 的 GET 保持只读，不因读取或规则评估创建 `RecoveryState`；只有显式恢复命令才写入状态，不会修改、隐藏或删除 `StudyTask`。
+
+本接口继续作为旧首页聚合兼容入口；学习行动中心使用独立的行动中心与五工作台 API。
+
+### Action Center 与工作区
+
+学习行动中心已落地并提供生产导航入口：
+
+- `/api/exam-workspaces/**`：工作区列表/创建、激活切换、接管 preview/apply、科目分组读取、自定义科目创建
+- `/api/plan-milestones/**`：里程碑列表/创建/编辑
+- `/api/plan-inbox/**`：列表/创建/编辑/dismiss/reopen/**convert**（原子转换；`/roadmap/allocation/drafts`）
+- `/api/tasks/:id/dependencies/**`：依赖列表/创建/改类型/解除
+- `/api/learning-tree/templates|export|imports/preview|imports/confirm`、`/api/learning-tree/imports`、`/api/learning-tree/imports/:id`、`/api/learning-tree/imports/:id/export`（preview 零业务写入；confirm 原子；`/knowledge/imports`）
+- `/api/study-resources/**`：列表/详情/LINK 创建/staging/resolve/整理/关联/归档/恢复/下载；旧附件入资料库（`/knowledge/resources`）
+- `/api/review-schedules/**`：物化/列表/改期/pause/resume/confirm event/bridge（`/knowledge/reviews`）
+- `POST /api/review-events/:id/corrections`：追加最新事件更正
+- `GET /api/check-ins?from=&to=`：当前 workspace CheckIn v2 只读投影；无客户端写
+- `/api/recovery/active|start|/:id/cancel|/:id/restart`：Recovery v2 三阶；保留既有 `/api/recovery-states/**`
+- `/api/study-tasks/:id/bridge-complete|bridge-defer|bridge-abandon`：复习桥接任务完成/延期/放弃
+- `GET /api/knowledge-canvas`：分层派生节点/边、等价列表与布局摘要
+- `PUT|DELETE /api/knowledge-canvas/layout`：个人布局 CAS 保存/重置；不改业务边
+
+已落地：
+
+- `/api/motivation/items/**`、`POST /api/motivation/next`、`POST /api/motivation/reminder-state`
+- `GET|PATCH /api/notification-preferences`、`POST /api/notifications/test`
+- `GET|PATCH /api/ai/preferences`（当前浏览器外部 Provider 偏好；缺失/畸形默认关闭）
+- `GET|PATCH /api/ai/runtime`（全局 AI Web 运行开关；启停写入 `AuditEvent`，服务端 `AI_ENABLED=false` 时拒绝开启）
+- `GET|PATCH|DELETE /api/ai/provider`（当前账户 Provider 状态与配置；API Key 只提交、不回显；账户配置优先于环境变量回退）
+- `POST /api/ai/provider/test`（当前账户合成连接测试；不保存或返回原始响应）
+- `POST /api/ai/drafts/learning-tree|knowledge-card|plan|motivation`（preview|generate；`AiDraftOperation` CAS；`AI_PAYLOAD_BINDING_SECRET`）
+- `/api/simulation/exams/**`：分科 totals、结构化失分、warning 与 revision CAS。
+- `/api/simulation/exams/:id/remediations`：补救候选读取与显式逐项入箱。
+- `/api/reports/periodic/decisions`：冻结报告、原子入箱并生成独立阶段草稿。
+- `/api/simulation/stage-adjustment-drafts/:id/confirm|reject`：阶段终态决策；确认更新 StagePlan 并原子入箱，不改现有任务。
+
+确认中心由服务端 `listConfirmationItems` 统一聚合周期报告、阶段建议、模拟考试、专项复测和 AI 草稿；各业务仍通过自己的 confirm/reject API 写入事实。统一投影状态为 `PENDING`、`CONFIRMED`、`REJECTED`、`FROZEN`，并携带 `sourceId`、`revision`、`requiresUserConfirmation`、`confirmedAt`、`frozenAt` 和安全 `href`。周期报告使用 `report:<week|month>:<rangeEnd>` 稳定确认 ID；模拟考试只有科目结果、考后总结、复盘和个人反馈齐全时才进入待确认；`DRAFT`/`IN_PROGRESS` 专项复测不进入待确认。AI 事项在确认中心只读展示，`canExecute=false`，必须回来源页提交原始 `resultProof`。
+
+已落地：
+
+- `GET /api/app-shell/status`：五个桌面状态灯与移动端最高优先级状态。
+- `GET /api/confirmations?filter=pending|history`：鉴权后只读返回统一确认投影；公共工具栏 Drawer 使用 `pending`，`/confirmations` 完整页和历史页继续复用同一确认服务。该接口不提供绕过来源页面安全边界的写入能力。
+- `GET /api/action-center/today`：工作区、科目快捷计时、推荐、三队列、活动与 CheckIn 演进投影；无 ACTIVE 工作区时返回 `setupRequired`。
+- `POST /api/action-center/recommendation-feedback`：校验当前推荐身份后记录“适合当前节奏”或“暂时换一项”；换一项只影响当前推荐选择，不修改任务。
+- `GET|PATCH /api/weekly-budget`：读取指定自然周预算，或按科目和 revision 设置/清空预算；返回同周真实 session 投入并使用 CAS 防止覆盖。
+- `POST /api/plan-inbox/analytics-risk`：服务端重算 7/30 天统计风险，仍存在时创建或复用带来源快照的投入草稿。
+- `GET /api/plan/rolling`：正式任务、欠账与带日期收件箱数量入口（不泄露 Inbox 正文）。
+- `GET|POST /api/exam-workspaces/:id/subjects`：工作区科目列表与创建；创建只接受当前未归档分组。
+- `PATCH /api/exam-workspaces/:id/subjects/:subjectId` 与 `PATCH /api/exam-workspaces/:id/subject-groups/:groupId`：名称、颜色、归属、归档/恢复和 `move=UP|DOWN` 相邻换位；move 不与其他字段混用，边界移动不增加 workspace revision 或审计事件。
+- `GET|POST /api/exam-workspaces/:id/subject-merges`：GET 返回规范化重复集合、完整引用/冲突计数、Workspace revision 与 snapshot hash，并同时返回最近完成的合并记录；POST 只接受严格 confirm 命令，服务端在 Serializable 事务中重验 owner/snapshot/revision/活动 session/唯一冲突，迁移全部引用后软归档来源科目。
+- `POST /api/exam-workspaces/:id/subject-merges/:mergeId/undo`：在 24 小时窗口内以 strict confirm、undo snapshot、Workspace revision 和幂等键精确撤销；后续业务字段保留，引用或模拟来源 identity 漂移、审计损坏、过期和唯一冲突 fail closed，不物理删除数据。
+- `POST /api/study-sessions/start`：支持 `idempotencyKey`、`goalMinutes` / `startSource`（含 `SUBJECT_SHORTCUT`），并校验 ACTIVE 工作区科目；请求可携带粗粒度 `x-areaforge-device-id` / `x-areaforge-device-label`，用于跨设备状态。相同用户、工作区、启动参数和幂等键会回放同一个 session；网络响应丢失后可安全显式重试。不同启动参数复用同一键会返回幂等冲突；已有其他活动 session 时返回其最新状态，客户端只跳转到该活动，不创建第二个计时器。
+- `GET /api/study-sessions/active`：返回当前用户唯一的 `RUNNING`、`PAUSED` 或 `CLOSING` session。
+- `POST /api/study-sessions/:id/pause|resume|end|context`：使用 `expectedStatus`、`expectedUpdatedAt` 和幂等键执行 CAS 状态命令；`end` 先进入 `CLOSING` 再提交完整收口。在线请求与 IndexedDB/localStorage 离线队列复用同一命令键，恢复联网后按序重放；冲突不会静默合并。
+- `POST /api/study-sessions/:id/heartbeat`：只更新活动 session 的设备心跳字段，不改写 `updatedAt`，避免使暂停/收口命令产生伪冲突。
+- `POST /api/knowledge-retests/:id/void`：作废未关闭的专项复测，保留原始结果和审计记录，不更新知识点掌握状态。
+- Note API：创建支持 `kind` / `studyDate` / `stableKey` / `relatedSyllabusNodeIds` / `revision` 字段（画布快捷创建复用）。
+
+权威路由与错误契约见 `workflow/versions/v1.1-learning-action-center.md`。旧 `POST /api/syllabus/import-markdown` 在切换前保留 append-only legacy 行为。
+
+### Recovery States
+
+- `POST /api/recovery-states/manual`
+- `POST /api/recovery-states/:id/complete`
+- `POST /api/recovery-states/:id/cancel`
+
+手动恢复只创建或复用 active `RecoveryState`，不复用任务补做 API，也不改写任务计划日期、状态或债务状态。完成或取消恢复只更新对应 `RecoveryState.status/endedAt/exitCondition`；任务欠账、`StudyTask` 和 `TaskDebtEvent` 不被批量改写。
+
+### Platform / Audit
+
+受控运维只允许平台 Operator，协议见[受控运维](../modules/controlled-operations.md)：
+
+- `GET /api/system/operations`：封闭 catalog、执行入口可用性和经 root 文件校验的脱敏前态。
+- `POST /api/system/operations/requests`：strict intent、`executionSnapshotHash` 与幂等键；完整执行绑定在确认前冻结。
+- `GET /api/system/operations/requests`：请求状态与安全执行摘要；不返回租约 token 或私有路径。
+- `GET /api/system/operations/requests/:requestId`：当前状态和经过 schema/hash 校验的阶段投影；原始 journal 只保留其 hash。
+- `POST /api/system/operations/requests/:requestId/{confirm,approve,cancel,hold,resume,retry}`：近期重新验证与 revision/hash/nonce CAS；运行中的停止必须等执行器回执，不能仅清租约。
+
+Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费；新独立执行结果不能由旧手工 worker 接口伪造。
+
+排名与持久重建使用独立 Owner/参与者边界，协议见 [持久排名重建](../modules/ranking-rebuild.md)：
+
+- `GET /api/ranking/challenges/:id/projection`：仅有效参与者读取经当前权限、来源与冻结过滤的安全投影；失效快照返回 `stale=true` 与空 `entries`。
+- `POST /api/ranking/challenges/:id/projection`：挑战 Owner 显式提交严格 `expectedRevision`、`idempotencyKey`，返回 `202` 与最小 `job`；不在 Web 同步发布排名，不接受 actor、workspace、源数据或处理器参数。
+- `GET /api/ranking/challenges/:id/rebuilds`：挑战 Owner 读取本人最近任务与排队可用性；不返回 payload、权限/来源指纹或租约。
+- `PATCH /api/ranking/challenges/:id/rebuilds/:jobId`：本人、挑战归属与当前 session 重验后，接受 `expectedRevision` 和 `PAUSE/RESUME/CANCEL/REPLAY`；恢复/重试不得重绑旧快照，运行中的控制需执行器确认。
+
+独立删除接口不执行文件 IO 或服务器命令，协议见[本人数据回收站与删除](../modules/data-deletion.md)：
+
+- `GET /api/system/deletions`：当前用户的最小回收站/删除状态；不返回冻结正文、路径、租约或 token hash。
+- `GET /api/system/deletions/candidates`：有效工作区中本人对象的有限标题列表，支持名称筛选。
+- `POST /api/system/deletions/preview`：近期重新验证后生成精确影响快照和当前目标标签。
+- `POST /api/system/deletions`：匹配预览指纹、确认词和幂等键后创建冻结意图；账户/工作区冷静期与对象恢复期均由服务端决定。
+- `PATCH /api/system/deletions/:intentId`：近期重新验证及 `expectedRevision` 后取消、恢复或重新确认同一冻结集合。
+- `POST /api/system/deletions/receipt`：同源、短时高熵能力凭据读取最小回执；账户删除后仍可用，不授予控制或正文访问权，token 不进入 URL。
+
+`/api/system/data-jobs` 按协议分流：新 EXPORT 使用 `queueVersion=1`，删除仍为旧协议影响预览。
+旧手工 worker 接口仅处理 `queueVersion=0`，不能领取、完成或通过幂等键接管独立 worker 任务。
+本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。
+三个域的新请求在启用配额时统一执行[本人分区准入](../modules/data-job-quotas.md)：超限返回 `DATA_JOB_QUOTA_ACTIVE_LIMIT` 或 `DATA_JOB_QUOTA_EXPORT_LIMIT`（HTTP 429），配置、隔离或锁竞争使用有界 503；不返回内部计数或配置原文，同键复用和已有任务控制不重新计量。
+
+独立[容量准入](../modules/capacity-quotas.md)启用时，三域还检查本人、工作区及实例活跃总量，分别以 `DATA_JOB_QUOTA_USER_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_WORKSPACE_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_INSTANCE_ACTIVE_LIMIT` 返回 429，不附带他人计数。
+总量开启时，新 EXPORT 准入的已识别数据库竞争返回 `DATA_JOB_QUOTA_BUSY`（503），客户端保留同一幂等键与预览；关闭模式及既有控制/下载仍使用原错误映射。
+`POST /api/workspace-invitations/accept` 在原一次性邀请/身份检查后原子检查席位；满额返回 `WORKSPACE_MEMBER_QUOTA_LIMIT`（429），暂时竞争或坏配置返回受控 503，工作区不可加入为 404。拒绝不留下新账户、个人空间或已消费邀请；实际已消费 token 仍走原 409，退出/移除不受新限额限制。
+
+- `POST /api/system/data-jobs/preview`：本人 ACCOUNT/WORKSPACE 的脱敏对象清单，不返回正文或创建包。
+- `GET|POST /api/system/data-jobs`：读取本人回执，或在近期重新验证后幂等申请；新 EXPORT 同时要求生命周期和导出开关。
+- `GET|PATCH /api/system/data-jobs/:id`：本人状态及带 `expectedRevision` 的 `cancel/retry/pause/resume`；进度为 0–1，客户端显示百分比。DTO 仅增加公开调度/可下载状态，不暴露租约或存储 key。
+- `POST|DELETE /api/system/data-jobs/:id/download-grants`：本人已验证包的短时凭证签发/撤销；不存在或非本人任务统一拒绝，不将历史描述信息视为可下载包。
+- `POST /api/system/data-jobs/download-grants/redeem`：strict token body、当前会话、同句柄完整性校验后原子消费，成功直接返回 `application/zip` 二进制，失败仍为标准 JSON 错误；不是 JSON 下载 descriptor。凭证不进入 URL，响应 `private, no-store` / `nosniff`，语义见 [`本人数据导出`](../modules/data-export.md)。
+- `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
+- `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读工作区总容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。工作区总量/成员/存储配额尚未启用，响应仍为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不执行写入准入，也不代表独立的本人任务分区配额关闭。
+- `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读标题搜索，仅含活动科目、本人资源与有效 NOTE/MISTAKE grant 资源。`indexed/indexState/indexedAt` 表示本次是否使用经过当前权限、来源与冻结校验的索引；关闭、缺失、失效或索引占锁时安全直查，不返回旧索引计数或时间。不搜索正文、附件名、动机、情绪、AI 内容或内部路径，也不自动申请重建。
+- `GET /api/search/index?workspaceId=`：本人分区及最近任务状态；不返回内部 payload、权限/来源指纹或租约材料。
+- `POST /api/search/index`：strict `{workspaceId, expectedGeneration, idempotencyKey}`，从会话确定请求者，返回 `202` 与最小任务回执。
+- `PATCH /api/search/index/jobs/:jobId`：strict `{workspaceId, expectedRevision, action}`，仅请求者可以 `PAUSE/RESUME/CANCEL/REPLAY`；新权限或源集合不能复用旧请求。协议与回退见[工作区持久搜索](../modules/workspace-search.md)。
+
+### Analytics
+
+- `GET /api/analytics/summary`
+- `GET /api/analytics/long-term-risks`
+
+统计 API 只读派生，不写统计快照表。第一版从任务、计时、复盘、错题、笔记和考纲节点实时计算近 7 天统计、风险提醒与下一步动作。
+
+`GET /api/analytics/long-term-risks` 是长期风险统一 DTO 的只读鉴权入口，返回风险来源、时间窗口、科目/考纲节点、证据新鲜度、下一步动作、`canAutoApply=false` 和 `requiresUserConfirmation=true`。该 API 不新增长期风险状态、不修改任务或阶段计划、不触发长期 AI。
+
+### Reports
+
+- `GET /api/reports/periodic`
+- `GET /api/reports/periodic/decisions`
+- `POST /api/reports/periodic/decisions`
+
+`GET /api/reports/periodic` 实时派生周审判和月复盘数据报告、规则策略、本地规则复盘草稿和 `decisionPreview` 下周期决策预览；`decisionPreview` 只包含聚合指标、最大短板摘要、策略、下一周期草稿和确认边界，不包含任务标题列表、完整复盘正文、附件内容或阶段计划应用结果。默认不把长期记录、情绪记录或动机档案发送给 AI。
+
+每日复盘写入口 `POST /api/daily-reviews`、`PATCH /api/daily-reviews/:id` 与兼容入口 `POST /api/reviews/today` 在复盘和明日最低行动原子入箱成功后，同时返回 `review` 与对应的 `inboxItem`。客户端必须使用该项目 ID 进入 `/roadmap/allocation/drafts/:itemId`，不得通过标题猜测或退回无上下文的投入草稿总列表；复盘页面的客观事实摘要由服务端按当前用户、ACTIVE 工作区和上海学习日只读派生。
+
+`POST /api/reports/periodic/decisions` 允许对当前周/月报告做确认或驳回。服务端会重新计算当前报告范围，拒绝过期页面提交；同向重复提交返回已处理，反向提交返回冲突。确认会保存冻结 `reportSnapshot` 和 `nextCycleDraft`，驳回只保存冻结快照；两者都写入 `AuditEvent`，且只记录报告决策，不批量修改任务、不应用阶段计划、不外呼长期 AI。`GET /api/reports/periodic/decisions` 返回最近报告决策用于只读回放。
+
+### Tasks
+
+- `GET /api/tasks`
+- `GET /api/tasks/debt-reorder`
+- `POST /api/tasks/debt-reorder/decisions`
+- `POST /api/tasks/debt-reorder/applications`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:id`
+- `POST /api/tasks/:id/complete`
+- `POST /api/tasks/:id/defer`
+- `POST /api/tasks/:id/drop`
+- `POST /api/tasks/:id/recover`
+- `POST /api/tasks/:id/split`
+- `POST /api/tasks/:id/convert-review`
+
+创建和更新任务请求可传 `knowledgePointIds`（最多 50 个），响应的 `StudyTaskDto` 返回 `knowledgePointIds` 与 `knowledgePointTitles`。服务端会拒绝重复 ID、跨工作区知识点、归档知识点和与任务主科目/关联科目不匹配的知识点；更新是关系集合替换并受任务状态/更新时间 CAS 约束。`split` 创建的子任务继承父任务的 `planMilestoneId`、主/相关考纲节点、`stagePlanIds` 和 `knowledgePointIds`，并写入 `parentTaskId`。
+
+`complete/defer/drop/recover/split/convert-review` 会写现有 `AuditEvent`，并在同一事务内写入 `TaskDebtEvent` 事件账本；`split` 创建的子任务会写入 `parentTaskId`，同时继续保留 `reviewText` 说明。旧任务没有债务事件时，页面和统计仍按 `StudyTask.status/debtStatus/plannedDate` fallback。`GET /api/tasks/debt-reorder` 仍只读返回重排建议，`canAutoApply=false`、`requiresUserConfirmation=true`，不会自动改任务。`POST /api/tasks/debt-reorder/decisions` 只记录用户对所选建议的确认或驳回，写 `TaskDebtEvent.action=reorder_suggested` 和 `AuditEvent`；`POST /api/tasks/debt-reorder/applications` 会重新计算当前建议、复用 `previewTaskDebtReorderApplication` 校验所选项和小批量上限，仅在用户显式提交所选项且无跳过项时应用，并写 `TaskDebtEvent.action=reorder_applied` 和 `AuditEvent`。重排路径不提供自动应用全部建议入口，不修改 `StagePlan` / `StageAdjustmentDraft`，也不外呼长期 AI。
+
+### Timer
+
+- `GET /api/study-sessions/active`
+- `POST /api/study-sessions/start`
+- `POST /api/study-sessions/:id/pause`
+- `POST /api/study-sessions/:id/resume`
+- `POST /api/study-sessions/:id/end`
+- `POST /api/study-sessions/:id/evidence`
+
+开始学习入口 `/focus` 使用浏览器本地优先队列：IndexedDB 是首选，`localStorage` 是回退；联网后按顺序重放开始/暂停/继续/结束/上下文命令，并用单飞锁避免重复重放。`BroadcastChannel` 将本地事件和在线服务端快照传播到其他标签页；活动页与 App Shell 通过 heartbeat 维护当前设备/另一设备状态。断网结束只先保存本地快照，待真实 session 建立后再进入证据接力，证据接口拒绝本地 session ID。
+
+活动启动边界：`POST /api/study-sessions/start` 的默认模式只能创建自由学习 (`STUDY + FREE_STUDY`)；`REVIEW` 和 `TEST` 必须由对应的复测、复习排期或模拟考试服务创建，并携带唯一来源对象。服务端拒绝把任务、考纲或任意上下文伪装成特殊活动来源。
+
+专项复测接口：
+
+- `GET|POST /api/knowledge-retests`
+- `POST /api/knowledge-retests/:id/start`
+- `POST /api/knowledge-retests/:id/submit`
+- `POST /api/knowledge-retests/:id/confirm`
+
+专项复测启动时创建 `REVIEW + RETEST` session；模拟考试接口：
+
+- `GET|POST /api/simulation-exams`
+- `POST /api/simulation-exams/:id/start`
+- `PATCH /api/simulation-exams/:id`（兼容 `POST /api/simulation-exams/:id/results`）
+- `POST /api/simulation-exams/:id/confirm`
+
+模拟考试启动时创建 `TEST + SIMULATION` session。计时结束先进入 `CLOSING`，结果保存事务必须完成对应活动收口；模拟考试缺少用户显式复盘时返回 `SIMULATION_REVIEW_REQUIRED`，不能进入确认中心。复测和模拟结果都通过同一确认中心投影，但事实仍由各自来源 API 写入。
+
+开始、提交和确认都必须携带 `idempotencyKey` 与 `expectedRevision`；服务端以审计事件保存幂等命令结果，重复请求 replay，不重复写掌握状态或证据。
+
+计时写入原则：
+
+- 不每秒写数据库。
+- 状态变化时写入。
+- 支持刷新页面后恢复 active session。
+- 当前单管理员第一版全局只允许一个 active session；数据库 partial unique index 是最终约束，并发 start 冲突稳定返回 `ACTIVE_SESSION_EXISTS` / 409。
+- pause/resume/end 使用 `id + status + updatedAt` CAS；过期或重复状态返回 `SESSION_STATE_CONFLICT` / 409。任务 metadata/action、simulation complete 和 debt reorder application 使用包含 `status/debtStatus/type/plannedDate/updatedAt` 的 CAS，冲突返回 `TASK_STATE_CONFLICT` / 409，失败事务不保留审计、债务事件、子任务或 CheckIn 部分副作用。
+- 计时结束会基于收口字段运行反假学习规则，并双写 `StudySession.isEffective`、结构化收口字段和文本化 `note`；历史 `note` 不解析、不回填，统计优先读 `isLowConversion`，缺失时 fallback 到旧 `isEffective === false`。只有 session CAS 胜者可以累加关联任务/考纲分钟、写 `TaskDebtEvent.action=complete`、审计和 CheckIn。
+- 计时结束后的证据接力通过 `POST /api/study-sessions/:id/evidence` 回写。请求必须携带 `expectedCloseoutVersion`、证据类型、证据 ID 和幂等键；服务端只接受已完成 Session，并校验证据属于当前用户、ACTIVE 工作区及同一科目/任务/考纲上下文。卡片或错题回写单调更新 `producedNote` / `producedMistake`，三类证据都写入可查询审计回执；重放同一请求不得重复创建或重复产生业务副作用。
+
+### Syllabus
+
+- `GET /api/syllabus`
+- `POST /api/syllabus/nodes`
+- `PATCH /api/syllabus/nodes/:id`
+- `POST /api/syllabus/nodes/:id/mastery-evidence`
+- `POST /api/syllabus/nodes/:id/mastery-retests`
+- `POST /api/syllabus/import-markdown`
+
+Markdown 导入只解析标题和列表，创建新的 `SyllabusNode`，不删除、不覆盖、不调用 AI，也不解析 PDF。当前限制行数、层级和标题长度，失败时不写入任何节点。
+
+掌握证明复用 `PATCH /api/syllabus/nodes/:id`：请求可携带 `masteryLevel` 和 `masteryConditions`，服务端会持久化条件记录，并只在任务、计时、笔记、错题或复测证据满足规则时允许写入 `status=mastered` / `masteryLevel`，否则返回 `MASTERY_PROOF_REQUIRED`。成功证明会写入 `AuditEvent` 摘要。
+
+`POST /api/syllabus/nodes/:id/mastery-evidence` 写入显式证据引用，且只允许引用同一考纲节点下的任务、计时、笔记、错题或已通过复测记录；跨节点引用返回错误。`POST /api/syllabus/nodes/:id/mastery-retests` 写入 `passed/failed/partial` 复测记录；只有 `passed` 会自动追加复测证据引用并计入复测通过证明，`failed/partial` 不会自动降低节点状态或掌握等级，也不会覆盖旧节点 `_count` fallback。没有显式证据的旧节点仍按现有 `_count` fallback 证明。
+
+### Notes / Attachments
+
+- `GET /api/notes`
+- `POST /api/notes`
+- `POST /api/notes/:noteId/attachments`
+- `GET /api/attachments/:id`
+
+附件接口实现 noteId 绑定能力：上传只走 `POST /api/notes/:noteId/attachments`，下载只走鉴权 `GET /api/attachments/:id`，UI 使用 `downloadApiPath`，不得把 `Attachment.uri`、`storedName` 或上传绝对路径作为公开 href 或响应字段。文件本体写入私有 `UPLOAD_DIR`，数据库保存 metadata、hash 和 URI；下载前会校验真实路径、size/hash 和响应头。
+
+附件不通过 public 直接暴露，必须走鉴权接口。第一版不包含附件删除、错题/模拟/阶段附件、AI 解析、生产部署或孤儿文件清理。
+
+### Mistakes
+
+- `GET /api/mistakes`
+- `POST /api/mistakes`
+- `PATCH /api/mistakes/:id`
+
+错题用于记录错因、正确思路和下次复习时间，可关联科目和考纲节点。第一版不提供默认删除入口。
+
+### Review
+
+- `GET /api/reviews/today`
+- `POST /api/reviews/today`
+
+### Motivation / Stage
+
+- `GET /api/motivation-vault`
+- `POST /api/motivation-vault`
+
+动机档案只用于用户主动查看和关键节点唤醒。默认不进入 AI 上下文，首页只展示唤醒信号，不展示动机正文。
+
+### Simulation
+
+- `GET /api/simulation/exams`
+- `POST /api/simulation/exams`
+- `POST /api/simulation/exams/:id/results`
+- `GET /api/simulation/tasks`
+- `POST /api/simulation/tasks`
+- `POST /api/simulation/tasks/:id/complete`
+- `GET /api/simulation/stage`
+- `GET /api/simulation/stage-plans`
+- `POST /api/simulation/stage-plans`
+- `PATCH /api/simulation/stage-plans/:id`
+- `GET /api/simulation/stage-adjustment-drafts`
+- `POST /api/simulation/stage-adjustment-drafts`
+- `POST /api/simulation/stage-adjustment-drafts/ai`
+- `POST /api/simulation/stage-adjustment-drafts/:id/confirm`
+- `POST /api/simulation/stage-adjustment-drafts/:id/reject`
+- `POST /api/simulation/first-diary`
+
+新建模拟考试和保存模拟结果优先写入 `SimulationExam` / `SimulationSubjectResult`。`/test/simulations` 页面优先读取结构化模拟考试，并只读展示旧 `StudyTask.type = "simulation_exam"` 记录作为 fallback；旧任务型模拟不会被自动迁移、解析或删除。
+
+`GET /api/simulation/tasks` 保留为旧任务型模拟只读兼容面。旧 `POST /api/simulation/tasks` 和 `POST /api/simulation/tasks/:id/complete` 路由保留但返回 `LEGACY_SIMULATION_TASK_WRITE_DISABLED`，不再创建或完成旧任务型模拟。
+
+阶段计划可通过 `stage-plans` API 创建和局部更新；阶段调整草稿通过本地规则持久化，固定 `canAutoApply=false`、`requiresUserConfirmation=true`。`confirm` 只在用户显式确认时更新关联 `StagePlan` 的模式、目标和必要状态，并写入 `AuditEvent`；`reject` 只更新草稿状态。两者都不自动重排任务、不批量修改任务、不删除历史阶段记录。
+
+`POST /api/simulation/stage-adjustment-drafts/ai` 作为唯一长期阶段 AI 草稿显式触发入口。该 route 必须鉴权且 POST-only，并读取当前浏览器外部 Provider 偏好；只发送最小化长期聚合字段和阶段目标摘要。成功只创建 `StageAdjustmentDraft.source="ai"` 草稿并写审计摘要，偏好关闭、配置不可用或调用失败时回退 `local_rule` 草稿。不保存完整 prompt/raw response，不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不自动确认草稿、不批量修改任务、不执行生产部署。报告驱动的自动阶段应用、长期应用历史扩展或更大 AI 上下文字段清单属于后续增强，必须另行确认。
+
+### AI
+
+- `GET|PATCH /api/ai/runtime`
+- `GET|PATCH|DELETE /api/ai/provider`
+- `POST /api/ai/provider/test`
+- `GET|PATCH /api/ai/preferences`
+- `POST /api/ai/discipline`
+- `POST /api/ai/daily-review`
+- `POST /api/ai/tomorrow-plan`
+
+AI API 只返回建议，不直接修改用户原始数据。
+`GET|PATCH /api/ai/preferences` 必须鉴权；PATCH 只接受严格布尔字段 `externalProviderEnabled`，并写入当前浏览器 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的偏好 Cookie。未知字段、错误类型或空请求返回 400；缺失、清除或畸形 Cookie 读取为关闭。该接口不读取或修改 Provider key。
+
+`GET|PATCH /api/ai/runtime` 必须鉴权；PATCH 只接受严格布尔字段 `enabled` 和可选的 `expectedRevision`，写入全局 `AiRuntimeSetting` 并追加 `AI_RUNTIME_ENABLED` 或 `AI_RUNTIME_DISABLED` 审计事件。服务端 `AI_ENABLED=false` 时开启请求返回 `AI_RUNTIME_SERVER_DISABLED`，不得通过 Web 绕过硬闸门；响应只返回 enabled、revision、时间和派生状态，不返回任何密钥。
+
+`GET|PATCH|DELETE /api/ai/provider` 和 `POST /api/ai/provider/test` 必须鉴权。PATCH 首次保存必须提供 API Key，已有配置更新地址或模型时可留空以保留原密钥；服务端只保存 AES-256-GCM 密文与 fingerprint，GET 和任何错误响应不得回显密钥。测试只使用合成最小上下文，不保存 prompt/raw response；服务端硬闸门关闭、Web 全局开关关闭或浏览器偏好关闭时不发起外呼。
+
+三条建议、四类 AI 草稿和长期阶段草稿共八条鉴权 POST route 都必须读取同一当前浏览器偏好和全局 Web 运行开关。只有偏好开启、Web 全局开关开启、`AI_ENABLED=true` 且配置完整时才可创建 OpenAI-compatible provider 并发起显式外呼；任一条件不满足时返回对应本地规则 fallback。真实外呼仍只发送各 route 既有最小化字段，不发送动机档案、完整情绪记录、完整复盘正文、附件内容、上传路径或原始任务标题。首页普通 SSR 继续使用本地 fallback，不触发真实 provider 成本。
+旧 `/api/stage-adjustment-drafts/ai` 只允许 re-export canonical `/api/simulation/stage-adjustment-drafts/ai` 的同一个 POST handler，不得形成第二套 Provider gate 或 payload 实现。
+AI 建议结构使用 `ai_generated`、`ai_invalid_fallback` 和 `ai_error_fallback` 区分成功、校验失败和错误回退；不保存完整 prompt 或完整模型响应。

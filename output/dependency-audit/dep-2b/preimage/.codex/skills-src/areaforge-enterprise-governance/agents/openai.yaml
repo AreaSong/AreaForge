@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Enterprise Governance"
+  short_description: "CI review dependency and policy gates"
+  default_prompt: "Use $areaforge-enterprise-governance to review AreaForge CI, release governance, dependency policy, ownership, and repository rules."

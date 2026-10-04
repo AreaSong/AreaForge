@@ -1,0 +1,24 @@
+drillId: alert-drill-20260711053944
+drilledAt: 2026-07-11T05:39:44.148Z
+operator: Codex local maintainer
+environment: production
+scope: daily
+scenario: update_agent_blocker
+alertPreviewCommand: pnpm ops:alert:preview
+alertPreviewStatus: warning
+alertPreviewWouldNotify: yes
+alertPreviewEvidenceHash: sha256:06d0fd54da0800570178cb93b8865c0f6b74025c4360c97e8cb50650661383bd
+alertReceiverType: manual-window
+receiverConfigured: yes
+receiverAck: yes
+detectionResult: PASS
+recoveryResult: PASS
+recoveryAction: manual-window acknowledged alert preview; public health, release identity, and certificate were checked; missing update-agent, authenticated smoke, and backup evidence were routed to OPS-001/OPS-004 follow-up without production writes
+residualRiskIds: AF-RISK-OPS-004
+followUpTasks: AF-RISK-OPS-001 evidence export; AF-RISK-OPS-004 backup evidence receiver follow-up
+safetyFacts:
+  notificationSent: no
+  externalAlertReceiverCalled: no
+  serverCommandAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no

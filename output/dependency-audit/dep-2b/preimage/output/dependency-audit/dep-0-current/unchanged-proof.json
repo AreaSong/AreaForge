@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-03T03:32:11.204225+00:00",
+  "headUnchanged": true,
+  "dependencyInputsUnchanged": true,
+  "inputHash": "c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72",
+  "inputCount": 12,
+  "installedUnchanged": true,
+  "installedHash": "a7d68f46874feb30f42f60679345ff0a6472a8dcdc706587bdeb0d0d06e6cf1f",
+  "installedEntryCount": 39577,
+  "generatedUnchanged": true,
+  "indexUnchanged": true,
+  "indexEmpty": true,
+  "trackedChangesSinceStart": [
+    "docs/development/high-risk-confirmation-packets.md",
+    "tasks/backlog/0045-platform-hardening.md"
+  ],
+  "otherTrackedPreserved": true,
+  "preexistingUntrackedChanged": [],
+  "documentPrefixesPreserved": {
+    "docs/development/high-risk-confirmation-packets.md": true,
+    "tasks/backlog/0045-platform-hardening.md": true
+  },
+  "postValidationRecheckAt": "2026-10-03T03:35:00.716216+00:00",
+  "postValidationRecheckPassed": true,
+  "parsedEvidenceJsonCount": 50
+}

@@ -1,0 +1,116 @@
+{
+  "source": "https://registry.npmjs.org/%40next%2Fenv",
+  "fetched_at": "2026-10-03T03:13:27.009588+00:00",
+  "dist_tags": {
+    "next-11": "11.1.4",
+    "next-12-2-6": "12.2.6",
+    "next-14-1": "14.1.1",
+    "rc": "15.0.0-rc.1",
+    "next-13": "13.5.11",
+    "next-12-3-2": "12.3.7",
+    "beta": "16.0.0-beta.0",
+    "next-14": "14.2.35",
+    "next-15-3": "15.3.9",
+    "next-15-2": "15.2.9",
+    "next-15-0": "15.1.12",
+    "next-15-0-0": "15.0.8",
+    "preview": "16.3.0-preview.10",
+    "latest": "16.3.8",
+    "backport": "15.5.27",
+    "canary": "16.4.0-canary.58"
+  },
+  "selected": {
+    "16.3.3": {
+      "name": "@next/env",
+      "version": "16.3.3",
+      "engines": null,
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": null,
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "dev": "ncc build ./index.ts -w -o dist/",
+        "build": "pnpm build:source && pnpm types",
+        "types": "tsc --declaration --emitDeclarationOnly --declarationDir dist",
+        "build:source": "ncc build ./index.ts -o ./dist/ --minify --no-cache --no-source-map-register",
+        "prebuild:source": "node ../../scripts/rm.mjs dist",
+        "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+      },
+      "dist": {
+        "shasum": "dd639e1f3af804a4e84ca32f2e97251d22c41ae2",
+        "tarball": "https://registry.npmjs.org/@next/env/-/env-16.3.3.tgz",
+        "fileCount": 4,
+        "integrity": "sha512-U2eYQRwXj+dsqxV79zFqExDdatnNY/ZWc2nsJU1p/OgT7fd3dXwlF6OjYaFQCfMoeTA19PWq+wVmYgimVA+V+g==",
+        "signatures": [
+          {
+            "sig": "MEQCIGq56ARYEKISUHPxKM+0UWyc8F/sdwshksFiabTt950aAiASrCqDI8WNIkJGB47rpiv+b8HwRu/phcxHytTGhXFTOQ==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEYCIQDMwbm4wEeGL5GICk48mthM40Ssoc6I6JP4iClv9eyPqwIhAOup7RXQBRIEVYhq10iN9AlR5wseq3snnkzlGZ/6+q+I",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fenv@16.3.3",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 11895
+      },
+      "exports": null,
+      "os": null,
+      "cpu": null,
+      "deprecated": null,
+      "published": "2026-08-25T15:08:30.247Z"
+    },
+    "16.3.6": {
+      "name": "@next/env",
+      "version": "16.3.6",
+      "engines": null,
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": null,
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "dev": "ncc build ./index.ts -w -o dist/",
+        "build": "pnpm build:source && pnpm types",
+        "types": "tsc --declaration --emitDeclarationOnly --declarationDir dist",
+        "build:source": "ncc build ./index.ts -o ./dist/ --minify --no-cache --no-source-map-register",
+        "prebuild:source": "node ../../scripts/rm.mjs dist",
+        "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+      },
+      "dist": {
+        "shasum": "47d93ed498a55f7db8bb309eeab0b5964b7964d6",
+        "tarball": "https://registry.npmjs.org/@next/env/-/env-16.3.6.tgz",
+        "fileCount": 4,
+        "integrity": "sha512-x9Vblze1EbtltQYnNH38xCPWU3TVfBd1eXqA3+w9+BTpedkkdNpAaltXlGQ/nsc1+E0mVTNrtcbX3GoO09zeLQ==",
+        "signatures": [
+          {
+            "sig": "MEUCIBv9r0CrzJZ74jGoy9uCq8A0MqsNNJAHSoNsbs2yQ2wpAiEAj3qjnGkf0JMlzICS5sANL62KNqP0Yv0BlOioIyx/4fk=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEQCIC6GUpyrMrRunxyCN5fAo1GF4jil9y8DLkfYxfCLQDb6AiAob/RzzKI3B+SJ2Lt0ipIfFutBaugiibR7zmmn/VMk1A==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fenv@16.3.6",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 11895
+      },
+      "exports": null,
+      "os": null,
+      "cpu": null,
+      "deprecated": null,
+      "published": "2026-09-22T16:08:19.864Z"
+    }
+  }
+}

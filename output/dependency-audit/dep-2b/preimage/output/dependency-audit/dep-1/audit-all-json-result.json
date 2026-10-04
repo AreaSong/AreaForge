@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "audit:all",
+    "--json",
+    "--audit-level",
+    "low"
+  ],
+  "cwd": "/Users/as/Ai-Project/project/AreaForge",
+  "start": "2026-10-03T05:20:13.890409+00:00",
+  "end": "2026-10-03T05:20:16.054415+00:00",
+  "exitCode": 1,
+  "networkOutboundDenied": false,
+  "envFilesExcluded": true,
+  "log": "audit-all-json.log"
+}

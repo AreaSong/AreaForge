@@ -1,0 +1,20 @@
+{
+  "name": "@areaforge/ai",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/index.test.ts"
+  },
+  "dependencies": {
+    "@areaforge/core": "workspace:*",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

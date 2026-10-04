@@ -1,0 +1,19 @@
+[
+  "apps/{web,admin}",
+  "apps/w{1..5..2}",
+  "apps/{web,}",
+  "apps/{web,web}",
+  "apps/{w1,{w2,w3}}",
+  "apps/${web,admin}",
+  "apps/{\"web\",admin}",
+  "apps/{web,admin",
+  "apps/{web},admin}",
+  "apps/{a,{b,c}}",
+  "apps/{a..z..2}",
+  "apps/{1..3}",
+  "apps/{web,,admin}",
+  "apps/{}",
+  "apps/{{web,admin}}",
+  "apps/{x}{web,admin}",
+  "apps/{a/b,c/d}"
+]

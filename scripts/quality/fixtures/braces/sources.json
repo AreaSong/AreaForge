@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "source": "output/dependency-audit/dep-2a/expansion-observations.json",
+      "sourceSha256": "daecebb3b92bcdff8513af4a023f0be45ac60df06ae008ece2989854bbe576ef",
+      "fixture": "patterns.json",
+      "fixtureSha256": "b8de4b74bc93b12db5c8a56ee6876ae4cc8a813bee94835f2cb42ea8b4fe45b6",
+      "count": 17
+    },
+    {
+      "source": "output/dependency-audit/dep-2b/execution/normal-before.json",
+      "sourceSha256": "bf798a53c7f55cf6d189334e9f576f34b3d0488f533b9dedde75b80ff6a19d80",
+      "fixture": "normal-before.json",
+      "fixtureSha256": "8740c104053a9becfb21ca8bb1951a25769e7f99726d5c12260f5c968672729f",
+      "count": 58
+    }
+  ],
+  "comparisonKeys": [
+    "case",
+    "category",
+    "result",
+    "error",
+    "warnings",
+    "exitCode",
+    "signal"
+  ]
+}

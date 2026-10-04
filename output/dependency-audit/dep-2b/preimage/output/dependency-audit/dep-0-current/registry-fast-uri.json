@@ -1,0 +1,138 @@
+{
+  "url": "https://registry.npmjs.org/fast-uri",
+  "fetchedAt": "2026-10-03T03:21:22.373912+00:00",
+  "status": 200,
+  "data": {
+    "dist-tags": {
+      "three": "3.1.8",
+      "two": "2.4.7",
+      "latest": "4.2.1"
+    },
+    "versions": {
+      "3.1.6": {
+        "name": "fast-uri",
+        "version": "3.1.6",
+        "engines": null,
+        "peerDependencies": null,
+        "peerDependenciesMeta": null,
+        "dependencies": null,
+        "optionalDependencies": null,
+        "license": "BSD-3-Clause",
+        "scripts": {
+          "lint": "eslint",
+          "test": "npm run test:unit && npm run test:typescript",
+          "lint:fix": "eslint --fix",
+          "test:unit": "tape test/**/*.js",
+          "test:browser": "npm run test:browser:chromium && npm run test:browser:firefox && npm run test:browser:webkit",
+          "test:unit:dev": "npm run test:unit -- --coverage-report=html",
+          "test:typescript": "tsd",
+          "test:browser:webkit": "playwright-test ./test/* --runner tape --browser=webkit",
+          "test:browser:firefox": "playwright-test ./test/* --runner tape --browser=firefox",
+          "test:browser:chromium": "playwright-test ./test/* --runner tape --browser=chromium"
+        },
+        "exports": null,
+        "dist": {
+          "shasum": "bfdd308ef763f835fed059f3c6c925f708e33e3a",
+          "tarball": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz",
+          "fileCount": 44,
+          "integrity": "sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q==",
+          "signatures": [
+            {
+              "sig": "MEYCIQDGKTEIaiPJZd5YnIpR0NIuuuKpq57EqeLCkEjo0wcabQIhAKz9ZQ8TzFMfuDkcrvQOIPaeOo7rh4WQv7oj0EkE80k7",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            },
+            {
+              "sig": "MEQCICXTjghDDzrvWXFYc+Ie5bs+k3ElUFCvObghDduzti8PAiBgt5+zn9M3HRx4YylhX5RYwCEAoeQy8jFqNw/O3dV2Zg==",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            }
+          ],
+          "unpackedSize": 215561
+        },
+        "published": "2026-08-23T01:42:00.349Z"
+      },
+      "3.1.7": {
+        "name": "fast-uri",
+        "version": "3.1.7",
+        "engines": null,
+        "peerDependencies": null,
+        "peerDependenciesMeta": null,
+        "dependencies": null,
+        "optionalDependencies": null,
+        "license": "BSD-3-Clause",
+        "scripts": {
+          "lint": "eslint",
+          "test": "npm run test:unit && npm run test:typescript",
+          "lint:fix": "eslint --fix",
+          "test:unit": "tape test/**/*.js",
+          "test:browser": "npm run test:browser:chromium && npm run test:browser:firefox && npm run test:browser:webkit",
+          "test:unit:dev": "npm run test:unit -- --coverage-report=html",
+          "test:typescript": "tsd",
+          "test:browser:webkit": "playwright-test ./test/* --runner tape --browser=webkit",
+          "test:browser:firefox": "playwright-test ./test/* --runner tape --browser=firefox",
+          "test:browser:chromium": "playwright-test ./test/* --runner tape --browser=chromium"
+        },
+        "exports": null,
+        "dist": {
+          "shasum": "743157d957f3cbb4c65310e033dc2ad4ad7dc60a",
+          "tarball": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz",
+          "fileCount": 44,
+          "integrity": "sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==",
+          "signatures": [
+            {
+              "sig": "MEUCIE8aifeSxcgfi+bjld6HsUpXpz7YL6t5Hk8HaKiluhjRAiEA1o+is3O/QeQUVDPi4j2MUTCBXNFusFvKaYMt5Enr5vs=",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            },
+            {
+              "sig": "MEYCIQDHgpBDvD8evg3/2kfVhHrJg9m23Xri450S1n7WfveKAgIhAPle6Y0Vldvx8sMQCne7nFUFr5P/0uVcefu+aPRo3yYP",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            }
+          ],
+          "unpackedSize": 218619
+        },
+        "published": "2026-09-02T11:06:41.962Z"
+      },
+      "3.1.8": {
+        "name": "fast-uri",
+        "version": "3.1.8",
+        "engines": null,
+        "peerDependencies": null,
+        "peerDependenciesMeta": null,
+        "dependencies": null,
+        "optionalDependencies": null,
+        "license": "BSD-3-Clause",
+        "scripts": {
+          "lint": "eslint",
+          "test": "npm run test:unit && npm run test:typescript",
+          "lint:fix": "eslint --fix",
+          "test:unit": "tape test/**/*.js",
+          "test:browser": "npm run test:browser:chromium && npm run test:browser:firefox && npm run test:browser:webkit",
+          "test:unit:dev": "npm run test:unit -- --coverage-report=html",
+          "test:typescript": "tsd",
+          "test:browser:webkit": "playwright-test ./test/* --runner tape --browser=webkit",
+          "test:browser:firefox": "playwright-test ./test/* --runner tape --browser=firefox",
+          "test:browser:chromium": "playwright-test ./test/* --runner tape --browser=chromium"
+        },
+        "exports": null,
+        "dist": {
+          "shasum": "f7db8d942e20eead3cfe93b0beeb4eb0169e938b",
+          "tarball": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
+          "fileCount": 44,
+          "integrity": "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==",
+          "signatures": [
+            {
+              "sig": "MEQCIAFY8R/oklnujz86Qp91RCMZ7Q4UKVpOIyK6SVQucORxAiB3QAr2EGigSFZvLpNSMnMTSU+e6xRonnMOqbVfgCgmGw==",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            },
+            {
+              "sig": "MEQCIBapYWmwkYVjiNluF7sQZV/v5LCo8e8ABySbJBEICb0CAiAIZoX7yNR4Bh0DuxT3O6hMiBK+fJMbXyEtMYKHbj+Fkg==",
+              "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+            }
+          ],
+          "unpackedSize": 220886
+        },
+        "published": "2026-09-15T07:36:25.444Z"
+      }
+    },
+    "missing": []
+  }
+}

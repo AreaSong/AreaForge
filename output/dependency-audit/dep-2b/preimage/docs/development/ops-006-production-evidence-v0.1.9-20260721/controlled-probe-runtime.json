@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "mode": "redacted_ops006_controlled_probe_runtime",
+  "recordedAt": "2026-07-21T09:13:15.221Z",
+  "syntheticScope": true,
+  "start": {
+    "successCount": 1,
+    "conflictCount": 1,
+    "httpStatus": 409,
+    "reasonCode": "ACTIVE_SESSION_EXISTS",
+    "activeSessionCountAfter": 1
+  },
+  "end": {
+    "successCount": 1,
+    "conflictCount": 1,
+    "httpStatus": 409,
+    "reasonCode": "SESSION_STATE_CONFLICT"
+  },
+  "taskCas": {
+    "successCount": 1,
+    "conflictCount": 1,
+    "httpStatus": 409,
+    "reasonCode": "TASK_STATE_CONFLICT",
+    "eventOrChildDuplicateCount": 0
+  },
+  "sideEffects": {
+    "effectiveMinutes": 25,
+    "taskMinutesDelta": 25,
+    "syllabusMinutesDelta": 25,
+    "auditEventDelta": 1,
+    "taskDebtEventDelta": 1,
+    "checkInSessionDelta": 1
+  },
+  "checkIn": {
+    "concurrentWrites": 2,
+    "committedWrites": 2,
+    "aggregateMatchesCommittedTaskState": true
+  },
+  "cleanupStatus": "pass",
+  "safetyFacts": {
+    "realUserBusinessDataWritten": false,
+    "syntheticProbeWriteAttempted": true,
+    "objectIdentifiersIncluded": false,
+    "syntheticStudyDayKey": "2099-07-21"
+  }
+}

@@ -1,0 +1,25 @@
+recordId: ops-008-production-journal-v0.1.9-20260721
+recordedAt: 2026-07-21T09:14:00.000Z
+environment: production
+releaseTag: v0.1.9
+packageVersion: 0.1.9
+gitCommit: 749692ba719d801f14186a94af97b96350380141
+maintenanceWindowId: mw-residual-closeout-20260721
+holdReasonCode: RESIDUAL_CLOSEOUT_OPS008
+holdEvidence: output/release-v0.1.9/phaseb-evidence/01-ops008-hold.txt
+holdActiveProjection: output/release-v0.1.9/phaseb-evidence/ops008-active.json
+admissionBarrierEvidence: output/release-v0.1.9/phaseb-evidence/01b-apply-while-hold.txt
+admissionBarrierResult: MAINTENANCE_HOLD_ACTIVE applyWhileHoldExit=1
+clearEvidence: output/release-v0.1.9/phaseb-evidence/01c-ops008-clear.txt
+finalStatus: output/release-v0.1.9/phaseb-evidence/07-ops008-final-status.txt
+timersStopped: output/release-v0.1.9/phaseb-evidence/01-timers-stopped.txt
+timersRestored: output/release-v0.1.9/phaseb-evidence/07-timers-restored.txt
+healthFinal: output/release-v0.1.9/phaseb-evidence/07-health-final.json
+localPreflightStatus: local_verified
+productionJournalStatus: hold_drain_barrier_clear_observed
+doesNotProve: AF-RISK-OPS-008 residual closure,crash-mid-phase kill-point drill beyond barrier sample,Web runtime control of maintenance hold
+safetyFacts:
+  secretValuePrinted: no
+  webRuntimeServerCommandAttempted: no
+  autoApplyPolicyChanged: no
+  residualLedgerUpdated: no

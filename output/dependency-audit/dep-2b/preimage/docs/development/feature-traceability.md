@@ -1,0 +1,126 @@
+# 功能追踪矩阵
+
+## 目标
+
+本文件用于把 `docs/product/feature-scope.md` 的完整范围追踪到当前代码状态、版本计划和执行任务，避免把低风险基础版误判为 docs 100% 完成。
+
+状态说明：
+
+- 已完成：已有真实代码、API/UI 或验证记录支撑。
+- 基础版：已有低风险入口或派生规则，但还不能替代完整结构化能力。
+- 待确认：命中 migration、上传、AI、部署等高风险边界，执行前必须先确认影响、风险、验证和回滚。
+- 隔离已实现：代码与隔离环境验收已完成，但尚未进入签名 Release 或生产切换，不等同于生产可用。
+- 本地实现说明：已有真实代码与专项测试，但仍有同版本写路径、验收、PR/CI 或文档收口未完成；它不是独立状态词。
+- 未实现：已写入下一产品版本规格，但尚未进入业务代码；不计入 docs 100% 完成声明（`docs:completion` 跳过「下一产品版本」节）。
+- 暂缓：产品文档明确不进入当前版本。
+
+组合状态只用于表达同一功能同时具备低风险入口和高风险缺口，例如“基础版 / 待确认”。不能使用“已完成基础版”这类混合状态；若仍需要第二阶段深度联动，应标为“基础版”。
+
+## 第一版必须项
+
+| 功能项 | 当前状态 | 当前证据 | 后续承接 |
+|---|---|---|---|
+| 单管理员登录与 v1.4 身份底座 | 已完成 | 稳定登录见 `tasks/done/0002-mvp-auth-and-seed.md`；v1.4 默认关闭候选增加账户状态/authRevision、设备会话、邮箱验证/密码重置、重新验证和持久限流，见 `tasks/active/0040-multi-user-rbac.md` | v1.4 候选的隔离 runtime、desktop/mobile 身份矩阵、受保护 PR #57 和合并提交 `b04ba98` 已完成；仍缺新 Release 和生产证据 |
+| 今日作战台 | 已完成 | `GET /api/dashboard/today`、`apps/web/app/page.tsx` | `workflow/versions/v0.3-structured-learning-state.md` |
+| 当前工作区目标考试与下一场模拟倒计时 | 已完成 | `dashboard-query-service.ts` 读取当前 `ExamWorkspace.targetExamDate` 和下一场未完成 `SimulationExam.examDate`；Core 窗口规则接受空日期，缺失时不触发冲刺、模拟或动机提醒 | 新增更多考试节点时必须来自工作区配置或真实模拟记录 |
+| 每日任务 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/api/tasks`；今日任务表单支持写入已有 `StudyTask.type` | `tasks/backlog/0015-structured-state-migration.md` |
+| 任务债务基础版 | 已完成 | `StudyTask.status/debtStatus`、任务面板、complete/defer/drop/recover/split/convert-review API；Package B Batch 2 已新增 `TaskDebtEvent` 事件账本和 `StudyTask.parentTaskId`，债务动作继续写 `AuditEvent` 并同步写事件账本；Package D Batch D2 已完成重排建议确认、驳回和所选项应用记录 | 更长期的自动阶段联动或批量应用需单独确认 |
+| 学习计时 | 已完成 | `tasks/done/0003-mvp-task-timer-review.md`；`/focus` 手动开始入口；`/api/study-sessions/*`；科目必选、任务/考纲/目标时长后补、`CLOSING` 冻结收口、结构化低效原因、本地 IndexedDB/`localStorage` 队列、BroadcastChannel 跨标签页、设备心跳和单活动约束均已接入；普通自由学习收口只要求结果、真实最小产出和下一步，理解/专注/精力缺省保持未知；专注收口内嵌创建知识卡片、错题、复测，并通过 `POST /api/study-sessions/:id/evidence` 校验上下文、幂等回写产出标志与证据回执 | 长期风险/主题只读联动已完成；更深自动应用另行确认 |
+| 专注计时模式 | 已完成 | `/focus` 大型数字计时器与指针式秒表视觉、active session 恢复、跨页面/设备状态工具栏 | 后续 UX 打磨 |
+| 打卡 | 已完成 | `evaluateDailyCheckIn`、`CheckIn` 日快照、首页 `dashboard.checkIn`、analytics/reports 逐日快照优先和缺失日期 fallback；不把打开应用算作打卡，active session 时长只实时展示、结束后固化 | 连续性已接入长期风险/主题只读联动；未来自动应用另行确认 |
+| 每晚复盘 | 已完成 | `DailyReview`、`/roadmap/reviews/daily`、`/api/daily-reviews*`、`/api/reviews/today`；页面展示当天真实时长、任务、低转化、科目和证据摘要，保存后直达原子生成的明日最低行动 Inbox 项，Inbox 转换成功进入正式任务详情 | AI 真实建议和更细粒度历史统计继续增强 |
+| 考纲进度树 | 已完成 | `/knowledge/syllabi`、`/api/syllabus/*`、Markdown 导入 | 附件和自动状态更新后增强 |
+| 知识点掌握状态 | 已完成 | `SyllabusNode.status`、`masteryLevel`、`/knowledge/syllabi` 状态筛选、节点卡片和最近证据时间；Batch 4 已新增 `MasteryConditionRecord`、`MasteryEvidence`、`MasteryRetest`，显式证据优先并保留 `_count` fallback；Package D Batch D4 已接入长期风险只读 DTO | 更细结构化复习历史或自动计划应用需单独确认 |
+| 知识点掌握证明基础版 | 已完成 | `packages/core/src/mastery-proof.ts`；`/knowledge/syllabi` 节点可选择目标掌握等级、勾选并保存掌握条件；`PATCH /api/syllabus/nodes/:id` 用显式证据或 `_count` fallback 校验，失败返回 `MASTERY_PROOF_REQUIRED`，成功写入 `SyllabusNode.status/masteryLevel` 和 `AuditEvent`；`POST /api/syllabus/nodes/:id/mastery-evidence` 写入证据引用；`POST /api/syllabus/nodes/:id/mastery-retests` 写入复测记录，`failed/partial` 不自动降级；Package B Batch 4 已完成 | 更复杂证据图谱和复习历史分析后续增强 |
+| 错题 v2 学习证据闭环 | 隔离已实现 | `Mistake.questionText/correctAnswer/causeNote`、`MistakeAttempt`、`NoteMistakeLink`、模拟失分来源关联；`POST /api/mistakes/:id/attempts`、`PATCH /api/mistakes/:id/links`；详情独立作答与历史，`/knowledge/mistakes/practice` 混合排序练习，`/knowledge/reviews` 对象/结果筛选与 CAS 快捷延期；统一复习事务双写，模拟失分预填创建；全新隔离库 36 migrations、M6 runtime 与 owner-isolation runtime 通过 | 尚未执行生产 migration、部署或 Release；OCR、AI 批改、自动判分、账户导出不在范围 |
+| 笔记与资料上传（知识卡片） | 已完成 | 知识卡片（底层 Note）API/UI 已有；按科目、节点、掌握状态和复习提醒筛选已有；Package A 已完成 noteId 绑定 PDF/PNG/JPEG/WebP 上传、`UPLOAD_DIR` 私有落盘、metadata/hash/URI 写入、鉴权下载、`/knowledge/cards` 附件 UI 和补偿/对账烟测 | `tasks/done/0004-mvp-syllabus-notes-upload.md` |
+| 情绪与状态记录基础版 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | 完整情绪历史表暂不做 |
+| 恢复模式基础版 | 已完成 | `createRecoveryPlan`、`rankRecoveryTaskCandidates`、首页 `visibleRecoveryTasks` 和恢复原因；Package B Batch 3 已新增 `RecoveryState`、`POST /api/recovery-states/manual`、完成/取消恢复 API、dashboard active 状态优先和显式规则触发幂等记录；Dashboard/Today GET 保持只读并在无状态时使用实时规则 fallback；首页计时器聚焦恢复候选，任务面板保留完整任务列表；Package D D4 已把恢复/主题信号纳入长期风险只读闭环 | 未来若自动应用恢复任务或阶段调整，需单独确认 |
+| 反假学习检查基础版 | 已完成 | 计时结束写 `isEffective`、`isLowConversion`、反假学习原因、补产出要求、最小产出、下一步动作和文本 note；Batch 0 已结构化收口字段；Batch 1 已把低转化次数写入 `CheckIn` 日快照；Batch 2 已把有效自动完成任务写入债务事件账本 | 历史 note 不解析；长期风险/主题只读闭环已完成，未来自动应用另行确认 |
+| 考研作战地图概览版 | 已完成 | `tasks/done/0011-analytics-map.md`、`packages/core/src/syllabus-map.ts` | 高级可视化见 `0016` |
+| 动机封存 | 已完成 | `tasks/done/0010-motivation-emotion-stage.md` | AI 默认仍不读取动机档案 |
+| 阶段称号基础版 | 已完成 | `packages/core` 阶段规则、首页展示 | 与模拟成绩联动待第二阶段 |
+| 鞭策文案 | 已完成 | Package C 已接入 OpenAI-compatible provider；`/api/ai/discipline` 在 `AI_ENABLED=true` 且配置完整时可显式外呼，失败回退本地规则；首页仍展示本地规则以避免普通 SSR 成本 | 长期阶段 AI 草稿显式入口已由 Package D Batch D3 完成；历史保存、费用账本或更大上下文另行确认 |
+| AI 复盘建议 | 已完成 | Package C 已接入 `/api/ai/daily-review` 真实 provider 第一版；只发送聚合字段，不发送完整复盘正文、动机档案、完整情绪记录或附件内容；输出 schema 校验失败回退 | `tasks/done/0005-mvp-ai-discipline.md` |
+| AI 明日任务建议 | 已完成 | Package C 已接入 `/api/ai/tomorrow-plan` 真实 provider 第一版；任务标题默认脱敏，`task title may contain private content` 不进入外呼；失败回退本地规则 | `tasks/done/0005-mvp-ai-discipline.md` |
+| 基础统计 | 已完成 | `tasks/done/0011-analytics-map.md`、`/roadmap/stages/trend`；Package B `CheckIn` 快照和 Package D 长期风险 DTO 已接入；趋势风险可由服务端重算后以 `ANALYTICS_RISK` 来源显式加入投入草稿；`/roadmap` 支持每科自然周预算创建、修改、清空、切周，并只用该周真实 session 计算投入与转化 | 更细趋势分析可后续增强；风险和预算都不自动修改正式任务 |
+| 数据持久化 | 已完成 | PostgreSQL + Prisma + migration；Package E 已完成生产备份、恢复演练、发布和回滚证据 | 未来生产策略或迁移变更另行确认 |
+
+## 第二阶段增强
+
+| 功能项 | 当前状态 | 当前证据 | 后续承接 |
+|---|---|---|---|
+| 全真模拟考试模式完整实现 | 已完成 | Package B Batch 5 已新增 `SimulationExam`、`SimulationSubjectResult`、`/api/simulation/exams`、`/api/simulation/exams/:id/results` 和 `/test/simulations` 结构化主写入路径；旧 `StudyTask.type = "simulation_exam"` 只读兼容；Batch 6 已新增 `StagePlan`、`StageAdjustmentDraft` 和持久草稿确认边界；Package D Batch D3 已完成长期 AI 阶段草稿显式入口 | 报告驱动自动阶段应用不进入当前范围，未来需单独确认 |
+| 可配置同步自测流程 | 已完成 | `/test/simulations` 要求用户填写真实考试日期，结构化模拟考试保留 `isFirstSynchronized` 标记和考后本地重校准草稿；工作区目标日与下一场模拟共同驱动窗口规则，不再内置 2026/2027 节点；Batch 6 后可把本地重校准草稿持久化为需确认的 `StageAdjustmentDraft`；Package D Batch D1 后报告可确认、驳回并只读回放 | 更深自动应用流不进入当前范围，未来需单独确认 |
+| 周审判报告 | 已完成 | `/roadmap/reviews` 周报返回时长、有效时长、科目占比、完成率、欠账、低转化、错题复盘、最大短板、下周期问题和 `decisionPreview`；页面区分事实/规则判断/待确认草稿/冻结结果，确认后先接投入草稿，再独立审阅阶段建议；`PeriodicReportDecision` 保留审计和只读回放 | 报告驱动自动改任务或阶段计划不进入当前范围，未来需单独确认 |
+| 月复盘报告 | 已完成 | `/roadmap/reviews` 月报展示阶段策略、长期短板、科目投入、低转化和待确认动作；确认/驳回固定 `canAutoApply=false` / `requiresUserConfirmation=true`，历史页只读回放入箱汇总；阶段概览区分生效路线、待确认建议与最近结果 | 月报驱动自动任务重排或阶段应用不进入当前范围，未来需单独确认 |
+| 任务债务自动重排建议 | 已完成 | `GET /api/tasks/debt-reorder` 和首页任务区已展示保留、补做、延期、拆小、放弃、改复习建议；建议透传 `canAutoApply=false` / `requiresUserConfirmation=true`；Package D Batch D2 后支持对所选建议确认、驳回和显式应用所选，复用 `TaskDebtEvent` 与 `AuditEvent`，不自动应用全部建议 | 更长期的任务/阶段自动联动需单独确认 |
+| 知识点遗忘风险提醒 | 已完成 | `/roadmap/stages/trend`、`/roadmap/reviews` 和 `/knowledge/syllabi` 基于错题集中、最近证据时间、错题记录更新趋势、笔记到期、节点状态和 Batch 4 显式复测记录派生遗忘/复习风险；Package D Batch D4 已把遗忘风险纳入 `GET /api/analytics/long-term-risks` 和同源 `LongTermRiskPanel`，展示来源、窗口、证据新鲜度和下一步动作 | 更细结构化复习历史如未来需要，另走单独确认 |
+| 知识卡片复习提醒 | 已完成 | `Note.nextReviewAt`、`/knowledge/cards` 复习提醒筛选、`/roadmap/stages/trend` 到期笔记风险和 `/roadmap/reviews` 到期笔记计数；Package D Batch D4 已把笔记复习提醒接入长期风险 DTO；附件上传已由 Package A 完成 | 后续可继续做更细复习策略 |
+| 作战地图高级可视化 | 已完成 | `/knowledge/syllabi` 已展示分科摘要、地图状态分布、优先节点、推荐筛选、地图状态筛选、行动类型筛选和 Batch 4 显式掌握证明记录；Package D Batch D4 后，作战地图风险与报告、统计、笔记、模拟和首页状态主题读取同一长期风险 DTO | 更细结构化复习历史如未来需要，另走单独确认 |
+| 状态主题深度联动 | 已完成 | `determineThemeState` 基于冲刺窗口、风险状态和连续性生成主题；首页根据 `themeState` 切换外壳，并展示正常推进、锻造、警报、恢复、冲刺的状态主题面板、触发信号和行动焦点；恢复主题联动最小任务裁剪，冲刺主题前置倒计时与阶段压强；Batch 6 已提供持久阶段计划基础；Package D Batch D4 已把首页状态主题接入长期风险 DTO，任务面板明确状态主题不隐藏完整任务列表、不自动修改任务或阶段计划；Package D Batch D5 已完成证据收口 | 未来若让主题自动应用任务或阶段变更，需单独确认 |
+| 动机唤醒机制 | 已完成 | `evaluateMotivationWake` 覆盖未封存、断签、危险期、自测窗口、重大复盘和重情绪；首页只展示唤醒信号，不进入 AI 默认上下文 | 更细粒度历史策略可后续增强 |
+| AI 根据长期数据生成阶段调整建议 | 已完成 | Package D Batch D3 已新增显式鉴权 `POST /api/simulation/stage-adjustment-drafts/ai` 和 `/simulation` 的“生成 AI 草稿”入口；长期 AI 上下文只发送周期范围、阶段目标摘要、有效时长、完成率、复盘完成率、低转化次数、科目占比、薄弱节点摘要、模拟考试汇总、阶段计划模式/状态、距阶段结束天数和风险标签；成功只写 `StageAdjustmentDraft.source="ai"` 结构化草稿和 `AI_STAGE_ADJUSTMENT_DRAFT_CREATED` 审计摘要，失败回退本地规则；不发送动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题，不保存完整 prompt/raw response，不自动应用阶段计划；Package D Batch D4 后，长期风险 DTO 为阶段草稿提供一致风险原因但不触发 AI 外呼；Package D Batch D5 已完成证据收口 | 报告驱动的自动阶段应用不进入当前范围 |
+
+## 学习行动中心（已进入生产）
+
+本表能力均以 `workflow/versions/v1.1-learning-action-center.md` 为学习闭环规格源；`v1.2.0` 的体验与发布边界见 `workflow/versions/v1.2-high-density-workbench.md`。归档生产交付记录基线为 `v1.1.1`，新鲜公网 health 已观测到稳定 Release `v1.2.0`，但服务器完整交付证据仍待核验，差异见 operational-readiness；v1.3-v1.9 默认关闭候选均已合并 main，后续分域实现没有新 Release 或生产激活证据。Release 资产和 health 观测不能替代生产门禁，也不改写 Package A-E 和既有 docs 100% 的历史完成范围。
+
+| 功能项 | 当前状态 | 当前证据 | 后续承接 |
+|---|---|---|---|
+| 五入口 App Shell 与稳定路由 | 已完成 | `/focus`、`/today`、`/knowledge/*`、`/test/*`、`/roadmap/*`；设置位于侧栏底部工具区，确认中心作为共享工作流入口；旧 `/plan/*`、`/review/*`、`/quick-review/*`、计时详情和重复设置路径已移除并由 canonical-only smoke 断言 404；r38 current-bound browser evidence 覆盖主要工作台路径 | 继续收敛视觉层级和自动应用边界，不改变既有 Release/生产事实 |
+| 公共壳层、即时工具、工作窗口、活动槽与 Dock | 已完成 | `GlobalTopBar`、`GlobalCommandPalette`（registry 支持 `$`/`/` 别名）、`GlobalToolProvider` / `GlobalToolLayer`、`PageToolbar`、`GlobalContextStatusBar`、`WindowSystemProvider` / 全局 `WindowLayer`、`WindowDock`、`GlobalActivitySlot`、`GlobalConfirmationCenter`、`GlobalAiAssistant`、`GlobalQuickCreate`、`GlobalRecoveryHelp` 和 `GlobalSessionCloseout`；canonical 路由对 `/focus`、`/today` 和仅作窗口深链协议的 `/confirmations/*` 显式声明 `toolbar: "none"`；确认中心由顶部入口、命令面板或深链直接打开全局工作窗口，AI 默认使用即时工具并可显式升级为窗口，恢复和快捷创建只使用即时工具，Dock 只接收确认中心、AI 与活动收口；确认深链在窗口接管后返回安全业务页，不渲染 L3 占位；工作窗口通过 body Portal 覆盖整个 App Shell，按类型使用响应式固定尺寸，遮罩点击或 `Escape` 最小化；Dock 按真实宽度依次使用完整项、紧凑项和至少两项的批量收纳，移动端固定为“后台 N”；底部时钟以 `HH:mm:ss.SSS` 在绘制帧内独立刷新；窗口持久化、跨标签页合并和布局算法由 `window-system-state.test.ts` 与导航契约覆盖 | 后续只补充跨设备恢复等非本轮公共壳层范围的证据，不改变当前架构契约 |
+| 三类活动来源与独立收口 | 已完成 | `/focus` 只承载自由学习；快速复习、专项复测和模拟考试由各自工作台启动；`activity-route.ts` 统一回源；特殊活动不复用 `FocusSessionClient` 收口；快速复习确认失败保留活动和草稿，事件保存且专属收口成功后才完成 | 继续补充真实浏览器的跨页面/跨设备恢复证据 |
+| 考试工作区 / 自定义科目 / 分组 | 已完成 | `/settings/exams` 与鉴权 API；首次设置按考试目标与科目、已有数据处理两步推进；408 是默认未勾选的显式模板。科目/分组支持读取、创建、编辑、排序、归档和恢复；科目归档保留历史、暂停相关活动排期并清空可执行到期日，恢复时只重启 `SUBJECT_ARCHIVED` 排期并安排到当前学习日；分组归档在同一事务中解绑成员并回报数量 | 物理删除、完整账户导出等数据生命周期仍不在范围，不改变既有 Release/生产事实 |
+| 今日行动中心与科目快捷计时 | 已完成 | `/today` + `GET /api/action-center/today`；统一入口 resolver 按“无工作区 -> 设置、有活动 -> 活动来源、其余 -> 今日”解析根入口与登录默认回跳；三阶段进度轨、断点续学、推荐原因与“适合/换一项”反馈、动态学习日结束动作已接入；完成自由学习、专项复测或模拟后重新读取今日推荐并可继续下一项 | 推荐反馈不修改正式任务；当前实现尚未形成新 Release |
+| 学习闭环 P0-01 至 P2 增强 | 已完成 | `docs/product/learning-loop.md`；P0-01 至 P0-07，以及进度轨、断点续学、推荐反馈、继续下一项、学习日结束、自然周预算、趋势风险入箱和当前设备收口模板均已落地；Web 自动化测试覆盖入口、空数据、收口、预算、风险来源和草稿语义 | 当前实现尚未形成新 Release，也未执行 production apply |
+| PlanInbox / 里程碑 / 任务依赖 | 已完成 | `/roadmap/allocation/drafts*`、`/roadmap/allocation`、`/roadmap/allocation/tasks/[taskId]`、`/roadmap/stages` 与鉴权 API；旧 `/today/*`、`/stage/*` 和旧路线壳已移除并由 canonical-only smoke 断言 404。Inbox 转换、已转换列表、每日复盘任务和 `ANALYTICS_RISK` 趋势风险均携带可回放来源，任务详情按今日/投入安排/投入草稿/复盘/阶段/知识显示正确返回语义；空状态提供可执行出口 | 继续保持显式转换和自动应用边界，不改变既有 Release/生产事实 |
+| 学习树 V1 preview / confirm | 已完成 | `/knowledge/imports`；preview、confirm/history/export；`AF-RISK-DATA-001` residual 未关 | 物理删除与完整账户导出仍不在范围 |
+| 全局关联画布 | 已完成 | `GET/PUT/DELETE /api/knowledge-canvas*` + `/knowledge/canvas`（`@xyflow/react`）；r38 的 CANVAS-01/02/03 与 24 项无障碍证据已 current-bound | 继续保留节点关系编辑的产品体验打磨，不改变既有 Release/生产事实 |
+| StudyResource FILE/LINK | 已完成 | `/knowledge/resources` 与鉴权 CRUD/上传/下载/归档 API | 不支持物理删除 |
+| 统一复习 Schedule/Event | 已完成 | `/knowledge` 唯一下一行动与最近证据；`/knowledge/reviews` 单一队列、今日进度和中文状态筛选；`/knowledge/reviews/[scheduleId]/run` 真实对象、确认结果、连续掌握变化、下次日期与继续下一项；任务详情桥接入口支持完成/延期/放弃及同幂等键重放；无下一项时按来源返回今日下一行动或复习队列；排期详情保留对象回链、事件 correction/bridge API | 真实 Provider、生产写入和数据生命周期仍不在本轮范围 |
+| CheckIn v2 / 恢复三阶 | 已完成 | 今日摘要、Recovery v2 三阶与「我学不下去了」动机入口 | 不自动改写任务 |
+| 动机 / 通知 / 四类 AI 草稿 | 已完成 | `/settings/profile` 按动机封存、当前设备提醒、可展示内容库组织，AI 草稿降为低频显式入口；通知偏好、四类鉴权 POST 草稿、`AI_PAYLOAD_BINDING_SECRET`；专项记录已复核档案、通知、AI、体验设置页面 | 不保存 prompt/raw response/history/token/cost/provider trace；真实 Provider key smoke 未执行 |
+| 外部 Provider 当前账户配置、Web 全局开关与浏览器偏好 | 已完成 | `/settings/ai` 支持 Web 全局开关、当前账户 Provider 的更新/删除/合成测试和当前浏览器授权；鉴权 `GET|PATCH /api/ai/runtime`、`GET|PATCH|DELETE /api/ai/provider`、`POST /api/ai/provider/test` 与 `GET|PATCH /api/ai/preferences`；`AiRuntimeSetting` 审计、AES-256-GCM 密文、fingerprint、密钥不回显，八条鉴权 POST route 统一 gate | 当前实现已完成本地代码与迁移验收；真实 Provider key smoke、生产 migration/备份密文生命周期仍未验收；`AI_ENABLED` 保留为服务端硬闸门 |
+| 模拟结构化失分 / 报告阶段入箱 | 已完成 | 分科 totals、0.5 分结构化失分、warning、逐项补救入箱、周期高严重度提升；考试日期必填，分科满分必须显式录入正数，历史缺失满分保持未知；模拟 UI 按“录分 -> 失分分析并确认事实 -> 补救入箱”推进，确认后只读，并回读每条补救的 Inbox 状态以阻止刷新后重复发送；Inbox 显示人类可读来源和考试回链，并接力阶段重评；报告与阶段完成态区分新增、复用和零草稿，所有确认边界均不自动修改现有任务 | 不自动修改现有任务 |
+| 完整 minor Release | 已完成 | `v1.1.0`、`v1.1.1`、`v1.1.2` Release 历史保持不变，既有完整 minor Release 证据仍然有效 | `AREAFORGE_AUTO_APPLY=none` 与 residual 状态保持不变；production apply 另行确认 |
+| v1.2.0 稳定 Release | 已完成 | 第一阶段统一 package version、完成 additive migration 隔离验证、完整门禁、本地测试池与浏览器验收；PR CI run `33505174259` 与 main push CI run `33506280124` 成功，fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 已创建 annotated tag `v1.2.0`；Release workflow run `33521890241`、签名资产、SBOM、provenance、checksum 与 immutable digest 严格验证见 `docs/development/release-supply-chain-v1.2.0.md` | 未执行生产 migration、生产更新、备份恢复、回滚、写入型 smoke 或自动应用策略变更；`AF-RISK-SC-001`/`AF-RISK-SC-002` 等 residual 保持待人工复核 |
+
+## 下一产品版本：A -> B 平台演进
+
+本节记录 A -> B 后续版本能力；v1.4-v1.8 已进入不同深度的默认关闭本地 runtime，v1.9 已形成纯规则与持久通知基础，但这些仍不计入既有 docs 100% 完成声明。每项只能在代码、专项验证、受保护 PR、签名 Release 和所需生产证据分别成立后更新相应状态。
+
+| 功能项 | 当前状态 | 当前证据 | 后续承接 |
+|---|---|---|---|
+| 个人版完全动态化 | 隔离已实现 | 多自定义科目/分组首次设置、版本化考试/阶段模板目录、共享任务类型/资料分类、408 运行时去特殊化、科目/分组 CRUD/排序/归档/恢复，以及重复科目 preview/confirm/24 小时精确 undo 已实现；全新临时 PostgreSQL 17 的 10 组专项 runtime、空库闭环、桌面/移动、Core 109/109、Web 914/914、`pnpm check` 和文档/风险/治理/任务门禁通过。PR #56 的 push/pull_request `ci/verify` 均成功并 squash 合并到 `main` commit `40f1b36780418bbd544aaaadcd29c385aa2154e8`，main push CI run `33906942919` 成功 | `tasks/active/0039-personal-dynamic-foundation.md`；尚缺独立签名 Release 和 production apply |
+| 邀请制多用户、Workspace 与 Membership | 隔离已实现 | 已形成账户状态/authRevision、设备 session、一次性 token、持久限流、SMTP、Membership/Invitation/Selection、Workspace CRUD/生命周期、邀请/成员/所有权生命周期、same-origin/CSRF 边界、actor/workspace fail-closed 和 owner-only 学习正文边界；隔离 PostgreSQL runtime、本地总门禁、六类身份 desktop/mobile 可见性、代表性写入和 17 项失败矩阵见 `output/playwright/v15-role-matrix/evidence.json`、`output/playwright/v15-write-matrix/evidence.json` 与 `output/playwright/v15-failure-matrix/evidence.json`。member-only 登录入口和成员只读考试页的管理查询旁路已修复；候选由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988`。默认多人开关仍关闭，新 Release 和生产证据尚缺 | `tasks/active/0040-multi-user-rbac.md` |
+| 预设角色、分享授权与 Coach 协作 | 隔离已实现 | v1.5 默认关闭候选已形成 Admin/Coach/Viewer、统一 policy service、Owner-only 角色调整、USER/ROLE/WORKSPACE grant、NOTE/MISTAKE/ATTACHMENT 共享、CoachSuggestion/PlanInbox 确认链、脱敏 Operator 账户目录和无 Workspace 全局工具门禁；成员自有笔记、分享目标排除自己、App Shell/每日复盘的同 Workspace actor/owner 查询和六类身份 desktop/mobile 可见性矩阵已通过。代表性写入见 `output/playwright/v15-write-matrix/evidence.json`；17 项浏览器失败矩阵见 `output/playwright/v15-failure-matrix/evidence.json`，覆盖邀请/角色/grant/Coach/Operator、撤销/移除/暂停即时失效，意外 console/page error 和横向溢出为 0。owner-required follow-up 已在全新 49-migration 隔离库通过；候选由 PR #57 在两套 `verify` 成功后 squash 合并到 `main` commit `b04ba988`。新 Release 与生产证据仍缺 | `tasks/active/0044-rbac-privacy-collaboration.md` |
+| 完整账户/Workspace 导出 | 隔离已实现 | 独立确认下实现新协议 EXPORT worker、本人记录/READY 附件私有流式 ZIP、权限快照重验、一次性 POST 下载与精确副本回收；90 个 model 按 83 included / 6 security / 1 derived 分类。51-migration 专用合成库的 14 组运行态（含四个真实 SIGKILL 点）、独立 ZIP/hash、关系保留、撤销/过期/控制/失败回收及桌面/390px/320px 浏览器/API 验收通过。默认开关关闭，尚无新 Release 或共享/生产交付证据 | `tasks/backlog/0041-data-lifecycle.md`；协议见 `docs/modules/data-export.md` |
+| 数据任务中心、回收站、物理删除与账户关闭 | 隔离已实现 | 独立 DELETE 已完成持久意图/回收站/冻结、本人范围、冷静期、租约与重试、物理文件/数据库删除、最小账本及按备份水位重放；53-migration 专用库的 17 组运行态覆盖五类对象、真实权限变化、并发/死信、五个强杀点、根对象删除和防复活。知识画布原生查询已补冻结过滤，最终 API 与桌面/390px/320px 验收通过，证据见 `output/playwright/data-delete/evidence.json`。默认关闭，旧 preview 不升级执行；仍缺新 Release 与共享/生产交付，不关闭 residual | `tasks/backlog/0041-data-lifecycle.md`；协议见 `docs/modules/data-deletion.md` |
+| 受控运维中心 | 基础版 | 独立 OPS 本地确认下已实现冻结执行绑定、root-owned 持久桥接/登记、跨进程锁、不可覆盖日志、停止屏障和回执恢复，38 组合成运行态通过；原 report-only 契约与实际执行事实分离，Web 展示经过校验的阶段投影。真实 API/桌面/390px/320px 浏览器验收通过，生产适配器未运行，Release 与逐动作生产证据仍缺；Web 永不执行服务器命令 | `tasks/backlog/0042-controlled-operations-center.md`；协议见 `docs/modules/controlled-operations.md` |
+| 个人成长指标、私有挑战与排名 | 基础版 | core 计分/反作弊、opt-in、挑战/参与者 CRUD、申诉与通知已有候选；独立 RANKING 持久重建完成严格任务/权限历史/来源指纹、代次拒绝、原子整榜、当前可见性过滤与 Owner 状态控制。53-migration 新合成库的 26 组运行态和 12 组浏览器/API 验收通过，涵盖权限撤销、退出重入、冻结/恢复/合成数据库删除、脱敏导出、两处 SIGKILL、桌面/390px/320px 与键盘历史折叠，无新增 DDL。六开关默认关闭，不回写学习源事实；完整 v1.8 生命周期/跨域矩阵、受保护合并、Release、共享/生产与 residual 关闭证据仍缺 | `tasks/backlog/0043-ranking-platform-hardening.md`；协议见 `docs/modules/ranking-rebuild.md` |
+| 平台化加固 | 基础版 | Core 规则、脱敏审计、只读容量和持久通知已有候选。SEARCH 已完成用户×Workspace 标题索引、显式重建、受保护直查及删除/导出联动；专用 54-migration 合成库通过 33 组运行态、16 组浏览器/API 专项，含七档视口与真实 125% 缩放。内核/通知/EXPORT/DELETE/OPS 各有分域本地验收；RANKING 持久重建新增 26/12 组运行态/浏览器证据。独立 CLI 默认关闭，Web 不启动进程；QUOTA 本人任务准入已有 24/12 组本地运行态/浏览器证据；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/Passkey、全域观测/灾备、完整版本与跨域验证、共享及生产交付仍缺 | `tasks/backlog/0045-platform-hardening.md` |
+| v2.0 综合门禁 | 未实现 | AUTH/RBAC/EXPORT/DELETE/OPS 已有分域本地证据，RANKING 持久重建已有 26/12 组、SEARCH 持久索引已有 33/16 组独立本地运行态/浏览器验收，QUOTA 本人任务准入已有 24/12 组本地专项；CAPACITY 成员席位/三维总量已有 33/18 组本地证据；剩余存储及跨分区导出计量、MFA/观测等平台加固、完整版本与全域回归、后续分支受保护合并、新签名 Release、生产与运营终态证据尚未齐备 | `tasks/backlog/0046-v2-platform-gate.md` |
+
+## 暂缓项
+
+| 功能项 | 当前状态 | 说明 |
+|---|---|---|
+| AI 自动生成完整学习计划 | 暂缓 | 只能生成建议或草稿，用户确认后应用 |
+| AI 自动解析复杂 PDF 大纲 | 暂缓 | 当前仅支持受限 Markdown 导入 |
+| 小程序 | 暂缓 | 私有 Web 优先 |
+| 原生手机 App | 暂缓 | 后续可考虑 PWA 或独立 App |
+| 全站公开社区与默认公开排名 | 暂缓 | v1.8 只规划主动加入的私有挑战；公开社区需独立产品、隐私、审核和申诉设计 |
+| 企业组织树、SSO/SAML、SCIM 和计费订阅 | 暂缓 | 不属于 A -> B 第一阶段的必要能力 |
+| Web runtime 任意 shell、Docker socket、root 权限或服务器密钥 | 暂缓 / 高风险 | 永久保持禁止；未来受控运维中心仍由 root-only agent 执行白名单动作 |
+
+## docs 100% 完成判定
+
+只有同时满足以下条件，才能宣称 docs 100%：
+
+- 第一版必须项均达到“已完成”，待确认项都有明确确认记录和验证结果。
+- 第二阶段增强均达到“已完成”或被产品文档重新标记为暂缓。
+- 高风险项均保留影响、风险、验证和回滚记录。
+- `pnpm check`、相关包测试、Prisma validate、Compose config、关键 API 烟测和主要页面验证通过。
+- 文档、任务、版本计划和代码实际状态没有漂移。
+- 最终证据矩阵见 `docs/development/docs-100-acceptance-evidence.md`，高风险确认门见 `docs/development/high-risk-confirmation-packets.md`。

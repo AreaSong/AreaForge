@@ -1,0 +1,24 @@
+drillId: alert-drill-20260721065635
+drilledAt: 2026-07-21T06:56:35.135Z
+operator: maintainer-confirmed residual closeout
+environment: production
+scope: daily
+scenario: backup_stale
+alertPreviewCommand: pnpm ops:alert:preview
+alertPreviewStatus: warning
+alertPreviewWouldNotify: yes
+alertPreviewEvidenceHash: sha256:97c4ad91c197e86bdbda5590807f1780906f6c7f2fa2334c480d9c60585dfcc0
+alertReceiverType: manual-window
+receiverConfigured: yes
+receiverAck: yes
+detectionResult: PASS
+recoveryResult: PASS
+recoveryAction: manual-window acknowledged v0.1.9 alert:backup needs_evidence; confirmed no release/update/migration/rollback proceeds without current backup hashes; receiver ACK recorded for AF-RISK-OPS-004 closeout without production writes
+residualRiskIds: AF-RISK-OPS-004
+followUpTasks: tasks/indexes/residuals.md
+safetyFacts:
+  notificationSent: no
+  externalAlertReceiverCalled: no
+  serverCommandAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no

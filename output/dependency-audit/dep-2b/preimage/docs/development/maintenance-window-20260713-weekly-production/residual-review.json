@@ -1,0 +1,59 @@
+SOON AF-RISK-OPS-001: reviewAt=2026-07-17; daysUntil=4; owner=areaforge-sre-ops, areaforge-qa-smoke
+SOON AF-RISK-UX-001: reviewAt=2026-07-24; daysUntil=11; owner=areaforge-product-experience, areaforge-qa-smoke
+{
+  "ok": true,
+  "checkedAt": "2026-07-13T05:32:33.382Z",
+  "asOf": "2026-07-13",
+  "warnDays": 14,
+  "source": "docs/development/residual-risk-ledger.json",
+  "safetyFacts": {
+    "readOnly": true,
+    "productionWriteAttempted": false,
+    "serverCommandAttempted": false,
+    "networkRequested": false,
+    "secretValuePrinted": false
+  },
+  "counts": {
+    "total": 9,
+    "overdue": 0,
+    "dueToday": 0,
+    "dueSoon": 2,
+    "future": 7
+  },
+  "gate": {
+    "failOnOverdue": false,
+    "failOnDue": false,
+    "failOnDueSoon": false,
+    "failed": false
+  },
+  "dueItems": [
+    {
+      "id": "AF-RISK-OPS-001",
+      "type": "current-blocker",
+      "reviewAt": "2026-07-17",
+      "reviewStatus": "due_soon",
+      "daysUntilReview": 4,
+      "executableNow": false,
+      "ownerSkills": [
+        "areaforge-sre-ops",
+        "areaforge-qa-smoke"
+      ],
+      "closeCondition": "服务器配置 AREAFORGE_EXTRA_SMOKE_COMMAND、smoke 账号和权限收紧的 smoke 密码文件；最近一次生产版本对应的只读 smoke 通过、redacted update-agent status、operational evidence bundle 和 OPS-001 收口包齐全；生产更新后必须重采或明确降级旧证据为历史",
+      "requiredEvidence": "docs/development/ops-001-production-readonly-attempt-20260711.md、docs/development/ops-001-production-readonly-20260711/prod-readonly-smoke-record.txt、docs/development/ops-001-production-readonly-20260711/redacted-update-status.json、docs/development/ops-001-production-readonly-20260711/operational-evidence-bundle.json、docs/development/ops-001-production-readonly-20260711/ops-001-closure-packet.txt、docs/development/release-v0.1.7-record.md、docs/development/operational-evidence-bundle-v0.1.7-20260712.json、后续 post-v0.1.7 redacted smoke/status/OPS-001 closure packet、pnpm smoke:prod-readonly:validate 通过、pnpm update-agent:status:validate 通过、pnpm ops:evidence:bundle:validate 通过、pnpm ops:ops-001:closure:validate 通过、带当前证据路径的 pnpm ops:ops-001:preflight 返回 ready_for_human_close"
+    },
+    {
+      "id": "AF-RISK-UX-001",
+      "type": "closed-evidence",
+      "reviewAt": "2026-07-24",
+      "reviewStatus": "due_soon",
+      "daysUntilReview": 11,
+      "executableNow": false,
+      "ownerSkills": [
+        "areaforge-product-experience",
+        "areaforge-qa-smoke"
+      ],
+      "closeCondition": "后续 release/update、体验改动或超过 14 天维护窗口前，重新完成 desktop/mobile 体验复核并通过 pnpm experience:review:validate；若复核失败则重新打开为 monitoring-gap",
+      "requiredEvidence": "pnpm smoke:local-ux 31/31 通过；desktop/mobile/unauth browser 截图；pnpm experience:review:validate docs/development/product-experience-review-20260710-local.md 通过；pnpm experience:review:validate docs/development/product-experience-review-v0.1.7-20260712-local.md 通过；后续 release/update 后需新增对应体验复核记录"
+    }
+  ]
+}

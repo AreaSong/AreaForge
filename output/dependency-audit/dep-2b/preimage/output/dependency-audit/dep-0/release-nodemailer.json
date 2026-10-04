@@ -1,0 +1,10 @@
+{
+  "html_url": "https://github.com/nodemailer/nodemailer/releases/tag/v10.0.6",
+  "tag_name": "v10.0.6",
+  "name": "v10.0.6",
+  "title": null,
+  "state": null,
+  "published_at": "2026-09-11T12:58:31Z",
+  "updated_at": "2026-09-11T12:58:31Z",
+  "body": "## [10.0.6](https://github.com/nodemailer/nodemailer/compare/v10.0.5...v10.0.6) (2026-09-11)\n\n\n### Bug Fixes\n\n* **addressparser:** scan free text for an address in linear time ([437d7fc](https://github.com/nodemailer/nodemailer/commit/437d7fc47403df176bc39271641541b7a9bce102))"
+}

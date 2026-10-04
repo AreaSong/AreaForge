@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "mode": "redacted_ops005_expected_before_rejection",
+  "releaseTag": "v0.1.9",
+  "packageVersion": "0.1.9",
+  "gitCommit": "749692ba719d801f14186a94af97b96350380141",
+  "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+  "requestHash": "sha256:27aab1093d513d93ff9534e7bfa3ef3a9042f25fb84684fcae7a77a4e377a46a",
+  "reasonCode": "EXPECTED_BEFORE_MISMATCH",
+  "decision": "REJECTED",
+  "executionAttempted": false
+}

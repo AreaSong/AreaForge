@@ -1,0 +1,17 @@
+[Unit]
+Description=AreaForge controlled update request agent
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+Environment=AREAFORGE_UPDATE_AGENT_CONFIG=/etc/areaforge/updater.env
+Environment=AREAFORGE_OPS_STATE_DIR=/opt/areaforge/ops-state
+ExecStart=/opt/areaforge/ops/update-agent/areaforge-update-agent.sh
+User=root
+Group=root
+Nice=5
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target

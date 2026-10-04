@@ -1,0 +1,46 @@
+{
+  "html_url": null,
+  "tag_name": null,
+  "published_at": null,
+  "body": null,
+  "name": "@next/env",
+  "version": "16.3.6",
+  "engines": null,
+  "dependencies": null,
+  "optionalDependencies": null,
+  "peerDependencies": null,
+  "scripts": {
+    "dev": "ncc build ./index.ts -w -o dist/",
+    "build": "pnpm build:source && pnpm types",
+    "types": "tsc --declaration --emitDeclarationOnly --declarationDir dist",
+    "build:source": "ncc build ./index.ts -o ./dist/ --minify --no-cache --no-source-map-register",
+    "prebuild:source": "node ../../scripts/rm.mjs dist",
+    "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+  },
+  "license": "MIT",
+  "exports": null,
+  "dist": {
+    "shasum": "47d93ed498a55f7db8bb309eeab0b5964b7964d6",
+    "tarball": "https://registry.npmjs.org/@next/env/-/env-16.3.6.tgz",
+    "fileCount": 4,
+    "integrity": "sha512-x9Vblze1EbtltQYnNH38xCPWU3TVfBd1eXqA3+w9+BTpedkkdNpAaltXlGQ/nsc1+E0mVTNrtcbX3GoO09zeLQ==",
+    "signatures": [
+      {
+        "sig": "MEUCIBv9r0CrzJZ74jGoy9uCq8A0MqsNNJAHSoNsbs2yQ2wpAiEAj3qjnGkf0JMlzICS5sANL62KNqP0Yv0BlOioIyx/4fk=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEQCIC6GUpyrMrRunxyCN5fAo1GF4jil9y8DLkfYxfCLQDb6AiAob/RzzKI3B+SJ2Lt0ipIfFutBaugiibR7zmmn/VMk1A==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fenv@16.3.6",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 11895
+  },
+  "source": "https://registry.npmjs.org/@next%2fenv/16.3.6"
+}

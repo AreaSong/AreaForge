@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["ranking-rebuild-*.ts", "../workers/ranking-rebuild-handler.ts", "../dev/dev-test-ranking-fixture.ts"]
+}

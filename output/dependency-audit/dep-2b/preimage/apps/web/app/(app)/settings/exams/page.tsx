@@ -1,0 +1,60 @@
+import { redirect } from "next/navigation";
+import { WorkspaceSettingsClient } from "@/components/workspace-settings-client";
+import { PageFrame } from "@/components/ui/page";
+import { getCurrentUser } from "@/lib/auth/session";
+import {
+  findSelectedMemberWorkspaceOrNull,
+  listExamWorkspaces,
+  listSubjectGroups,
+  listWorkspaceSubjects,
+  previewWorkspaceTakeover,
+} from "@/lib/study/exam-workspace-service";
+import { listSubjectDuplicatePreviews } from "@/lib/study/subject-duplicate-query-service";
+import { listRecentSubjectMergeOperations } from "@/lib/study/subject-merge-undo-service";
+import { getRouteMetadata } from "@/lib/navigation/app-navigation";
+
+export const dynamic = "force-dynamic";
+export const metadata = getRouteMetadata("/settings/exams");
+
+export default async function SettingsExamsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setup?: string }>;
+}) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const params = await searchParams;
+  const [workspaces, active, takeover] = await Promise.all([
+    listExamWorkspaces(user.id),
+    findSelectedMemberWorkspaceOrNull(user.id),
+    previewWorkspaceTakeover(user.id).catch(() => null),
+  ]);
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === active?.id) ?? null;
+  const canManageStructure = !activeWorkspace?.membershipRole
+    || activeWorkspace.membershipRole === "OWNER"
+    || activeWorkspace.membershipRole === "ADMIN";
+  const [subjects, groups, duplicateSets, mergeOperations] = active
+    ? await Promise.all([
+        listWorkspaceSubjects(user.id, active.id),
+        listSubjectGroups(user.id, active.id),
+        canManageStructure ? listSubjectDuplicatePreviews(user.id, active.id) : Promise.resolve([]),
+        canManageStructure ? listRecentSubjectMergeOperations(user.id, active.id) : Promise.resolve([]),
+      ])
+    : [[], [], [], []];
+
+  return (
+    <PageFrame variant="dashboard-wide" className="space-y-6">
+      <WorkspaceSettingsClient
+        userId={user.id}
+        workspaces={workspaces}
+        activeId={active?.id ?? null}
+        subjects={subjects}
+        groups={groups}
+        duplicateSets={duplicateSets}
+        mergeOperations={mergeOperations}
+        takeover={takeover}
+        setupMode={params.setup === "1" || !active}
+      />
+    </PageFrame>
+  );
+}

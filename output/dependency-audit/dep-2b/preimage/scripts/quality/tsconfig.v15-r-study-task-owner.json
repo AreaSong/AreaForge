@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.v15-rbac.json",
+  "include": [
+    "v15-r-study-task-owner-runtime.selftest.ts",
+    "v15-rbac-runtime-fixture.ts"
+  ]
+}

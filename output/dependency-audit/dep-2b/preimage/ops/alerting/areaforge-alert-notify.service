@@ -1,0 +1,18 @@
+[Unit]
+Description=AreaForge read-only alert signal check and push notification
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=AREAFORGE_ALERT_CONFIG=/etc/areaforge/alerting.env
+ExecStart=/opt/areaforge/ops/alerting/areaforge-alert-notify.sh notify --config /etc/areaforge/alerting.env
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+# Exit codes 10 (warning) and 20 (critical) mean signals degraded, not script failure.
+SuccessExitStatus=10 20
+
+[Install]
+WantedBy=multi-user.target

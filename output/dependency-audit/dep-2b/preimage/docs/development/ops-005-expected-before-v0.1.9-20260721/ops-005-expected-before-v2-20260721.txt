@@ -1,0 +1,42 @@
+recordId: ops-005-expected-before-v2-20260721T093350Z
+recordedAt: 2026-07-21T09:34:00.000Z
+environment: production
+releaseTag: v0.1.9
+packageVersion: 0.1.9
+gitCommit: 749692ba719d801f14186a94af97b96350380141
+webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d
+updateAgentScriptSha256: sha256:c68e03ff871e25b7030c931629e74811e3a84c7d7bc4bd94b5d6fb6bda232e35
+updaterScriptSha256: sha256:254a58edf4f68efa0808cc02fd57fbf80c53c16b944b51ff1bffe1ec2847665e
+localImplementationStatus: pass
+localValidationCommands: pnpm ops:ops-005:local:selftest,pnpm ops:ops-005:preflight:selftest,pnpm ops:ops-005:evidence:selftest,pnpm shellcheck:updater,pnpm github-release-updater:preflight,pnpm check
+signedReleaseStatus: pass
+productionDeploymentStatus: pass
+timerPausedBeforeDeployment: yes
+legacyMutationQueueDisposition: empty
+webAgentVersionMatch: yes
+v2CheckStatus: pass
+v2CheckRequestHash: sha256:07eb7128d0174d84525ecf1706b8b73be0a9899bdf8d4b247cd01a12b57fd0a5
+expectedBeforeRejectionStatus: pass
+expectedBeforeRejectionExecutionAttempted: no
+expectedBeforeRejectionRequestHash: sha256:27aab1093d513d93ff9534e7bfa3ef3a9042f25fb84684fcae7a77a4e377a46a
+expectedBeforeRejectionEvidenceFile: expected-before-rejection.json
+expectedBeforeRejectionEvidenceHash: sha256:77ef206924729b7e9a7a3a870631426f40867e4b276e30796307563aa0987cfc
+operationalEvidenceFile: operational-evidence.json
+operationalEvidenceHash: sha256:9b78a11a7db4ecdeff0a81f3211defff736c97207ac7c89cd4afa6a27754ba9c
+sharedProductionStateLockStatus: pass
+processingReconciliationStatus: pass
+autoApply: none
+redactedDecisionHistoryFile: decision-history.json
+redactedDecisionHistoryHash: sha256:1752bae9c9834047636eb6dc25dee1ec76cef1ef204ab7bdfa5c7245ddbce0aa
+evidenceFreshnessMaxAgeHours: 24
+residualRiskIds: AF-RISK-OPS-005
+doesNotProve: AF-RISK-OPS-005 residual closure,production business write safety beyond scoped V2 check,OPS-001 closure,secrets absence beyond validator scan
+safetyFacts:
+  secretValuePrinted: no
+  productionBusinessDataWritten: no
+  residualLedgerUpdated: no
+  webRuntimeServerCommandAttempted: no
+  productionMutationRequestExecuted: no
+  autoApplyPolicyChanged: no
+  databaseRestoreAttempted: no
+  uploadsRestoreAttempted: no

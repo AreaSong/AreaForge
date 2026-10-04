@@ -1,0 +1,66 @@
+{
+  "source": "https://registry.npmjs.org/balanced-match",
+  "fetched_at": "2026-10-03T03:13:32.772242+00:00",
+  "dist_tags": {
+    "latest": "4.0.4"
+  },
+  "selected": {
+    "4.0.2": {
+      "name": "balanced-match",
+      "version": "4.0.2",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": {
+        "jackspeak": "^4.2.3"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "snap": "tap",
+        "test": "tap",
+        "format": "prettier --write .",
+        "prepare": "tshy",
+        "presnap": "npm run prepare",
+        "pretest": "npm run prepare",
+        "typedoc": "typedoc --tsconfig .tshy/esm.json ./src/*.ts",
+        "benchmark": "node benchmark/index.js",
+        "preversion": "npm test",
+        "postversion": "npm publish",
+        "prepublishOnly": "git push origin --follow-tags"
+      },
+      "dist": {
+        "shasum": "241591ea634702bef9c482696f2469406e16d233",
+        "tarball": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.2.tgz",
+        "fileCount": 13,
+        "integrity": "sha512-x0K50QvKQ97fdEz2kPehIerj+YTeptKF9hyYkKf6egnwmMWAkADiO0QCzSp0R5xN8FTZgYaBfSaue46Ej62nMg==",
+        "signatures": [
+          {
+            "sig": "MEYCIQDE8FHhhr3qG7uHmZW3GGgTn+2Hqe2uLdSYaa8/q0RKogIhAOXMHqoSMA4qe+PPUv89Dkxp+t90LHP1SoPlzCU3KCDV",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "unpackedSize": 17629
+      },
+      "exports": {
+        ".": {
+          "import": {
+            "types": "./dist/esm/index.d.ts",
+            "default": "./dist/esm/index.js"
+          },
+          "require": {
+            "types": "./dist/commonjs/index.d.ts",
+            "default": "./dist/commonjs/index.js"
+          }
+        },
+        "./package.json": "./package.json"
+      },
+      "os": null,
+      "cpu": null,
+      "deprecated": null,
+      "published": "2026-02-09T14:50:47.458Z"
+    }
+  }
+}

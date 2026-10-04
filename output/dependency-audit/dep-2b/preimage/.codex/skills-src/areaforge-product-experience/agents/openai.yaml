@@ -1,0 +1,4 @@
+interface:
+  display_name: "AreaForge Product Experience"
+  short_description: "User journey and product polish review"
+  default_prompt: "Use $areaforge-product-experience to audit AreaForge user journeys and product polish."

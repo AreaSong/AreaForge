@@ -1,0 +1,26 @@
+recordId: residual-review-AF-RISK-SC-002-20260718-5bec626
+reviewedAt: 2026-07-18T14:46:00+08:00
+reviewer: Codex maintenance review
+residualRiskId: AF-RISK-SC-002
+currentResidualType: closed-evidence
+reviewDecision: close
+decisionRationale: GitHub Actions run 29634081982 completed successfully for exact commit 5bec62608d929a796b4ca00a91aa95bdf256b27c after the CI Prisma prerequisite and Web runtime command-boundary defects were fixed. The validated CI-only record covers production dependency audit, governance, 40-character Actions pinning, skills validation and release supply-chain selftest. A clean detached worktree preflight returned ready_for_sc002_review. This recommendation applies only to AF-RISK-SC-002 and does not close AF-RISK-SC-001.
+evidenceUris: output/supply-chain/ci-supply-chain-5bec626.txt,https://github.com/AreaSong/AreaForge/actions/runs/29634081982,sha256:10d0bfd7c6e2b39bd2d4d5d7cba74f9d44c9eaeaa2c79399aa4cd8f096ff9722,tasks/indexes/residuals.md
+validatorCommands: pnpm ci:supply-chain:validate output/supply-chain/ci-supply-chain-5bec626.txt; pnpm audit:prod; pnpm governance:preflight; pnpm skills:validate; pnpm release:supply-chain:selftest; AREAFORGE_SC002_CI_RECORD=output/supply-chain/ci-supply-chain-5bec626.txt pnpm sc:sc-002:preflight
+validatorOutcome: pass
+validatorSummary: CI-only record validation passed and clean checkout preflight returned ready_for_sc002_review for exact commit 5bec62608d929a796b4ca00a91aa95bdf256b27c
+reopenConditions: a new release or reviewed commit, stale evidence, validation failure, failed matching CI, unpinned external Action, or high or critical production dependency vulnerability reopens AF-RISK-SC-002
+doesNotProve: residual ledger closure, signed Release or AF-RISK-SC-001 closure, production health, updater apply, backup/restore, migration, rollback
+residualLedgerAction: requires-separate-ledger-update
+closesResidual: no
+result: ready-for-ledger-update
+safetyFacts:
+  productionWriteAttempted: no
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  updaterApplyAttempted: no
+  rollbackAttempted: no
+  releaseCreated: no
+  secretValuePrinted: no
+  residualLedgerUpdated: no

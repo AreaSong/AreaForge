@@ -1,0 +1,70 @@
+# v1.1.0 exact-commit CI evidence context
+# Candidate version: 1.1.0
+# Candidate source: frozen commit 94755024860ceb29a18024e4aae9d3611ef30e03
+# Evidence purpose: signed Release admission input
+# Evidence class: CI-only supply-chain review
+# Collection date: 2026-07-30
+# Repository owner: AreaSong
+# Repository name: AreaForge
+# Workflow family: GitHub Actions CI
+# Workflow conclusion: success
+# Head branch: codex/v1.1-learning-action-center
+# Commit identity check: pass
+# Production dependency audit: pass
+# Governance preflight: pass
+# External action pinning: pass
+# Repository skills validation: pass
+# Release supply-chain selftest: pass
+# Pinned external actions: 15
+# Unpinned external actions: none
+# High vulnerabilities: none
+# Critical vulnerabilities: none
+# Provider key smoke: not performed
+# GitHub Release creation: not performed
+# Release tag push: not performed
+# Production write: not performed
+# Production environment export: not included
+# Backup content: not included
+# Secret values: not included
+# Raw CI logs: not included
+# Authentication state: not included
+# Authorization headers: not included
+# Cookie material: not included
+# This record reuses the established CI evidence schema.
+# Schema fields below remain the validator source of truth.
+# Comments provide collection context only.
+# Comments do not alter the evidence hash contract.
+# The exact workflow run URL is recorded below.
+# The exact source and expected commits are recorded below.
+# The package version is recorded below.
+# The safety facts are recorded below.
+recordId: ci-supply-chain-v1.1.0-20260730-9475502
+recordedAt: 2026-07-30T09:03:04Z
+workflowKind: ci
+repository: AreaSong/AreaForge
+workflowName: ci
+workflowRunUrl: https://github.com/AreaSong/AreaForge/actions/runs/30528740644
+workflowRunConclusion: success
+gitCommit: 94755024860ceb29a18024e4aae9d3611ef30e03
+expectedGitCommit: 94755024860ceb29a18024e4aae9d3611ef30e03
+commitMatchStatus: pass
+headBranch: codex/v1.1-learning-action-center
+packageVersion: 1.1.0
+ciWorkflowStatus: pass
+auditProdStatus: pass
+governancePreflightStatus: pass
+actionsPinningStatus: pass
+skillsValidateStatus: pass
+releaseSupplyChainSelftestStatus: pass
+pinnedActionsCount: 15
+unpinnedExternalActions: none
+highCriticalVulnerabilities: none
+residualRiskIds: AF-RISK-SC-002
+followUpTasks: tasks/indexes/residuals.md
+safetyFacts:
+  secretsPrinted: no
+  productionEnvIncluded: no
+  backupIncluded: no
+  productionWriteAttempted: no
+  releaseCreated: no
+  tagPushed: no

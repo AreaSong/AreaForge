@@ -1,0 +1,139 @@
+{
+  "checkedAt": "2026-07-13T05:32:33.840Z",
+  "environment": "unknown",
+  "scope": "daily",
+  "baseUrl": "https://forge.areasong.top",
+  "safetyFacts": {
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "smokePasswordReadFromFile": false,
+    "networkRequested": true
+  },
+  "expected": {
+    "version": "0.1.7",
+    "releaseTag": "v0.1.7",
+    "autoApply": "none"
+  },
+  "signals": {
+    "health": {
+      "status": "pass",
+      "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.7",
+      "data": {
+        "ok": true,
+        "service": "AreaForge",
+        "version": "0.1.7"
+      }
+    },
+    "releaseIdentity": {
+      "status": "pass",
+      "evidence": "release manifest provides release tag and immutable image digests",
+      "data": {
+        "releaseTag": "v0.1.7",
+        "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:3a54995ca3776456c197e60f4a179ea0e6e30cf763ccb6ea372c5cbf555d48fd",
+        "migrationImageDigest": "ghcr.io/areasong/areaforge-migration:v0.1.7@sha256:c2c27da7ed85be0796d4f6535557d3759bc14975a0238b725b99c1c0e232e654",
+        "currentVersion": null,
+        "currentImage": null,
+        "releaseUrl": "https://github.com/AreaSong/AreaForge/releases/tag/v0.1.7",
+        "manifestSource": "https://github.com/AreaSong/AreaForge/releases/download/v0.1.7/areaforge-release-manifest.json",
+        "manifestVersion": "0.1.7",
+        "manifestChannel": "stable",
+        "manifestGitCommit": "c1a25e4f897330fea493ad4c6dd889b62ef8f63a",
+        "manifestAssets": {
+          "sha256SumsAsset": "SHA256SUMS",
+          "signatureAsset": "SHA256SUMS.sig",
+          "sbomAsset": "areaforge-sbom.spdx.json",
+          "provenanceAsset": "areaforge-provenance.json"
+        },
+        "manifestError": null
+      }
+    },
+    "updateAgent": {
+      "status": "unknown",
+      "evidence": "update status not collected; provide AREAFORGE_READINESS_UPDATE_STATUS_FILE or smoke credentials",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ]
+    },
+    "authenticatedSmoke": {
+      "status": "warn",
+      "evidence": "no authenticated smoke result supplied; run pnpm smoke:prod-readonly or set AREAFORGE_READINESS_SMOKE_RESULT_FILE",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ]
+    },
+    "backup": {
+      "status": "unknown",
+      "evidence": "backup freshness evidence not supplied",
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ]
+    },
+    "rollback": {
+      "status": "unknown",
+      "evidence": "rollback target not supplied",
+      "data": {}
+    },
+    "infrastructure": {
+      "status": "pass",
+      "evidence": "certificate expires in 68 day(s)",
+      "data": {
+        "disk": null,
+        "certificateDaysRemaining": 68,
+        "certificateValidTo": "Sep 19 02:48:22 2026 GMT",
+        "certificateHost": "forge.areasong.top",
+        "certificateSource": "tls",
+        "certificateAuthorized": true,
+        "certificateAuthorizationError": null
+      }
+    }
+  },
+  "freshness": {
+    "maxAgeSeconds": 1209600,
+    "latestEvidenceFreshnessStatus": "unknown",
+    "signals": {
+      "health": {
+        "checkedAt": "2026-07-13T05:32:33.840Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      },
+      "releaseIdentity": {
+        "checkedAt": "2026-07-13T05:32:33.840Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      },
+      "updateAgent": {
+        "checkedAt": null,
+        "ageSeconds": null,
+        "status": "unknown"
+      },
+      "authenticatedSmoke": {
+        "checkedAt": null,
+        "ageSeconds": null,
+        "status": "unknown"
+      },
+      "backup": {
+        "checkedAt": null,
+        "ageSeconds": null,
+        "status": "unknown"
+      },
+      "rollback": {
+        "checkedAt": null,
+        "ageSeconds": null,
+        "status": "unknown"
+      },
+      "infrastructure": {
+        "checkedAt": "2026-07-13T05:32:33.840Z",
+        "ageSeconds": 0,
+        "status": "fresh"
+      }
+    }
+  },
+  "residualRiskIds": [
+    "AF-RISK-OPS-001",
+    "AF-RISK-OPS-004"
+  ],
+  "overall": "warn"
+}

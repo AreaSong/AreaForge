@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "apps/web/package.json": "cbd6a91f6e1c74cef639d5fff1004129110d2fb59e94138e2ba341d6f9b6a0b6",
+    "package.json": "92ac240bf921bddc7832af0f0ca8c5d29aa2430507b060ab3706523be218903c",
+    "packages/ai/package.json": "f0aea5c2852bff98ee79b0f0286ab8a4871bf99f9e4908521d97b8f9e0dfd70c",
+    "packages/auth/package.json": "314bbf31296486c982a5fafa2a6cd2dc87433b5f67857305c2254017695a041f",
+    "packages/config/package.json": "a0c0bed6fcd15f752d7bb54da67dc1da23481e7ad90a8fa446081c763cdad64e",
+    "packages/core/package.json": "8a05cdfefb52cc06d8d2443414dc06e8562b470e9b86841e562be25f330eddb5",
+    "packages/db/package.json": "d89ab304f3b4fb5ebabd6b07b77c10b866dbe92d4f749705bbabe7b53164762e",
+    "packages/storage/package.json": "407a33dc82d51784e0a42a032e292fff8712a0e60238ee3dd721ed7f4a6f8ab6",
+    "packages/ui/package.json": "607c717ed1bfcfd8de500ac2733a8a9263499bed248ac3db7aa9ced521d4bdd9",
+    "patches/minimatch@3.1.5.patch": "28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36",
+    "pnpm-lock.yaml": "62525fc1b581e84b683e8c579412f42936ee776160d99d84997b9349dcb8e149",
+    "pnpm-workspace.yaml": "bedfc3509ebce7bba7fdfd87513e20bf6ad546aee800fcfe93d376f17e764c8b"
+  },
+  "inputHash": "75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376",
+  "installedLockMatches": true,
+  "preservedInputs": [
+    "package.json",
+    "packages/ai/package.json",
+    "packages/auth/package.json",
+    "packages/config/package.json",
+    "packages/core/package.json",
+    "packages/db/package.json",
+    "packages/storage/package.json",
+    "packages/ui/package.json",
+    "patches/minimatch@3.1.5.patch"
+  ],
+  "generatedChanged": []
+}

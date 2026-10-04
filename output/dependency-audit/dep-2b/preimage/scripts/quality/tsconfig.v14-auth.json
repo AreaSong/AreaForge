@@ -1,0 +1,10 @@
+{
+  "extends": "../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "v14-auth-runtime.selftest.ts"
+  ],
+  "exclude": ["../../node_modules"]
+}

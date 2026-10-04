@@ -1,0 +1,33 @@
+{
+  "target": {
+    "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.8@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "releaseId": 180018,
+    "manifestVersion": "0.1.8",
+    "manifestSha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "status": "queued",
+  "semanticHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "schemaVersion": 2,
+  "requestedAt": "2026-07-15T08:00:00.000Z",
+  "requestHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "params": {
+    "tag": "v0.1.8",
+    "autoApply": null
+  },
+  "idempotencyKey": "11111111-1111-4111-8111-111111111111",
+  "id": "update_1786780800000_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "expiresAt": "2026-07-15T08:05:00.000Z",
+  "expectedBeforeHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "expectedBefore": {
+    "signatureRequired": true,
+    "rollbackAvailable": true,
+    "rollbackTargetVersion": "0.1.6",
+    "rollbackTargetImage": "ghcr.io/areasong/areaforge-web:v0.1.6@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "rollbackSourceRecordSha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "currentVersion": "0.1.7",
+    "currentImage": "ghcr.io/areasong/areaforge-web:v0.1.7@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "autoApply": "none"
+  },
+  "actorEmailHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "action": "apply"
+}

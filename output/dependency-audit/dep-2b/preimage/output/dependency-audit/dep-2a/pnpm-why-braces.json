@@ -1,0 +1,40 @@
+[
+  {
+    "name": "braces",
+    "version": "3.0.3",
+    "path": "/Users/as/Ai-Project/project/AreaForge/node_modules/.pnpm/braces@3.0.3/node_modules/braces",
+    "dependents": [
+      {
+        "name": "micromatch",
+        "version": "4.0.8",
+        "dependents": [
+          {
+            "name": "fast-glob",
+            "version": "3.3.1",
+            "dependents": [
+              {
+                "name": "@next/eslint-plugin-next",
+                "version": "16.3.6",
+                "peersSuffixHash": "9fbd",
+                "dependents": [
+                  {
+                    "name": "eslint-config-next",
+                    "version": "16.3.6",
+                    "peersSuffixHash": "b38a",
+                    "dependents": [
+                      {
+                        "name": "@areaforge/web",
+                        "version": "1.2.0",
+                        "depField": "devDependencies"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

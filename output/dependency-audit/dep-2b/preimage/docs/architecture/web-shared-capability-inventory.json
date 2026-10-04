@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "mode": "areaforge_web_shared_capability_inventory",
+  "owner": "areaforge-enterprise-governance",
+  "capabilities": [
+    {
+      "id": "web-ui-primitives",
+      "path": "apps/web/components/ui",
+      "kind": "react-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "keep-and-batch1",
+      "contract": "docs/ux/shared-ui-foundations.md",
+      "validation": ["pnpm web:ui-primitives-boundary", "pnpm web:ui-primitives-boundary:selftest", "pnpm web:shared-boundary", "pnpm web:governance:typecheck", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "navigation-contract",
+      "path": "apps/web/lib/navigation/canonical-routes.ts",
+      "kind": "route-contract",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch2",
+      "contract": "docs/ux/site-navigation.md",
+      "validation": ["pnpm ops:v11:canonical-routes:selftest", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "navigation-route-helpers",
+      "path": "apps/web/lib/navigation/route-helpers.ts",
+      "kind": "route-contract",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch2",
+      "contract": "docs/ux/site-navigation.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "activity-navigation-contract",
+      "path": "apps/web/lib/navigation/activity-route.ts",
+      "kind": "pure-route-helper",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch2",
+      "contract": "docs/ux/site-navigation.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "formatters",
+      "path": "apps/web/lib/formatters.ts",
+      "kind": "pure-helper",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch1",
+      "contract": "docs/development/gotchas.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm --filter @areaforge/web typecheck"]
+    },
+    {
+      "id": "api-client-parser",
+      "path": "apps/web/lib/api/client.ts",
+      "kind": "browser-adapter",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch1",
+      "contract": "apps/web/lib/api/client.ts",
+      "validation": ["pnpm web:api-parser-boundary", "pnpm web:api-parser-boundary:selftest", "pnpm --filter @areaforge/web test", "pnpm --filter @areaforge/web typecheck"]
+    },
+    {
+      "id": "dto-contracts",
+      "path": "apps/web/lib/contracts",
+      "kind": "type-contract",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch3",
+      "contract": "docs/architecture/api-surface.md",
+      "validation": ["pnpm web:shared-boundary", "pnpm web:shared-boundary:selftest", "pnpm --filter @areaforge/web typecheck", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "knowledge-pure-rules",
+      "path": "apps/web/lib/knowledge",
+      "kind": "pure-domain-rules",
+      "owner": "knowledge-domain",
+      "status": "active",
+      "batch": "batch3",
+      "contract": "docs/modules/syllabus-map.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "workspace-pure-rules",
+      "path": "apps/web/lib/workspace",
+      "kind": "pure-domain-rules",
+      "owner": "workspace-domain",
+      "status": "active",
+      "batch": "batch3",
+      "contract": "docs/architecture/overview.md",
+      "validation": ["pnpm --filter @areaforge/web typecheck", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "client-concurrency-primitives",
+      "path": "apps/web/lib/client/lease.ts",
+      "kind": "browser-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/focus-timer.md",
+      "validation": ["pnpm web:shared-boundary", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "client-operation-gates",
+      "path": "apps/web/lib/client/operation-gates.ts",
+      "kind": "browser-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch6",
+      "contract": "docs/ux/shared-ui-foundations.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm --filter @areaforge/web typecheck", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "client-storage-port",
+      "path": "apps/web/lib/client/storage-port.ts",
+      "kind": "browser-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/focus-timer.md",
+      "validation": ["pnpm web:client-boundary", "pnpm web:client-boundary:selftest", "pnpm web:shared-boundary", "pnpm web:governance:typecheck", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "focus-offline-contract",
+      "path": "apps/web/lib/client/focus-offline-contract.ts",
+      "kind": "pure-domain-rules",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/focus-timer.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "client-event-channel",
+      "path": "apps/web/lib/client/event-channel.ts",
+      "kind": "browser-event-adapter",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/focus-timer.md",
+      "validation": ["pnpm web:shared-boundary", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "client-window-state",
+      "path": "apps/web/lib/client/window-system-state.ts",
+      "kind": "browser-state-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/shared-ui-foundations.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "app-shell-client-projection",
+      "path": "apps/web/lib/client/app-shell-projection.ts",
+      "kind": "browser-adapter",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/shared-ui-foundations.md",
+      "validation": ["pnpm --filter @areaforge/web typecheck", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "quick-review-event-hub",
+      "path": "apps/web/lib/client/quick-review-event-hub.ts",
+      "kind": "browser-event-adapter",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/focus-timer.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "client-draft-store",
+      "path": "apps/web/lib/client/draft-store.ts",
+      "kind": "browser-primitives",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/ux/application-shell-and-workbench-layouts.md",
+      "validation": ["pnpm --filter @areaforge/web test", "pnpm web:shared-boundary"]
+    },
+    {
+      "id": "client-api-error-boundary",
+      "path": "apps/web/lib/client/api-errors.ts",
+      "kind": "browser-adapter",
+      "owner": "web-platform",
+      "status": "active",
+      "batch": "batch5",
+      "contract": "docs/architecture/api-surface.md",
+      "validation": ["pnpm web:client-boundary", "pnpm web:client-boundary:selftest", "pnpm web:api-parser-boundary", "pnpm web:api-parser-boundary:selftest", "pnpm web:governance:typecheck", "pnpm --filter @areaforge/web test"]
+    },
+    {
+      "id": "component-complexity-policy",
+      "path": "scripts/quality/web-component-complexity.ts",
+      "kind": "quality-policy",
+      "owner": "areaforge-enterprise-governance",
+      "status": "active",
+      "batch": "batch6",
+      "contract": "docs/development/validation-matrix.md",
+      "validation": ["pnpm web:component-complexity", "pnpm web:component-complexity:selftest", "pnpm web:governance:typecheck"]
+    },
+    {
+      "id": "auth-service-boundary",
+      "path": "apps/web/lib/auth",
+      "kind": "security-boundary",
+      "owner": "security-governance",
+      "status": "pending-confirmation",
+      "batch": "batch6",
+      "contract": "docs/architecture/auth-security.md",
+      "validation": ["pnpm risk:preflight", "auth route tests", "pnpm --filter @areaforge/web typecheck"]
+    }
+  ]
+}

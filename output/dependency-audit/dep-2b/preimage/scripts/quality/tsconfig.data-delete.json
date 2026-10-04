@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["../workers/data-delete-*.ts", "data-delete*.ts", "../dev/dev-test-delete-fixture.ts"]
+}

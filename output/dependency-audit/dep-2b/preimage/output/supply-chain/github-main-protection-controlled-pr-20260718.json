@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "repository": "AreaSong/AreaForge",
+  "branch": "main",
+  "observedAt": "2026-07-18T08:39:50.000Z",
+  "maintenanceWindowId": "mw-sc004-20260718-082604",
+  "prUrl": "https://github.com/AreaSong/AreaForge/pull/13",
+  "prNumber": 13,
+  "headSha": "a0c649e4f61d806ee2b563662b0477bbc67bf3bf",
+  "failedRequiredCheck": "ci / verify",
+  "failedCheckConclusion": "failure",
+  "failedCheckRunUrl": "https://github.com/AreaSong/AreaForge/actions/runs/29637518206/job/88062318075",
+  "passingRequiredCheck": "ci / verify",
+  "passingCheckConclusion": "success",
+  "passingCheckRunUrl": "https://github.com/AreaSong/AreaForge/actions/runs/29637622080/job/88062586872",
+  "failureOutcome": "blocked",
+  "successOutcome": "allowed",
+  "prMerged": false,
+  "secretValuesPresent": false,
+  "evidenceHash": "sha256:dcdaa2b644a9506a4566920b71eea02ae57683a34a0f1da5c142613855248ed7"
+}

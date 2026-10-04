@@ -1,0 +1,15 @@
+{
+  "url": "https://api.github.com/repos/fastify/fast-uri/releases/tags/v3.1.7",
+  "fetchedAt": "2026-10-03T03:22:27.212558+00:00",
+  "data": {
+    "html_url": "https://github.com/fastify/fast-uri/releases/tag/v3.1.7",
+    "tag_name": "v3.1.7",
+    "target_commitish": "412e40abd4eb8beabfb952d80abf949a2baf27a3",
+    "name": "v3.1.7",
+    "title": null,
+    "state": null,
+    "published_at": "2026-09-02T12:42:52Z",
+    "updated_at": "2026-09-02T12:42:52Z",
+    "body": "## \u26a0\ufe0f Security Warning\n\nThis is a security release that fixes the following high-severity security advisories:\n\n- [GHSA-qw65-cvwx-89v3](https://github.com/fastify/fast-uri/security/advisories/GHSA-qw65-cvwx-89v3) \u2014 authority injection via an unvalidated port in `serialize()`\n- [GHSA-58mr-gqgx-xq4g](https://github.com/fastify/fast-uri/security/advisories/GHSA-58mr-gqgx-xq4g) \u2014 host confusion via unbalanced or misplaced IP-literal brackets\n\nUsers of the v3.x release line should upgrade to v3.1.7.\n\n**Full Changelog**: https://github.com/fastify/fast-uri/compare/v3.1.6...v3.1.7\n"
+  }
+}

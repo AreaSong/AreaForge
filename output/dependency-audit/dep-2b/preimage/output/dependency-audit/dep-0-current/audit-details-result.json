@@ -1,0 +1,117 @@
+{
+  "command": [
+    "pnpm",
+    "audit:all",
+    "--json",
+    "--audit-level",
+    "low"
+  ],
+  "time": "2026-10-03T03:21:20.883799+00:00",
+  "exitCode": 1,
+  "summary": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 5,
+      "high": 7,
+      "critical": 1
+    },
+    "dependencies": 300,
+    "devDependencies": 353,
+    "optionalDependencies": 113,
+    "totalDependencies": 689
+  },
+  "advisories": [
+    {
+      "id": "GHSA-6vj9-mwq6-2f5v",
+      "name": "nodemailer",
+      "severity": "moderate",
+      "vulnerable": ">=5.0.0 <10.0.2",
+      "patched": ">=10.0.2"
+    },
+    {
+      "id": "GHSA-qw65-cvwx-89v3",
+      "name": "fast-uri",
+      "severity": "high",
+      "vulnerable": ">=3.0.0 <3.1.7",
+      "patched": ">=3.1.7"
+    },
+    {
+      "id": "GHSA-58mr-gqgx-xq4g",
+      "name": "fast-uri",
+      "severity": "high",
+      "vulnerable": "=3.1.6",
+      "patched": null
+    },
+    {
+      "id": "GHSA-8vvx-rff5-p5rq",
+      "name": "nodemailer",
+      "severity": "moderate",
+      "vulnerable": "<10.0.2",
+      "patched": ">=10.0.2"
+    },
+    {
+      "id": "GHSA-hrr3-gc8f-f4qj",
+      "name": "fast-uri",
+      "severity": "moderate",
+      "vulnerable": ">=3.0.0 <3.1.8",
+      "patched": ">=3.1.8"
+    },
+    {
+      "id": "GHSA-q2hr-2g5m-vwhr",
+      "name": "brace-expansion",
+      "severity": "moderate",
+      "vulnerable": ">=4.0.0 <5.0.12",
+      "patched": ">=5.0.12"
+    },
+    {
+      "id": "GHSA-qhr7-859c-m2p7",
+      "name": "brace-expansion",
+      "severity": "high",
+      "vulnerable": ">=4.0.0 <5.0.11",
+      "patched": ">=5.0.11"
+    },
+    {
+      "id": "GHSA-6j4f-fj2g-mc7p",
+      "name": "brace-expansion",
+      "severity": "high",
+      "vulnerable": ">=4.0.0 <5.0.10",
+      "patched": ">=5.0.10"
+    },
+    {
+      "id": "GHSA-g57g-f23g-4646",
+      "name": "nodemailer",
+      "severity": "moderate",
+      "vulnerable": ">=9.1.0 <10.0.9",
+      "patched": ">=10.0.9"
+    },
+    {
+      "id": "GHSA-v53p-9fqp-m79j",
+      "name": "nodemailer",
+      "severity": "high",
+      "vulnerable": "<=10.0.5",
+      "patched": ">=10.0.6"
+    },
+    {
+      "id": "GHSA-vcvr-r3jv-pc5j",
+      "name": "next",
+      "severity": "critical",
+      "vulnerable": ">=16.2.0 <16.3.6",
+      "patched": ">=16.3.6"
+    },
+    {
+      "id": "GHSA-prgh-xp8r-p3m5",
+      "name": "nodemailer",
+      "severity": "high",
+      "vulnerable": ">=9.1.0 <=10.0.4",
+      "patched": ">=10.0.5"
+    },
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "name": "braces",
+      "severity": "high",
+      "vulnerable": "<=3.0.3",
+      "patched": ">=3.0.4"
+    }
+  ]
+}

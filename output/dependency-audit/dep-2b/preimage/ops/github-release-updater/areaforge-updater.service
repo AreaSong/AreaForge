@@ -1,0 +1,16 @@
+[Unit]
+Description=AreaForge GitHub Release updater
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+Environment=AREAFORGE_UPDATER_CONFIG=/etc/areaforge/updater.env
+ExecStart=/opt/areaforge/ops/github-release-updater/areaforge-updater.sh run --config /etc/areaforge/updater.env
+User=root
+Group=root
+Nice=5
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target

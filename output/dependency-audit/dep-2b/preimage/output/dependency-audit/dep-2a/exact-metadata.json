@@ -1,0 +1,255 @@
+{
+  "braces-exact": {
+    "url": "https://registry.npmjs.org/braces/3.0.3",
+    "fetchedAt": "2026-10-03T06:07:42.020055+00:00",
+    "data": {
+      "bugs": {
+        "url": "https://github.com/micromatch/braces/issues"
+      },
+      "dist": {
+        "shasum": "490332f40919452272d55a8480adc0c441358789",
+        "tarball": "https://registry.npmjs.org/braces/-/braces-3.0.3.tgz",
+        "fileCount": 10,
+        "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+        "signatures": [
+          {
+            "sig": "MEQCICfWLKNcFCGtU07ikrPJ+s1dTDH3VZTE+vQZzC22s6o+AiAEVUE/YXRqHYgctcwHqNawvsOviSDFZPvgNm8+SUXD3w==",
+            "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
+          }
+        ],
+        "unpackedSize": 44635
+      },
+      "main": "index.js",
+      "name": "braces",
+      "verb": {
+        "toc": false,
+        "lint": {
+          "reflinks": true
+        },
+        "tasks": [
+          "readme"
+        ],
+        "layout": "default",
+        "plugins": [
+          "gulp-format-md"
+        ]
+      },
+      "author": {
+        "url": "https://github.com/jonschlinkert",
+        "name": "Jon Schlinkert"
+      },
+      "engines": {
+        "node": ">=8"
+      },
+      "gitHead": "74b2db2938fad48a2ea54a9c8bf27a37a62c350d",
+      "license": "MIT",
+      "scripts": {
+        "test": "mocha",
+        "benchmark": "node benchmark"
+      },
+      "_npmUser": {
+        "name": "jonschlinkert",
+        "email": "github@sellside.com"
+      },
+      "homepage": "https://github.com/micromatch/braces",
+      "keywords": [
+        "alpha",
+        "alphabetical",
+        "bash",
+        "brace",
+        "braces",
+        "expand",
+        "expansion",
+        "filepath",
+        "fill",
+        "fs",
+        "glob",
+        "globbing",
+        "letter",
+        "match",
+        "matches",
+        "matching",
+        "number",
+        "numerical",
+        "path",
+        "range",
+        "ranges",
+        "sh"
+      ],
+      "repository": {
+        "url": "git+https://github.com/micromatch/braces.git",
+        "type": "git"
+      },
+      "_npmVersion": "10.7.0",
+      "description": "Bash-like brace expansion, implemented in JavaScript. Safer than other brace expansion libs, with complete support for the Bash 4.3 braces specification, without sacrificing speed.",
+      "directories": {},
+      "maintainers": [
+        {
+          "name": "es128",
+          "email": "elan.shanker+npm@gmail.com"
+        },
+        {
+          "name": "paulmillr",
+          "email": "paul@paulmillr.com"
+        },
+        {
+          "name": "jonschlinkert",
+          "email": "github@sellside.com"
+        },
+        {
+          "name": "doowb",
+          "email": "brian.woodward@gmail.com"
+        }
+      ],
+      "_nodeVersion": "20.12.1",
+      "contributors": [
+        {
+          "url": "https://twitter.com/doowb",
+          "name": "Brian Woodward"
+        },
+        {
+          "url": "https://github.com/es128",
+          "name": "Elan Shanker"
+        },
+        {
+          "url": "https://github.com/eush77",
+          "name": "Eugene Sharygin"
+        },
+        {
+          "url": "http://h3manth.com",
+          "name": "hemanth.hm"
+        },
+        {
+          "url": "http://twitter.com/jonschlinkert",
+          "name": "Jon Schlinkert"
+        }
+      ],
+      "dependencies": {
+        "fill-range": "^7.1.1"
+      },
+      "_hasShrinkwrap": false,
+      "devDependencies": {
+        "mocha": "^6.1.1",
+        "bash-path": "^2.0.1",
+        "ansi-colors": "^3.2.4",
+        "gulp-format-md": "^2.0.0"
+      },
+      "_npmOperationalInternal": {
+        "tmp": "tmp/braces_3.0.3_1716281951275_0.19583852040362504",
+        "host": "s3://npm-registry-packages"
+      },
+      "_id": "braces@3.0.3",
+      "version": "3.0.3"
+    }
+  },
+  "plugin-tags": {
+    "url": "https://registry.npmjs.org/-/package/@next%2feslint-plugin-next/dist-tags",
+    "fetchedAt": "2026-10-03T06:07:43.605273+00:00",
+    "data": {
+      "next-11": "11.1.4",
+      "next-12-2-6": "12.2.6",
+      "next-14-1": "14.1.1",
+      "rc": "15.0.0-rc.1",
+      "next-13": "13.5.11",
+      "next-12-3-2": "12.3.7",
+      "beta": "16.0.0-beta.0",
+      "next-14": "14.2.35",
+      "next-15-3": "15.3.9",
+      "next-15-2": "15.2.9",
+      "next-15-0": "15.1.12",
+      "next-15-0-0": "15.0.8",
+      "preview": "16.3.0-preview.10",
+      "latest": "16.3.8",
+      "backport": "15.5.27",
+      "canary": "16.4.0-canary.58"
+    }
+  },
+  "plugin-canary": {
+    "url": "https://registry.npmjs.org/@next%2feslint-plugin-next/16.4.0-canary.58",
+    "fetchedAt": "2026-10-03T06:09:57.304074+00:00",
+    "data": {
+      "bugs": {
+        "url": "https://github.com/vercel/next.js/issues"
+      },
+      "dist": {
+        "shasum": "e25c9caaf400b91cddc4f8599d53db531e3d1d11",
+        "tarball": "https://registry.npmjs.org/@next/eslint-plugin-next/-/eslint-plugin-next-16.4.0-canary.58.tgz",
+        "fileCount": 56,
+        "integrity": "sha512-mOSYDO3w3Z+gXB+oSuCXurLxIV3Ttcnan4xvPY3Ec+u4aw8wKe3Xy7g/jMaGxcdUQoklvRMcoLZKcLlnVm5/7A==",
+        "signatures": [
+          {
+            "sig": "MEUCIQDhNm+gRPzeRSN/klRKPfzQwi3TuRe8zsOYSk4NugDZrgIgO3Zgj9x253kddUtDqeyp1RfDmvaFtrM8gwQfMX4EMUQ=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEQCIAmw9X7pCpOtg8IU4HlTiDcO7ka1dMeVRSafwrOvDOqaAiBF8N1/yZ8d5x4pWYs6i2I4JOEOLvaZsE44ieP0QmDqLw==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2feslint-plugin-next@16.4.0-canary.58",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 106337
+      },
+      "main": "dist/index.js",
+      "name": "@next/eslint-plugin-next",
+      "_from": "file:next-eslint-plugin-next-16.4.0-canary.58.tgz",
+      "types": "dist/index.d.ts",
+      "license": "MIT",
+      "scripts": {
+        "dev": "pnpm build",
+        "build": "swc -d dist src && pnpm types",
+        "types": "tsc --project tsconfig.json --skipLibCheck --declaration --emitDeclarationOnly --esModuleInterop --declarationDir dist"
+      },
+      "_npmUser": {
+        "name": "GitHub Actions",
+        "email": "npm-oidc-no-reply@github.com",
+        "trustedPublisher": {
+          "id": "github",
+          "oidcConfigId": "abcbfcbc-92e0-4c13-a4f4-2ce1a01c7dfc"
+        }
+      },
+      "homepage": "https://github.com/vercel/next.js#readme",
+      "_resolved": "/tmp/099578ef7d937930db7ef1ea55815546/next-eslint-plugin-next-16.4.0-canary.58.tgz",
+      "_integrity": "sha512-mOSYDO3w3Z+gXB+oSuCXurLxIV3Ttcnan4xvPY3Ec+u4aw8wKe3Xy7g/jMaGxcdUQoklvRMcoLZKcLlnVm5/7A==",
+      "repository": {
+        "url": "git+https://github.com/vercel/next.js.git",
+        "directory": "packages/eslint-plugin-next"
+      },
+      "_npmVersion": "11.19.0",
+      "description": "ESLint plugin for Next.js.",
+      "directories": {},
+      "maintainers": [
+        {
+          "name": "vercel-release-bot",
+          "email": "infra+release@vercel.com"
+        },
+        {
+          "name": "matt.straka",
+          "email": "matt.j.straka@gmail.com"
+        }
+      ],
+      "_nodeVersion": "24.21.0",
+      "dependencies": {
+        "fast-glob": "3.3.1",
+        "@eslint-community/eslint-utils": "4.9.1"
+      },
+      "_hasShrinkwrap": false,
+      "readmeFilename": "README.md",
+      "devDependencies": {
+        "eslint": "9.37.0",
+        "@types/eslint": "9.6.1",
+        "@types/estree": "1.0.8"
+      },
+      "_npmOperationalInternal": {
+        "tmp": "tmp/eslint-plugin-next_16.4.0-canary.58_1790984975441_0.6041067389738408",
+        "host": "s3://npm-registry-packages-npm-production"
+      },
+      "_id": "@next/eslint-plugin-next@16.4.0-canary.58",
+      "version": "16.4.0-canary.58"
+    }
+  }
+}

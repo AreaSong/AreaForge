@@ -1,0 +1,117 @@
+[
+  {
+    "name": "next",
+    "target": "16.3.6",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/next@16.3.6_@babel+core@7.29.7_@types+node@20.19.43_react-dom@19.2.8_react@19.2.8__react@19.2.8/node_modules/next/package.json",
+        "version": "16.3.6"
+      }
+    ]
+  },
+  {
+    "name": "eslint-config-next",
+    "target": "16.3.6",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/eslint-config-next@16.3.6_@typescript-eslint+parser@8.66.0_eslint@9.39.4_jiti@2.7.0__ty_b3c91d6b06681403814871848c532515/node_modules/eslint-config-next/package.json",
+        "version": "16.3.6"
+      }
+    ]
+  },
+  {
+    "name": "nodemailer",
+    "target": "10.0.9",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/nodemailer@10.0.9/node_modules/nodemailer/package.json",
+        "version": "10.0.9"
+      }
+    ]
+  },
+  {
+    "name": "fast-uri",
+    "target": "3.1.8",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/fast-uri@3.1.8/node_modules/fast-uri/package.json",
+        "version": "3.1.8"
+      }
+    ]
+  },
+  {
+    "name": "brace-expansion",
+    "target": "5.0.12",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/brace-expansion@5.0.12/node_modules/brace-expansion/package.json",
+        "version": "5.0.12"
+      }
+    ]
+  },
+  {
+    "name": "@next/env",
+    "target": "16.3.6",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/@next+env@16.3.6/node_modules/@next/env/package.json",
+        "version": "16.3.6"
+      }
+    ]
+  },
+  {
+    "name": "@next/eslint-plugin-next",
+    "target": "16.3.6",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/@next+eslint-plugin-next@16.3.6_eslint@9.39.4_jiti@2.7.0_/node_modules/@next/eslint-plugin-next/package.json",
+        "version": "16.3.6"
+      }
+    ]
+  },
+  {
+    "name": "@next/swc-darwin-arm64",
+    "target": "16.3.6",
+    "installed": [
+      {
+        "path": "node_modules/.pnpm/@next+swc-darwin-arm64@16.3.6/node_modules/@next/swc-darwin-arm64/package.json",
+        "version": "16.3.6"
+      }
+    ]
+  },
+  {
+    "name": "@next/swc-darwin-x64",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-linux-arm64-gnu",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-linux-arm64-musl",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-linux-x64-gnu",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-linux-x64-musl",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-win32-arm64-msvc",
+    "target": "16.3.6",
+    "installed": []
+  },
+  {
+    "name": "@next/swc-win32-x64-msvc",
+    "target": "16.3.6",
+    "installed": []
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-03T05:30:54.098016+00:00",
+  "head": "ddf690de7e030b103b36be3d9359ffc32ecaf6bd",
+  "branch": "codex/v19-platform-hardening",
+  "changedFiles": {
+    "apps/web/lib/auth/mail.test.ts": "24db54b188e86c1f0dbdfd8476354124ef39004ab6c11780bd36c69ade0992f4",
+    "apps/web/package.json": "cbd6a91f6e1c74cef639d5fff1004129110d2fb59e94138e2ba341d6f9b6a0b6",
+    "docs/development/dependency-policy.md": "9c011fd547166b27a45c1f54ab1247a0003626cbd7717a6b54dbf434ba8e3b1c",
+    "docs/development/high-risk-confirmation-packets.md": "8f70a92f765bcdb377a4ef055717ee8f44b8ed83d9b05b493e58797161152fb6",
+    "pnpm-lock.yaml": "62525fc1b581e84b683e8c579412f42936ee776160d99d84997b9349dcb8e149",
+    "pnpm-workspace.yaml": "bedfc3509ebce7bba7fdfd87513e20bf6ad546aee800fcfe93d376f17e764c8b",
+    "tasks/backlog/0045-platform-hardening.md": "7ee7baf9fcaac6cb88de23e2ee8b17f39b2f2707ec898f70639ed6ece3f5375e"
+  },
+  "outsideAllowedChanges": [],
+  "newOutsideEvidence": [],
+  "preservedSourceAndEvidenceCount": 5383,
+  "indexUnchanged": true,
+  "indexEmpty": true,
+  "generatedUnchanged": true,
+  "generatedFileCount": 107,
+  "schemaHash": "d98c9ca16c73d06a6ac761baee23ee81d57aa6c578d250cec7124b1eb0a82793",
+  "patchSha256": "28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36",
+  "dependencyInputHash": "75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376",
+  "postReviewRecheckAt": "2026-10-03T05:35:54.952963+00:00",
+  "postReviewRecheckPassed": true
+}

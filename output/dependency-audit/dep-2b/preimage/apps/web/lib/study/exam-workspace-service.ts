@@ -1,0 +1,1323 @@
+import {
+  assertExpectedRevision,
+  buildActiveSwitchPlan,
+  canActivateWorkspace,
+  classifyLegacyOwnership,
+  findExamTemplateSubjectByLegacyCode,
+  summarizeTakeoverPreview,
+  type LegacyOwnershipVerdict,
+} from "@areaforge/core";
+import { prisma, type Prisma } from "@areaforge/db";
+import { ApiError } from "@/lib/api/responses";
+import { getAuthEnv } from "@/lib/auth/env";
+import type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSubjectDto } from "@/lib/contracts/workspace";
+import { requireWorkspaceOwner, workspaceOwnerWhere } from "@/lib/workspace/access-service";
+import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
+import { getStudyDayRange } from "./date";
+
+export const workspaceLockNamespace = 2026072112;
+
+export type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSubjectDto } from "@/lib/contracts/workspace";
+
+type MoveDirection = "UP" | "DOWN";
+
+function serializeWorkspace(row: {
+  id: string;
+  stableKey: string;
+  name: string;
+  targetExamDate: Date | null;
+  stageSummary: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+  revision: number;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  current?: boolean;
+  membershipRole?: "OWNER" | "ADMIN" | "COACH" | "MEMBER" | "VIEWER";
+  selectionRevision?: number;
+}): ExamWorkspaceDto {
+  return {
+    id: row.id,
+    stableKey: row.stableKey,
+    name: row.name,
+    targetExamDate: row.targetExamDate?.toISOString() ?? null,
+    stageSummary: row.stageSummary,
+    status: row.status,
+    revision: row.revision,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    ...(row.current === undefined ? {} : { current: row.current }),
+    ...(row.membershipRole === undefined ? {} : { membershipRole: row.membershipRole }),
+    ...(row.selectionRevision === undefined ? {} : { selectionRevision: row.selectionRevision }),
+  };
+}
+
+type WorkspaceDbClient = Pick<Prisma.TransactionClient, "examWorkspace" | "workspaceSelection">;
+type MemberWorkspaceDbClient = Pick<Prisma.TransactionClient, "examWorkspace" | "workspaceSelection" | "workspaceMembership">;
+
+export async function lockActorWorkspaceScope(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${workspaceLockNamespace}, ${hashLockKey(actorId)})`;
+}
+
+export async function lockActiveWorkspaceForWrite(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+) {
+  await lockActorWorkspaceScope(tx, actorId);
+  return resolveActiveWorkspace(actorId, tx);
+}
+
+export async function findActiveWorkspaceOrNull(
+  actorId: string,
+  client: WorkspaceDbClient = prisma,
+) {
+  if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+    const selection = await client.workspaceSelection.findFirst({
+      where: {
+        userId: actorId,
+        workspace: {
+          status: "ACTIVE",
+          ...workspaceOwnerWhere(actorId),
+        },
+      },
+      include: { workspace: true },
+    });
+    return selection?.workspace ?? null;
+  }
+  return client.examWorkspace.findFirst({
+    where: { userId: actorId, status: "ACTIVE" },
+  });
+}
+
+/**
+ * Resolve the selected active workspace for any active member.  The legacy
+ * resolver intentionally remains owner-only because most study mutations are
+ * still private to the resource owner; shared-resource and member PlanInbox
+ * flows must use this narrower member-safe resolver instead.
+ */
+export async function findSelectedMemberWorkspaceOrNull(
+  actorId: string,
+  client: MemberWorkspaceDbClient = prisma,
+) {
+  if (!getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+    return client.examWorkspace.findFirst({
+      where: { userId: actorId, status: "ACTIVE" },
+    });
+  }
+  const selection = await client.workspaceSelection.findFirst({
+    where: {
+      userId: actorId,
+      workspace: {
+        status: "ACTIVE",
+        memberships: {
+          some: {
+            userId: actorId,
+            status: "ACTIVE",
+            user: { status: "ACTIVE" },
+          },
+        },
+      },
+    },
+    include: { workspace: true },
+  });
+  if (selection?.workspace) return selection.workspace;
+
+  const membership = await client.workspaceMembership.findFirst({
+    where: {
+      userId: actorId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      workspace: { status: "ACTIVE" },
+    },
+    include: { workspace: true },
+    orderBy: { joinedAt: "asc" },
+  });
+  return membership?.workspace ?? null;
+}
+
+export async function resolveSelectedMemberWorkspace(
+  actorId: string,
+  client: MemberWorkspaceDbClient = prisma,
+) {
+  const workspace = await findSelectedMemberWorkspaceOrNull(actorId, client);
+  if (!workspace) throw new ApiError("ACTIVE_WORKSPACE_NOT_FOUND", 404);
+  return workspace;
+}
+
+export async function lockSelectedMemberWorkspaceForWrite(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+) {
+  await lockActorWorkspaceScope(tx, actorId);
+  return resolveSelectedMemberWorkspace(actorId, tx);
+}
+
+export async function resolveActiveWorkspace(
+  actorId: string,
+  client: WorkspaceDbClient = prisma,
+) {
+  const workspace = await findActiveWorkspaceOrNull(actorId, client);
+  if (!workspace) {
+    throw new ApiError("ACTIVE_WORKSPACE_NOT_FOUND", 404);
+  }
+  return workspace;
+}
+
+export async function listExamWorkspaces(actorId: string): Promise<ExamWorkspaceDto[]> {
+  if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+    const [memberships, selection] = await Promise.all([
+      prisma.workspaceMembership.findMany({
+        where: { userId: actorId, status: "ACTIVE" },
+        include: { workspace: true },
+        orderBy: { joinedAt: "desc" },
+      }),
+      prisma.workspaceSelection.findUnique({ where: { userId: actorId }, select: { workspaceId: true, revision: true } }),
+    ]);
+    return memberships.map(({ workspace, role }) => serializeWorkspace({
+      ...workspace,
+      targetExamDate: role === "OWNER" ? workspace.targetExamDate : null,
+      stageSummary: role === "OWNER" ? workspace.stageSummary : null,
+      membershipRole: role,
+      current: workspace.id === selection?.workspaceId,
+      selectionRevision: selection?.revision,
+    }));
+  }
+  const rows = await prisma.examWorkspace.findMany({
+    where: { userId: actorId },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+  return rows.map(serializeWorkspace);
+}
+
+export async function createExamWorkspace(
+  actorId: string,
+  input: {
+    stableKey: string;
+    name: string;
+    targetExamDate?: string | null;
+    stageSummary?: string | null;
+    activate?: boolean;
+    subjects?: Array<{
+      stableKey: string;
+      name: string;
+      color: string;
+      sortOrder?: number;
+      groupStableKey?: string | null;
+    }>;
+    groups?: Array<{
+      stableKey: string;
+      name: string;
+      sortOrder?: number;
+    }>;
+    takeoverSubjectIds?: string[];
+  },
+): Promise<ExamWorkspaceDto> {
+  return prisma.$transaction(async (tx) => {
+    await lockActorWorkspaceScope(tx, actorId);
+
+    const activate = input.activate !== false;
+    const stableKeys = input.subjects?.map((subject) => subject.stableKey.trim()) ?? [];
+    if (new Set(stableKeys.map((key) => key.toLocaleLowerCase())).size !== stableKeys.length) {
+      throw new ApiError("SUBJECT_STABLE_KEY_DUPLICATE", 400);
+    }
+    const requestedGroups = input.groups ?? [];
+    const groupKeys = requestedGroups.map((group) => group.stableKey.trim());
+    const inferredGroupDefinitions = new Map<string, { name: string; sortOrder: number }>();
+    const subjectGroupKeys = input.subjects?.map((subject) => subject.groupStableKey?.trim()).filter(Boolean) ?? [];
+    if (new Set(groupKeys.map((key) => key.toLocaleLowerCase())).size !== groupKeys.length) {
+      throw new ApiError("SUBJECT_GROUP_STABLE_KEY_DUPLICATE", 400);
+    }
+    const allGroupKeys = [...groupKeys];
+    for (const groupKey of subjectGroupKeys as string[]) {
+      if (!allGroupKeys.some((key) => key.toLocaleLowerCase() === groupKey.toLocaleLowerCase())) {
+        allGroupKeys.push(groupKey);
+      }
+    }
+    const requestedTakeover = Array.from(new Set(input.takeoverSubjectIds ?? []));
+    if (requestedTakeover.length > 0) {
+      const preview = await previewWorkspaceTakeoverWithClient(actorId, tx);
+      const eligibleSet = new Set(preview.eligibleSubjectIds);
+      if (requestedTakeover.some((id) => !eligibleSet.has(id))) {
+        throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409, {
+          latest: preview,
+          conflictFields: ["takeoverSubjectIds"],
+        });
+      }
+      const takeoverSubjects = await tx.subject.findMany({
+        where: { id: { in: requestedTakeover }, workspaceId: null },
+        select: { stableKey: true, legacyCode: true },
+      });
+      for (const subject of takeoverSubjects) {
+        const match = findExamTemplateSubjectByLegacyCode(subject.legacyCode);
+        if (match && !allGroupKeys.some((key) => key.toLocaleLowerCase() === match.groupStableKey.toLocaleLowerCase())) {
+          allGroupKeys.push(match.groupStableKey);
+        }
+        if (match) {
+          inferredGroupDefinitions.set(match.groupStableKey.toLocaleLowerCase(), {
+            name: match.groupName,
+            sortOrder: match.groupSortOrder,
+          });
+        }
+      }
+      const takeoverStableKeys = new Set(takeoverSubjects.map((subject) => subject.stableKey.toLocaleLowerCase()));
+      const conflictingKeys = stableKeys.filter((stableKey) => takeoverStableKeys.has(stableKey.toLocaleLowerCase()));
+      if (conflictingKeys.length > 0) {
+        throw new ApiError("SUBJECT_STABLE_KEY_CONFLICT_WITH_TAKEOVER", 409, {
+          conflictFields: ["subjects", "takeoverSubjectIds"],
+        });
+      }
+    }
+    if (activate) {
+      await assertWorkspaceSwitchHasNoActiveSession(tx, actorId);
+      if (!getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+        const current = await tx.examWorkspace.findFirst({ where: { userId: actorId, status: "ACTIVE" } });
+        if (current) await archiveWorkspaceForSwitch(tx, current.id, actorId, new Date());
+      }
+    }
+
+    const created = await tx.examWorkspace.create({
+      data: {
+        userId: actorId,
+        stableKey: input.stableKey.trim(),
+        name: input.name.trim(),
+        targetExamDate: input.targetExamDate ? new Date(input.targetExamDate) : null,
+        stageSummary: input.stageSummary ?? null,
+        status: activate ? "ACTIVE" : "ARCHIVED",
+        archivedAt: activate ? null : new Date(),
+        archivedByUserId: activate ? null : actorId,
+      },
+    });
+
+    const groupRows = new Map<string, { id: string; stableKey: string }>();
+    for (const groupKey of allGroupKeys) {
+      const normalizedGroupKey = groupKey.toLocaleLowerCase();
+      const requested = requestedGroups.find((group) => group.stableKey.trim().toLocaleLowerCase() === normalizedGroupKey);
+      const inferred = inferredGroupDefinitions.get(normalizedGroupKey);
+      const group = await tx.subjectGroup.create({
+        data: {
+          workspaceId: created.id,
+          stableKey: groupKey,
+          name: requested?.name.trim() ?? inferred?.name ?? groupKey,
+          sortOrder: requested?.sortOrder ?? inferred?.sortOrder ?? (groupRows.size + 1) * 10,
+        },
+      });
+      groupRows.set(normalizedGroupKey, group);
+    }
+    if (input.subjects?.length) {
+      await tx.subject.createMany({
+        data: input.subjects.map((subject, index) => ({
+          workspaceId: created.id,
+          groupId: subject.groupStableKey ? groupRows.get(subject.groupStableKey.trim().toLocaleLowerCase())?.id ?? null : null,
+          stableKey: subject.stableKey.trim(),
+          name: subject.name.trim(),
+          color: subject.color,
+          sortOrder: subject.sortOrder ?? (index + 1) * 10,
+          legacyCode: null,
+        })),
+      });
+    }
+
+    if (requestedTakeover.length > 0) {
+      const legacySubjects = await tx.subject.findMany({
+        where: { id: { in: requestedTakeover }, workspaceId: null },
+        select: { legacyCode: true },
+      });
+      const legacyGroupIds = await ensureLegacyTemplateGroups(tx, created.id, legacySubjects);
+      await applyEligibleLegacySubjects(tx, created.id, legacyGroupIds, requestedTakeover);
+      await applyEligibleLegacyRoots(tx, actorId, created.id);
+    }
+
+    if (activate) {
+      const activeSubjectCount = await tx.subject.count({
+        where: { workspaceId: created.id, archivedAt: null },
+      });
+      if (activeSubjectCount === 0) {
+        throw new ApiError("WORKSPACE_ACTIVE_SUBJECT_REQUIRED", 400);
+      }
+    }
+
+    // v1.4 migration 已建立兼容表；即使多人入口保持关闭，也必须持续维护
+    // OWNER/Selection，否则灰度期间新建的数据会在未来开启多人后失去归属。
+    await tx.workspaceMembership.create({
+      data: { workspaceId: created.id, userId: actorId, role: "OWNER", status: "ACTIVE" },
+    });
+    if (activate) {
+      await tx.workspaceSelection.upsert({
+        where: { userId: actorId },
+        create: { userId: actorId, workspaceId: created.id },
+        update: { workspaceId: created.id, selectedAt: new Date(), revision: { increment: 1 } },
+      });
+    }
+
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "EXAM_WORKSPACE_CREATED",
+        entityType: "ExamWorkspace",
+        entityId: created.id,
+        metadata: {
+          subjectCount: input.subjects?.length ?? 0,
+          takeoverSubjectCount: requestedTakeover.length,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return serializeWorkspace(created);
+  });
+}
+
+export async function updateExamWorkspace(
+  actorId: string,
+  workspaceId: string,
+  input: {
+    expectedRevision: number;
+    name?: string;
+    targetExamDate?: string | null;
+    stageSummary?: string | null;
+    archived?: boolean;
+  },
+): Promise<ExamWorkspaceDto> {
+  return prisma.$transaction(async (tx) => {
+    await lockActorWorkspaceScope(tx, actorId);
+    if (input.archived !== undefined) {
+      return updateWorkspaceLifecycle(tx, actorId, workspaceId, input.expectedRevision, input.archived);
+    }
+    const workspace = await requireWorkspaceOwner(tx, actorId, workspaceId, { active: true });
+    if (workspace.revision !== input.expectedRevision) {
+      throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { latest: serializeWorkspace(workspace), conflictFields: ["revision"] });
+    }
+    const changed = await tx.examWorkspace.updateMany({
+      where: { id: workspaceId, ...workspaceOwnerWhere(actorId), status: "ACTIVE", revision: input.expectedRevision },
+      data: {
+        name: input.name?.trim(),
+        targetExamDate: input.targetExamDate === undefined ? undefined : input.targetExamDate ? new Date(input.targetExamDate) : null,
+        stageSummary: input.stageSummary === undefined ? undefined : input.stageSummary,
+        revision: { increment: 1 },
+      },
+    });
+    if (changed.count !== 1) throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { conflictFields: ["revision"] });
+    const updated = await tx.examWorkspace.findUniqueOrThrow({ where: { id: workspaceId } });
+    await tx.auditEvent.create({ data: { actorId, action: "EXAM_WORKSPACE_UPDATED", entityType: "ExamWorkspace", entityId: workspaceId } });
+    return serializeWorkspace(updated);
+  });
+}
+
+async function updateWorkspaceLifecycle(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+  expectedRevision: number,
+  archived: boolean,
+): Promise<ExamWorkspaceDto> {
+  const workspace = await requireWorkspaceOwner(tx, actorId, workspaceId);
+  if (workspace.revision !== expectedRevision) {
+    throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, {
+      latest: serializeWorkspace(workspace),
+      conflictFields: ["revision"],
+    });
+  }
+  const isArchiving = archived && workspace.status === "ACTIVE";
+  const isRestoring = !archived && workspace.status === "ARCHIVED";
+  if (!isArchiving && !isRestoring) return serializeWorkspace(workspace);
+
+  if (isArchiving) {
+    const activeSession = await tx.studySession.findFirst({
+      where: { userId: actorId, workspaceId, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+      select: { id: true },
+    });
+    if (activeSession) throw new ApiError("ACTIVE_SESSION_BLOCKS_WORKSPACE_ARCHIVE", 409);
+    const fallback = await tx.examWorkspace.findFirst({
+      where: { ...workspaceOwnerWhere(actorId), status: "ACTIVE", id: { not: workspaceId } },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!fallback) throw new ApiError("LAST_PERSONAL_WORKSPACE_REQUIRED", 409);
+    await archiveWorkspaceForSwitch(tx, workspaceId, actorId, new Date());
+    await tx.workspaceInvitation.updateMany({
+      where: { workspaceId, status: "PENDING" },
+      data: { status: "REVOKED", revokedAt: new Date(), revision: { increment: 1 } },
+    });
+    const selection = await tx.workspaceSelection.findUnique({ where: { userId: actorId } });
+    if (selection?.workspaceId === workspaceId) {
+      await tx.workspaceSelection.update({
+        where: { userId: actorId },
+        data: { workspaceId: fallback.id, selectedAt: new Date(), revision: { increment: 1 } },
+      });
+    }
+  } else {
+    const changed = await tx.examWorkspace.updateMany({
+      where: { id: workspaceId, ...workspaceOwnerWhere(actorId), status: "ARCHIVED", revision: expectedRevision },
+      data: { status: "ACTIVE", archivedAt: null, archivedByUserId: null, revision: { increment: 1 } },
+    });
+    if (changed.count !== 1) throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409);
+    await tx.reviewSchedule.updateMany({
+      where: { workspaceId, status: "PAUSED", pausedReason: "WORKSPACE_ARCHIVED" },
+      data: { status: "ACTIVE", dueDate: getStudyDayRange().start, pausedReason: null, revision: { increment: 1 } },
+    });
+  }
+  const updated = await tx.examWorkspace.findUniqueOrThrow({ where: { id: workspaceId } });
+  await tx.auditEvent.create({
+    data: {
+      actorId,
+      action: isArchiving ? "EXAM_WORKSPACE_ARCHIVED" : "EXAM_WORKSPACE_RESTORED",
+      entityType: "ExamWorkspace",
+      entityId: workspaceId,
+    },
+  });
+  return serializeWorkspace(updated);
+}
+
+export async function activateExamWorkspace(
+  actorId: string,
+  workspaceId: string,
+  expectedRevision: number,
+  expectedSelectionRevision?: number,
+): Promise<ExamWorkspaceDto> {
+  return prisma.$transaction(async (tx) => {
+    await lockActorWorkspaceScope(tx, actorId);
+
+    if (getAuthEnv().AUTH_MULTI_USER_ENABLED) {
+      const membership = await tx.workspaceMembership.findFirst({
+        where: { workspaceId, userId: actorId, status: "ACTIVE" },
+        include: { workspace: true },
+      });
+      const ownerOnly = !getAuthEnv().AUTH_RBAC_ENABLED;
+      if (!membership || membership.workspace.status !== "ACTIVE" || (ownerOnly && (membership.role !== "OWNER" || membership.workspace.userId !== actorId))) {
+        throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+      }
+      if (membership.workspace.revision !== expectedRevision) {
+        throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, {
+          latest: serializeWorkspace(membership.workspace),
+          conflictFields: ["revision"],
+        });
+      }
+      if (await findWorkspaceSwitchBlockingSession(tx, actorId)) {
+        throw new ApiError("ACTIVE_SESSION_BLOCKS_WORKSPACE_SWITCH", 409);
+      }
+      const selection = await tx.workspaceSelection.findUnique({ where: { userId: actorId } });
+      if (!selection) {
+        if (expectedSelectionRevision !== undefined && expectedSelectionRevision !== 0) {
+          throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+        }
+        await tx.workspaceSelection.create({ data: { userId: actorId, workspaceId } });
+      } else if (expectedSelectionRevision === undefined || selection?.revision !== expectedSelectionRevision) {
+        throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+      }
+      if (selection && selection.workspaceId !== workspaceId) {
+        if (selection) {
+          const changed = await tx.workspaceSelection.updateMany({
+            where: { userId: actorId, revision: expectedSelectionRevision },
+            data: { workspaceId, selectedAt: new Date(), revision: { increment: 1 } },
+          });
+          if (changed.count !== 1) throw new ApiError("WORKSPACE_SELECTION_CONFLICT", 409, { conflictFields: ["selectionRevision"] });
+        }
+      }
+      await tx.auditEvent.create({
+        data: { actorId, action: "WORKSPACE_SELECTED", entityType: "ExamWorkspace", entityId: workspaceId },
+      });
+      return serializeWorkspace({
+        ...membership.workspace,
+        current: true,
+        membershipRole: membership.role,
+        selectionRevision: selection ? (selection.workspaceId === workspaceId ? selection.revision : selection.revision + 1) : 1,
+      });
+    }
+
+    const target = await tx.examWorkspace.findFirst({
+      where: { id: workspaceId, userId: actorId },
+    });
+    if (!target) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+
+    if (assertExpectedRevision({ currentRevision: target.revision, expectedRevision }) === "revision_conflict") {
+      throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, {
+        latest: serializeWorkspace(target),
+        conflictFields: ["revision"],
+      });
+    }
+
+    const activeSession = await findWorkspaceSwitchBlockingSession(tx, actorId);
+    const gate = canActivateWorkspace({
+      targetStatus: target.status,
+      hasActiveSession: Boolean(activeSession),
+    });
+    if (gate === "already_active") return serializeWorkspace(target);
+    if (gate === "active_session_blocks_switch") {
+      throw new ApiError("ACTIVE_SESSION_BLOCKS_WORKSPACE_SWITCH", 409);
+    }
+
+    const activeSubjectCount = await tx.subject.count({
+      where: { workspaceId: target.id, archivedAt: null },
+    });
+    if (activeSubjectCount === 0) {
+      throw new ApiError("WORKSPACE_ACTIVE_SUBJECT_REQUIRED", 409);
+    }
+
+    const currentActive = await tx.examWorkspace.findFirst({
+      where: { userId: actorId, status: "ACTIVE" },
+    });
+    const plan = buildActiveSwitchPlan({
+      currentActiveId: currentActive?.id ?? null,
+      targetId: target.id,
+    });
+
+    for (const archiveId of plan.archiveIds) {
+      await archiveWorkspaceForSwitch(tx, archiveId, actorId, new Date());
+    }
+
+    const activation = await tx.examWorkspace.updateMany({
+      where: {
+        id: plan.activateId,
+        userId: actorId,
+        status: "ARCHIVED",
+        revision: expectedRevision,
+      },
+      data: { status: "ACTIVE", archivedAt: null, archivedByUserId: null, revision: { increment: 1 } },
+    });
+    if (activation.count !== 1) throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { conflictFields: ["revision", "status"] });
+    const activated = await tx.examWorkspace.findUniqueOrThrow({ where: { id: plan.activateId } });
+
+    await tx.workspaceSelection.upsert({
+      where: { userId: actorId },
+      create: { userId: actorId, workspaceId: activated.id },
+      update: { workspaceId: activated.id, selectedAt: new Date(), revision: { increment: 1 } },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "EXAM_WORKSPACE_ACTIVATED",
+        entityType: "ExamWorkspace",
+        entityId: activated.id,
+      },
+    });
+
+    return serializeWorkspace(activated);
+  });
+}
+
+export async function previewWorkspaceTakeover(actorId: string): Promise<TakeoverPreviewDto> {
+  return previewWorkspaceTakeoverWithClient(actorId, prisma);
+}
+
+type TakeoverDbClient = Pick<Prisma.TransactionClient, "subject" | "user" | "auditEvent">;
+
+async function previewWorkspaceTakeoverWithClient(
+  actorId: string,
+  client: TakeoverDbClient,
+): Promise<TakeoverPreviewDto> {
+  const subjects = await client.subject.findMany({
+    where: { workspaceId: null },
+    include: {
+      tasks: { select: { id: true, plannedDate: true } },
+      sessions: { select: { id: true, startedAt: true } },
+      notes: { select: { id: true, studyDate: true } },
+      mistakes: { select: { id: true } },
+      syllabusNodes: { select: { id: true } },
+    },
+  });
+  const users = await client.user.findMany({ select: { id: true }, take: 2 });
+  const soleOwnerId = users.length === 1 ? users[0]?.id ?? null : null;
+
+  const rows: Array<{
+    subjectId: string;
+    stableKey: string;
+    legacyCode: WorkspaceSubjectDto["legacyCode"];
+    name: string;
+    verdict: LegacyOwnershipVerdict;
+    affectedDates: number;
+    affectedPeriods: number;
+    crossOwnerBlocked: boolean;
+  }> = [];
+
+  for (const subject of subjects) {
+    const referencedIds = [
+      ...subject.tasks.map((row) => row.id),
+      ...subject.sessions.map((row) => row.id),
+      ...subject.notes.map((row) => row.id),
+      ...subject.mistakes.map((row) => row.id),
+      ...subject.syllabusNodes.map((row) => row.id),
+    ];
+    const auditOwners = await client.auditEvent.findMany({
+      where: {
+        entityId: { in: [subject.id, ...referencedIds] },
+        actorId: { not: null },
+      },
+      select: { entityId: true, actorId: true },
+    });
+    const ownersByEntity = new Map<string, Set<string>>();
+    for (const row of auditOwners) {
+      if (!row.actorId || !row.entityId) continue;
+      const owners = ownersByEntity.get(row.entityId) ?? new Set<string>();
+      owners.add(row.actorId);
+      ownersByEntity.set(row.entityId, owners);
+    }
+    const subjectOwnerCandidates = Array.from(ownersByEntity.get(subject.id) ?? []);
+    if (subjectOwnerCandidates.length === 0 && soleOwnerId && subject.legacyCode) {
+      subjectOwnerCandidates.push(soleOwnerId);
+    }
+    const referencedOwnerCandidates = Array.from(new Set(
+      referencedIds.flatMap((id) => {
+        const owners = Array.from(ownersByEntity.get(id) ?? []);
+        return owners.length ? owners : soleOwnerId ? [soleOwnerId] : [];
+      }),
+    ));
+    const hasMissingReferencedOwner = referencedIds.some((id) =>
+      (ownersByEntity.get(id)?.size ?? 0) === 0 && !soleOwnerId,
+    );
+    const allOwners = new Set([...subjectOwnerCandidates, ...referencedOwnerCandidates]);
+    const crossOwnerBlocked = allOwners.size > 1;
+    const affectedDates = new Set([
+      ...subject.tasks.map((row) => row.plannedDate.toISOString().slice(0, 10)),
+      ...subject.sessions.map((row) => row.startedAt.toISOString().slice(0, 10)),
+      ...subject.notes.flatMap((row) => row.studyDate ? [row.studyDate.toISOString().slice(0, 10)] : []),
+    ]).size;
+
+    const classified = classifyLegacyOwnership({
+      subjectOwnerCandidates,
+      referencedOwnerCandidates,
+      hasOrphanSubject: !subject.legacyCode && referencedIds.length === 0,
+      hasCrossOwnerReference: crossOwnerBlocked,
+      hasMissingOwner: subjectOwnerCandidates.length === 0 || hasMissingReferencedOwner,
+    });
+    const verdict = classified === "TAKEOVER_ELIGIBLE" && subjectOwnerCandidates[0] === actorId
+      ? classified
+      : "UNRESOLVED_LEGACY";
+
+    rows.push({
+      subjectId: subject.id,
+      stableKey: subject.stableKey,
+      legacyCode: subject.legacyCode,
+      name: subject.name,
+      verdict,
+      affectedDates,
+      affectedPeriods: 0,
+      crossOwnerBlocked,
+    });
+  }
+
+  const summary = summarizeTakeoverPreview(rows);
+  return {
+    ...summary,
+    crossOwnerBlockedCount: rows.filter((row) => row.crossOwnerBlocked).length,
+    eligibleSubjectIds: rows.filter((row) => row.verdict === "TAKEOVER_ELIGIBLE").map((row) => row.subjectId),
+    unresolvedSubjectIds: rows.filter((row) => row.verdict === "UNRESOLVED_LEGACY").map((row) => row.subjectId),
+    eligibleSubjects: rows
+      .filter((row) => row.verdict === "TAKEOVER_ELIGIBLE")
+      .map((row) => ({
+        id: row.subjectId,
+        stableKey: row.stableKey,
+        legacyCode: row.legacyCode,
+        name: row.name,
+      })),
+  };
+}
+
+export async function applyWorkspaceTakeover(
+  actorId: string,
+  input: { workspaceId: string; subjectIds: string[]; expectedRevision: number },
+): Promise<{ workspace: ExamWorkspaceDto; takenOverSubjectIds: string[] }> {
+  return prisma.$transaction(async (tx) => {
+    await lockActorWorkspaceScope(tx, actorId);
+
+    const workspace = await tx.examWorkspace.findFirst({
+      where: { id: input.workspaceId, ...workspaceOwnerWhere(actorId), status: "ACTIVE" },
+    });
+    if (!workspace) throw new ApiError("ACTIVE_WORKSPACE_NOT_FOUND", 404);
+    if (assertExpectedRevision({ currentRevision: workspace.revision, expectedRevision: input.expectedRevision }) === "revision_conflict") {
+      throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, {
+        latest: serializeWorkspace(workspace),
+        conflictFields: ["revision"],
+      });
+    }
+
+    const preview = await previewWorkspaceTakeoverWithClient(actorId, tx);
+    const eligibleSet = new Set(preview.eligibleSubjectIds);
+    const requested = Array.from(new Set(input.subjectIds));
+    if (requested.some((id) => !eligibleSet.has(id))) {
+      throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409, {
+        latest: preview,
+        conflictFields: ["subjectIds"],
+      });
+    }
+
+    if (requested.length === 0) {
+      return { workspace: serializeWorkspace(workspace), takenOverSubjectIds: [] };
+    }
+
+    const legacySubjects = await tx.subject.findMany({
+      where: { id: { in: requested }, workspaceId: null },
+      select: { legacyCode: true },
+    });
+    const legacyGroupIds = await ensureLegacyTemplateGroups(tx, workspace.id, legacySubjects);
+    await applyEligibleLegacySubjects(tx, workspace.id, legacyGroupIds, requested);
+    await applyEligibleLegacyRoots(tx, actorId, workspace.id);
+
+    const changed = await tx.examWorkspace.updateMany({
+      where: { id: workspace.id, ...workspaceOwnerWhere(actorId), status: "ACTIVE", revision: input.expectedRevision },
+      data: { revision: { increment: 1 } },
+    });
+    if (changed.count !== 1) throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { conflictFields: ["revision"] });
+    const updatedWorkspace = await tx.examWorkspace.findUniqueOrThrow({ where: { id: workspace.id } });
+
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: "EXAM_WORKSPACE_TAKEOVER_APPLIED",
+        entityType: "ExamWorkspace",
+        entityId: workspace.id,
+        metadata: { subjectIds: requested } as Prisma.InputJsonValue,
+      },
+    });
+
+    return { workspace: serializeWorkspace(updatedWorkspace), takenOverSubjectIds: requested };
+  });
+}
+
+async function applyEligibleLegacySubjects(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  groupIdByLegacyCode: ReadonlyMap<string, string>,
+  subjectIds: string[],
+): Promise<void> {
+  for (const subjectId of subjectIds) {
+    const subject = await tx.subject.findFirst({ where: { id: subjectId, workspaceId: null } });
+    if (!subject) throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409);
+
+    const changed = await tx.subject.updateMany({
+      where: { id: subject.id, workspaceId: null },
+      data: {
+        workspaceId,
+        groupId: subject.legacyCode ? groupIdByLegacyCode.get(subject.legacyCode) ?? null : null,
+      },
+    });
+    if (changed.count !== 1) throw new ApiError("TAKEOVER_SUBJECT_NOT_ELIGIBLE", 409);
+  }
+}
+
+async function ensureLegacyTemplateGroups(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  subjects: Array<{ legacyCode: string | null }>,
+): Promise<Map<string, string>> {
+  const groupIds = new Map<string, string>();
+  for (const subject of subjects) {
+    if (!subject.legacyCode) continue;
+    const match = findExamTemplateSubjectByLegacyCode(subject.legacyCode);
+    if (!match) continue;
+    let group = await tx.subjectGroup.findFirst({
+      where: { workspaceId, stableKey: match.groupStableKey },
+      select: { id: true },
+    });
+    group ??= await tx.subjectGroup.create({
+      data: {
+        workspaceId,
+        stableKey: match.groupStableKey,
+        name: match.groupName,
+        sortOrder: match.groupSortOrder,
+      },
+      select: { id: true },
+    });
+    groupIds.set(subject.legacyCode, group.id);
+  }
+  return groupIds;
+}
+
+async function applyEligibleLegacyRoots(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  workspaceId: string,
+): Promise<void> {
+  const users = await tx.user.findMany({ select: { id: true }, take: 2 });
+  const isSoleOwner = users.length === 1 && users[0]?.id === actorId;
+
+  await tx.periodicReportDecision.updateMany({
+    where: { workspaceId: null, ...(isSoleOwner ? {} : { actorId }) },
+    data: { workspaceId },
+  });
+  await tx.stageAdjustmentDraft.updateMany({
+    where: { workspaceId: null, ...(isSoleOwner ? {} : { actorId }) },
+    data: { workspaceId },
+  });
+  await tx.recoveryState.updateMany({
+    where: {
+      workspaceId: null,
+      ...(isSoleOwner ? {} : { OR: [{ userId: actorId }, { actorId }] }),
+    },
+    data: { workspaceId, userId: actorId },
+  });
+
+  if (!isSoleOwner) return;
+  await tx.stagePlan.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await tx.dailyReview.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await tx.checkIn.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await tx.simulationExam.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+}
+
+async function findWorkspaceSwitchBlockingSession(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+) {
+  return tx.studySession.findFirst({
+    where: {
+      userId: actorId,
+      workspaceId: { not: null },
+      status: { in: ["RUNNING", "PAUSED", "CLOSING"] },
+    },
+    select: { id: true },
+  });
+}
+
+async function assertWorkspaceSwitchHasNoActiveSession(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+): Promise<void> {
+  if (await findWorkspaceSwitchBlockingSession(tx, actorId)) {
+    throw new ApiError("ACTIVE_SESSION_BLOCKS_WORKSPACE_SWITCH", 409);
+  }
+}
+
+async function archiveWorkspaceForSwitch(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  actorId: string,
+  now: Date,
+): Promise<void> {
+  await tx.reviewSchedule.updateMany({
+    where: { workspaceId, status: "ACTIVE" },
+    data: {
+      status: "PAUSED",
+      dueDate: null,
+      pausedReason: "WORKSPACE_ARCHIVED",
+      revision: { increment: 1 },
+    },
+  });
+  await tx.recoveryState.updateMany({
+    where: { workspaceId, status: "ACTIVE" },
+    data: {
+      status: "CANCELED",
+      endedAt: now,
+      exitCondition: "workspace_archived",
+      revision: { increment: 1 },
+    },
+  });
+  await tx.recoveryState.updateMany({
+    where: { workspaceId, status: "active" },
+    data: {
+      status: "canceled",
+      endedAt: now,
+      exitCondition: "workspace_archived",
+      revision: { increment: 1 },
+    },
+  });
+  const archived = await tx.examWorkspace.updateMany({
+    where: { id: workspaceId, ...workspaceOwnerWhere(actorId), status: "ACTIVE" },
+    data: {
+      status: "ARCHIVED",
+      archivedAt: now,
+      archivedByUserId: actorId,
+      revision: { increment: 1 },
+    },
+  });
+  if (archived.count !== 1) {
+    throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { conflictFields: ["status"] });
+  }
+}
+
+export async function listSubjectGroups(actorId: string, workspaceId: string): Promise<SubjectGroupDto[]> {
+  await assertOwnedWorkspace(actorId, workspaceId);
+  const rows = await prisma.subjectGroup.findMany({
+    where: { workspaceId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    workspaceId: row.workspaceId,
+    stableKey: row.stableKey,
+    name: row.name,
+    sortOrder: row.sortOrder,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+  }));
+}
+
+export async function listWorkspaceSubjects(actorId: string, workspaceId: string): Promise<WorkspaceSubjectDto[]> {
+  await assertOwnedWorkspace(actorId, workspaceId);
+  const rows = await prisma.subject.findMany({
+    where: { workspaceId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    workspaceId: row.workspaceId,
+    groupId: row.groupId,
+    stableKey: row.stableKey,
+    legacyCode: row.legacyCode,
+    name: row.name,
+    color: row.color,
+    sortOrder: row.sortOrder,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    legacyScope: false,
+  }));
+}
+
+export async function createWorkspaceSubject(
+  actorId: string,
+  workspaceId: string,
+  input: {
+    stableKey: string;
+    name: string;
+    color: string;
+    sortOrder?: number;
+    groupId?: string | null;
+    expectedWorkspaceRevision: number;
+  },
+): Promise<{ subject: WorkspaceSubjectDto; workspace: ExamWorkspaceDto }> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+      if (input.groupId) {
+        const group = await tx.subjectGroup.findFirst({ where: { id: input.groupId, workspaceId, archivedAt: null } });
+        if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
+      }
+      const created = await tx.subject.create({
+        data: {
+          workspaceId,
+          groupId: input.groupId ?? null,
+          stableKey: input.stableKey.trim(),
+          name: input.name.trim(),
+          color: input.color,
+          sortOrder: input.sortOrder ?? 100,
+          legacyCode: null,
+        },
+      });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_CREATED", entityType: "Subject", entityId: created.id } });
+      return {
+        subject: serializeSubject(created),
+        workspace: serializeWorkspace(updatedWorkspace),
+      };
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ApiError("SUBJECT_STABLE_KEY_ALREADY_EXISTS", 409);
+    }
+    throw error;
+  }
+}
+
+export async function updateWorkspaceSubject(
+  actorId: string,
+  workspaceId: string,
+  subjectId: string,
+  input: {
+    expectedWorkspaceRevision: number;
+    name?: string;
+    color?: string;
+    sortOrder?: number;
+    groupId?: string | null;
+    archived?: boolean;
+    move?: MoveDirection;
+  },
+): Promise<{
+  subject: WorkspaceSubjectDto;
+  workspace: ExamWorkspaceDto;
+  lifecycle?: {
+    pausedReviewScheduleCount: number;
+    resumedReviewScheduleCount: number;
+    remainingPausedReviewScheduleCount: number;
+  };
+}> {
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+    const subject = await tx.subject.findFirst({ where: { id: subjectId, workspaceId } });
+    if (!subject) throw new ApiError("SUBJECT_NOT_FOUND", 404);
+    if (input.move) {
+      assertMoveOnly(input, ["name", "color", "sortOrder", "groupId", "archived"]);
+      if (subject.archivedAt) throw new ApiError("SUBJECT_ARCHIVED", 409);
+      const moved = await reorderWorkspaceSubjects(tx, workspaceId, subject.id, input.move);
+      if (!moved) return { subject: serializeSubject(subject), workspace: serializeWorkspace(workspace) };
+      const reordered = await tx.subject.findUniqueOrThrow({ where: { id: subject.id } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_REORDERED", entityType: "Subject", entityId: subject.id } });
+      return { subject: serializeSubject(reordered), workspace: serializeWorkspace(updatedWorkspace) };
+    }
+    if (input.groupId) {
+      const group = await tx.subjectGroup.findFirst({ where: { id: input.groupId, workspaceId, archivedAt: null } });
+      if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
+    }
+    const isArchiving = input.archived === true && subject.archivedAt === null;
+    const isRestoring = input.archived === false && subject.archivedAt !== null;
+    let pausedReviewScheduleCount = 0;
+    let resumedReviewScheduleCount = 0;
+    let remainingPausedReviewScheduleCount = 0;
+    if (isArchiving) {
+      const remaining = await tx.subject.count({
+        where: { workspaceId, archivedAt: null, id: { not: subject.id } },
+      });
+      if (remaining === 0) throw new ApiError("WORKSPACE_ACTIVE_SUBJECT_REQUIRED", 409);
+      const activeSession = await tx.studySession.findFirst({
+        where: { subjectId: subject.id, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+        select: { id: true },
+      });
+      if (activeSession) throw new ApiError("ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE", 409);
+
+      const paused = await tx.reviewSchedule.updateMany({
+        where: {
+          workspaceId,
+          status: "ACTIVE",
+          OR: [
+            { note: { subjectId: subject.id } },
+            { mistake: { subjectId: subject.id } },
+            { studyResource: { subjectId: subject.id } },
+            { syllabusNode: { subjectId: subject.id } },
+          ],
+        },
+        data: {
+          status: "PAUSED",
+          dueDate: null,
+          pausedReason: "SUBJECT_ARCHIVED",
+          revision: { increment: 1 },
+        },
+      });
+      pausedReviewScheduleCount = paused.count;
+    }
+    if (isRestoring) {
+      const pausedWhere: Prisma.ReviewScheduleWhereInput = {
+        workspaceId,
+        status: "PAUSED",
+        pausedReason: "SUBJECT_ARCHIVED",
+        OR: [
+          { note: { subjectId: subject.id } },
+          { mistake: { subjectId: subject.id } },
+          { studyResource: { subjectId: subject.id } },
+          { syllabusNode: { subjectId: subject.id } },
+        ],
+      };
+      const resumed = await tx.reviewSchedule.updateMany({
+        where: pausedWhere,
+        data: {
+          status: "ACTIVE",
+          dueDate: getStudyDayRange().start,
+          pausedReason: null,
+          revision: { increment: 1 },
+        },
+      });
+      resumedReviewScheduleCount = resumed.count;
+      remainingPausedReviewScheduleCount = await tx.reviewSchedule.count({ where: pausedWhere });
+    }
+    const updated = await tx.subject.update({
+      where: { id: subject.id },
+      data: {
+        name: input.name?.trim(),
+        color: input.color,
+        sortOrder: input.sortOrder,
+        groupId: input.groupId,
+        archivedAt: input.archived === undefined ? undefined : input.archived ? new Date() : null,
+      },
+    });
+    const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: isArchiving ? "SUBJECT_ARCHIVED" : isRestoring ? "SUBJECT_RESTORED" : "SUBJECT_UPDATED",
+        entityType: "Subject",
+        entityId: subject.id,
+        metadata: isArchiving || isRestoring ? {
+          pausedReviewScheduleCount,
+          resumedReviewScheduleCount,
+          remainingPausedReviewScheduleCount,
+        } : undefined,
+      },
+    });
+    return {
+      subject: serializeSubject(updated),
+      workspace: serializeWorkspace(updatedWorkspace),
+      lifecycle: {
+        pausedReviewScheduleCount,
+        resumedReviewScheduleCount,
+        remainingPausedReviewScheduleCount,
+      },
+    };
+  });
+}
+
+export async function createSubjectGroup(
+  actorId: string,
+  workspaceId: string,
+  input: { expectedWorkspaceRevision: number; stableKey: string; name: string; sortOrder?: number },
+): Promise<{ group: SubjectGroupDto; workspace: ExamWorkspaceDto }> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+      const group = await tx.subjectGroup.create({ data: { workspaceId, stableKey: input.stableKey.trim(), name: input.name.trim(), sortOrder: input.sortOrder ?? 100 } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_GROUP_CREATED", entityType: "SubjectGroup", entityId: group.id } });
+      return { group: serializeSubjectGroup(group), workspace: serializeWorkspace(updatedWorkspace) };
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ApiError("SUBJECT_GROUP_STABLE_KEY_ALREADY_EXISTS", 409);
+    }
+    throw error;
+  }
+}
+
+export async function updateSubjectGroup(
+  actorId: string,
+  workspaceId: string,
+  groupId: string,
+  input: { expectedWorkspaceRevision: number; name?: string; sortOrder?: number; archived?: boolean; move?: MoveDirection },
+): Promise<{
+  group: SubjectGroupDto;
+  workspace: ExamWorkspaceDto;
+  lifecycle?: { ungroupedSubjectCount: number };
+}> {
+  return prisma.$transaction(async (tx) => {
+    const workspace = await lockOwnedWorkspaceRevision(tx, actorId, workspaceId, input.expectedWorkspaceRevision);
+    const group = await tx.subjectGroup.findFirst({ where: { id: groupId, workspaceId } });
+    if (!group) throw new ApiError("SUBJECT_GROUP_NOT_FOUND", 404);
+    if (input.move) {
+      assertMoveOnly(input, ["name", "sortOrder", "archived"]);
+      if (group.archivedAt) throw new ApiError("SUBJECT_GROUP_ARCHIVED", 409);
+      const moved = await reorderSubjectGroups(tx, workspaceId, group.id, input.move);
+      if (!moved) return { group: serializeSubjectGroup(group), workspace: serializeWorkspace(workspace) };
+      const reordered = await tx.subjectGroup.findUniqueOrThrow({ where: { id: group.id } });
+      const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+      await tx.auditEvent.create({ data: { actorId, action: "SUBJECT_GROUP_REORDERED", entityType: "SubjectGroup", entityId: group.id } });
+      return { group: serializeSubjectGroup(reordered), workspace: serializeWorkspace(updatedWorkspace) };
+    }
+    const isArchiving = input.archived === true && group.archivedAt === null;
+    const isRestoring = input.archived === false && group.archivedAt !== null;
+    const ungrouped = isArchiving
+      ? await tx.subject.updateMany({ where: { workspaceId, groupId: group.id }, data: { groupId: null } })
+      : { count: 0 };
+    const updated = await tx.subjectGroup.update({
+      where: { id: group.id },
+      data: { name: input.name?.trim(), sortOrder: input.sortOrder, archivedAt: input.archived === undefined ? undefined : input.archived ? new Date() : null },
+    });
+    const updatedWorkspace = await bumpWorkspaceRevision(tx, workspace.id, workspace.revision);
+    await tx.auditEvent.create({
+      data: {
+        actorId,
+        action: isArchiving ? "SUBJECT_GROUP_ARCHIVED" : isRestoring ? "SUBJECT_GROUP_RESTORED" : "SUBJECT_GROUP_UPDATED",
+        entityType: "SubjectGroup",
+        entityId: group.id,
+        metadata: isArchiving ? { ungroupedSubjectCount: ungrouped.count } : undefined,
+      },
+    });
+    return {
+      group: serializeSubjectGroup(updated),
+      workspace: serializeWorkspace(updatedWorkspace),
+      lifecycle: { ungroupedSubjectCount: ungrouped.count },
+    };
+  });
+}
+
+async function lockOwnedWorkspaceRevision(tx: Prisma.TransactionClient, actorId: string, workspaceId: string, expectedRevision: number) {
+  await lockActorWorkspaceScope(tx, actorId);
+  const workspace = getAuthEnv().AUTH_RBAC_ENABLED
+    ? await (async () => {
+      await requireWorkspacePolicy(tx, actorId, workspaceId, "workspace:manage");
+      const managed = await tx.examWorkspace.findFirst({ where: { id: workspaceId, status: "ACTIVE" } });
+      if (!managed) throw new ApiError("WORKSPACE_NOT_FOUND", 404);
+      return managed;
+    })()
+    : await requireWorkspaceOwner(tx, actorId, workspaceId, { active: true });
+  if (workspace.revision !== expectedRevision) {
+    throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { latest: serializeWorkspace(workspace), conflictFields: ["revision"] });
+  }
+  return workspace;
+}
+
+async function bumpWorkspaceRevision(tx: Prisma.TransactionClient, workspaceId: string, expectedRevision: number) {
+  const changed = await tx.examWorkspace.updateMany({ where: { id: workspaceId, revision: expectedRevision }, data: { revision: { increment: 1 } } });
+  if (changed.count !== 1) throw new ApiError("WORKSPACE_REVISION_CONFLICT", 409, { conflictFields: ["revision"] });
+  return tx.examWorkspace.findUniqueOrThrow({ where: { id: workspaceId } });
+}
+
+function serializeSubject(row: { id: string; workspaceId: string | null; groupId: string | null; stableKey: string; legacyCode: WorkspaceSubjectDto["legacyCode"]; name: string; color: string; sortOrder: number; archivedAt: Date | null }): WorkspaceSubjectDto {
+  return { id: row.id, workspaceId: row.workspaceId, groupId: row.groupId, stableKey: row.stableKey, legacyCode: row.legacyCode, name: row.name, color: row.color, sortOrder: row.sortOrder, archivedAt: row.archivedAt?.toISOString() ?? null, legacyScope: false };
+}
+
+function serializeSubjectGroup(row: { id: string; workspaceId: string; stableKey: string; name: string; sortOrder: number; archivedAt: Date | null }): SubjectGroupDto {
+  return { id: row.id, workspaceId: row.workspaceId, stableKey: row.stableKey, name: row.name, sortOrder: row.sortOrder, archivedAt: row.archivedAt?.toISOString() ?? null };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function assertMoveOnly(input: Record<string, unknown>, patchFields: string[]): void {
+  if (patchFields.some((field) => input[field] !== undefined)) {
+    throw new ApiError("MOVE_PATCH_CONFLICT", 400);
+  }
+}
+
+async function reorderWorkspaceSubjects(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  subjectId: string,
+  move: MoveDirection,
+): Promise<boolean> {
+  const rows = await tx.subject.findMany({
+    where: { workspaceId, archivedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const reordered = swapWithNeighbor(rows, subjectId, move);
+  if (!reordered) return false;
+  for (const [index, row] of reordered.entries()) {
+    await tx.subject.update({ where: { id: row.id }, data: { sortOrder: (index + 1) * 10 } });
+  }
+  return true;
+}
+
+async function reorderSubjectGroups(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  groupId: string,
+  move: MoveDirection,
+): Promise<boolean> {
+  const rows = await tx.subjectGroup.findMany({
+    where: { workspaceId, archivedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const reordered = swapWithNeighbor(rows, groupId, move);
+  if (!reordered) return false;
+  for (const [index, row] of reordered.entries()) {
+    await tx.subjectGroup.update({ where: { id: row.id }, data: { sortOrder: (index + 1) * 10 } });
+  }
+  return true;
+}
+
+function swapWithNeighbor<T extends { id: string }>(
+  rows: T[],
+  rowId: string,
+  move: MoveDirection,
+): T[] | null {
+  const index = rows.findIndex((row) => row.id === rowId);
+  const targetIndex = move === "UP" ? index - 1 : index + 1;
+  if (index < 0 || targetIndex < 0 || targetIndex >= rows.length) return null;
+  const reordered = [...rows];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex]!, reordered[index]!];
+  return reordered;
+}
+
+async function assertOwnedWorkspace(actorId: string, workspaceId: string) {
+  if (getAuthEnv().AUTH_RBAC_ENABLED) {
+    await requireWorkspacePolicy(prisma, actorId, workspaceId, "workspace:read");
+    return;
+  }
+  await requireWorkspaceOwner(prisma, actorId, workspaceId);
+}
+
+function hashLockKey(actorId: string): number {
+  let hash = 0;
+  for (let i = 0; i < actorId.length; i += 1) {
+    hash = (hash * 31 + actorId.charCodeAt(i)) | 0;
+  }
+  return hash;
+}

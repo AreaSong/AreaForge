@@ -1,0 +1,271 @@
+import { prisma, type Prisma } from "@areaforge/db";
+import { ApiError } from "@/lib/api/responses";
+import type {
+  StudyTaskDetailDto,
+  TaskDependencyCandidateDto,
+  TaskRelationSummaryDto,
+  TaskUpdateSnapshotDto,
+} from "@/lib/contracts/task";
+import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
+import { fromDbTaskStatus, serializeTask, type DbTaskStatus } from "./task-serializer";
+import type { TaskPriorityDto } from "@/lib/contracts";
+
+export type {
+  StudyTaskDetailDto,
+  TaskDependencyCandidateDto,
+  TaskRelationSummaryDto,
+  TaskUpdateSnapshotDto,
+} from "@/lib/contracts/task";
+
+type TaskDetailReadClient = Pick<Prisma.TransactionClient, "studyTask">;
+
+interface TaskUpdateSnapshotRow {
+  id: string;
+  subjectId: string;
+  syllabusNodeId: string | null;
+  planMilestoneId: string | null;
+  title: string;
+  type: string;
+  status: DbTaskStatus;
+  priority: string;
+  plannedDate: Date;
+  estimatedMinutes: number;
+  reviewText: string | null;
+  updatedAt: Date;
+  relatedSyllabusNodes: Array<{ syllabusNodeId: string }>;
+  stageLinks: Array<{ stagePlanId: string }>;
+  knowledgePointLinks: Array<{ knowledgePointId: string }>;
+}
+
+export async function getStudyTaskDetail(actorId: string, taskId: string): Promise<StudyTaskDetailDto> {
+  const [task, auditEvents] = await Promise.all([
+    prisma.studyTask.findFirst({
+      where: {
+        id: taskId,
+        ownerUserId: actorId,
+        subject: {
+          workspace: {
+            status: "ACTIVE",
+            memberships: { some: { userId: actorId, status: "ACTIVE" } },
+          },
+        },
+      },
+      include: {
+        subject: {
+          include: {
+            workspace: { select: { id: true, name: true, status: true } },
+          },
+        },
+        syllabusNode: true,
+        relatedSyllabusNodes: {
+          include: { syllabusNode: { select: { id: true, title: true, archivedAt: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        stageLinks: {
+          select: {
+            stagePlanId: true,
+            stagePlan: { select: { name: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
+        knowledgePointLinks: {
+          include: { knowledgePoint: { select: { id: true, title: true, masteryState: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+        planMilestone: { select: { id: true, title: true, status: true, archivedAt: true } },
+        reviewSchedule: { select: { id: true, status: true, dueDate: true, revision: true } },
+        parent: { select: { id: true, title: true, status: true, ownerUserId: true } },
+        children: {
+          select: { id: true, title: true, status: true, ownerUserId: true },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: 50,
+        },
+        sessions: {
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            startedAt: true,
+            endedAt: true,
+            effectiveMinutes: true,
+            isEffective: true,
+            minimalOutput: true,
+          },
+          orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+          take: 50,
+        },
+        taskDebtEvents: {
+          select: {
+            id: true,
+            action: true,
+            fromStatus: true,
+            toStatus: true,
+            reason: true,
+            createdAt: true,
+            relatedTask: { select: { id: true, title: true, ownerUserId: true } },
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 50,
+        },
+      },
+    }),
+    prisma.auditEvent.findMany({
+      where: { actorId, entityType: "StudyTask", entityId: taskId },
+      select: { id: true, action: true, createdAt: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 50,
+    }),
+  ]);
+
+  if (!task?.subject.workspace) {
+    throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
+  }
+
+  return {
+    task: serializeTask(task),
+    workspaceId: task.subject.workspace.id,
+    workspaceName: task.subject.workspace.name,
+    readOnly: task.subject.workspace.status !== "ACTIVE",
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+    subjectArchived: Boolean(task.subject.archivedAt),
+    updateSnapshot: serializeTaskUpdateSnapshot(task),
+    planMilestone: task.planMilestone ? {
+      id: task.planMilestone.id,
+      title: task.planMilestone.title,
+      status: task.planMilestone.status,
+      archivedAt: task.planMilestone.archivedAt?.toISOString() ?? null,
+    } : null,
+    reviewSchedule: task.reviewSchedule ? {
+      id: task.reviewSchedule.id,
+      status: task.reviewSchedule.status,
+      dueDate: task.reviewSchedule.dueDate?.toISOString() ?? null,
+      revision: task.reviewSchedule.revision,
+    } : null,
+    relatedSyllabusNodes: task.relatedSyllabusNodes.map(({ syllabusNode }) => ({
+      id: syllabusNode.id,
+      title: syllabusNode.title,
+      archivedAt: syllabusNode.archivedAt?.toISOString() ?? null,
+    })),
+    knowledgePoints: task.knowledgePointLinks.map(({ knowledgePoint }) => knowledgePoint),
+    parentTask: task.parent?.ownerUserId === actorId ? serializeTaskRelation(task.parent) : null,
+    childTasks: task.children.filter((child) => child.ownerUserId === actorId).map(serializeTaskRelation),
+    sessions: task.sessions.filter((session) => session.userId === actorId).map((session) => ({
+      id: session.id,
+      status: session.status,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt?.toISOString() ?? null,
+      effectiveMinutes: session.effectiveMinutes,
+      isEffective: session.isEffective,
+      minimalOutput: session.minimalOutput,
+    })),
+    debtEvents: task.taskDebtEvents.map((event) => ({
+      id: event.id,
+      action: event.action,
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      reason: event.reason,
+      relatedTask: event.relatedTask?.ownerUserId === actorId
+        ? { id: event.relatedTask.id, title: event.relatedTask.title }
+        : null,
+      createdAt: event.createdAt.toISOString(),
+    })),
+    auditEvents: auditEvents.map((event) => ({
+      id: event.id,
+      action: event.action,
+      createdAt: event.createdAt.toISOString(),
+    })),
+  };
+}
+
+export async function getTaskUpdateSnapshot(actorId: string, taskId: string): Promise<TaskUpdateSnapshotDto> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const snapshot = await loadTaskUpdateSnapshotForWorkspace(prisma, workspace.id, taskId, actorId);
+  if (!snapshot) throw new ApiError("TASK_NOT_FOUND", 404, { workbench: "/roadmap/allocation" });
+  return snapshot;
+}
+
+export async function loadTaskUpdateSnapshotForWorkspace(
+  client: TaskDetailReadClient,
+  workspaceId: string,
+  taskId: string,
+  ownerUserId?: string,
+): Promise<TaskUpdateSnapshotDto | null> {
+  const task = await client.studyTask.findFirst({
+    where: { id: taskId, ...(ownerUserId ? { ownerUserId } : {}), subject: { workspaceId } },
+    select: {
+      id: true,
+      subjectId: true,
+      syllabusNodeId: true,
+      planMilestoneId: true,
+      title: true,
+      type: true,
+      status: true,
+      priority: true,
+      plannedDate: true,
+      estimatedMinutes: true,
+      reviewText: true,
+      updatedAt: true,
+      relatedSyllabusNodes: {
+        select: { syllabusNodeId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      stageLinks: {
+        select: { stagePlanId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      knowledgePointLinks: {
+        select: { knowledgePointId: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  return task ? serializeTaskUpdateSnapshot(task) : null;
+}
+
+export function serializeTaskUpdateSnapshot(task: TaskUpdateSnapshotRow): TaskUpdateSnapshotDto {
+  return {
+    id: task.id,
+    subjectId: task.subjectId,
+    syllabusNodeId: task.syllabusNodeId,
+    relatedSyllabusNodeIds: task.relatedSyllabusNodes.map((relation) => relation.syllabusNodeId),
+    stagePlanIds: task.stageLinks.map((relation) => relation.stagePlanId),
+    knowledgePointIds: task.knowledgePointLinks.map((relation) => relation.knowledgePointId),
+    planMilestoneId: task.planMilestoneId,
+    title: task.title,
+    type: task.type,
+    status: fromDbTaskStatus(task.status),
+    priority: task.priority.toLowerCase() as TaskPriorityDto,
+    plannedDate: task.plannedDate.toISOString(),
+    estimatedMinutes: task.estimatedMinutes,
+    reviewText: task.reviewText,
+    updatedAt: task.updatedAt.toISOString(),
+  };
+}
+
+export async function listTaskDependencyCandidates(
+  actorId: string,
+  taskId: string,
+): Promise<TaskDependencyCandidateDto[]> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId);
+  const tasks = await prisma.studyTask.findMany({
+    where: {
+      id: { not: taskId },
+      ownerUserId: actorId,
+      subject: { workspaceId: workspace.id, archivedAt: null },
+    },
+    select: { id: true, title: true, status: true, subject: { select: { name: true } } },
+    orderBy: [{ plannedDate: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+    take: 200,
+  });
+  return tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    status: fromDbTaskStatus(task.status),
+    subjectName: task.subject.name,
+  }));
+}
+
+function serializeTaskRelation(task: { id: string; title: string; status: DbTaskStatus }): TaskRelationSummaryDto {
+  return { id: task.id, title: task.title, status: fromDbTaskStatus(task.status) };
+}

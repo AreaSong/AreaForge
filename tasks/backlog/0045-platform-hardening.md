@@ -94,6 +94,16 @@ safetyFacts:
 - 维护者收到[QUOTA-STORAGE 精确确认包](../../docs/development/high-risk-confirmation-packets.md)后明确回复“继续下一步”，已独立批准兼容 DDL、新合成库/文件/恢复快照、槽 3、并发/强杀/API/窄屏、独立复核和通过后提交推送。本包开始实施，运行态、浏览器及最终交付仍须逐项验证。
 - 跨分区滚动导出计量、MFA/观测、综合门禁、受保护合并、Release/生产与运营证据继续保留；导出副本容量及用户/实例存储总额如需扩展，另行定界。不关闭 residual，不从 CAPACITY 批准外推本包授权。
 
+#### STORAGE 本地真实 API / 浏览器用户旅程（2026-10-04）
+
+- 本轮范围为当前正式实现的本地用户旅程与最小反馈修复；正常策略 9 组及坏配置 1 组真实 HTTP/浏览器验证通过，STORAGE 整包仍 **partial**。HEAD `4b5eec1bbf8d972f7d09f6036624d7a63a89c630`；本轮不暂存、提交、推送、发布或操作生产，前序索引与改动保留。
+- 修复笔记超限显示内部错误码、FILE 部分失败导致成功项被误标网络失败，以及显式重试成功仍保留失败状态。失败文件和表单输入保留；成功后清空笔记文件选择；重试按钮在请求中保持，失败后恢复键盘焦点。复用、复制、跳过沿用原协议，额度仅在精确清理后释放，未改授权、计量、schema 或迁移。
+- 真实矩阵覆盖笔记/FILE、metadata/hash/下载、恰好满额/超额、同键回执、部分失败与新显式批次、重复点击、服务端接受后丢回执再同键重试、copy/finalize/reuse/skip、清理失败与恢复、满额/坏配置下非上传操作、Owner-only 与授权下载/撤销/跨工作区。桌面 1440px、390px、320px 检查提示、输入、pending、焦点、恢复和横向溢出。首次失败及修复后的运行记录分别保留，不把旧截图重标为新源码通过。
+- 旧 STORAGE 临时私有根开工时已不可找到；只新建一个根 `/private/tmp/areaforge-v20-storage-kyzq4rh`，部署/重复部署已批准的 55 条迁移，逐条核对 ledger/checksum。fixture scope `3cc950a740203da2ac5ed83a82c5dac671c306a2cfba67d2cec73cdf1e6257ec`。原 CAPACITY 槽 3 的 fixture/产品指纹/镜像前像核验后才替换，槽 1/2、旧镜像、数据库、卷与故障资源保留。
+- 新增正式 STORAGE 测试池适配，仅槽 3、loopback `http://127.0.0.1:43173`，fixtureId `7bdce1439f2e8656e62f19415f3aa5394f98dda3241cfd3c6685a24decfb6e03`；仅本域 uploads 可写，exports/其他域仍只读，AI/SMTP/Provider/业务消费者关闭。正常与坏配置共用同 fixture ID，验收另外核对真实容器策略，结束恢复正常 256 字节策略；跨 fixture 覆盖拒绝未放宽。
+- 小型排他证据目录：[本轮验收证据](../../output/storage-api-browser-20261004/)。专项指纹 `sha256:eb1465baa20ee5a526415e504ae676af36e70aa863c985d239a9f2b2cd516658`；产品指纹 `sha256:35fc489498a52a9ed3f48bb23d1093dc31e9988e9bd76ff246a9bd9b3f4f2766`。命令为 `TSX_TSCONFIG_PATH=apps/web/tsconfig.json pnpm exec tsx scripts/quality/storage-quota-browser.selftest.ts <fixture-root> <evidence-dir>`，坏配置补 `--invalid`；正式适配入口为 `storage-quota-browser-pool.ts`。工程门禁和独立只读复核回执同目录保存；复核指出的两项 P2 焦点/重选及一项 P3 故障 finally 覆盖已修复并复核无剩余阻断。
+- 宿主机撤销硬链接后 OrbStack 曾缓存旧链接数，引发正确的未知占用拒绝；后续故障注入/撤销统一在同一容器视角，精确附加文件在 finally 移除，不削弱安全检查。新鲜 `audit:all` 仍因 braces 公告为 1 high/退出 1，`audit:prod` 零漏洞/退出 0；未改补丁、依赖或接受例外。历史 1A/1B 阶段未机械重跑或重标，最终整包源码回归、依赖门禁、Git/CI、Release、生产及 v2.0 综合交付仍缺。
+
 #### STORAGE 阶段 1A（2026-10-02）
 
 - **1A 已完成；STORAGE 整体 partial**。范围仅为当前源码、原子准入与并发正确性；分支 `codex/v19-platform-hardening`、HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`，成果保留工作区，未提交/推送。既有文档、失败截图及旧域资源保留。整包交付仍受下述依赖审计失败和 1B/1C 缺口阻断。
@@ -343,3 +353,20 @@ safetyFacts:
 - [独立运行登记](../../output/dependency-audit/dep-2c-2/run-20261003-01/registration.json)、[设计与委派清单](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/design.md)、[候选及工具绑定](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/artifact-binding.json)。新patch SHA-256为`e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`；原/后像、未应用专项diff均在同一sealed目录。
 - 15个hunk精确匹配、6份JavaScript语法检查、80396条独立有界整数路径模型通过；三项独立只读复核发现的问题已在草案中修订并复核。它们不证明补丁运行或安装生效，运行态/Node24/Linux仍未验证。文档门禁和前后保护以同目录最终记录为准。
 - 下一包 [DEP-2C-3-UNIFIED-DEPTH-20261003](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/next-confirmation.md) **待确认、未实施**，绑定当前HEAD/13输入、工具身份、新patch/五后像/专项diff；列明全workspace force写集、禁optimistic、原生恢复、生成物、排他证据与局部回退。没有复用旧批准，不接受漏洞例外，不改audit策略，不授权Git交付、数据库、容器或生产。DEP-2C-2到准备结束即停止。
+
+### DEP-2C-2 续接封存（run-20261003-02）
+
+发现run-01已有草案但缺最终seal及结束保护证明后，先只读核对并完整保留，另行排他登记run-02；当前交接以 [新确认包](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/next-confirmation.md)、[产物绑定](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/artifact-binding.json) 和 [独立复核](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/independent-review.md) 为准。五文件patch不变；专项diff补齐独立解析防缓存漂移、异常结束身份检查、失败/未执行计数与嵌套root测试。仅完成未应用草案/待确认包准备，静态与模型证据不代替实际运行。未安装、应用、rebuild或运行深度PoC，四个旧fixture保留；DEP-2C-1仍partial，旧字节丢失未修复，A未通过、B仍阻断。后续执行仍需新包明确批准，不复用旧批准。
+
+**最终为partial：** 前后比对发现HEAD/索引发生并发变化，当前HEAD为 `4b5eec1bbf8d972f7d09f6036624d7a63a89c630`；本轮未执行Git写入，保留新提交，不回退。13输入、安装/生成物、历史证据与四组fixture未变；[漂移证据](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/baseline-drift.json) 明确旧HEAD确认包当前不可执行。草案与静态复核就绪，但完整准备门禁尚缺新HEAD/索引重新核验绑定；到此停止，不应用候选。
+
+
+### braces 回归脚本组织调整（2026-10-04）
+
+本轮直接调整正式回归脚本及 fixtures，未应用 DEP-2C-2 测试 diff 或深度算法草案。正式输入为 DEP-2A 的 17 个 pattern 与 DEP-2B 的 58 组普通比较字段，来源路径、原始/提取后 SHA-256 与提取规则见 [fixtures 使用说明](../../scripts/quality/fixtures/braces/README.md)。正式入口不再硬编码读取 DEP-2A 清单/观察或 DEP-2B execution 基线/输出；候选清单及其摘要、运行模式、全新输出目录必须显式传入，普通基线默认使用正式 fixtures，可显式覆盖并绑定摘要。
+
+定向测试入口为 `BRACES_VERIFY_SOURCES=1 node --test scripts/quality/braces-depth-regression.test.cjs`（保留历史资料时核验原始提取），日常命令及候选参数契约见上述使用说明。旧包采集与修补后验证严格分开，真实消费链原像采集不执行深度测试；当前原包在后像门禁失败，不得写成安全验证通过。既有 DEP-2A/B/C 证据、历史确认包和封存命令保持历史属性，不因新 CLI 改写旧批准；旧 sealed 测试 diff 绑定的脚本原像已被本次正式组织调整改变，后续若另获批准必须重新核对适用性，不能整体直接应用。
+
+本轮仅覆盖测试组织与防覆盖；braces 补丁未生效、A 未通过和 B 审计阻塞仍保留，未重新审计依赖。依赖/补丁/注册、STORAGE 业务、历史 output、Docker 与索引整理均不在本轮写集；没有依赖安装、四个旧安装环境访问、容器/测试池、Git 交付或生产操作。
+
+本轮验证：定向回归 20/20 通过（含历史来源逐字段一致、真实原包采集、修补后拒绝、并发排他及失败报告）；`pnpm check`、docs:readiness/links/evergreen、tasks:doctor、residuals:validate、CJS 语法与 `git diff --check` 通过。独立只读复核发现的假值基线绕过已修复并增加真实 CLI 负测，复核未见其他阻断问题。历史 output 聚合摘要与索引字节保持；仅测试组织范围完成，不构成补丁、安全审计、Release 或生产通过。

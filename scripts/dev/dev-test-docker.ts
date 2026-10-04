@@ -14,6 +14,12 @@ import {
 
 const UPLOADS_VOLUME = `${DEV_TEST_POOL}-uploads`;
 
+export function fixtureUploadMount(fixture: DevTestExportFixture): string {
+  return fixture.kind === "STORAGE"
+    ? `type=bind,src=${fixture.uploadRoot},dst=/app/uploads`
+    : `type=bind,src=${fixture.uploadRoot},dst=/app/uploads,readonly`;
+}
+
 type DockerInspect = {
   Id: string;
   Name: string;
@@ -138,7 +144,7 @@ export class DockerClient {
         "-p", `127.0.0.1:${port}:3000`,
       );
       if (fixture) args.push("--user", `${fixture.ownerUid}:${fixture.ownerGid}`, "--security-opt", "no-new-privileges", "--cap-drop", "ALL",
-        "--mount", `type=bind,src=${fixture.uploadRoot},dst=/app/uploads,readonly`,
+        "--mount", fixtureUploadMount(fixture),
         "--mount", `type=bind,src=${fixture.exportRoot},dst=/app/exports,readonly`);
       if (fixture?.kind === "OPS") args.push("--mount", `type=bind,src=${fixture.operationContextRoot},dst=/app/ops-context,readonly`);
       if (!fixture) args.push("-v", `${UPLOADS_VOLUME}:/app/uploads`);

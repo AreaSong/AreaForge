@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 2,
+  "source": "docs/development/residual-risk-ledger.md",
+  "items": [
+    {
+      "id": "AF-RISK-OPS-001",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 生产只读 smoke、redacted update-agent status、backup-restore preview 绑定的 operational evidence bundle、OPS-001 closure packet 与 ops:ops-001:preflight=ready_for_human_close 已齐；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-001-closeout.md",
+      "executableNow": false,
+      "closeCondition": "后续生产版本变更或证据过期时重采只读 smoke/status/bundle/closure；preflight 不再 ready 或校验失败时重新打开",
+      "requiredEvidence": "docs/development/ops-001-production-readonly-20260721/prod-readonly-smoke-record.txt、redacted-update-status.json、operational-evidence-bundle.json、backup-restore-preview.json、ops-001-closure-packet.txt、docs/development/residual-closure-review-20260721-ops-001-closeout.md、pnpm ops:ops-001:preflight=ready_for_human_close、pnpm ops:ops-001:closure:validate 通过",
+      "ownerSkills": [
+        "areaforge-sre-ops",
+        "areaforge-qa-smoke"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-002",
+      "type": "deferred-work",
+      "reviewAt": "2026-08-10",
+      "currentImpact": "写入型生产 smoke 策略已有非执行草案；仍缺专用账号、用户确认、清理策略和受控记录",
+      "executableNow": false,
+      "closeCondition": "明确 smoke 账号、允许写入范围、清理策略、失败处理方式并获确认后，完成至少一次受控记录",
+      "requiredEvidence": "确认记录、测试账号、写入对象 ID、清理或保留说明、smoke 结果",
+      "ownerSkills": [
+        "areaforge-qa-smoke",
+        "areaforge-security-governance"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-REL-001",
+      "type": "accepted-exception",
+      "reviewAt": "2026-09-10",
+      "currentImpact": "AREAFORGE_AUTO_APPLY=none 是当前安全默认；patch 自动应用尚未启用",
+      "executableNow": false,
+      "closeCondition": "用户明确确认 patch 自动应用，且签名、备份、extra smoke、rollback target 和 manifest policy 同时满足",
+      "requiredEvidence": "确认记录、updater env 摘要、release manifest、smoke 和 rollback evidence",
+      "ownerSkills": [
+        "areaforge-release-operator",
+        "areaforge-sre-ops"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": {
+        "status": "expired",
+        "scope": "保持 AREAFORGE_AUTO_APPLY=none 作为当前安全默认，不启用 patch 自动应用",
+        "reason": "patch 自动应用尚未获用户明确确认，且签名、备份、extra smoke、rollback target 和 manifest policy 尚未作为同一启用门禁完成确认",
+        "acceptedBy": "AreaSong",
+        "acceptedAt": "2026-08-11T12:12:00+08:00",
+        "expiresAt": "2026-09-10",
+        "reopenConditions": [
+          "用户明确确认启用 patch 自动应用",
+          "AREAFORGE_AUTO_APPLY 不再为 none",
+          "签名、备份、extra smoke、rollback target 或 manifest policy 任一边界发生变化"
+        ],
+        "basisHash": "sha256:2d699ca83b7f9f1cf4003bc9e6999311aab7e32ce83ac89d4685a81de74042ae",
+        "sourceRef": "conversation:2026-08-11-v1.1.2-release-confirmation",
+        "revokedBy": null,
+        "revokedAt": null,
+        "revocationReason": null,
+        "supersededBy": null
+      }
+    },
+    {
+      "id": "AF-RISK-SC-001",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 签名 Release assets 通过 --strict；evidence-only closeout 后代上 sc:sc-002:preflight=ready_for_sc001_sc002_review。人工复核见 docs/development/residual-closure-review-20260721-sc-001-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新 Release、签名策略/workflow 变化、strict 校验失败或 evidence-only binding 失效时重新打开",
+      "requiredEvidence": "docs/development/release-supply-chain-v0.1.9.md、output/release-v0.1.9 assets、docs/development/residual-closure-review-20260721-sc-001-closeout.md、pnpm release:supply-chain:validate --strict、pnpm sc:sc-002:preflight=ready_for_sc001_sc002_review",
+      "ownerSkills": [
+        "areaforge-supply-chain"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-SC-002",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-18",
+      "currentImpact": "exact commit 5bec62608d929a796b4ca00a91aa95bdf256b27c 的 GitHub Actions CI run 29634081982 已成功；CI-only record 证明 expectedGitCommit=gitCommit、生产依赖审计、governance、Actions 40 位 SHA pinning、skills 和 release supply-chain selftest 均通过，clean detached worktree preflight 返回 ready_for_sc002_review。该关闭仅覆盖 CI-only 证据，不关闭 AF-RISK-SC-001",
+      "executableNow": false,
+      "closeCondition": "后续修改 GitHub Actions、依赖审计策略、Release workflow、供应链记录生成/校验工具或创建新 Release 前，重新生成匹配 commit 的 CI-only 或签名 Release 供应链记录；commit mismatch、未 pin action、high/critical 漏洞或匹配 CI 失败时重新打开",
+      "requiredEvidence": "output/supply-chain/ci-run-29634081982.json、output/supply-chain/ci-jobs-29634081982.json、output/supply-chain/ci-supply-chain-5bec626.txt（sha256:10d0bfd7c6e2b39bd2d4d5d7cba74f9d44c9eaeaa2c79399aa4cd8f096ff9722）、output/supply-chain/residual-review-AF-RISK-SC-002-5bec626.txt（sha256:bee97b3352482f5be124a22b15bb0cbea4e40f207baf29f211f777f5c4235f95）、pnpm ci:supply-chain:validate 通过、clean detached worktree pnpm sc:sc-002:preflight 返回 ready_for_sc002_review",
+      "ownerSkills": [
+        "areaforge-supply-chain",
+        "areaforge-enterprise-governance"
+      ],
+      "taskRefs": [
+        "tasks/active/0035-v11-batch11-minor-release.md",
+        "tasks/done/0037-v12-release-preparation.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-SC-003",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-10",
+      "currentImpact": "本地 UX smoke 曾复现 pg transaction client query queue deprecation；packages/db 已对 Prisma pg adapter transaction query 进行串行化，增强后的 trace 覆盖 representative include 路径且无 warning",
+      "executableNow": false,
+      "closeCondition": "后续升级 pg / @prisma/adapter-pg 前重跑 pnpm pg:trace-deprecation 和本地 UX smoke；若 warning 复现则重新打开",
+      "requiredEvidence": "pnpm why pg --recursive 只有 pg@8.22.0；临时 PostgreSQL 16 库 pnpm db:migrate:deploy 通过；NODE_OPTIONS=--trace-deprecation pnpm pg:trace-deprecation matchedWarningCount=0；NODE_OPTIONS=--trace-deprecation pnpm smoke:local-ux 通过且 server log 无 deprecation warning",
+      "ownerSkills": [
+        "areaforge-supply-chain",
+        "areaforge-sre-ops"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-SC-004",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "规范化 Protect main readback + controlled PR #18（ci / verify fail→pass）通过 sc:sc-004:validate 与 preflight=ready_for_human_review；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-sc-004-closeout.md",
+      "executableNow": false,
+      "closeCondition": "ruleset/required check/bypass 变化、readback 过期或校验失败时重新打开",
+      "requiredEvidence": "output/supply-chain/github-main-protection-readback-20260721.json、output/supply-chain/github-main-protection-controlled-pr-20260721.json、docs/development/residual-closure-review-20260721-sc-004-closeout.md、https://github.com/AreaSong/AreaForge/pull/18",
+      "ownerSkills": [
+        "areaforge-enterprise-governance",
+        "areaforge-supply-chain"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0023-github-main-protection.md",
+        "tasks/active/0035-v11-batch11-minor-release.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-003",
+      "type": "deferred-work",
+      "reviewAt": "2026-09-10",
+      "currentImpact": "未来服务器、域名、Nginx 或端口迁移会影响公网 health 和 updater 状态",
+      "executableNow": false,
+      "closeCondition": "新迁移 runbook、备份、Nginx/compose hash、health、rollback 记录齐全",
+      "requiredEvidence": "迁移记录、release/update evidence、DNS/TLS 检查",
+      "ownerSkills": [
+        "areaforge-sre-ops"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-004",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 alert preview 与匹配 manual-window drill 已通过 alert:drill:validate 与 ops:ops-004:preflight=ready_for_human_close；2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-004-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新版本 alert preview 变化、drill 失配、接收人 ACK 缺失或校验失败时重新打开",
+      "requiredEvidence": "docs/development/ops-004-alert-preview-v0.1.9-20260721.json、docs/development/ops-004-alert-drill-v0.1.9-20260721-manual-window.txt、docs/development/residual-closure-review-20260721-ops-004-closeout.md",
+      "ownerSkills": [
+        "areaforge-observability"
+      ],
+      "taskRefs": [],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-005",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "v0.1.9 生产短维护窗采集 V2 check SUCCEEDED + EXPECTED_BEFORE_MISMATCH REJECTED（executionAttempted=false）；redacted rejection/decision-history/operational 证据包通过 ops:ops-005:evidence:validate。ops:ops-005:preflight 因 multi-residual dirty worktree 仍 needs_signed_release（非证据形态失败）。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-005-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新 Release、expectedBefore 语义/证据模板变化、evidence:validate 失败、生产版本变化或 decision-history 过期时重新打开",
+      "requiredEvidence": "docs/development/ops-005-expected-before-v0.1.9-20260721/ops-005-expected-before-v2-20260721.txt、expected-before-rejection.json、decision-history.json、operational-evidence.json、docs/development/residual-closure-review-20260721-ops-005-closeout.md、pnpm ops:ops-005:evidence:validate 通过",
+      "ownerSkills": [
+        "areaforge-security-governance",
+        "areaforge-release-operator",
+        "areaforge-sre-ops"
+      ],
+      "taskRefs": [
+        "tasks/active/0019-update-request-expected-before-binding.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-006",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "Phase B before-doctor→deploy→probe→after-doctor 时间序齐备；controlled concurrency probe cleanupStatus=pass；smoke 账号写入型 task/timer/review+attachment+AI smoke 为 PASS；ops:ops-006:evidence:validate 通过。production:preflight 因 multi-residual dirty worktree 仍 blocked（非 doctor/smoke 证据失败）。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-006-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新 Release、canonical concurrency 语义变化、evidence:validate 失败、生产版本变化或 before/after doctor 过期时重新打开",
+      "requiredEvidence": "docs/development/ops-006-production-evidence-v0.1.9-20260721/、docs/development/release-v0.1.9-record.md（postReleaseSmoke PASS）、output/release-v0.1.9/write-smoke-evidence/write-smoke-summary.json、docs/development/residual-closure-review-20260721-ops-006-closeout.md、pnpm ops:ops-006:evidence:validate 通过",
+      "ownerSkills": [
+        "areaforge-security-governance",
+        "areaforge-sre-ops",
+        "areaforge-validation-driver"
+      ],
+      "taskRefs": [
+        "tasks/active/0020-business-state-concurrency.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-007",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "生产 Phase B 观测 attachment staging/write-intent migration 已 apply（无 pending）、attachment reconciliation+doctor-after pass；专用生产协议记录已绑定。本地 ops:ops-007:preflight 在当前 dirty checkout 下因 runtime implementation hash drift 为 invalid，不阻断本次 observational 关账。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-007-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新 Release、附件协议/migration 变化、生产 recon/doctor 失败、或需声称 fresh local_verified 时重新打开并刷新隔离 runtime",
+      "requiredEvidence": "docs/development/ops-007-production-protocol-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/ops007-attachment-reconciliation-summary.json、ops007-doctor-after.json、docs/development/residual-closure-review-20260721-ops-007-closeout.md",
+      "ownerSkills": [
+        "areaforge-file-storage-safety",
+        "areaforge-security-governance"
+      ],
+      "taskRefs": [
+        "tasks/active/0021-attachment-staging-intent.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-008",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "生产 Phase B 观测 hold→MAINTENANCE_HOLD_ACTIVE 屏障→CAS clear→timers restored；ops:ops-008:preflight:strict=local_verified；生产 journal 记录已绑定。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ops-008-closeout.md",
+      "executableNow": false,
+      "closeCondition": "新 Release、hold/journal 语义变化、preflight:strict 不再 local_verified、或生产 hold/barrier 证据失效时重新打开",
+      "requiredEvidence": "docs/development/ops-008-production-journal-v0.1.9-20260721.txt、output/release-v0.1.9/phaseb-evidence/01-ops008-hold.txt、01b-apply-while-hold.txt、01c-ops008-clear.txt、07-timers-restored.txt、output/ops008/updater-runtime-20260721.json、docs/development/residual-closure-review-20260721-ops-008-closeout.md、pnpm ops:ops-008:preflight:strict=local_verified",
+      "ownerSkills": [
+        "areaforge-sre-ops",
+        "areaforge-observability",
+        "areaforge-security-governance"
+      ],
+      "taskRefs": [
+        "tasks/active/0022-updater-phase-journal-hold.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-UX-001",
+      "type": "closed-evidence",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "current-bound local UX review 通过 experience:review:validate（bindingStatus=current）；desktop/mobile 截图与 runtime probe 已绑定 HEAD。本地证据不证明生产写入体验。2026-07-21 closeout 人工复核见 docs/development/residual-closure-review-20260721-ux-001-closeout.md",
+      "executableNow": false,
+      "closeCondition": "source fingerprint/runtime identity 漂移、体验改动后未重审、校验失败时重新打开；生产体验声明仍需独立生产证据",
+      "requiredEvidence": "docs/development/product-experience-review-20260721-v019-closeout.md、output/playwright/runtime-identity-closeout-20260721T070703Z.json、docs/development/residual-closure-review-20260721-ux-001-closeout.md",
+      "ownerSkills": [
+        "areaforge-product-experience",
+        "areaforge-qa-smoke"
+      ],
+      "taskRefs": [
+        "tasks/active/0024-ux-residual-closure-review.md",
+        "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
+        "tasks/done/0037-v12-release-preparation.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-DATA-001",
+      "type": "deferred-work",
+      "reviewAt": "2026-10-21",
+      "currentImpact": "EXPORT 的私有 ZIP、权限重验、一次性下载与副本回收已有独立本地验收；新增六个删除协议模型后清单为 96 个模型（83 included/12 security/1 derived）。独立 DELETE 已实现持久回收站/冻结、物理文件与数据库删除、最小账本及备份水位重放，53-migration 专用合成库通过 17 组运行态和当前源码 API/桌面/390px/320px 验收。共享/生产源数据及备份策略未改；签名 Release、生产交付、生产恢复与全域联动证据仍缺。本次仅同步证据摘要，不改变 residual 类型、复核日期、可执行状态或关闭条件，不关闭本残余项",
+      "executableNow": false,
+      "closeCondition": "关闭：owner 鉴权/软归档/backup-restore/一次性导出临时资源释放 fixture 与 redaction matrix 齐备，且未来物理删除/撤销路线有单独确认包与实现证据后，方可人工关账。重开：缩短保留期、物理删除、备份副本同步删除、完整账户导出、扩大到 AI history、跨用户可见、或 confirm 落库策略变化",
+      "requiredEvidence": "docs/development/high-risk-confirmation-packets.md（learning-tree data lifecycle 已确认）、导入鉴权/归档/backup-restore/export fixture、redaction matrix、residual close/reopen condition",
+      "ownerSkills": [
+        "areaforge-security-governance",
+        "areaforge-file-storage-safety"
+      ],
+      "taskRefs": [
+        "tasks/done/0029-v11-batch5-resources-import-confirm.md",
+        "tasks/done/0034-v11-batch10-stage-simulation-loop.md",
+        "tasks/active/0035-v11-batch11-minor-release.md",
+        "tasks/backlog/0041-data-lifecycle.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-DATA-002",
+      "type": "deferred-work",
+      "reviewAt": "2026-11-15",
+      "currentImpact": "v1.4 AUTH 与 v1.5 RBAC 本地实施已确认并形成 additive migration、稳定资源 owner、统一授权层、五级角色/grant、跨租户负向、隔离 runtime、总门禁和 Git 检查点；commit 6568c87 的 branch push CI run 34119581102 成功。六类身份 desktop/mobile 可见性、脱敏 Operator 账户目录、跨 Workspace 404、代表性浏览器写入、App Shell/每日复盘 actor/owner 查询隔离和 17 项浏览器失败矩阵已通过，证据见 output/playwright/v15-role-matrix/evidence.json、output/playwright/v15-write-matrix/evidence.json 与 output/playwright/v15-failure-matrix/evidence.json。StudyTask.ownerUserId 已用 fail-closed migration 收紧为非空并通过 49-migration 隔离验证；本地候选仍缺受保护 PR/合并、签名 Release 和生产迁移证据，当前不能开放生产多人协作",
+      "executableNow": true,
+      "closeCondition": "AUTH/RBAC 独立确认包、additive migration、旧 owner 回填、统一授权层、角色/敏感资源矩阵、跨租户负向测试、会话撤销和生产迁移证据齐全后进入人工关闭复核",
+      "requiredEvidence": "威胁模型、migration preimage、权限矩阵、敏感数据矩阵、IDOR/API/service/query 测试、浏览器验收、审计记录、Release/production evidence",
+      "ownerSkills": [
+        "areaforge-security-governance",
+        "areaforge-validation-driver"
+      ],
+      "taskRefs": [
+        "tasks/active/0040-multi-user-rbac.md",
+        "tasks/active/0044-rbac-privacy-collaboration.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-DATA-003",
+      "type": "deferred-work",
+      "reviewAt": "2026-12-15",
+      "currentImpact": "私有挑战/计分/反作弊、opt-in、申诉与通知基础之外，RANKING 持久重建已在独立本地确认下通过 26 组运行态和 12 组浏览器/API 验收：严格权限/来源历史、代次拒绝、原子整榜、撤销/冻结/恢复/合成数据库删除、脱敏导出及两处强杀。复用 53 条 migration、无新增 DDL，默认关闭。完整版本/跨域旅程、受保护合并、Release 与生产证据仍缺；本次仅同步本地证据摘要，不改变分类、复核日期、可执行状态或关闭条件，排行仍需防范隐私泄漏和刷时长激励",
+      "executableNow": false,
+      "closeCondition": "RANKING 独立确认包、个人基准、可重建投影、隐私字段禁区、反作弊、退出/删除重建和申诉证据齐全后进入人工关闭复核",
+      "requiredEvidence": "指标/隐私规范、scoreVersion fixture、重复 session/异常/删除重建测试、挑战 opt-in/退出浏览器验收、跨租户负向测试",
+      "ownerSkills": [
+        "areaforge-product-experience",
+        "areaforge-security-governance",
+        "areaforge-validation-driver"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0043-ranking-platform-hardening.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    },
+    {
+      "id": "AF-RISK-OPS-009",
+      "type": "deferred-work",
+      "reviewAt": "2026-11-30",
+      "currentImpact": "OPS 独立本地确认已完成冻结绑定、root-owned 桥接登记/文件、跨进程锁、不可覆盖日志、停止屏障与回执恢复；38 组合成运行态和真实 API/桌面/390px/320px 验收通过。生产适配器未运行，签名 Release、生产配置/逐动作 backup/apply/rollback 与运营证据仍缺；Web 任意 shell 永久禁止。本次仅同步本地证据摘要，不改变 residual 分类、复核日期、可执行状态或关闭条件",
+      "executableNow": false,
+      "closeCondition": "OPS 独立确认包、白名单 operation catalog、expected-before/TTL/nonce/hash/幂等/审批、root-only agent journal/锁/恢复以及逐动作生产证据齐全后进入人工关闭复核",
+      "requiredEvidence": "协议与威胁模型、请求/agent selftest、kill-point、权限负向测试、签名/备份/hash/smoke/rollback/redacted evidence",
+      "ownerSkills": [
+        "areaforge-sre-ops",
+        "areaforge-security-governance",
+        "areaforge-supply-chain"
+      ],
+      "taskRefs": [
+        "tasks/backlog/0042-controlled-operations-center.md",
+        "tasks/backlog/0045-platform-hardening.md",
+        "tasks/backlog/0046-v2-platform-gate.md"
+      ],
+      "taskPromotionWaiver": null,
+      "acceptedException": null
+    }
+  ]
+}

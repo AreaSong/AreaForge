@@ -1,0 +1,45 @@
+# Workflow
+
+`workflow/` 记录版本级推进方式，不替代 `docs/product/roadmap.md`。
+
+## 目录
+
+- `versions/`：版本计划和验收标准。
+- `templates/`：版本计划模板。
+- `references/`：流程参考资料。
+
+## 当前版本路线
+
+- `versions/v0.1-mvp.md`：前置主闭环。
+- `versions/v0.2-first-version-risk-closures.md`：完整第一版高风险闭环。
+- `versions/v0.3-structured-learning-state.md`：结构化学习状态。
+- `versions/v0.4-second-stage-long-term-loop.md`：第二阶段长期闭环。
+- `versions/v1.0-prod-release.md`：生产发布闭环。
+- `versions/v0.1.8-long-term-operability.md`：OPS-005/006、长期证据和体验加固的本地发布候选；维护者已于 2026-07-20 决定搁置，范围由 v0.1.9 计划承接。
+- `versions/optimization-20260720-long-term-operations.md`：2026-07-20 长期运营优化轮（非发布版本计划，已完成）：到期 residual 复核、四路独立审查修复、轻量门禁借鉴与 UX 证据重采。
+- `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
+- `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
+- `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 及 v1.4-v1.9 候选已分别由 PR #56、#57 合并。六类身份 desktop/mobile、代表性写入、17 项失败矩阵和通知基础已有隔离证据；SEARCH 已有独立本地专项；QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测与 v2.0 综合门禁继续由后续批次承接。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据。
+
+当前进度快照（详情以各版本计划的状态标头为准）：
+
+- 后续候选已增加持久 worker、受控排名通知和完整 EXPORT 文件链路；51 条 migration 与 15/11/14 组内核/通知/导出 runtime、导出桌面/窄视口浏览器/API 验收通过。DELETE 和 OPS 各有独立本地闭环；RANKING 持久重建也已完成 26 组运行态和 12 组浏览器/API 验收，无新增 DDL。SEARCH 专用 54-migration 合成库已有 33 组运行态与 16 组浏览器/API 专项。QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测、完整跨域门禁、后续分支受保护合并、新 Release 和共享/生产交付仍缺，v2.0 保持 partial；PR #57 / `b04ba98` 已合并。
+
+- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；归档生产交付/回滚基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。新鲜公网 health 已观测到 `v1.2.0`，但完整服务器交付证据未核验，差异以 operational-readiness 为准。
+- 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
+- `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
+- 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。
+- 长期运营控制面以 `docs/development/long-term-operability-control-plane.md` 为总入口。
+
+## 使用规则
+
+- 一个版本计划必须说明目标、范围、不包含、验收标准和退出条件。
+- 新版本计划默认从 `workflow/templates/version-template.md` 复制，并先填 Planning Gate：目标、非目标、Exact docs、open questions、decisions、owner skill、validation profile、source docs/source baseline、residual IDs、release trigger、apply boundary、验证和回滚。
+- 版本计划只描述阶段，不承载具体实现细节。
+- 具体执行事项拆到 `tasks/**`。
+- 每次功能发布后必须同步对应 release tag、验证结果、线上 health、update-agent 状态和残余风险。
+- 发布或运维状态变化时必须同步 ops readiness、残余风险 ID 和 release workflow 证据。
+- 功能进入线上前先按 `docs/development/release-train.md` 固定版本、Release 资产、验证、updater、smoke、回滚目标和发布记录证据。
+- 日常维护和 residual 到期复核按 `docs/development/maintenance-cadence.md` 执行；readiness/preview/evidence bundle 不等于 apply，也不能单独关闭 residual。维护者形成 close / keep-open / downgrade / reopen 结论时，先保存 `docs/development/residual-closure-review-template.md` 格式记录并运行 `pnpm residuals:closure:validate <record>`；该记录保持 `closesResidual=no`。
+- 周/月维护窗口、incident、恢复演练或 update-agent redacted status 进入仓库记录时，使用 `docs/development/maintenance-window-record-template.md`、`docs/development/incident-record-template.md`、`docs/development/restore-drill-record-template.md` 或 `docs/development/update-agent-status-record-template.md` 并运行对应 validator。新增维护窗口后完整重建并校验 `docs/development/maintenance-window-index.json`；任何通过校验的事故记录进入固定目录后，完整重建并校验 `docs/development/incident-index.json`，由索引分入 `active` 或 `resolved`。两个索引都只用于浏览和完整性检查，不进入版本执行或实时事故处置。

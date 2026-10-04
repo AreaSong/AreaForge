@@ -109,7 +109,7 @@ async function replaceSlot(selection: SlotSelection, identity: BuildIdentity, fi
     docker.runInstance(selection.slot, selection.port, identity, environment, checkedFixture);
     await waitForHealth(selection.port, identity);
     if (renamed) docker.remove(backupName);
-    if (old) docker.removeOwnedImageIfUnused(old.imageId);
+    if (old && fixture?.kind !== "STORAGE") docker.removeOwnedImageIfUnused(old.imageId);
   } catch (error) {
     const rollbackError = rollbackSlot(fixedName, backupName, renamed, oldWasRunning);
     if (rollbackError) throw new Error(`${message(error)}; rollback failed: ${rollbackError}`);

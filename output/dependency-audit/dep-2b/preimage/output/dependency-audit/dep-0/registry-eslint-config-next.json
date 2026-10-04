@@ -1,0 +1,137 @@
+{
+  "source": "https://registry.npmjs.org/eslint-config-next",
+  "tags": {
+    "next-11": "11.1.4",
+    "next-12-2-6": "12.2.6",
+    "next-14-1": "14.1.1",
+    "rc": "15.0.0-rc.1",
+    "next-13": "13.5.11",
+    "next-12-3-2": "12.3.7",
+    "beta": "16.0.0-beta.0",
+    "next-14": "14.2.35",
+    "next-15-3": "15.3.9",
+    "next-15-2": "15.2.9",
+    "next-15-0": "15.1.12",
+    "next-15-0-0": "15.0.8",
+    "preview": "16.3.0-preview.10",
+    "latest": "16.3.8",
+    "backport": "15.5.27",
+    "canary": "16.4.0-canary.58"
+  },
+  "versions": {
+    "16.3.3": {
+      "name": "eslint-config-next",
+      "version": "16.3.3",
+      "engines": null,
+      "peerDependencies": {
+        "eslint": ">=9.0.0",
+        "typescript": ">=3.3.1"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      },
+      "dependencies": {
+        "globals": "16.4.0",
+        "typescript-eslint": "^8.46.0",
+        "eslint-plugin-react": "^7.37.0",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-jsx-a11y": "^6.10.0",
+        "@next/eslint-plugin-next": "16.3.3",
+        "eslint-plugin-react-hooks": "^7.0.0",
+        "eslint-import-resolver-node": "^0.3.6",
+        "eslint-import-resolver-typescript": "^3.5.2"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "dev": "pnpm build",
+        "build": "swc -d dist src && pnpm types",
+        "types": "tsc --skipLibCheck --declaration --emitDeclarationOnly --esModuleInterop --declarationDir dist --rootDir src",
+        "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+      },
+      "dist": {
+        "shasum": "bc1d635194f4d81ef4ef9338547b20a432022e2b",
+        "tarball": "https://registry.npmjs.org/eslint-config-next/-/eslint-config-next-16.3.3.tgz",
+        "fileCount": 9,
+        "integrity": "sha512-teqtsR26tnlfXFHfVLTM/4tzEzU8DMu6GS1sddZzhfGzgd2f2ofbgDUcsk6cssSCzX6Tk6fmWifJcdANSdPJrw==",
+        "signatures": [
+          {
+            "sig": "MEUCIQCokTozJ59n3+ey+TBhQ67aR8zmzhLbasEPI9YioXN2PgIgAkuDJ4uyc3Zz4d9JJDbX1KtrbL0OnOjt8N5xKZysPX8=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEUCIBjsM7nYYHnq9Tu9rLnyygAUVo+sAnbVZBcVkT1D6eMjAiEAzf+dcsHJoMOYR6oLU26YcrqT9ouIjDk7somInsWfmgU=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/eslint-config-next@16.3.3",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 14190
+      },
+      "published": "2026-08-25T15:08:30.181Z"
+    },
+    "16.3.6": {
+      "name": "eslint-config-next",
+      "version": "16.3.6",
+      "engines": null,
+      "peerDependencies": {
+        "eslint": ">=9.0.0",
+        "typescript": ">=3.3.1"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      },
+      "dependencies": {
+        "globals": "16.4.0",
+        "typescript-eslint": "^8.46.0",
+        "eslint-plugin-react": "^7.37.0",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-jsx-a11y": "^6.10.0",
+        "@next/eslint-plugin-next": "16.3.6",
+        "eslint-plugin-react-hooks": "^7.0.0",
+        "eslint-import-resolver-node": "^0.3.6",
+        "eslint-import-resolver-typescript": "^3.5.2"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "dev": "pnpm build",
+        "build": "swc -d dist src && pnpm types",
+        "types": "tsc --skipLibCheck --declaration --emitDeclarationOnly --esModuleInterop --declarationDir dist --rootDir src",
+        "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+      },
+      "dist": {
+        "shasum": "46adc0ce206ccb09e8a982875cbc7867f2be1391",
+        "tarball": "https://registry.npmjs.org/eslint-config-next/-/eslint-config-next-16.3.6.tgz",
+        "fileCount": 9,
+        "integrity": "sha512-1Upt3U7BDwU+ilpe2byZjAfts9oNq4d4fv/zXEvs8/4yS+cwOQW/WCxUNy8gCDquX67SzeehDvKblVC6ZBMocQ==",
+        "signatures": [
+          {
+            "sig": "MEYCIQCRihQhEQMfhWco+kSstmdAxAHt1kZ39W7kBY32uU+67wIhANtDB2g25uIhJWKRbJ/2PqTahhquitE6Te27kiO+UwcT",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEQCIBOmPPf8FPYEfe7KkJTZedVA8tBRNIea6Mxri+uoGwQXAiA2HHYnmYqhYXNRDladtmO3qLkh3eIQ9u5CQLybnu/ZBQ==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/eslint-config-next@16.3.6",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 14190
+      },
+      "published": "2026-09-22T16:11:44.900Z"
+    }
+  }
+}

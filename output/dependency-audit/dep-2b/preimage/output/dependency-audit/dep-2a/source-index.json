@@ -1,0 +1,44 @@
+{
+  "braces-pr72": {
+    "url": "https://api.github.com/repos/micromatch/braces/pulls/72",
+    "fetchedAt": "2026-10-03T05:57:42.929751+00:00",
+    "file": "braces-pr72.json",
+    "sha256": "ffbdac37010e24ac037303d657d7afc0206d0bff708171b9e8b84979efed99b8"
+  },
+  "braces-pr72-files": {
+    "url": "https://api.github.com/repos/micromatch/braces/pulls/72/files?per_page=100",
+    "fetchedAt": "2026-10-03T06:04:37.081567+00:00",
+    "file": "braces-pr72-files.json",
+    "sha256": "47d3021b52cad5120e6727098994bb9c8858693fddd20607be45c0d4a1a6973f"
+  },
+  "tinyglobby-source": {
+    "url": "https://raw.githubusercontent.com/SuperchupuDev/tinyglobby/v0.2.17/src/index.ts",
+    "error": "HTTP Error 404: Not Found"
+  },
+  "tinyglobby-manifest": {
+    "url": "https://raw.githubusercontent.com/SuperchupuDev/tinyglobby/v0.2.17/package.json",
+    "error": "HTTP Error 404: Not Found"
+  },
+  "tinyglobby-readme": {
+    "url": "https://raw.githubusercontent.com/SuperchupuDev/tinyglobby/v0.2.17/README.md",
+    "error": "<urlopen error EOF occurred in violation of protocol (_ssl.c:1129)>"
+  },
+  "tinyglobby-tag": {
+    "url": "https://api.github.com/repos/SuperchupuDev/tinyglobby/git/ref/tags/v0.2.17",
+    "error": "HTTP Error 404: Not Found"
+  },
+  "pnpm-hooks": {
+    "url": "https://pnpm.io/pnpmfile",
+    "fetchedAt": "2026-10-03T05:57:45.485317+00:00",
+    "file": null,
+    "sha256": "32756842a1c8a9bdd750e3d1e4574fbe585e30b31dd984e688aaade73635eb25",
+    "retention": "Discarded HTML; final candidate adds no pnpm hook, official reference URL retained."
+  },
+  "pnpm-overrides": {
+    "url": "https://pnpm.io/settings",
+    "fetchedAt": "2026-10-03T05:57:46.033454+00:00",
+    "file": null,
+    "sha256": "0afe6f3e43fe66feca445b339a7f0b98e64076b8b50bc6bd0555d4d90bd5a6cf",
+    "retention": "Discarded HTML; final candidate adds no pnpm hook, official reference URL retained."
+  }
+}

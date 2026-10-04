@@ -1,0 +1,198 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/brand/final/areaforge-logo-lockup-outlined-light.svg">
+  <img alt="AreaForge" src="assets/brand/final/areaforge-logo-lockup-outlined-light.svg" width="520">
+</picture>
+
+# AreaForge
+
+**面向个人长期备考的自我锻造与考研督战系统。**
+
+AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把直接学习、专注投入、知识证据、复盘和阶段调整串成一条长期学习闭环，让数据持续回答两个问题：这次是否真正学进去，以及接下来应该如何复测和调整。
+
+[线上版本](https://forge.areasong.top/) · [产品定位](docs/product/charter.md) · [学习闭环](docs/product/learning-loop.md) · [使用指南](docs/guide/user-guide.md) · [完整文档](docs/README.md) · [自托管指南](docs/deployment/operator-onboarding.md) · [安全披露](SECURITY.md)
+
+![AreaForge 今日作战台](output/playwright/experience-review/desktop-dashboard.png)
+
+## 当前重点
+
+- 产品重点：服务一个人的长期备考闭环，不做通用团队项目管理。
+- 功能状态：任务、计时、考纲、笔记附件、错题、复盘、AI 建议、模拟考试、周期报告、阶段草稿和发布/备份/恢复/回滚链路都有实现与验证记录。
+- 当前边界：稳定 Release/生产仍是单管理员私有 Web 应用；v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作以及 v1.6-v1.9 平台候选已以默认关闭形态合并 `main`，但尚未形成新 Release/生产能力。AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
+- README 只突出内容重点、当前状态和常用入口；功能追踪、发布证据、验证矩阵和残余风险以 `docs/**` 为准。
+
+## 核心闭环
+
+```text
+首次设置 -> 今日判断 -> 行动执行 -> 活动收口 -> 可选证据 -> 每日复盘 -> 行动安排 -> 周月校准
+```
+
+AreaForge 的重点不是记录得更多，而是让每次学习都留下可复核的结果，并把结果转成下一步行动。AI 只生成建议或草稿，不直接覆盖用户记录，也不自动修改任务或阶段计划。
+
+跨工作台的完整流程、状态语义、当前实现与后续功能优先级见 [学习闭环](docs/product/learning-loop.md)。
+
+## 产品内容重点
+
+| 内容重点 | 当前能力 |
+|---|---|
+| 开始学习 | 独立 `/focus` 入口、选科目后直接大计时器、单一活动约束、本地优先离线同步 |
+| 今日与计划 | 今日行动闭环、日期查看、计划收件箱、阶段计划与任务详情；任务是上下文，不是学习成果本身 |
+| 知识证据 | 独立知识点、考纲范围视图、掌握条件与证据、复测记录、笔记、私有附件、错题与复习提醒 |
+| 检验与复盘 | 专项复测、模拟考试、完整复盘、周报/月报和阶段调整；所有建议进入统一确认中心 |
+| AI 协助 | OpenAI-compatible Provider、Web 全局开关与当前浏览器默认关闭 opt-in、结构化输出校验、本地规则回退、最小化上下文和显式触发 |
+| 私有交付 | 稳定单管理员登录；本地候选含邀请制账户、Workspace/Membership、五级 RBAC、对象分享、Coach 建议确认链和脱敏 Operator 管理面；PostgreSQL 持久化、备份恢复、签名 Release、服务器侧受控更新与回滚 |
+
+第一版与第二阶段文档范围的当前实现状态，统一以 [功能追踪矩阵](docs/development/feature-traceability.md) 为准。
+
+## 当前状态
+
+| 层级 | 当前事实 |
+|---|---|
+| 仓库状态 | 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfa`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
+| 当前候选 | 当前 checkout 的 package version 仍为 `1.2.0`；新增 v2.0 分域候选不因版本号与既有 Release 相同而视为发布或上线 |
+| A -> B 本地进度 | v1.3 与 v1.4-v1.9 默认关闭候选已由 PR #56/#57 合并；内核、通知、EXPORT、DELETE、OPS 已有分域本地证据。RANKING 持久重建新增 26 组运行态和 12 组真实浏览器/API 验收，复用 53 条 migration，无新增 DDL。SEARCH 持久索引已有 54 条迁移、33 组运行态和 16 组浏览器/API 本地专项证据。QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测、完整跨域门禁、受保护合并、新 Release、共享/生产与运营证据仍缺；v2.0 整体保持 partial |
+| 生产交付记录 | 归档基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；不是当前公网版本的新鲜证明 |
+| 公网只读观测 | 2026-09-14 `05:39:05Z` health 报告 `v1.2.0` / `018cdfa` / verified；本批未执行更新，服务器迁移/备份/agent/回滚证据待独立核验 |
+| 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
+| 当前收口 | `v1.2.0` 的既有 Release 制品记录已完成；公网观测与旧生产交付记录有版本差异，详见 operational-readiness。本批未执行 production apply，不改自动策略，不关闭 residual；v2.0 综合门禁仍 partial |
+| 状态详情 | 只读快照用 `pnpm ops:status --summary`；其中旧版本默认绑定只能作为历史证据，当前生产事实以公网 health、服务器 updater 状态与 [运营 readiness](docs/development/operational-readiness.md) 为准，剩余缺口见 [残余风险台账](docs/development/residual-risk-ledger.md) |
+
+深入的状态证据入口：[长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[docs 100% 完成记录](docs/development/docs-100-completion-record.md)、[版本历史](CHANGELOG.md)。
+
+## 产品边界
+
+v2.0 首批持久后台任务执行内核已形成本地候选：持久退避/死信、租约代次、暂停/取消/重放、事务提交及独立进程恢复。
+最新 51-migration 专用导出合成库的 15 组内核、11 组通知、14 组导出 runtime，以及桌面/390px/320px 导出浏览器/API 证据见 `tasks/backlog/0041-data-lifecycle.md` 和 `tasks/backlog/0045-platform-hardening.md`；DELETE、OPS 与 RANKING 另有独立本地闭环。排名重建的 26/12 组证据见 `tasks/backlog/0043-ranking-platform-hardening.md`，SEARCH 的 33/16 组运行态/浏览器证据见 `tasks/backlog/0045-platform-hardening.md`；仍缺平台综合门禁及共享/生产交付，不等于 v2.0 完成。
+
+- 稳定 Release 的产品边界是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；已合并 `main` 但默认关闭的 v1.4-v1.5 候选提供邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
+- PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
+- AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题；外部 Provider 还需当前浏览器在 `/settings/ai` 显式开启，Provider key 不进入客户端。
+- 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
+- Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
+- v1.5-v1.9 候选已提供 RBAC、对象分享、Coach、受控运维请求、私有挑战/投影/申诉与持久通知；完整导出、物理删除与备份账本重放已有各自本地验收。OPS 冻结绑定、root 桥接/锁/日志/恢复和 RANKING 持久重建也已有独立本地验收；平台加固与完整跨域联动仍缺，不能描述为只差发版。小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
+
+## 技术架构
+
+| 层 | 实现 |
+|---|---|
+| Web | Next.js、React、TypeScript |
+| 业务规则 | `packages/core`，保持平台无关，不依赖 Next.js、React、Prisma、浏览器 API 或环境变量 |
+| 数据 | PostgreSQL、Prisma、`packages/db` |
+| AI 与文件 | `packages/ai`、`packages/storage` |
+| 部署 | Docker Compose、Nginx、GitHub Release、GHCR、服务器侧 updater |
+
+```text
+apps/web          私有 Web 应用与 API
+packages/core     平台无关业务规则
+packages/db       Prisma 与数据库访问
+packages/ai       AI 适配、校验与回退
+packages/storage  附件安全规则
+prisma            数据模型与 migrations
+docs              产品、架构、开发、部署和安全源事实
+ops / scripts     发布、更新、验证与只读运营工具
+```
+
+详细调用方向见 [架构总览](docs/architecture/overview.md) 和 [工程结构](docs/architecture/project-structure.md)。
+
+## 本地开发
+
+建议使用 Node.js 24（当前 CI/Release 基线）、pnpm `11.7.0` 和 Docker Compose。
+
+```bash
+pnpm install
+docker compose up -d postgres
+pnpm db:generate
+pnpm db:migrate:dev
+```
+
+首次启动前，从 `.env.example` 准备本地 `.env`，并至少完成以下配置：
+
+- 将 `AUTH_SESSION_SECRET` 替换为不少于 32 个字符的本地随机值。
+- 将 `AUTH_ACTION_TOKEN_SECRET` 替换为另一份不少于 32 个字符的服务端随机值；v1.4 邀请、验证和重置链接使用该密钥。
+- 设置 `AUTH_ADMIN_EMAIL`，并将密码哈希写入 `AUTH_ADMIN_PASSWORD_HASH`。
+- 将 `UPLOAD_DIR` 改为本机可写、位于 `apps/web/public` 之外的绝对路径。
+- 将 `APP_VERSION` 与根 `package.json` 的当前版本保持一致。
+
+密码哈希可通过以下命令生成：
+
+```bash
+pnpm auth:hash '<local-password>'
+```
+
+把输出写回 `.env` 后，再初始化管理员并启动应用。普通 seed 不创建业务科目；首次登录后在考试与科目设置中建立工作区和科目。v1.4 多人功能默认关闭，只有隔离 migration/验证和目标环境 SMTP 配置完成后才显式设置 `AUTH_MULTI_USER_ENABLED=true`：
+
+```bash
+pnpm db:seed
+pnpm dev
+```
+
+默认访问地址是 `http://localhost:3000`，默认开发数据库是 `postgresql://areaforge:areaforge@127.0.0.1:54329/areaforge`。完整说明见 [开发设置](docs/development/setup.md)。
+
+需要保留 production-build UI 进行浏览器验证或版本对比时，使用固定的本地测试池，不要手工创建递增命名的容器：
+
+```bash
+pnpm dev:test:refresh -- --note "当前迭代"
+pnpm dev:test:snapshot -- --note "保留用于比较"
+pnpm dev:test:latest
+pnpm dev:test:list
+```
+
+测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；`latest` 按最后一次成功部署标记唯一最新槽位和访问地址，不能用槽位数字猜测。候选失败时恢复旧实例。普通模式使用 `.env.local` allowlist、共享本地测试库与 uploads volume；已确认的 EXPORT/DELETE/OPS 专用模式要求精确 fixture marker、合成库/密钥、只读文件挂载与显式槽位，不得覆盖共享槽。不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
+
+浏览器/Playwright 验收只访问 latest 返回的地址，不为每个任务或页面创建新的 Web 容器。历史上可能出现的 `areaforge-v11browser-runtime-*` 只能作为一次性验收 runtime，验收结束必须删除；它们不属于测试池，也不得作为长期服务保留。
+
+## 常用验证入口
+
+| 场景 | 入口 |
+|---|---|
+| 常规代码改动 | `pnpm check`；需要全包测试时补 `pnpm test` |
+| 文档、治理、高风险边界 | `pnpm docs:readiness`、`pnpm docs:completion`、`pnpm risk:preflight`、`pnpm governance:preflight` |
+| 发布或更新准备 | `pnpm release:train:preflight`、`pnpm github-release-updater:preflight`、`pnpm release:closeout:audit -- --version <X.Y.Z>`，按 [Release train](docs/development/release-train.md) 固定版本、资产、回滚、跨记录一致性和停止条件 |
+| 日常只读运营 | `pnpm ops:handoff --summary`、`pnpm ops:handoff:validate <handoff.json>`、`pnpm ops:status --summary`、`pnpm ops:readiness`、`pnpm ops:readonly-side-effect:selftest`、`pnpm ops:data-integrity:selftest`、`pnpm residuals:review-due`、`pnpm residuals:promotion-preview`、`pnpm residuals:closure:validate <record>` |
+| 维护与证据收口 | `pnpm maintenance:window:record`、`pnpm maintenance:window:index`、`pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json`、`pnpm incident:index`、`pnpm incident:index:validate docs/development/incident-index.json`、`pnpm release:post-observation:validate <record>`、`pnpm release:post-observation:status <record>`、`pnpm attachment:reconciliation:summary:selftest`、`pnpm ops:evidence:bundle`、`pnpm ops:long-term:snapshot`、`pnpm ops:alert:preview`、`pnpm ops:support:bundle-preview`、`pnpm ops:backup-restore:preview` |
+| 长期运营控制面 | `pnpm ops:lifecycle:selftest`、`pnpm ops:lifecycle:validate`、`pnpm ops:lifecycle:typecheck`、`pnpm enterprise:operability:preflight`、`pnpm update-agent:status:record <status.json>`、`pnpm ops:ops-001:preflight`、`pnpm ops:ops-001:blocked:validate <record>`、`pnpm ops:ops-001:closure <smoke> <status> <bundle>`、`pnpm ops:ops-004:preflight`、`pnpm ops:ops-005:local:selftest`、`pnpm ops:ops-005:preflight`、`pnpm ops:data-integrity:doctor`、`pnpm ops:data-integrity:validate <record>`、`pnpm ops:long-term:snapshot:validate <snapshot.json>` |
+| 供应链与体验复核 | `pnpm secrets:scan`、`pnpm release:supply-chain:validate <record> <release-assets-dir> --strict`、`pnpm ci:supply-chain:record`、`pnpm sc:sc-002:preflight`、`pnpm experience:review:validate <record>` |
+
+`pnpm ops:long-term:snapshot` 会把当前 checkout 的长期运营证据和缺口固定成 schema v3 只读 JSON，并把 fresh data-integrity doctor 的文件 hash、内部 doctor hash、freshness 和 OPS-006 状态一起绑定；默认 validator 会重新核对当前 checkout 与当前证据输入，历史 v1/v2 归档只能显式使用 `--shape-only`。它不联网、不执行生产动作、不关闭 residual；长期运营完成声明仍必须通过 `pnpm ops:long-term:gate`。当前 blocker 与逐项证据状态见 [运营 readiness](docs/development/operational-readiness.md) 和 [残余风险台账](docs/development/residual-risk-ledger.md)。
+
+`pnpm release:closeout:audit -- --version <X.Y.Z>` 会把指定版本的 Release 记录、签名供应链记录、operational evidence bundle、rollback target 和 residual 台账做只读交叉审计；发现证据缺口或跨记录不一致时阻断。它不修改历史记录、不执行生产动作，也不自动关闭 residual。
+
+每个生产 Release 另有独立 D14/D30 观察记录，绑定 Release identity 和记录 hash；`pending_observation` 是合法等待状态，不是失败或生产健康证明。closeout audit 将正常等待、过期缺证据和真实阈值失败分别投影到 `pendingBy`、`attentionBy` 和 `blockedBy`。当前版本的观察记录见 `docs/development/post-release-observation-*.json`。
+
+`pnpm ops:handoff:validate <handoff.json>` 默认重建当前 checkout 的 `controlPlaneSourceHash` 和 `protectedPathFingerprint`，旧交接若已漂移会以 `bindingStatus: stale` 失败。只有历史归档形态检查可显式使用 `--shape-only`；此时 `bindingStatus: unavailable`，不能证明交接仍适用于当前代码和文档。
+
+附件恢复/发布证据使用 `pnpm attachment:reconciliation -- <UPLOAD_DIR> <report.csv> --summary-output <summary.json>`。它始终执行数据库到文件和文件到数据库的双向只读扫描，报告必须写在 `UPLOAD_DIR` 外；孤儿/unsafe entry 只记录文件名 SHA256，不删除、不移动、不修复。`pnpm release:evidence:validate` 必须同时读取发布记录、CSV 和 summary，并校验记录中的路径、status、CSV SHA256 与 summary canonical hash 绑定。
+
+不要从 README 猜测专项命令。按改动范围查阅 [验证矩阵](docs/development/validation-matrix.md)，长期运营节奏查阅 [维护节奏](docs/development/maintenance-cadence.md) 和 [长期运营控制面](docs/development/long-term-operability-control-plane.md)。
+
+## 文档地图
+
+| 主题 | 入口 |
+|---|---|
+| 产品定位、范围与路线 | [产品 Charter](docs/product/charter.md)、[学习闭环](docs/product/learning-loop.md)、[PRD](docs/product/prd.md)、[功能范围](docs/product/feature-scope.md)、[路线图](docs/product/roadmap.md) |
+| 架构与数据边界 | [架构总览](docs/architecture/overview.md)、[数据模型](docs/architecture/data-model.md)、[API 边界](docs/architecture/api-surface.md) |
+| 模块与页面行为 | [模块文档](docs/modules/)、[UX 文档](docs/ux/)、[品牌素材](docs/ux/brand-assets.md) |
+| 实现与完成证据 | [实现顺序](docs/development/implementation-order.md)、[功能追踪矩阵](docs/development/feature-traceability.md)、[完成记录](docs/development/docs-100-completion-record.md) |
+| 协作与验证 | [Codex 工作流](docs/development/codex-workflow.md)、[文档同步清单](docs/development/doc-sync-checklist.md)、[验证矩阵](docs/development/validation-matrix.md) |
+| 发布与长期运营 | [长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[Release train](docs/development/release-train.md)、[运营 readiness](docs/development/operational-readiness.md)、[维护节奏](docs/development/maintenance-cadence.md)、[残余风险台账](docs/development/residual-risk-ledger.md)、[体验复核模板](docs/development/product-experience-review-record-template.md) |
+| 自托管与恢复 | [操作者上手](docs/deployment/operator-onboarding.md)、[GitHub Release updater](docs/deployment/github-release-updater.md)、[备份恢复](docs/deployment/backup-restore.md) |
+| 安全、支持与评审 | [威胁模型](docs/security/threat-model.md)、[文件与 AI 安全](docs/security/file-ai-safety.md)、[安全披露](SECURITY.md)、[支持入口](SUPPORT.md)、[支持 intake](docs/development/support-intake.md)、[支持包预览](docs/development/support-bundle-preview.md)、[代码评审门禁](CODE_REVIEW.md) |
+| 任务与版本 | [轻量任务](tasks/README.md)、[版本规划](workflow/README.md)、[残余风险索引](tasks/indexes/residuals.md) |
+
+README 只负责突出重点和导航，产品规则、架构约束、验证门禁与生产证据仍以对应源文档为准。
+
+## Codex 协作能力
+
+仓库提供 repo-local Codex skills，用于发布、安全、文件存储、AI 治理、体验复核、SRE、供应链、文档同步和残余风险管理。跨多个治理面时由 `areaforge-operating-loop` 编排 owner skill、验证选择和收尾证据。源目录是 `.codex/skills-src/`，自动发现入口是 `.agents/skills/`；完整 owner 边界见 [.codex/skills-src/README.md](.codex/skills-src/README.md)。
+
+## 发布与更新
+
+AreaForge 的生产路径是 Docker Compose + PostgreSQL + Nginx HTTPS + GitHub Release updater，不使用 Web runtime 直接运维服务器。
+
+一次正式更新必须区分三个阶段：
+
+1. 本地与 CI 验证当前 checkout，并按 Release train 固定版本、范围、残余风险和回滚目标。
+2. GitHub Release workflow 生成 Web/migration 镜像、manifest、SBOM、provenance、checksum 和签名资产；stable Release 缺少签名条件时必须失败。
+3. Web 版本中心提交受控请求，或管理员在服务器执行 updater；服务器侧完成签名校验、备份、migration、切换、smoke 和必要时回滚。
+
+发布完成不等于生产更新完成，生产更新完成也不等于长期运营证据全部关闭。具体流程见 [生产发布 runbook](docs/development/production-release-runbook.md) 和 [GitHub Release updater](docs/deployment/github-release-updater.md)。

@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "noEmit": true, "paths": { "@/*": ["../../apps/web/*"] } },
+  "include": ["quota-*.ts", "../dev/dev-test-quota-fixture.ts"]
+}

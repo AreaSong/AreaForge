@@ -1,0 +1,46 @@
+{
+  "html_url": null,
+  "tag_name": null,
+  "published_at": null,
+  "body": null,
+  "name": "@next/eslint-plugin-next",
+  "version": "16.3.6",
+  "engines": null,
+  "dependencies": {
+    "fast-glob": "3.3.1",
+    "@eslint-community/eslint-utils": "4.9.1"
+  },
+  "optionalDependencies": null,
+  "peerDependencies": null,
+  "scripts": {
+    "dev": "pnpm build",
+    "build": "swc -d dist src && pnpm types",
+    "types": "tsc --project tsconfig.json --skipLibCheck --declaration --emitDeclarationOnly --esModuleInterop --declarationDir dist"
+  },
+  "license": "MIT",
+  "exports": null,
+  "dist": {
+    "shasum": "285f6d86748a6480261a54810da679aeb32531cc",
+    "tarball": "https://registry.npmjs.org/@next/eslint-plugin-next/-/eslint-plugin-next-16.3.6.tgz",
+    "fileCount": 56,
+    "integrity": "sha512-jowwDX+7DOlDIjJLgTMxudw+k37QnWu1JkZLkSi9MaJBfDYcfhAPMKBhXL0idYzFN/AGg//axnOR4cLkHX/Rng==",
+    "signatures": [
+      {
+        "sig": "MEUCIAKZva3OqtZxEbugAQrp+kilkDEjP07RSuoS8IHqwpByAiEAkLuPri3Krc4s2p3s+K/VdW+4deithp8Qdq+9Qc1D8/s=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIHIcBO+CN4cNkd3x1of0TyIN/m39ZVnA4Q9gJGO+b6nHAiEAtpcpXvnQqi0v6JiQOccS2/RpJgmKPUKFXNvBoyNeeCU=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2feslint-plugin-next@16.3.6",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 106327
+  },
+  "source": "https://registry.npmjs.org/@next%2feslint-plugin-next/16.3.6"
+}

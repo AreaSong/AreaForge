@@ -1,0 +1,116 @@
+# 文件与 AI 安全边界
+
+## 定位
+
+AreaForge 会处理学习记录、动机档案、情绪记录、错题、复盘、PDF、图片和 AI 请求。这些内容都按私密数据处理。
+
+## 文件上传边界
+
+第一版上传能力只允许：
+
+- PDF。
+- PNG、JPEG、WebP 图片。
+- 通过鉴权 API 访问的附件。
+
+禁止：
+
+- 将上传文件放入 `public/`。
+- 使用用户原始文件名作为存储路径。
+- 信任浏览器传来的 `Content-Type`。
+- 允许 `../`、绝对路径或软链接逃逸。
+- 在没有用户确认的情况下删除附件或移动上传目录。
+
+## 上传验收要求
+
+- 限制大小。
+- 限制 MIME。
+- 校验 magic bytes。
+- 随机化存储名。
+- 数据库只保存 metadata、hash 和 URI。
+- 下载或预览必须鉴权。
+- 返回文件时使用 `X-Content-Type-Options: nosniff`。
+
+当前 `packages/storage` 已覆盖上述规则中的纯函数部分，包括 MIME、magic bytes、随机存储名、URI、上传路径拼接、相对上传目录拒绝、公开目录拒绝钩子和有界流式 multipart parser（增量 size/MIME/magic bytes/hash 校验，超限即中止）。OPS-007 本地实施后，Web 服务层按 staging/write-intent 协议实现 noteId 绑定附件上传：数据库 `PENDING` intent 先于任何文件写入，`.staging/` exclusive write/fsync、atomic rename/目录 fsync、重开校验后 `READY` CAS；下载仅允许 `READY` 并使用 `O_NOFOLLOW` 同句柄 fstat/hash/size 校验，浏览器 DTO 不返回 hash、uri、storedName 或内部协议字段。新协议 `PENDING` 恢复只能由显式维护命令（有界 claim/lease reconciliation）触发；该实现为 `local-verified`，生产 migration/deploy 另行确认。附件删除、跨对象附件和孤儿文件清理仍需单独确认。
+
+附件运维对账采用双向只读证据：数据库侧检查 exists/size/hash，文件系统侧报告 file-only、symlink、非文件和非法存储名。报告不能写入 `UPLOAD_DIR`，不能跟随输出 symlink，不能输出绝对路径、附件内容或明文目录项名称；file-only/unsafe entry 只记录文件名 SHA256。`action` 永远是 `report_only`，发现异常只返回失败状态，不自动删除孤儿文件、移动附件或覆盖数据库 metadata。summary 自身的 canonical hash 必须由发布记录中的 `attachmentReconciliationSummaryHash` 外部绑定，不能把 JSON 内可重算的自哈希当作签名。
+
+## AI 调用边界
+
+AI 第一版只允许生成：
+
+- 鞭策文案。
+- 复盘建议。
+- 明日任务建议。
+
+阶段调整草稿属于第二阶段长期闭环。Package D Batch D3 已完成长期阶段 AI 草稿显式触发路径：只允许用户主动调用鉴权 `POST /api/simulation/stage-adjustment-drafts/ai`，只发送最小聚合字段和阶段目标摘要，成功只写 `StageAdjustmentDraft.source="ai"` 草稿和审计摘要，失败回退本地规则。D3 仍不得发送动机档案、完整情绪记录、完整复盘正文、附件内容、文件路径或完整任务标题，不得保存完整 prompt/raw response，也不得自动应用阶段计划或批量修改任务。
+
+外部 Provider 默认关闭。三条建议、四类文本草稿和一条长期阶段草稿共八条鉴权显式 POST 路径，必须同时满足当前浏览器明确 opt-in、Web 全局 AI 运行开关开启、`AI_ENABLED=true` 服务端硬闸门和服务端 Provider 配置完整；任一条件缺失、清除、关闭或畸形时一律回退本地规则。Web 全局开关存储在单例 `AiRuntimeSetting`，仅通过鉴权 `GET|PATCH /api/ai/runtime` 更新，启停动作写入 `AuditEvent`，不接受或返回密钥；`AI_ENABLED=false` 仍是部署层的紧急硬关闭，网页不能绕过。当前浏览器偏好使用 host-only、`HttpOnly`、`SameSite=Strict`、生产环境 `Secure` 的 Cookie，不写数据库，也不包含用户标识、Provider 配置、模型、密钥、prompt、正文或内容 hash。`/settings/ai` 允许当前账户更新、删除和测试 Provider 配置，但 API Key 只接受提交，不回显；服务端使用 `AI_CREDENTIALS_ENCRYPTION_KEY` 的 AES-256-GCM 密文和 SHA-256 fingerprint 保存，账户配置优先于环境变量回退。
+
+AI 不允许：
+
+- 直接覆盖用户记录。
+- 删除任务、附件、错题或复盘。
+- 自动发送动机档案、完整情绪记录、完整复盘正文。
+- 自动发送附件文件内容、PDF 原文、图片内容、OCR 文本、上传路径或 `Attachment.uri`。
+- 执行服务器命令、部署命令或直接一键更新；Web 版本中心只能提交受控更新请求，不能在 Web runtime 内执行 Docker、备份、恢复或 migration。
+
+附件文件内容默认不进入 AI 上下文；AI 解析、OCR、摘要或把 PDF/图片内容发给 provider，都必须另走后续高风险确认包。
+
+## AI 验收要求
+
+- 请求前做数据最小化。
+- 输出必须做结构化校验。
+- 校验失败回退本地规则文案。
+- 失败不影响任务、计时、复盘等核心流程。
+- 日志不记录 API Key、完整 prompt、动机档案、情绪正文和复盘正文。
+- Provider 凭据表只保存 base URL、model、密文、fingerprint 和 revision；审计 metadata 只记录 action/status，不记录密钥、密文、prompt、模型响应或请求体。
+- 删除账户 Provider 配置只删除当前数据库记录；数据库备份中的历史密文按备份保留策略处理，不宣称立即物理清除。
+- 外部 Provider 偏好或 Web 全局开关缺失、清除、关闭、畸形或保存失败时保持 fail closed；保存失败不得改变已保存策略或触发外呼。服务端硬闸门关闭时，Web 启用请求拒绝保存。
+
+## 高风险确认
+
+以下变化必须先说明影响、风险、验证和回滚，再等待确认：
+
+- 默认把动机档案发给 AI。
+- 默认把完整情绪记录发给 AI。
+- 默认把复盘正文发给 AI。
+- 将当前浏览器外部 Provider 偏好从默认关闭改为默认开启，允许客户端编辑 Provider key，或改变密钥加密/删除/备份边界。
+- 删除附件或迁移上传目录。
+- 修改备份、恢复或保留策略。
+- 网页内直接触发部署或服务器命令。
+
+## GitHub Release 自动更新边界
+
+允许的自动更新形态是服务器侧受控 updater：`ops/github-release-updater/areaforge-updater.sh` 由管理员手动执行、systemd timer 触发或由 `areaforge-update-agent.timer` 消费 Web 版本中心写入的受控请求后触发。它读取 GitHub Release manifest、校验 `SHA256SUMS` / `SHA256SUMS.sig`，备份数据库和上传目录，使用一次性 migration image，再切换 Docker Compose Web 镜像。
+
+当前远端生产已启用该形态：`https://forge.areasong.top/` 运行 `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 报告 verified runtime identity；服务器保持签名校验与 `AREAFORGE_AUTO_APPLY=none`。`v1.1.1` Release 资产包含签名文件，但 annotated tag 本身没有 GPG signature。当前证据缺口见 `docs/development/operational-readiness.md`；`docs/development/release-v0.1.9-record.md` 与更早记录只保留历史证据。
+
+禁止：
+
+- 在 Web 页面、Web API、管理后台按钮或 AI 工具调用中直接执行 updater 或服务器命令。
+- 将 Docker socket、生产 `.env`、GitHub token、签名私钥或备份目录挂入 Web runtime。
+- 跳过签名/hash 校验后自动应用 Release。
+- 静默应用 major 更新。
+- 在失败回滚时默认覆盖生产数据库或移动上传目录。
+
+## 学习行动中心扩展边界
+
+当前生产已增加资料 FILE/LINK、学习树规范化 Markdown 留存/导出、前台通知与四类 AI 草稿；发布后产品化修复已按 commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` 重采 runtime、体验与 Release admission 证据，并随 `v1.1.1` 完成受控 production apply：
+
+- 导入 confirm 的数据生命周期边界已确认，允许隔离验证；`AF-RISK-DATA-001` 仍保持 `deferred-work`，不因候选实现或发布自动关闭。
+- LINK 资料不得由服务端 fetch/redirect；通知默认隐藏具体标题。
+- AI 草稿仍禁止附件、未选择正文与完整动机/复盘外呼。
+- Core 的导出规则保持无 I/O；实际导出由独立 worker 在已确认环境读取本人记录和 READY 附件，写入独立私有目录，经当前权限、文件 hash 与一次性 POST 授权发放。临时副本回收只针对已登记 key，不改源记录、源附件或历史 orphan；协议见 [本人数据导出](../modules/data-export.md)。
+- 删除状态机默认不可执行，只演练重新验证、冷静期、冻结、范围 fingerprint、kill-point 和补偿重试；deletion ledger 只生成不可变哈希链和 `executionAllowed=false` 的恢复重放计划。物理删除资料或导入历史、账本持久化/执行、备份副本同步删除与用户迁移仍需独立确认，不能从导出授权推定。
+
+上述纯规则描述是旧预览协议边界。独立删除实现仅在其已确认环境处理本人源记录与文件，复用[本人数据回收站与删除](../modules/data-deletion.md)的冻结、精确文件意图、最小账本和恢复后重放规则；不以该实现授权生产或任意历史数据清理。
+
+权威规格见 `workflow/versions/v1.1-learning-action-center.md`。
+
+数据库恢复、上传目录恢复、签名策略降级、major 自动应用和网页内运维入口都属于高风险变化，必须另行说明影响、验证和回滚后确认。
+
+## 备份与恢复
+
+- 数据库和上传目录必须同周期备份。
+- 备份恢复必须能在临时库和临时上传目录验证。
+- metadata 指向的文件必须存在；文件缺失时要能报告并进入修复流程。

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    "--test",
+    "lib/auth/mail.test.ts"
+  ],
+  "cwd": "/Users/as/Ai-Project/project/AreaForge/apps/web",
+  "start": "2026-10-03T05:19:47.478489+00:00",
+  "end": "2026-10-03T05:19:48.866908+00:00",
+  "exitCode": 0,
+  "networkOutboundDenied": true,
+  "envFilesExcluded": true,
+  "log": "mail-tests.log"
+}

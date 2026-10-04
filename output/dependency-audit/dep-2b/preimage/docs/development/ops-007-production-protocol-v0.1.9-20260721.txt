@@ -1,0 +1,25 @@
+recordId: ops-007-production-protocol-v0.1.9-20260721
+recordedAt: 2026-07-21T09:14:00.000Z
+environment: production
+releaseTag: v0.1.9
+packageVersion: 0.1.9
+gitCommit: 749692ba719d801f14186a94af97b96350380141
+webImageDigest: ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d
+migrationImageDigest: ghcr.io/areasong/areaforge-migration:v0.1.9@sha256:cb9c3ecfe8cb2d1ccad7eb63c439ea872f6c53f81416a6cc17f4794a15ff06ab
+maintenanceWindowId: mw-residual-closeout-20260721
+additiveMigration: 20260721010000_attachment_staging_write_intent
+migrationStatus: already_applied_no_pending (Phase B re-apply reported No pending migrations)
+attachmentReconciliationCsv: output/release-v0.1.9/phaseb-evidence/ops007-attachment-reconciliation.csv
+attachmentReconciliationSummary: output/release-v0.1.9/phaseb-evidence/ops007-attachment-reconciliation-summary.json
+attachmentReconciliationStatus: pass
+doctorAfterFile: output/release-v0.1.9/phaseb-evidence/ops007-doctor-after.json
+doctorAfterOverall: pass
+localPreflightStatus: invalid_runtime_hash_drift_under_dirty_checkout
+productionProtocolStatus: observed_post_state_only
+priorLocalVerifiedNote: G1 local implementation confirmed 2026-07-21; current AREAFORGE_OPS007_RUNTIME_RECORD fails implementation hash binding until isolated runtime refresh
+doesNotProve: AF-RISK-OPS-007 residual closure,historical orphan cleanup,pre-migration duplicate storage-identity doctor for this window (migration already applied in G5),automatic repair
+safetyFacts:
+  secretValuePrinted: no
+  historicalOrphanCleanupAttempted: no
+  webRuntimeServerCommandAttempted: no
+  residualLedgerUpdated: no

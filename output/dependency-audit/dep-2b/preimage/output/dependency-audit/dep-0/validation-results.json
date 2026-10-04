@@ -1,0 +1,47 @@
+[
+  {
+    "command": "pnpm docs:readiness",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.462385+00:00"
+  },
+  {
+    "command": "pnpm docs:links",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.470933+00:00"
+  },
+  {
+    "command": "pnpm docs:evergreen",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.439364+00:00"
+  },
+  {
+    "command": "pnpm tasks:doctor",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.443082+00:00"
+  },
+  {
+    "command": "pnpm docs:completion",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.965088+00:00"
+  },
+  {
+    "command": "pnpm risk:preflight",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:58.453654+00:00"
+  },
+  {
+    "command": "pnpm governance:preflight",
+    "exitCode": 0,
+    "end": "2026-10-03T02:47:01.240451+00:00"
+  },
+  {
+    "command": "pnpm residuals:validate",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:57.999076+00:00"
+  },
+  {
+    "command": "git diff --check",
+    "exitCode": 0,
+    "end": "2026-10-03T02:46:58.004627+00:00"
+  }
+]

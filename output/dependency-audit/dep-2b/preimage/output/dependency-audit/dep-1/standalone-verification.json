@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-10-03T05:29:39.126095+00:00",
+  "standaloneFiles": {
+    "apps/web/.next/standalone/apps/web/server.js": "55d0d52dd3b1b3111875ec384825365d77fd4284b8c6e6adf709958151f6cc0d",
+    "apps/web/.next/standalone/apps/web/package.json": "cbd6a91f6e1c74cef639d5fff1004129110d2fb59e94138e2ba341d6f9b6a0b6",
+    "apps/web/.next/BUILD_ID": "f3ec31db21388629a7c43413ad9e187d590d02a28ba0b8a886e3a29ff812cf14"
+  },
+  "environmentFiles": [],
+  "buildResult": "check-complete-result.json",
+  "scope": "生成 standalone，未启动服务、浏览器、数据库"
+}

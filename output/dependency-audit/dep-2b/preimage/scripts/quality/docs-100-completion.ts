@@ -1,0 +1,443 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+interface FeatureRow {
+  section: string;
+  feature: string;
+  status: string;
+}
+
+interface CompletionIssue {
+  name: string;
+  detail: string;
+}
+
+const root = process.cwd();
+const traceabilityPath = "docs/development/feature-traceability.md";
+const completionRecordPath = "docs/development/docs-100-completion-record.md";
+const blockingStatusKeywords = [
+  "基础版",
+  "待确认",
+  "未实现",
+] as const;
+const requiredHighRiskPackages = [
+  "Package A",
+  "Package B",
+  "Package C",
+  "Package D",
+  "Package E",
+] as const;
+const requiredPackageBBatches = [
+  "Batch 0",
+  "Batch 1",
+  "Batch 2",
+  "Batch 3",
+  "Batch 4",
+  "Batch 5",
+  "Batch 6",
+] as const;
+const requiredPackageDBatches = [
+  "Batch D1",
+  "Batch D2",
+  "Batch D3",
+  "Batch D4",
+  "Batch D5",
+] as const;
+const requiredPackageEBatches = [
+  "Batch E1",
+  "Batch E2",
+  "Batch E3",
+  "Batch E4",
+] as const;
+const incompleteEvidenceKeywords = [
+  "待确认",
+  "未完成",
+  "未验证",
+  "阻塞",
+  "NOT_READY",
+] as const;
+const requiredPackageEvidenceKeywords = [
+  "验证",
+  "烟测",
+  "文档",
+  "残余风险",
+] as const;
+
+function main(): void {
+  const issues: CompletionIssue[] = [];
+
+  if (!existsSync(resolve(traceabilityPath))) {
+    issues.push({
+      name: "traceability file",
+      detail: `${traceabilityPath} is missing`,
+    });
+  } else {
+    issues.push(...checkTraceabilityCompletion());
+  }
+
+  issues.push(...checkCompletionRecord());
+
+  if (issues.length === 0) {
+    console.log("docs 100 completion passed: all non-deferred scope has completion evidence.");
+    return;
+  }
+
+  for (const issue of issues) {
+    console.log(`NOT_READY ${issue.name}: ${issue.detail}`);
+  }
+  console.error(`docs 100 completion not ready: ${issues.length} blocker(s).`);
+  process.exit(1);
+}
+
+function checkTraceabilityCompletion(): CompletionIssue[] {
+  const rows = parseTraceabilityRows(read(traceabilityPath));
+  const blockingRows = rows.filter((row) => {
+    if (row.section === "暂缓项") return false;
+    if (row.section.startsWith("下一产品版本")) return false;
+    return blockingStatusKeywords.some((status) => row.status.includes(status));
+  });
+
+  if (blockingRows.length === 0) return [];
+
+  const bySection = new Map<string, string[]>();
+  for (const row of blockingRows) {
+    const items = bySection.get(row.section) ?? [];
+    items.push(`${row.feature}=${row.status}`);
+    bySection.set(row.section, items);
+  }
+
+  return Array.from(bySection.entries()).map(([section, items]) => ({
+    name: `feature traceability ${section}`,
+    detail: items.join("; "),
+  }));
+}
+
+function checkCompletionRecord(): CompletionIssue[] {
+  if (!existsSync(resolve(completionRecordPath))) {
+    return [
+      {
+        name: "completion record",
+        detail: `${completionRecordPath} is missing; final docs 100 needs current evidence, not only target criteria`,
+      },
+    ];
+  }
+
+  const record = read(completionRecordPath);
+  const issues: CompletionIssue[] = [];
+  const missingPackages = requiredHighRiskPackages.filter((item) => !record.includes(item));
+  if (missingPackages.length > 0) {
+    issues.push({
+      name: "high-risk completion evidence",
+      detail: `missing ${missingPackages.join(", ")} in ${completionRecordPath}`,
+    });
+  }
+
+  for (const item of requiredHighRiskPackages) {
+    const line = findLine(record, `| ${item} |`);
+    if (!line) continue;
+    const cells = parseMarkdownCells(line);
+    const status = cells[1] ?? "";
+    const evidence = cells[2] ?? "";
+    const gap = cells[3] ?? "";
+    const isComplete =
+      status.includes("DONE / 已完成") &&
+      !incompleteEvidenceKeywords.some((keyword) => `${status}\n${evidence}\n${gap}`.includes(keyword));
+    if (!isComplete) {
+      issues.push({
+        name: `${item} completion evidence`,
+        detail: `expected a completed evidence line in ${completionRecordPath}`,
+      });
+      continue;
+    }
+
+    const missingEvidenceKeywords = requiredPackageEvidenceKeywords.filter((keyword) => !evidence.includes(keyword));
+    if (missingEvidenceKeywords.length > 0) {
+      issues.push({
+        name: `${item} completion evidence detail`,
+        detail: `completed package row must include evidence for ${missingEvidenceKeywords.join(", ")}`,
+      });
+    }
+
+    if (item === "Package A") {
+      issues.push(...checkPackageACompletionDetail(line));
+    }
+    if (item === "Package C") {
+      issues.push(...checkPackageCCompletionDetail(line));
+    }
+    if (item === "Package E") {
+      issues.push(...checkPackageECompletionDetail(line));
+    }
+  }
+
+  issues.push(...checkPackageBBatches(record));
+  issues.push(...checkCompletionBatches(record, "Package D", requiredPackageDBatches));
+  issues.push(...checkCompletionBatches(record, "Package E", requiredPackageEBatches));
+
+  return issues;
+}
+
+function checkPackageACompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "401",
+    "PDF/PNG/JPEG/WebP",
+    "413",
+    "MIME_MISMATCH",
+    "BAD_MULTIPART",
+    "INVALID_DISPOSITION",
+    "软链接逃逸",
+    "补偿删除",
+    "hash/size 对账",
+    "private, no-store",
+    "nosniff",
+    "不泄露 uri/storedName/绝对路径",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package A attachment evidence detail",
+      detail: `completed Package A row must include attachment smoke evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
+}
+
+function checkPackageCCompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "确认执行 Package C：真实 AI Provider 第一版",
+    "OpenAI-compatible JSON provider",
+    "chat/completions",
+    "AI_ENABLED=false",
+    "AI_ENABLED=true",
+    "配置缺失 fallback",
+    "mock provider 成功",
+    "ai_generated",
+    "轻量限流",
+    "超时",
+    "429",
+    "401",
+    "5xx",
+    "invalid JSON",
+    "schema invalid",
+    "敏感字段拦截 provider 不被调用",
+    "客户端 bundle 搜不到 AI_API_KEY",
+    "task title may contain private content",
+    "首页普通 SSR 不触发真实 provider",
+    "日志脱敏",
+    "不保存完整 prompt/raw response",
+    "不发送动机档案/完整情绪记录/完整复盘正文/附件内容",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package C AI provider evidence detail",
+      detail: `completed Package C row must include AI provider smoke evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
+}
+
+function checkPackageECompletionDetail(line: string): CompletionIssue[] {
+  const requiredTerms = [
+    "发布",
+    "备份",
+    "恢复",
+    "回滚",
+    "release:evidence:validate",
+    "report_only",
+    "migration deploy 执行载体",
+    "镜像 digest",
+    "Nginx",
+  ];
+  const missingTerms = requiredTerms.filter((term) => !line.includes(term));
+  if (missingTerms.length === 0) return [];
+
+  return [
+    {
+      name: "Package E release evidence detail",
+      detail: `completed Package E row must include production release evidence for ${missingTerms.join(", ")}`,
+    },
+  ];
+}
+
+function checkPackageBBatches(record: string): CompletionIssue[] {
+  return checkCompletionBatches(record, "Package B", requiredPackageBBatches);
+}
+
+function checkCompletionBatches(
+  record: string,
+  packageName: string,
+  requiredBatches: readonly string[],
+): CompletionIssue[] {
+  const missingOrIncomplete: string[] = [];
+  const missingDetails: string[] = [];
+
+  for (const batch of requiredBatches) {
+    const line = findLine(record, `| ${batch}：`);
+    if (!line) {
+      missingOrIncomplete.push(`${batch}=missing`);
+      continue;
+    }
+
+    const cells = parseMarkdownCells(line);
+    const status = cells[1] ?? "";
+    if (!status.includes("DONE / 已完成")) {
+      missingOrIncomplete.push(`${batch}=${status || "missing status"}`);
+      continue;
+    }
+
+    const detailIssues = missingBatchEvidenceDetails(cells);
+    if (packageName === "Package E") {
+      detailIssues.push(...missingPackageEBatchEvidenceDetails(batch, line));
+    }
+    if (detailIssues.length > 0) {
+      missingDetails.push(`${batch}: ${detailIssues.join(", ")}`);
+    }
+  }
+
+  const issues: CompletionIssue[] = [];
+
+  if (missingOrIncomplete.length > 0) {
+    issues.push({
+      name: `${packageName} batch completion evidence`,
+      detail: `expected ${requiredBatches[0]}-${requiredBatches[requiredBatches.length - 1]} rows to be DONE / 已完成; ${missingOrIncomplete.join("; ")}`,
+    });
+  }
+
+  if (missingDetails.length > 0) {
+    issues.push({
+      name: `${packageName} batch completion detail`,
+      detail: `completed Batch rows must include confirmation, validation commands, smoke evidence, docs sync, and residual risk; ${missingDetails.join("; ")}`,
+    });
+  }
+
+  return issues;
+}
+
+function missingBatchEvidenceDetails(cells: string[]): string[] {
+  const confirmation = cells[2] ?? "";
+  const validation = cells[3] ?? "";
+  const smoke = cells[4] ?? "";
+  const docsSync = cells[5] ?? "";
+  const residualRisk = cells[6] ?? "";
+  const missing: string[] = [];
+
+  if (!confirmation.includes("用户已明确确认")) missing.push("confirmation");
+  if (!validation.includes("pnpm")) missing.push("validation commands");
+  if (!/(烟测|smoke|Playwright)/i.test(smoke)) missing.push("smoke evidence");
+  if (!docsSync.includes("已同步")) missing.push("docs sync");
+  if (residualRisk.length < 20 || ["待同步", "未运行", "缺"].some((token) => residualRisk.includes(token))) {
+    missing.push("residual risk");
+  }
+
+  return missing;
+}
+
+function missingPackageEBatchEvidenceDetails(batch: string, line: string): string[] {
+  const checks: Record<string, Array<string | string[]>> = {
+    "Batch E1": [
+      "pnpm check",
+      "pnpm package-e:preflight",
+      "compose config",
+      ["生产 env 清单", "生产 `.env`", "production env"],
+      "AREAFORGE_IMAGE",
+      "镜像 digest",
+      "Nginx",
+      "migration deploy 执行载体",
+      "发布记录草案",
+      "中止条件",
+    ],
+    "Batch E2": [
+      "PostgreSQL dump",
+      "上传目录归档",
+      ["生产 `.env`", "envBackupSha256", "生产 env"],
+      "compose/Nginx 副本",
+      "临时库导入",
+      "临时上传目录恢复",
+      "metadata/hash",
+      "report_only",
+    ],
+    "Batch E3": [
+      "备份点",
+      "migration deploy",
+      ["受控 release 工作目录", "一次性 migration job", "migrationRunner"],
+      "compose/Nginx",
+      "GET /api/health",
+      "登录",
+      "首页",
+      "任务",
+      "计时",
+      "复盘",
+      "日志脱敏",
+    ],
+    "Batch E4": [
+      "上一镜像",
+      "回滚步骤",
+      "数据库/上传目录",
+      "失败原因",
+      "恢复耗时",
+      "release:evidence:validate",
+      "docs:completion",
+      "残余风险",
+    ],
+  };
+  const required = checks[batch];
+  if (!required) return [];
+
+  return required
+    .filter((term) => Array.isArray(term)
+      ? !term.some((item) => line.includes(item))
+      : !line.includes(term))
+    .map((term) => Array.isArray(term) ? term.join(" or ") : term);
+}
+
+function parseTraceabilityRows(content: string): FeatureRow[] {
+  const rows: FeatureRow[] = [];
+  let section = "";
+
+  for (const line of content.split(/\r?\n/)) {
+    if (line.startsWith("## ")) {
+      section = line.replace(/^##\s+/, "").trim();
+      continue;
+    }
+    if (!line.startsWith("| ")) continue;
+    if (line.includes("---")) continue;
+
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    if (cells.length < 2) continue;
+    if (cells[0] === "功能项" || cells[0] === "功能") continue;
+
+    rows.push({
+      section,
+      feature: cells[0],
+      status: cells[1],
+    });
+  }
+
+  return rows;
+}
+
+function findLine(content: string, needle: string): string | undefined {
+  return content.split(/\r?\n/).find((line) => line.includes(needle));
+}
+
+function parseMarkdownCells(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+
+function read(file: string): string {
+  return readFileSync(resolve(file), "utf8");
+}
+
+function resolve(file: string): string {
+  return path.join(root, file);
+}
+
+main();

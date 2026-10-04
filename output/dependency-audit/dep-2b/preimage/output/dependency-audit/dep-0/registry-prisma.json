@@ -1,0 +1,82 @@
+{
+  "source": "https://registry.npmjs.org/prisma",
+  "tags": {
+    "turso": "5.4.0-dev.61",
+    "early-access": "5.12.0-dev.21",
+    "optimize": "5.17.0-dev.33",
+    "typed-sql": "5.19.0-integration-feat-typed-sql.14",
+    "patch-dev": "7.9.1-dev.1",
+    "integration": "7.10.0-integration-fix-prisma-publish-token.1",
+    "next": "8.0.0-rc.10",
+    "prev": "7.10.0",
+    "dev": "8.0.0-rc.19-dev.136",
+    "latest": "8.0.0-rc.19"
+  },
+  "versions": {
+    "7.9.1": {
+      "name": "prisma",
+      "version": "7.9.1",
+      "engines": {
+        "node": "^20.19 || ^22.12 || >=24.0"
+      },
+      "peerDependencies": {
+        "typescript": ">=5.4.0",
+        "better-sqlite3": ">=9.0.0"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        },
+        "better-sqlite3": {
+          "optional": true
+        }
+      },
+      "dependencies": {
+        "mysql2": "3.15.3",
+        "postgres": "3.4.7",
+        "@prisma/dev": "0.24.17",
+        "@prisma/config": "7.9.1",
+        "@prisma/engines": "7.9.1",
+        "@prisma/studio-core": "0.33.0"
+      },
+      "optionalDependencies": null,
+      "license": "Apache-2.0",
+      "scripts": {
+        "pm": "tsx src/bin.ts platform --early-access",
+        "dev": "DEV=true tsx helpers/build.ts",
+        "tsc": "tsc -d -p tsconfig.build.json",
+        "test": "dotenv -e ../../.db.env -- tsx helpers/run-tests.ts",
+        "build": "tsx helpers/build.ts",
+        "prisma": "tsx src/bin.ts",
+        "platform": "tsx src/bin.ts platform --early-access",
+        "preinstall": "node scripts/preinstall-entry.js",
+        "test:platform": "dotenv -e ../../.db.env -- tsx helpers/run-tests.ts src/platform",
+        "generate-api-client": "openapi-typescript https://api.prisma.io/v1/doc --output ./src/management-api/openapi.d.ts && prettier --write ./src/management-api/openapi.d.ts"
+      },
+      "dist": {
+        "shasum": "b9f6a190fcff5b1e3774218d93a23e20891c66b7",
+        "tarball": "https://registry.npmjs.org/prisma/-/prisma-7.9.1.tgz",
+        "fileCount": 48,
+        "integrity": "sha512-aPqePoZIqwlAchbgbFDO/wHqGB+7H1nj9gaM+OsL9h77S5S3TnLd9BgD3LnoeDikULo7cl2HSUrEyQ55Z7DYbg==",
+        "signatures": [
+          {
+            "sig": "MEUCIQDL7eQBYUnj6fNzEcArdqwqMEzoGZSY3rEcTWofZK7c5QIgam2aGmrUAUw0k64PYSffYqGHq4a1EW4CNzNXmBk94cE=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEUCIEeRfU8iuTg/jvPMMy+ExhDFmh7By1htlDg4N2MH1NPbAiEA6ZZEYV+Ae7xnr/Ccl7Rybng7m57483fxjP93+wza7Vk=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "attestations": {
+          "url": "https://registry.npmjs.org/-/npm/v1/attestations/prisma@7.9.1",
+          "provenance": {
+            "predicateType": "https://slsa.dev/provenance/v1"
+          }
+        },
+        "unpackedSize": 43834221
+      },
+      "published": "2026-07-27T13:49:09.253Z"
+    }
+  }
+}

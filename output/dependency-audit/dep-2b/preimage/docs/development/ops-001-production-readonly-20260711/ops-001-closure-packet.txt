@@ -1,0 +1,38 @@
+packetId: ops-001-closure-20260712034129
+generatedAt: 2026-07-12T03:41:29.687Z
+residualRiskId: AF-RISK-OPS-001
+environment: production
+baseUrl: https://forge.areasong.top
+expectedVersion: 0.1.5
+releaseTag: v0.1.5
+smokeRecordHash: sha256:fea61efa4213cb708e49887d2f8eac105ca68432da068ef20a11991cc9d2f201
+smokeValidation: pass
+smokeCheckedAt: 2026-07-11T19:26:38Z
+smokeStatus: pass
+smokePasswordReadFromFile: yes
+smokeUpdateStatusIncluded: yes
+updateAgentStatusRecordHash: sha256:96cd41d0ef60e554bb49410f53888092c49d54e62e8e2c3cba51ee7488692da8
+updateAgentValidation: pass
+updateAgentCurrentVersion: 0.1.5
+updateAgentAutoApply: none
+updateAgentSignatureRequired: true
+updateAgentBlocker: null
+updateAgentRollbackAvailable: true
+operationalEvidenceBundleHash: sha256:267d7573438f26909cecfe3dd568515ea5037d9306d1f1a55b9fed8a7c4a04db
+operationalEvidenceBundleValidation: pass
+operationalEvidenceBundleStatus: needs_attention
+authenticatedSmokeSignalStatus: ready
+updateAgentSignalStatus: ready
+updaterEnvSummary: AREAFORGE_EXTRA_SMOKE_COMMAND configured, password file path redacted
+updateRecordSummary: redacted update-agent status hash sha256:96cd41d0ef60e554bb49410f53888092c49d54e62e8e2c3cba51ee7488692da8
+closeConditionEvidence: server extra smoke command configured, smoke password file used, production read-only smoke passed, update-agent status validated, evidence bundle indexed
+residualLedgerAction: ready-for-human-close-after-review
+followUpTasks: docs/development/residual-risk-ledger.md and tasks/indexes/residuals.md
+safetyFacts:
+  serverCommandAttempted: no
+  backupRestoreAttempted: no
+  migrationAttempted: no
+  productionWriteAttempted: no
+  secretValuePrinted: no
+  updaterApplyAttempted: no
+  residualLedgerUpdated: no

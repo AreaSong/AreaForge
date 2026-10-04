@@ -1,0 +1,278 @@
+import { useState } from "react";
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Palette,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  X,
+} from "lucide-react";
+import { Button, IconButton } from "@/components/ui/button";
+import { ColorSwatches } from "@/components/ui/color-swatches";
+import { Input, Select } from "@/components/ui/field";
+import { Modal } from "@/components/ui/overlays";
+import type { SubjectGroupDto, WorkspaceSubjectDto } from "@/lib/contracts";
+
+export const subjectColors = ["#35d7c5", "#22c55e", "#f59e0b", "#3b82f6", "#ef4444", "#a78bfa"];
+
+export function SubjectRow(props: {
+  subject: WorkspaceSubjectDto;
+  groups: SubjectGroupDto[];
+  activeGroups: SubjectGroupDto[];
+  editing: boolean;
+  pending: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: (patch: Record<string, unknown>) => Promise<void>;
+  onMove: (move: "UP" | "DOWN") => void;
+  onArchive: () => void;
+}) {
+  const [name, setName] = useState(props.subject.name);
+  const [color, setColor] = useState(props.subject.color);
+  const [groupId, setGroupId] = useState(() => (
+    props.activeGroups.some((group) => group.id === props.subject.groupId)
+      ? props.subject.groupId ?? ""
+      : ""
+  ));
+  const effectiveGroupId = props.activeGroups.some((group) => group.id === groupId) ? groupId : "";
+
+  if (props.editing) {
+    return (
+      <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/10">
+        <div className="af-content-grid-two grid gap-3">
+          <label className="text-sm text-zinc-400">
+            名称
+            <Input value={name} onChange={(event) => setName(event.target.value)} className="mt-1" />
+          </label>
+          <label className="text-sm text-zinc-400">
+            分组
+            <Select value={effectiveGroupId} onChange={(event) => setGroupId(event.target.value)} className="mt-1">
+              <option value="">不分组</option>
+              {props.activeGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </Select>
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Palette size={16} className="text-zinc-500" aria-hidden="true" />
+            <ColorSwatches colors={subjectColors} value={color} onChange={setColor} label="科目颜色" />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={props.pending} onClick={props.onCancel}>
+              <X size={15} aria-hidden="true" />取消
+            </Button>
+            <Button type="button" variant="primary" size="sm" disabled={props.pending || !name.trim()} onClick={() => void props.onSave({ name, color, groupId: effectiveGroupId || null })}>
+              <Save size={15} aria-hidden="true" />保存
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const group = props.groups.find((item) => item.id === props.subject.groupId);
+  return (
+    <div className="flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-white/[0.02]">
+      <span className="size-3.5 shrink-0 rounded-full ring-2 ring-white/10" style={{ backgroundColor: props.subject.color }} aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="break-words text-sm font-medium text-zinc-100">{props.subject.name}</p>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          {group ? `${group.name}${group.archivedAt ? " · 已归档" : ""}` : "未分组"}
+        </p>
+      </div>
+      <div className="flex items-center gap-1">
+        <IconButton label={`${props.subject.name}上移`} disabled={props.pending || !props.canMoveUp} onClick={() => props.onMove("UP")}><ArrowUp size={15} /></IconButton>
+        <IconButton label={`${props.subject.name}下移`} disabled={props.pending || !props.canMoveDown} onClick={() => props.onMove("DOWN")}><ArrowDown size={15} /></IconButton>
+        <IconButton label={`编辑${props.subject.name}`} disabled={props.pending} onClick={props.onEdit}><Pencil size={15} /></IconButton>
+        <IconButton label={`归档${props.subject.name}`} disabled={props.pending} onClick={props.onArchive}><Archive size={15} /></IconButton>
+      </div>
+    </div>
+  );
+}
+
+export function GroupManager(props: {
+  groups: SubjectGroupDto[];
+  pending: boolean;
+  newName: string;
+  newKey: string;
+  onNameChange: (value: string) => void;
+  onKeyChange: (value: string) => void;
+  onAdd: () => void;
+  onUpdate: (group: SubjectGroupDto, patch: Record<string, unknown>, success: string) => Promise<boolean>;
+  onRequestArchive: (group: SubjectGroupDto) => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const activeGroupIds = props.groups.filter((group) => !group.archivedAt).map((group) => group.id);
+
+  return (
+    <details className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+      <summary className="cursor-pointer text-sm font-medium text-zinc-300 hover:text-white transition-colors">
+        管理分组（{props.groups.filter((group) => !group.archivedAt).length}）
+      </summary>
+      <div className="mt-4 space-y-4">
+        <ul className="divide-y divide-white/10">
+          {props.groups.map((group) => (
+            <li key={group.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+              {editingId === group.id ? (
+                <label className="min-w-0 flex-1 text-xs text-zinc-500">
+                  分组名称
+                  <Input
+                    autoFocus
+                    value={editingName}
+                    onChange={(event) => setEditingName(event.target.value)}
+                    className="mt-1 h-9 w-full max-w-sm text-sm"
+                  />
+                </label>
+              ) : (
+                <span className={group.archivedAt ? "text-zinc-600" : "text-zinc-300"}>
+                  {group.name}{group.archivedAt ? " · 已归档" : ""}
+                </span>
+              )}
+              <div className="flex gap-1">
+                {editingId === group.id ? (
+                  <>
+                    <IconButton label="取消改名" disabled={props.pending} onClick={() => setEditingId(null)}><X size={15} /></IconButton>
+                    <IconButton
+                      label="保存分组名称"
+                      disabled={props.pending || !editingName.trim()}
+                      onClick={() => void props.onUpdate(group, { name: editingName }, "分组名称已保存。").then((saved) => {
+                        if (saved) setEditingId(null);
+                      })}
+                    ><Save size={15} /></IconButton>
+                  </>
+                ) : (
+                  <>
+                    <IconButton label={`编辑${group.name}`} disabled={props.pending || Boolean(group.archivedAt)} onClick={() => { setEditingId(group.id); setEditingName(group.name); }}><Pencil size={15} /></IconButton>
+                    <IconButton label={`${group.name}上移`} disabled={props.pending || Boolean(group.archivedAt) || activeGroupIds[0] === group.id} onClick={() => void props.onUpdate(group, { move: "UP" }, "分组顺序已更新。")}><ArrowUp size={15} /></IconButton>
+                    <IconButton label={`${group.name}下移`} disabled={props.pending || Boolean(group.archivedAt) || activeGroupIds.at(-1) === group.id} onClick={() => void props.onUpdate(group, { move: "DOWN" }, "分组顺序已更新。")}><ArrowDown size={15} /></IconButton>
+                    <IconButton
+                      label={group.archivedAt ? `恢复${group.name}` : `归档${group.name}`}
+                      disabled={props.pending}
+                      onClick={() => group.archivedAt
+                        ? void props.onUpdate(group, { archived: false }, "分组已恢复，可重新关联科目。")
+                        : props.onRequestArchive(group)}
+                    >
+                      {group.archivedAt ? <RotateCcw size={15} /> : <Archive size={15} />}
+                    </IconButton>
+                  </>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="af-action-grid grid gap-2">
+          <Input value={props.newName} onChange={(event) => props.onNameChange(event.target.value)} placeholder="新分组名称" className="text-sm" />
+          <Button type="button" variant="secondary" disabled={props.pending || !props.newName.trim()} onClick={props.onAdd}>
+            <Plus size={15} aria-hidden="true" />添加分组
+          </Button>
+          <details className="af-content-span-all text-xs text-zinc-500">
+            <summary className="cursor-pointer">高级选项</summary>
+            <label className="mt-2 block max-w-md">
+              内部标识
+              <Input value={props.newKey} onChange={(event) => props.onKeyChange(event.target.value)} className="mt-1 h-9" />
+            </label>
+          </details>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+export function subjectErrorMessage(code: string | undefined, fallback: string): string {
+  if (code === "WORKSPACE_NOT_FOUND") return "当前工作区已切换，页面正在刷新；请在新工作区中重新操作。";
+  if (code === "WORKSPACE_REVISION_CONFLICT") return "工作区刚刚发生变化，页面已刷新；请检查后再次提交。";
+  if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少需要保留一个使用中的科目。";
+  if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_ARCHIVE") return "这个科目仍有进行中的计时，请先结束计时。";
+  if (code === "SUBJECT_GROUP_NOT_FOUND") return "所选分组已不可用，请刷新后重新选择。";
+  if (code === "SUBJECT_STABLE_KEY_ALREADY_EXISTS") return "该科目内部标识已存在，请修改后重试。";
+  if (code === "SUBJECT_GROUP_STABLE_KEY_ALREADY_EXISTS") return "该分组内部标识已存在，请修改后重试。";
+  if (code === "INTERNAL_ERROR") return "保存失败，请刷新后重试；若持续出现，请通过支持入口反馈。";
+  return fallback;
+}
+
+export function SubjectManagerArchiveModals(props: {
+  subject: WorkspaceSubjectDto | null;
+  group: SubjectGroupDto | null;
+  subjectCountInGroup: number;
+  pending: boolean;
+  onCloseSubject: () => void;
+  onCloseGroup: () => void;
+  onArchiveSubject: (subject: WorkspaceSubjectDto) => Promise<boolean>;
+  onArchiveGroup: (group: SubjectGroupDto) => Promise<boolean>;
+}) {
+  return (
+    <>
+      <Modal open={Boolean(props.subject)} title="归档科目" onClose={props.onCloseSubject} allowEscape={!props.pending}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>归档“{props.subject?.name}”后，历史任务和学习记录会保留，但相关复习排期会暂停。</p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={props.onCloseSubject}>取消</Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !props.subject}
+              onClick={() => {
+                if (!props.subject) return;
+                void props.onArchiveSubject(props.subject).then((archived) => {
+                  if (archived) props.onCloseSubject();
+                });
+              }}
+            >
+              <Archive size={16} aria-hidden="true" />确认归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={Boolean(props.group)} title="归档分组" onClose={props.onCloseGroup} allowEscape={!props.pending}>
+        <div className="space-y-4 text-sm text-zinc-300">
+          <p>
+            归档“{props.group?.name}”后，分组内的 {props.subjectCountInGroup} 个科目会移到“不分组”。
+            科目和历史学习记录都会保留；恢复分组后不会自动重新关联。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={props.pending} onClick={props.onCloseGroup}>取消</Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={props.pending || !props.group}
+              onClick={() => {
+                if (!props.group) return;
+                void props.onArchiveGroup(props.group).then((archived) => {
+                  if (archived) props.onCloseGroup();
+                });
+              }}
+            >
+              <Archive size={16} aria-hidden="true" />确认归档
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export function subjectMergeErrorMessage(code?: string): string {
+  if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_MERGE") return "存在进行中的学习活动，请先完成或取消后再合并。";
+  if (code === "SUBJECT_MERGE_SNAPSHOT_CONFLICT") return "科目或引用已变化，预览已过期；页面正在刷新，请重新核对。";
+  if (code === "SUBJECT_MERGE_UNIQUE_CONFLICT") return "存在无法自动判断的结构冲突，请按预览处理后再合并。";
+  if (code === "SUBJECT_MERGE_SUBJECT_ARCHIVED") return "目标或来源科目已归档，请刷新并重新选择。";
+  if (code === "SUBJECT_MERGE_RETRY_REQUIRED") return "并发写入导致合并未执行，请刷新后重试。";
+  if (code === "SUBJECT_MERGE_IDEMPOTENCY_CONFLICT") return "同一合并命令已绑定不同范围，请刷新后重新确认。";
+  return "科目合并失败，未写入任何部分结果。";
+}
+
+export function subjectMergeUndoErrorMessage(code?: string): string {
+  if (code === "ACTIVE_SESSION_BLOCKS_SUBJECT_MERGE_UNDO") return "存在进行中的学习活动，请先完成或取消后再撤销。";
+  if (code === "SUBJECT_MERGE_UNDO_WINDOW_EXPIRED") return "该合并已超过 24 小时安全撤销窗口。";
+  if (code === "SUBJECT_MERGE_ALREADY_UNDONE") return "该合并已经撤销，页面正在刷新。";
+  if (code === "SUBJECT_MERGE_UNDO_SCOPE_CHANGED") return "合并后的关联对象已经变化，不能自动撤销。";
+  if (code === "SUBJECT_MERGE_UNDO_SNAPSHOT_CONFLICT") return "工作区状态已变化，请刷新后重新核对撤销范围。";
+  if (code === "SUBJECT_MERGE_UNDO_UNIQUE_CONFLICT") return "恢复原引用会产生唯一性冲突，撤销未写入任何部分结果。";
+  return "科目合并撤销失败，未写入任何部分结果。";
+}

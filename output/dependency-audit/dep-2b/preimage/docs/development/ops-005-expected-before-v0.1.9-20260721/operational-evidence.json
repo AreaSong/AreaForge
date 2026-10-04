@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "mode": "redacted_ops005_operational_evidence",
+  "releaseTag": "v0.1.9",
+  "packageVersion": "0.1.9",
+  "gitCommit": "749692ba719d801f14186a94af97b96350380141",
+  "webImageDigest": "ghcr.io/areasong/areaforge-web:v0.1.9@sha256:2d91436a4c54a77365676265172ccd88242b05377666e40328f1390c3d747b4d",
+  "autoApply": "none",
+  "productionDeployment": {
+    "status": "pass",
+    "timerPausedBeforeDeployment": true,
+    "legacyMutationQueueDisposition": "empty",
+    "webAgentVersionMatch": true
+  },
+  "v2Check": {
+    "status": "pass",
+    "schemaVersion": 2,
+    "action": "check",
+    "requestHash": "sha256:07eb7128d0174d84525ecf1706b8b73be0a9899bdf8d4b247cd01a12b57fd0a5",
+    "decision": "SUCCEEDED",
+    "executionAttempted": false
+  },
+  "sharedProductionStateLock": {
+    "status": "pass",
+    "updaterInheritedLockVerified": true,
+    "mutationOverlapObserved": false
+  },
+  "processingReconciliation": {
+    "status": "pass",
+    "staleMutationReplayObserved": false,
+    "blockerProjectionVerified": true,
+    "readonlyCheckAllowed": true
+  }
+}

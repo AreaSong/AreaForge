@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">AreaForge dark social preview</title>
+  <desc id="desc">AreaForge dark brand preview for social link sharing.</desc>
+  <defs>
+    <linearGradient id="background" x1="84" y1="44" x2="1110" y2="594" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#071A20"/>
+      <stop offset="0.58" stop-color="#09272D"/>
+      <stop offset="1" stop-color="#103936"/>
+    </linearGradient>
+    <linearGradient id="path" x1="720" y1="478" x2="1110" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18AAA6"/>
+      <stop offset="0.6" stop-color="#35D7C5"/>
+      <stop offset="0.83" stop-color="#FFD75F"/>
+      <stop offset="1" stop-color="#F05F3D"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#020A0D" flood-opacity="0.32"/>
+    </filter>
+    <pattern id="grid" width="54" height="54" patternUnits="userSpaceOnUse">
+      <path d="M54 0H0V54" fill="none" stroke="#B9F4EB" stroke-opacity="0.08" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <rect x="650" width="550" height="630" fill="url(#grid)"/>
+
+  <g opacity="0.55">
+    <path d="M708 514C798 500 815 436 875 411C934 386 935 319 994 285C1057 248 1054 185 1125 138" fill="none" stroke="#19474A" stroke-width="44" stroke-linecap="round"/>
+    <path d="M708 514C798 500 815 436 875 411C934 386 935 319 994 285C1057 248 1054 185 1125 138" fill="none" stroke="url(#path)" stroke-width="12" stroke-linecap="round"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <circle cx="708" cy="514" r="21" fill="#35D7C5" stroke="#0A2B30" stroke-width="8"/>
+    <circle cx="875" cy="411" r="18" fill="#F4FBF8" stroke="#0A2B30" stroke-width="8"/>
+    <circle cx="994" cy="285" r="20" fill="#FFD75F" stroke="#0A2B30" stroke-width="8"/>
+    <circle cx="1125" cy="138" r="23" fill="#F05F3D" stroke="#0A2B30" stroke-width="8"/>
+  </g>
+
+  <g opacity="0.32" fill="none" stroke="#8ED5CA" stroke-width="2">
+    <path d="M735 112h86v86h-86z"/>
+    <path d="M780 155h86v86h-86z"/>
+    <path d="M1030 430h92v92h-92z"/>
+    <path d="M1074 474h92v92h-92z"/>
+  </g>
+
+  <svg x="64" y="66" width="590" height="192" viewBox="0 0 1600 520" preserveAspectRatio="xMinYMid meet">
+    <defs>
+      <linearGradient id="social-forge-word" x1="836" y1="166" x2="1138" y2="252" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#18AAA6"/>
+        <stop offset="0.54" stop-color="#35D7C5"/>
+        <stop offset="0.82" stop-color="#FFD75F"/>
+        <stop offset="1" stop-color="#F05F3D"/>
+      </linearGradient>
+      <linearGradient id="social-icon-bg" x1="70" y1="54" x2="452" y2="462" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#103936"/>
+        <stop offset="0.55" stop-color="#08262C"/>
+        <stop offset="1" stop-color="#061319"/>
+      </linearGradient>
+      <linearGradient id="social-icon-paper" x1="158" y1="132" x2="318" y2="354" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#F8FFF9"/>
+        <stop offset="1" stop-color="#C7F3E8"/>
+      </linearGradient>
+      <linearGradient id="social-icon-teal" x1="116" y1="126" x2="274" y2="392" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#73F0D5"/>
+        <stop offset="1" stop-color="#18AAA6"/>
+      </linearGradient>
+      <linearGradient id="social-icon-amber" x1="299" y1="128" x2="397" y2="374" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#FFD75F"/>
+        <stop offset="0.44" stop-color="#FFAA35"/>
+        <stop offset="1" stop-color="#F05F3D"/>
+      </linearGradient>
+      <filter id="social-icon-shadow" x="-18%" y="-18%" width="136%" height="142%">
+        <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#020A0D" flood-opacity="0.28"/>
+      </filter>
+    </defs>
+    <svg x="90" y="50" width="420" height="420" viewBox="36 36 440 440">
+      <rect x="36" y="36" width="440" height="440" rx="104" fill="url(#social-icon-bg)"/>
+      <g opacity="0.12" stroke="#B9F4EB" stroke-width="3">
+        <path d="M166 170h180M166 238h180M166 306h180"/>
+        <path d="M188 145v220M256 145v220M324 145v220"/>
+      </g>
+      <path d="M176 154c-63 57-64 145 0 202" fill="none" stroke="url(#social-icon-teal)" stroke-width="23" stroke-linecap="round"/>
+      <path d="M336 154c63 57 64 145 0 202" fill="none" stroke="url(#social-icon-amber)" stroke-width="23" stroke-linecap="round"/>
+      <path d="M176 356c44 31 116 31 160 0" fill="none" stroke="url(#social-icon-teal)" stroke-width="23" stroke-linecap="round"/>
+      <g filter="url(#social-icon-shadow)">
+        <path d="M155 166c0-17 14-31 31-31h78l46 46v132c0 17-14 31-31 31h-93c-17 0-31-14-31-31V166z" fill="url(#social-icon-paper)"/>
+        <path d="M264 135v46h46" fill="#D9FFF6"/>
+        <path d="M187 189h58M187 229h70M187 269h48" stroke="#79BEB3" stroke-width="17" stroke-linecap="round"/>
+        <circle cx="190" cy="306" r="14" fill="#62E7D0"/>
+        <circle cx="233" cy="306" r="14" fill="#FFD75F"/>
+        <circle cx="276" cy="306" r="14" fill="#E8F5F0"/>
+      </g>
+      <path d="M166 358h180" stroke="#09272D" stroke-width="28" stroke-linecap="round"/>
+      <path d="M256 154v146l80 58" fill="none" stroke="#06191F" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="256" cy="154" r="35" fill="#FFD75F" stroke="#06191F" stroke-width="15"/>
+      <circle cx="176" cy="356" r="19" fill="#5FEAD2" stroke="#06191F" stroke-width="10"/>
+      <circle cx="336" cy="356" r="22" fill="#F05F3D" stroke="#06191F" stroke-width="11"/>
+    </svg>
+    <g transform="translate(588 0)">
+      <text x="0" y="252" font-family="Inter, SF Pro Display, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="112" font-weight="760" letter-spacing="0" fill="#F4FBF8">Area</text>
+      <text x="238" y="252" font-family="Inter, SF Pro Display, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="112" font-weight="760" letter-spacing="0" fill="url(#social-forge-word)">Forge</text>
+      <path d="M4 306H604" stroke="#2F5F57" stroke-width="11" stroke-linecap="round"/>
+      <path d="M4 306C138 306 214 294 294 286C398 276 488 288 604 306" fill="none" stroke="#18AAA6" stroke-width="11" stroke-linecap="round"/>
+      <circle cx="222" cy="306" r="10" fill="#FFD75F"/>
+      <circle cx="604" cy="306" r="10" fill="#F4FBF8"/>
+    </g>
+  </svg>
+
+  <text x="90" y="344" fill="#F4FBF8" font-family="Inter, SF Pro Display, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="42" font-weight="700" letter-spacing="0">把长期备考，锻造成每日闭环</text>
+  <text x="90" y="398" fill="#A8CFC8" font-family="Inter, SF Pro Text, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="25" font-weight="500" letter-spacing="0">计划 · 专注 · 复盘 · 调整</text>
+
+  <g transform="translate(90 510)">
+    <rect width="245" height="56" rx="28" fill="#F4FBF8"/>
+    <circle cx="30" cy="28" r="7" fill="#35D7C5"/>
+    <text x="52" y="36" fill="#09272D" font-family="Inter, SF Pro Text, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0">forge.areasong.top</text>
+  </g>
+</svg>

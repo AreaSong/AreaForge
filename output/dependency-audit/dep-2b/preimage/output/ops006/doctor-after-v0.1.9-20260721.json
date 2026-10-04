@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "mode": "read_only_data_integrity_doctor",
+  "generatedAt": "2026-07-21T05:20:32.056Z",
+  "status": {
+    "overall": "pass",
+    "native": "integrity_clean"
+  },
+  "counts": {
+    "total": 5,
+    "pass": 5,
+    "warn": 0,
+    "fail": 0,
+    "skipped": 0
+  },
+  "thresholds": {
+    "staleActiveSessionHours": 24
+  },
+  "checks": [
+    {
+      "id": "study_sessions.active_cardinality",
+      "status": "pass",
+      "message": "active session cardinality is valid",
+      "details": {
+        "activeSessionCount": 0,
+        "allowedMaximum": 1
+      }
+    },
+    {
+      "id": "study_sessions.state_consistency",
+      "status": "pass",
+      "message": "study session state fields are consistent",
+      "details": {
+        "runningWithPausedAtCount": 0,
+        "pausedWithoutPausedAtCount": 0,
+        "activeWithEndedAtCount": 0,
+        "terminalWithoutEndedAtCount": 0,
+        "terminalWithPausedAtCount": 0,
+        "negativeSessionMetricsCount": 0
+      }
+    },
+    {
+      "id": "study_sessions.stale_active",
+      "status": "pass",
+      "message": "no stale active sessions detected",
+      "details": {
+        "staleActiveSessionCount": 0
+      }
+    },
+    {
+      "id": "study_tasks.state_consistency",
+      "status": "pass",
+      "message": "study task state fields are consistent",
+      "details": {
+        "doneWithoutCompletedAtCount": 0,
+        "nonDoneWithCompletedAtCount": 0,
+        "doneWithDebtCount": 0,
+        "negativeTaskMinutesCount": 0
+      }
+    },
+    {
+      "id": "attachments.reconciliation",
+      "status": "pass",
+      "message": "attachment reconciliation summary is clean",
+      "details": {
+        "databaseRecordCount": 1,
+        "uploadFileCount": 1,
+        "mismatchCount": 0
+      }
+    }
+  ],
+  "source": {
+    "database": "configured_read_only_query",
+    "attachmentSummarySha256": "sha256:37ef30ea6c40335946a595bd9b38f0394726ac552ed4a26b2577b948fa807707"
+  },
+  "doesNotProve": [
+    "automatic data repair or deletion",
+    "future concurrency safety after this snapshot",
+    "attachment integrity unless a validated reconciliation summary is supplied",
+    "production health, backup freshness, updater apply, migration, or rollback execution"
+  ],
+  "safetyFacts": {
+    "readOnly": true,
+    "networkRequested": true,
+    "databaseReadAttempted": true,
+    "databaseWriteAttempted": false,
+    "uploadDirectoryReadAttempted": false,
+    "fileWriteAttempted": false,
+    "attachmentContentIncluded": false,
+    "objectIdentifiersIncluded": false,
+    "absolutePathIncluded": false,
+    "secretValuePrinted": false
+  },
+  "doctorHash": "sha256:1fc0a03f97e101aa259bcd00761f642b448b3b2d6a0dbbf1b8738cf4993f8c89"
+}

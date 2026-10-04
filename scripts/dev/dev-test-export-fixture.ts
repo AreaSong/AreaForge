@@ -11,9 +11,11 @@ import { loadDevTestQuotaFixture } from "./dev-test-quota-fixture";
 import { QUOTA_FIXTURE_LIMITS } from "../quality/quota-fixture";
 import { loadDevTestCapacityFixture } from "./dev-test-capacity-fixture";
 import { capacityQuotaEnvironment } from "../quality/capacity-fixture";
+import { loadDevTestStorageFixture } from "./dev-test-storage-fixture";
 
 export interface DevTestExportFixture {
-  kind?: "DELETE" | "OPS" | "RANKING" | "SEARCH" | "QUOTA" | "CAPACITY";
+  kind?: "DELETE" | "OPS" | "RANKING" | "SEARCH" | "QUOTA" | "CAPACITY" | "STORAGE";
+  storagePolicy?: "bounded" | "invalid";
   operationContextRoot?: string;
   operationScopeId?: string;
   operatorEmail?: string;
@@ -31,7 +33,8 @@ export interface DevTestExportFixture {
 export function loadDevTestExportFixture(repository: string, env: NodeJS.ProcessEnv = process.env): DevTestExportFixture | undefined {
   if ([env.AREAFORGE_DEV_TEST_OPS_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_DELETE_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT,
     env.AREAFORGE_DEV_TEST_RANKING_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT,
-    env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT].filter(Boolean).length > 1) throw new Error("TEST_FIXTURE_MODES_CONFLICT");
+    env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT, env.AREAFORGE_DEV_TEST_STORAGE_FIXTURE_ROOT].filter(Boolean).length > 1) throw new Error("TEST_FIXTURE_MODES_CONFLICT");
+  if (env.AREAFORGE_DEV_TEST_STORAGE_FIXTURE_ROOT) return loadDevTestStorageFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_CAPACITY_FIXTURE_ROOT) return loadDevTestCapacityFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_QUOTA_FIXTURE_ROOT) return loadDevTestQuotaFixture(repository, env);
   if (env.AREAFORGE_DEV_TEST_SEARCH_FIXTURE_ROOT) return loadDevTestSearchFixture(repository, env);
@@ -71,6 +74,7 @@ export function loadDevTestExportFixture(repository: string, env: NodeJS.Process
 }
 
 export function assertExportFixtureSlot(selection: SlotSelection, fixture?: DevTestExportFixture): void {
+  if (fixture?.kind === "STORAGE" && selection.slot !== 3) throw new Error("STORAGE_TEST_FIXTURE_SLOT_REFUSED");
   if (fixture?.kind === "CAPACITY" && selection.slot !== 3) throw new Error("CAPACITY_TEST_FIXTURE_SLOT_REFUSED");
   const previous = selection.replacing?.fixtureId;
   if ((fixture && selection.replacing && previous !== fixture.id) || (previous && previous !== fixture?.id)) {
@@ -79,6 +83,7 @@ export function assertExportFixtureSlot(selection: SlotSelection, fixture?: DevT
 }
 
 export function exportFixtureEnvironment(fixture: DevTestExportFixture, slot: number, port: number, appVersion: string): Record<string, string> {
+  if (fixture.kind === "STORAGE" && slot !== 3) throw new Error("STORAGE_TEST_FIXTURE_SLOT_REFUSED");
   if (fixture.kind === "OPS" && (!fixture.operationContextRoot || !fixture.operationScopeId || !fixture.operatorEmail)) throw new Error("OPS_TEST_FIXTURE_INVALID");
   if (fixture.kind === "CAPACITY" && slot !== 3) throw new Error("CAPACITY_TEST_FIXTURE_SLOT_REFUSED");
   const database = new URL(fixture.databaseUrl); database.hostname = "host.docker.internal";
@@ -91,7 +96,9 @@ export function exportFixtureEnvironment(fixture: DevTestExportFixture, slot: nu
     DATA_JOB_WORKER_ENABLED: fixture.kind === "RANKING" || fixture.kind === "SEARCH" || admission ? "true" : "false", UPLOAD_DIR: "/app/uploads", EXPORT_DIR: "/app/exports", TRUST_PROXY: "false",
     DATA_JOB_QUOTA_ENABLED: quota ? "true" : "false", DATA_JOB_QUOTA_MAX_ACTIVE_JOBS: quota ? QUOTA_FIXTURE_LIMITS.maxActiveJobs : "",
     DATA_JOB_QUOTA_MAX_EXPORTS_24H: quota ? QUOTA_FIXTURE_LIMITS.maxExports24h : "",
-    ...capacityQuotaEnvironment(capacity), ...(capacity ? { APP_ENV: "test" } : {}),
+    ...capacityQuotaEnvironment(capacity), ...(capacity || fixture.kind === "STORAGE" ? { APP_ENV: "test" } : {}),
+    ...(fixture.kind === "STORAGE" ? { WORKSPACE_STORAGE_QUOTA_ENABLED: "true",
+      WORKSPACE_STORAGE_QUOTA_MAX_BYTES: fixture.storagePolicy === "invalid" ? "invalid" : "256" } : {}),
     OPS_AGENT_ENABLED: "false", OPS_EXECUTION_ENABLED: fixture.kind === "OPS" ? "true" : "false",
     ...(fixture.kind === "OPS" ? { AUTH_ADMIN_EMAIL: fixture.operatorEmail!, OPS_EXECUTION_LOCAL_FIXTURE: "true", OPS_EXECUTION_SCOPE_ID: fixture.operationScopeId!, OPS_EXECUTION_CONTEXT_FILE: "/app/ops-context/execution-context.json" } : {}),
     ...(fixture.kind === "RANKING" || fixture.kind === "SEARCH" || admission ? { AUTH_ADMIN_EMAIL: fixture.operatorEmail! } : {}),

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "pnpm",
+    "governance:preflight"
+  ],
+  "cwd": "/Users/as/Ai-Project/project/AreaForge",
+  "start": "2026-10-03T05:21:54.993321+00:00",
+  "end": "2026-10-03T05:21:58.665781+00:00",
+  "exitCode": 0,
+  "networkOutboundDenied": true,
+  "envFilesExcluded": true,
+  "log": "governance-preflight.log"
+}

@@ -1,0 +1,20 @@
+schemaVersion: 1
+status: pass
+candidateImplementationCommit: b3a0002291abb40dead66f36103d91867254d95a
+compatibilityRuntimeEvidence:
+  path: output/v11-compatibility/compatibility-floor-runtime-v1.1.1-20260731-b3a0002.json
+  sha256: sha256:2626e2bc5c791df294c2d20c13e12993547c42f0c08b7367de38341fd5f5ebf7
+candidateWorktreeFingerprint: sha256:01042ba4135620123542dc229e97eb108afe685bb6b67a485350f880502b50f7
+legacyMigrationCount: 12
+legacyMigrationManifestSha256: sha256:90b88fe3555ff44696cc0968b42b5b7f7828daa1bb2b58115caf003cd7511368
+floorMigrationCount: 15
+floorMigrationManifestSha256: sha256:e86f1d7e8f850b76f7b5470c11ccf08cab409ed092ea809d198b74fc8610e57d
+repositoryMigrationCount: 24
+repositoryMigrationManifestSha256: sha256:f5d083da94fc883b5a2428cdb5d565b7a3df20745f3b197d7d777625fd966419
+migrationReplayStatus: pass
+candidateSeedStatus: pass
+floorProductionBuildStatus: pass
+floorReadProbeStatus: pass
+repeatDeployStatus: pass
+cleanupStatus: pass
+doesNotProve: signed Release, production apply, residual closure

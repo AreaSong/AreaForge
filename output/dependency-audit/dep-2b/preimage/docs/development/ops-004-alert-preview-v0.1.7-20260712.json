@@ -1,0 +1,121 @@
+{
+  "status": "warning",
+  "mode": "read_only_alert_preview",
+  "generatedAt": "2026-07-12T11:51:21.641Z",
+  "environment": "unknown",
+  "scope": "daily",
+  "delivery": {
+    "enabled": false,
+    "receiverConfigured": false,
+    "receiverHint": null
+  },
+  "alerts": [
+    {
+      "key": "alert:health",
+      "signal": "health",
+      "severity": "info",
+      "wouldNotify": false,
+      "owner": "areaforge-sre-ops",
+      "summary": "health is pass",
+      "evidence": "GET https://forge.areasong.top/api/health returned AreaForge 0.1.7",
+      "residualRiskIds": [],
+      "recommendedAction": "collect public health again within the freshness window and compare expected version"
+    },
+    {
+      "key": "alert:releaseIdentity",
+      "signal": "releaseIdentity",
+      "severity": "info",
+      "wouldNotify": false,
+      "owner": "areaforge-release-operator / areaforge-supply-chain",
+      "summary": "releaseIdentity is pass",
+      "evidence": "release manifest provides release tag and immutable image digests",
+      "residualRiskIds": [],
+      "recommendedAction": "record release tag, immutable image digests, manifest, checksum, and signature evidence"
+    },
+    {
+      "key": "alert:updateAgent",
+      "signal": "updateAgent",
+      "severity": "warning",
+      "wouldNotify": true,
+      "owner": "areaforge-sre-ops",
+      "summary": "updateAgent is unknown",
+      "evidence": "update status not collected; provide AREAFORGE_READINESS_UPDATE_STATUS_FILE or smoke credentials",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "recommendedAction": "collect redacted update-agent status or authenticated update status without running updater actions"
+    },
+    {
+      "key": "alert:authenticatedSmoke",
+      "signal": "authenticatedSmoke",
+      "severity": "warning",
+      "wouldNotify": true,
+      "owner": "areaforge-qa-smoke",
+      "summary": "authenticatedSmoke is warn",
+      "evidence": "no authenticated smoke result supplied; run pnpm smoke:prod-readonly or set AREAFORGE_READINESS_SMOKE_RESULT_FILE",
+      "residualRiskIds": [
+        "AF-RISK-OPS-001"
+      ],
+      "recommendedAction": "run or attach a recent read-only authenticated smoke result"
+    },
+    {
+      "key": "alert:backup",
+      "signal": "backup",
+      "severity": "warning",
+      "wouldNotify": true,
+      "owner": "areaforge-sre-ops",
+      "summary": "backup is unknown",
+      "evidence": "backup freshness evidence not supplied",
+      "residualRiskIds": [
+        "AF-RISK-OPS-004"
+      ],
+      "recommendedAction": "attach current database/uploads/env/config backup hashes before release, update, migration, or rollback"
+    },
+    {
+      "key": "alert:rollback",
+      "signal": "rollback",
+      "severity": "watch",
+      "wouldNotify": false,
+      "owner": "areaforge-release-operator / areaforge-sre-ops",
+      "summary": "rollback is unknown",
+      "evidence": "rollback target not supplied",
+      "residualRiskIds": [],
+      "recommendedAction": "record previous version, previous image digest, and rollback decision or plan"
+    },
+    {
+      "key": "alert:infrastructure",
+      "signal": "infrastructure",
+      "severity": "info",
+      "wouldNotify": false,
+      "owner": "areaforge-observability / areaforge-sre-ops",
+      "summary": "infrastructure is pass",
+      "evidence": "certificate expires in 69 day(s)",
+      "residualRiskIds": [],
+      "recommendedAction": "record disk status, certificate days remaining, and alert receiver or manual review window"
+    }
+  ],
+  "safetyFacts": {
+    "serverCommandAttempted": false,
+    "backupRestoreAttempted": false,
+    "migrationAttempted": false,
+    "productionWriteAttempted": false,
+    "secretValuePrinted": false,
+    "smokePasswordReadFromFile": false,
+    "networkRequested": true,
+    "notificationSent": false,
+    "externalAlertReceiverCalled": false
+  },
+  "forbiddenActions": [
+    "send_notification",
+    "call_external_alert_receiver",
+    "execute_server_command",
+    "apply_update",
+    "run_migration",
+    "perform_backup",
+    "perform_restore",
+    "rollback_release",
+    "write_database",
+    "write_upload_directory",
+    "read_or_print_secret_values"
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "source": "https://registry.npmjs.org/brace-expansion",
+  "tags": {
+    "maintenance-v3": "3.0.6",
+    "maintenance-v2": "2.1.4",
+    "maintenance-v1": "1.1.18",
+    "2.x": "2.1.7",
+    "latest": "5.0.12",
+    "1.x": "1.1.21",
+    "3.x": "3.0.9"
+  },
+  "versions": {
+    "5.0.9": {
+      "name": "brace-expansion",
+      "version": "5.0.9",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": {
+        "balanced-match": "^4.0.2"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "snap": "tap",
+        "test": "tap",
+        "format": "prettier --write .",
+        "prepare": "tshy",
+        "presnap": "npm run prepare",
+        "pretest": "npm run prepare",
+        "typedoc": "typedoc --tsconfig .tshy/esm.json ./src/*.ts",
+        "benchmark": "node benchmark/index.js",
+        "preversion": "npm test",
+        "postversion": "npm publish",
+        "prepublishOnly": "git push origin --follow-tags"
+      },
+      "dist": {
+        "shasum": "7c72438809b5fa5babf54199a1f1c281a6984fcf",
+        "tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz",
+        "fileCount": 13,
+        "integrity": "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==",
+        "signatures": [
+          {
+            "sig": "MEUCIAgdIZoGt/rOarHA5ZF22kENZifkkVBzBWMSxSOzfRaEAiEA4fifGUXsu32uOIvE9dw/7T6NzHGzDDvV9CCL6S0Xi6E=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEYCIQCoNjL+4MyTrsPgTXWe/jh5JFsJixo02eboSGatPQ+UagIhANWlmimfI9B6DeEWfkQcJMBj17DYF2t5L3D7QvifLiRo",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "unpackedSize": 70705
+      },
+      "published": "2026-07-30T10:00:32.762Z"
+    },
+    "5.0.11": {
+      "name": "brace-expansion",
+      "version": "5.0.11",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": {
+        "balanced-match": "^4.0.2"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "snap": "tap",
+        "test": "tap",
+        "format": "prettier --write .",
+        "prepare": "tshy",
+        "presnap": "npm run prepare",
+        "pretest": "npm run prepare",
+        "typedoc": "typedoc --tsconfig .tshy/esm.json ./src/*.ts",
+        "benchmark": "node benchmark/index.js",
+        "preversion": "npm test",
+        "postversion": "npm publish",
+        "format:check": "prettier --check .",
+        "prepublishOnly": "git push origin --follow-tags"
+      },
+      "dist": {
+        "shasum": "c002bac1d556536d5f99280d2e179d43f8dbd6b7",
+        "tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.11.tgz",
+        "fileCount": 13,
+        "integrity": "sha512-awigjhi6cLTh90bdw6+QJ9CtmJmyYhEIi70iCbc8Rozn04Fw9FeQIBjv/E22FFGuCGx1bLJyUfB64x/szUSXUg==",
+        "signatures": [
+          {
+            "sig": "MEUCIQCN1YRllCFx6ndUFyo1C37MRgR/NRG/nf+Dl5bNMtxyBwIgVgdSyxMk/H90IqVm9CkvM9J/4GbpRtDeiY8EfQjjdMs=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEUCIQD4EX52wSVsfY+AOTAkBBKg/vvd4XxhqdnWReriLPcRfgIgKHE0u+hxqZ5pO8A0vFsyLjFhupRHpllDCDNZLYNPwxU=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "unpackedSize": 79853
+      },
+      "published": "2026-09-14T21:49:31.581Z"
+    },
+    "5.0.12": {
+      "name": "brace-expansion",
+      "version": "5.0.12",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "peerDependencies": null,
+      "peerDependenciesMeta": null,
+      "dependencies": {
+        "balanced-match": "^4.0.2"
+      },
+      "optionalDependencies": null,
+      "license": "MIT",
+      "scripts": {
+        "snap": "tap",
+        "test": "tap",
+        "format": "prettier --write .",
+        "prepare": "tshy",
+        "presnap": "npm run prepare",
+        "pretest": "npm run prepare",
+        "typedoc": "typedoc --tsconfig .tshy/esm.json ./src/*.ts",
+        "benchmark": "node benchmark/index.js",
+        "preversion": "npm test",
+        "postversion": "npm publish",
+        "format:check": "prettier --check .",
+        "prepublishOnly": "git push origin --follow-tags"
+      },
+      "dist": {
+        "shasum": "995fbb4750a77c4d16a7dc942ff2ca6ef8e675ec",
+        "tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
+        "fileCount": 13,
+        "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+        "signatures": [
+          {
+            "sig": "MEQCIAMXX2WNJDJJkVHQORu87Mi5BGgEzbA21nhoBLCd5pVbAiAty43mX29opG/0V0Oh41VVzPRs+bijBdQ3ao+wyviCsg==",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          },
+          {
+            "sig": "MEUCIQDZemgdCtGEvGCCV16aS9sGD8McnOAM5EM80gowpoytHwIgNLc7QYBEXho5Tgpn5+IY2fXgSrvXlQejMT/jf5f+++o=",
+            "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+          }
+        ],
+        "unpackedSize": 84997
+      },
+      "published": "2026-09-14T21:59:00.288Z"
+    }
+  }
+}

@@ -1,0 +1,389 @@
+[
+  {
+    "url": "https://registry.npmjs.org/@next%2fenv/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:30.261038+00:00",
+    "name": "@next/env",
+    "version": "16.3.6",
+    "engines": null,
+    "license": "MIT",
+    "scripts": {
+      "dev": "ncc build ./index.ts -w -o dist/",
+      "build": "pnpm build:source && pnpm types",
+      "types": "tsc --declaration --emitDeclarationOnly --declarationDir dist",
+      "build:source": "ncc build ./index.ts -o ./dist/ --minify --no-cache --no-source-map-register",
+      "prebuild:source": "node ../../scripts/rm.mjs dist",
+      "pack-for-isolated-tests": "pnpm pack --out ./packed.tgz"
+    },
+    "dependencies": null,
+    "os": null,
+    "cpu": null,
+    "libc": null,
+    "dist": {
+      "shasum": "47d93ed498a55f7db8bb309eeab0b5964b7964d6",
+      "tarball": "https://registry.npmjs.org/@next/env/-/env-16.3.6.tgz",
+      "fileCount": 4,
+      "integrity": "sha512-x9Vblze1EbtltQYnNH38xCPWU3TVfBd1eXqA3+w9+BTpedkkdNpAaltXlGQ/nsc1+E0mVTNrtcbX3GoO09zeLQ==",
+      "signatures": [
+        {
+          "sig": "MEUCIBv9r0CrzJZ74jGoy9uCq8A0MqsNNJAHSoNsbs2yQ2wpAiEAj3qjnGkf0JMlzICS5sANL62KNqP0Yv0BlOioIyx/4fk=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEQCIC6GUpyrMrRunxyCN5fAo1GF4jil9y8DLkfYxfCLQDb6AiAob/RzzKI3B+SJ2Lt0ipIfFutBaugiibR7zmmn/VMk1A==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fenv@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 11895
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-darwin-x64/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:30.400457+00:00",
+    "name": "@next/swc-darwin-x64",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "darwin"
+    ],
+    "cpu": [
+      "x64"
+    ],
+    "libc": null,
+    "dist": {
+      "shasum": "0feec7995215c85bd18df527983836897757ff80",
+      "tarball": "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-yBE893/nDWTlaiBD1p+qgt7NUen4U5R6FXyH0s67Npq1S3E0cVSef1WIXC2xBRgQvwAvJq6DnS6Y6PrY0cy4Ew==",
+      "signatures": [
+        {
+          "sig": "MEUCIQCdb4latgEJHSnqZjwM9NKreIhcglkHok2CS/Sr3iMzYwIgBhJtDMHsikKgC3new6p3zy8754MWmVyBuP51Bt+qDuk=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEQCIG61Ui3XNJAQBs1u9YI79X3h0BIpdT3uWYkC5YFSyor7AiAGnXMewEkZArmzQ/eG8MO5SgSzTOK8X3tCeU1IkF5BOw==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-darwin-x64@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 88559295
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-darwin-arm64/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:30.396900+00:00",
+    "name": "@next/swc-darwin-arm64",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "darwin"
+    ],
+    "cpu": [
+      "arm64"
+    ],
+    "libc": null,
+    "dist": {
+      "shasum": "e92a4bfae82e0e0d2056a31806af16b7cd9b38bc",
+      "tarball": "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-E/7GEqaUkt8mk/T8v9lAnrhzR06kdq1ZBkC12F8tAMkdIadwNp3H1KqHynDHrpcTlGCUdq/qu6vUL2aYVyYBdw==",
+      "signatures": [
+        {
+          "sig": "MEUCIQDEL1tflG8h5t6Z+V42xhdCq5o1iXf0ll1QAUeU4DdAqwIgcuOR1s3NRtoU1Wz/w/bwLPgjECnhUmROq5NWoCIVdxA=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEYCIQCuTzUJcUSYduOcvSXotFCCmhL/qUrhuEdkNCzzVt4JoQIhALNu5u6gVNHb0mXo+skBolZcfuL6gwU+6iZV2iCQnW1E",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-darwin-arm64@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 88930836
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-linux-x64-gnu/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:30.372291+00:00",
+    "name": "@next/swc-linux-x64-gnu",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "linux"
+    ],
+    "cpu": [
+      "x64"
+    ],
+    "libc": [
+      "glibc"
+    ],
+    "dist": {
+      "shasum": "783f3fdf6e9f2bdf9d3f58e12cbed938c862c617",
+      "tarball": "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-nFncBNGAYouRHjRVaITs9beZRfhX4ssVwpnvPIAbkZVH6LtGoAVlH4bJ8Cnf9SOo9bsXgPFer/GdHtEE3JNOkw==",
+      "signatures": [
+        {
+          "sig": "MEUCIEojMmvv7XDd+nJnyNa6D6EBNwyCS014o8X5OGyjk+RbAiEAqJv0bgfZkR+quH+iPzWzf2coy5XbxknFQHCJk/au/T8=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEQCIDDZnRo1qc8p7wbptykC5WZqqpZwDvT+5TO+XkCQkMpeAiB4YGKwHwoFUzV3Urz1/faQEDa/j4moiHu+mLRlUEVZUQ==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-linux-x64-gnu@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 96732103
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-linux-x64-musl/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:30.349460+00:00",
+    "name": "@next/swc-linux-x64-musl",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "linux"
+    ],
+    "cpu": [
+      "x64"
+    ],
+    "libc": [
+      "musl"
+    ],
+    "dist": {
+      "shasum": "c19df8320300d80bb5dc1b503796ec4e7d2f15f8",
+      "tarball": "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-5Mf3cHDGR/Iz0ng2Bj3zUR3p5QS9YK3Hn2QiAfavFmyF48zwThAjpFoiTKNIcOHLYS4zEk+gzyJ/9deQ2ZB8yQ==",
+      "signatures": [
+        {
+          "sig": "MEYCIQD/BTxq7Ruzd0+3gw9hxfWMCjqZM0kSpWQGMWw7r9hsPwIhAOlQ6rcyca3aNGCSQwafNwnUQudNcWWsuRZ8rgZHIaci",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEUCIQDUSUjPNLnnaE8r65G8jPqEml7kpxipHLVSWLtRO1Z4rgIgWlu/BmKVbSVHG+agFPc3AqXEIH9r5HUSlN0oaRusXTM=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-linux-x64-musl@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 94830721
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-win32-x64-msvc/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:31.557653+00:00",
+    "name": "@next/swc-win32-x64-msvc",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "win32"
+    ],
+    "cpu": [
+      "x64"
+    ],
+    "libc": null,
+    "dist": {
+      "shasum": "d7b84132a78b38792223b810e3fa0b20c980d895",
+      "tarball": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-/YXjI1e5OXcZ7YpxRwgP/1jAV/SBKTzeVKqN2mk7mLpcICsyn3Gl5+dIfDTJp70M0ccMhyMMRso4v6mPDCGepg==",
+      "signatures": [
+        {
+          "sig": "MEUCIBYeRSlwUmYwhOoQNA6dvHTWwuZOJoSvZIkHvRT4cSMPAiEAlBUYycEzEj19VNDuAa7fiWS8RwIvxfLxN1/W2uctD+Q=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEUCIQC92OQVl+Q00Bj6rg/Yg++0KG+R2U3A91/x7mx319BYkAIgLmZAYvvU1l12yJ/b1ZLjY/ArnklJpXo0DQzVIhgjhwI=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-win32-x64-msvc@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 106190853
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-linux-arm64-gnu/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:31.719008+00:00",
+    "name": "@next/swc-linux-arm64-gnu",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "linux"
+    ],
+    "cpu": [
+      "arm64"
+    ],
+    "libc": [
+      "glibc"
+    ],
+    "dist": {
+      "shasum": "f4a27ea38008e47ef670bacd4b4e92d0789209c2",
+      "tarball": "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-KJDpjBqBPYlvkivmyrp+Qys6k/7ksbqGQvRVc6ZEGfR+cjQxx+nUkJaWmNZJsmoOrqYNbaXByF8wa0lBwDhB3Q==",
+      "signatures": [
+        {
+          "sig": "MEUCIQCaUc3UWTX8xXoQLoKeVKfLREZ2pufklTouKb9aesZbkgIgb49b7c6GoOitS5EhS9aHhX2H7CmDQYXA+TdZdnjbSG4=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEQCIFEKnboJL2BTs3o8MnlbQhrIEw5xAlJc4AFxkWizsfD1AiBwgSQKzZ5KP6/JH85ei+P+GSdhtyYPP5DIZK5DOF+0Qg==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-linux-arm64-gnu@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 89858626
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-linux-arm64-musl/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:31.845366+00:00",
+    "name": "@next/swc-linux-arm64-musl",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "linux"
+    ],
+    "cpu": [
+      "arm64"
+    ],
+    "libc": [
+      "musl"
+    ],
+    "dist": {
+      "shasum": "1b2dbad64636efdb49e574d8234526129e3b2a34",
+      "tarball": "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-mqNg2K+hvWskSRb/QM+Ix412DvBsuSF0XV+frTSw5vmoucNnIlynFwKYew8D01bfATErMOM7Bujrf0BA5DRKFA==",
+      "signatures": [
+        {
+          "sig": "MEUCIDM/+OZwIH7Z1/4dGFHYvmOklCjZNOMaOaw6iLd0HkIBAiEA0yIsK/ubKvRyrStlfDdLn43IHqcuaM4vPMDvD/PHqSE=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEYCIQCnNEC4+W6DoY/mhzqjotyXH4jss60Vucf71Kjac0mnHwIhAOPW35eqg5F7emqvjpMmDs+izHGZ2IyDUOAtwOVv4KOG",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-linux-arm64-musl@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 87531727
+    }
+  },
+  {
+    "url": "https://registry.npmjs.org/@next%2fswc-win32-arm64-msvc/16.3.6",
+    "fetchedAt": "2026-10-03T03:23:31.784641+00:00",
+    "name": "@next/swc-win32-arm64-msvc",
+    "version": "16.3.6",
+    "engines": {
+      "node": ">= 10"
+    },
+    "license": "MIT",
+    "scripts": null,
+    "dependencies": null,
+    "os": [
+      "win32"
+    ],
+    "cpu": [
+      "arm64"
+    ],
+    "libc": null,
+    "dist": {
+      "shasum": "1e4e70b213f1d49223f5eb8aa0490b9fc615e807",
+      "tarball": "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.3.6.tgz",
+      "fileCount": 3,
+      "integrity": "sha512-0jkJy0C2kbrJWTk4YLa3xk80pVBpx8FCHJym7CnUfDAXe/FWv5qT7SQJbR0KuemyxaEDlEx5WT4VQJoTW+/9Qw==",
+      "signatures": [
+        {
+          "sig": "MEUCIQCJulenslLadyC2PMds802xHRIhCQBWw3sgQPX5oyJz+QIga/S1L70dBbJ2vLcRXIxqf96Rh4C4NKQ0kO4+FEGkHJY=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEUCIQCY7aeVpXX0ayakeAGKClZtXf9/5XU8JMEYM4Of1IeUFQIgXLRiwz8WcdgJXJ+vUfTlkHEMohv0YwZ3CIJWW63LeMA=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/@next%2fswc-win32-arm64-msvc@16.3.6",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 94419467
+    }
+  }
+]

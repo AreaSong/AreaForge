@@ -1,0 +1,383 @@
+{
+  "rows": [
+    {
+      "name": "@prisma/adapter-pg",
+      "installed": "7.9.1",
+      "treeVersion": "7.9.1",
+      "lockVersions": [
+        "@prisma/adapter-pg@7.9.1"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "@prisma/client",
+      "installed": "7.9.1",
+      "treeVersion": "7.9.1",
+      "lockVersions": [
+        "@prisma/client@7.9.1"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "eslint-config-next",
+      "installed": "16.3.3",
+      "treeVersion": "16.3.3",
+      "lockVersions": [
+        "eslint-config-next@16.3.3"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "fast-uri",
+      "installed": "3.1.6",
+      "treeVersion": "3.1.6",
+      "lockVersions": [
+        "fast-uri@3.1.6"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "next",
+      "installed": "16.3.3",
+      "treeVersion": "16.3.3",
+      "lockVersions": [
+        "next@16.3.3"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "nodemailer",
+      "installed": "10.0.0",
+      "treeVersion": "10.0.0",
+      "lockVersions": [
+        "nodemailer@10.0.0"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "prisma",
+      "installed": "7.9.1",
+      "treeVersion": "7.9.1",
+      "lockVersions": [
+        "prisma@7.9.1"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "brace-expansion",
+      "installed": "5.0.9",
+      "treeVersion": "5.0.9",
+      "lockVersions": [
+        "brace-expansion@5.0.9"
+      ],
+      "manifestEqualsTree": true
+    },
+    {
+      "name": "braces",
+      "installed": "3.0.3",
+      "treeVersion": "3.0.3",
+      "lockVersions": [
+        "braces@3.0.3"
+      ],
+      "manifestEqualsTree": true
+    }
+  ],
+  "importers": {
+    ".": {
+      "devDependencies": {
+        "@types/node": {
+          "specifier": "^20.19.43",
+          "version": "20.19.43"
+        },
+        "dotenv": {
+          "specifier": "^17.2.3",
+          "version": "17.4.2"
+        },
+        "playwright-core": {
+          "specifier": "1.62.0",
+          "version": "1.62.0"
+        },
+        "prisma": {
+          "specifier": "^7.9.1",
+          "version": "7.9.1(@types/node@20.19.43)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)"
+        },
+        "sharp": {
+          "specifier": "0.35.4",
+          "version": "0.35.4(@types/node@20.19.43)"
+        },
+        "tsx": {
+          "specifier": "^4.20.6",
+          "version": "4.23.0"
+        },
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "apps/web": {
+      "dependencies": {
+        "@areaforge/ai": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/ai"
+        },
+        "@areaforge/auth": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/auth"
+        },
+        "@areaforge/config": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/config"
+        },
+        "@areaforge/core": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/core"
+        },
+        "@areaforge/db": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/db"
+        },
+        "@areaforge/storage": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/storage"
+        },
+        "@areaforge/ui": {
+          "specifier": "workspace:*",
+          "version": "link:../../packages/ui"
+        },
+        "@xyflow/react": {
+          "specifier": "12.11.2",
+          "version": "12.11.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)"
+        },
+        "lucide-react": {
+          "specifier": "^0.561.0",
+          "version": "0.561.0(react@19.2.8)"
+        },
+        "next": {
+          "specifier": "16.3.3",
+          "version": "16.3.3(@babel/core@7.29.7)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)"
+        },
+        "nodemailer": {
+          "specifier": "10.0.0",
+          "version": "10.0.0"
+        },
+        "react": {
+          "specifier": "19.2.8",
+          "version": "19.2.8"
+        },
+        "react-dom": {
+          "specifier": "19.2.8",
+          "version": "19.2.8(react@19.2.8)"
+        },
+        "zod": {
+          "specifier": "^4.2.1",
+          "version": "4.4.3"
+        }
+      },
+      "devDependencies": {
+        "@tailwindcss/postcss": {
+          "specifier": "^4",
+          "version": "4.3.2"
+        },
+        "@types/node": {
+          "specifier": "^20",
+          "version": "20.19.43"
+        },
+        "@types/react": {
+          "specifier": "^19",
+          "version": "19.2.18"
+        },
+        "@types/react-dom": {
+          "specifier": "^19",
+          "version": "19.2.4(@types/react@19.2.18)"
+        },
+        "eslint": {
+          "specifier": "^9",
+          "version": "9.39.4(jiti@2.7.0)"
+        },
+        "eslint-config-next": {
+          "specifier": "16.3.3",
+          "version": "16.3.3(@typescript-eslint/parser@8.66.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)"
+        },
+        "tailwindcss": {
+          "specifier": "^4",
+          "version": "4.3.2"
+        },
+        "typescript": {
+          "specifier": "^5",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/ai": {
+      "dependencies": {
+        "@areaforge/core": {
+          "specifier": "workspace:*",
+          "version": "link:../core"
+        },
+        "zod": {
+          "specifier": "^4.2.1",
+          "version": "4.4.3"
+        }
+      },
+      "devDependencies": {
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/auth": {
+      "dependencies": {
+        "@areaforge/core": {
+          "specifier": "workspace:*",
+          "version": "link:../core"
+        }
+      },
+      "devDependencies": {
+        "@types/node": {
+          "specifier": "^20.19.43",
+          "version": "20.19.43"
+        },
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/config": {
+      "dependencies": {
+        "zod": {
+          "specifier": "^4.2.1",
+          "version": "4.4.3"
+        }
+      },
+      "devDependencies": {
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/core": {
+      "dependencies": {
+        "mdast-util-directive": {
+          "specifier": "3.1.0",
+          "version": "3.1.0"
+        },
+        "mdast-util-to-markdown": {
+          "specifier": "2.1.2",
+          "version": "2.1.2"
+        },
+        "micromark-extension-directive": {
+          "specifier": "4.0.0",
+          "version": "4.0.0"
+        },
+        "remark-directive": {
+          "specifier": "4.0.0",
+          "version": "4.0.0"
+        },
+        "remark-frontmatter": {
+          "specifier": "5.0.0",
+          "version": "5.0.0"
+        },
+        "remark-parse": {
+          "specifier": "11.0.0",
+          "version": "11.0.0"
+        },
+        "remark-stringify": {
+          "specifier": "11.0.0",
+          "version": "11.0.0"
+        },
+        "unified": {
+          "specifier": "11.0.5",
+          "version": "11.0.5"
+        },
+        "unist-util-visit": {
+          "specifier": "5.0.0",
+          "version": "5.0.0"
+        },
+        "yaml": {
+          "specifier": "2.9.0",
+          "version": "2.9.0"
+        }
+      },
+      "devDependencies": {
+        "@types/mdast": {
+          "specifier": "4.0.4",
+          "version": "4.0.4"
+        },
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/db": {
+      "dependencies": {
+        "@areaforge/core": {
+          "specifier": "workspace:*",
+          "version": "link:../core"
+        },
+        "@prisma/adapter-pg": {
+          "specifier": "^7.9.1",
+          "version": "7.9.1"
+        },
+        "@prisma/client": {
+          "specifier": "^7.9.1",
+          "version": "7.9.1(prisma@7.9.1(@types/node@20.19.43)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3)"
+        },
+        "pg": {
+          "specifier": "^8.16.3",
+          "version": "8.22.0"
+        }
+      },
+      "devDependencies": {
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/storage": {
+      "devDependencies": {
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    },
+    "packages/ui": {
+      "dependencies": {
+        "react": {
+          "specifier": "^19.0.0",
+          "version": "19.2.4"
+        }
+      },
+      "devDependencies": {
+        "@types/react": {
+          "specifier": "^19.2.18",
+          "version": "19.2.18"
+        },
+        "typescript": {
+          "specifier": "^5.9.3",
+          "version": "5.9.3"
+        }
+      }
+    }
+  },
+  "overrides": {
+    "@hono/node-server": "2.0.10",
+    "brace-expansion": "5.0.9",
+    "deepmerge-ts": "8.0.0",
+    "fast-uri": "3.1.6",
+    "js-yaml": "4.3.2",
+    "mysql2": "3.24.3",
+    "nanoid": "3.3.18",
+    "postcss": "8.5.23",
+    "sharp": "0.35.4"
+  },
+  "patchedDependencies": {
+    "minimatch@3.1.5": "28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36"
+  }
+}
