@@ -326,7 +326,7 @@ function useNoteLibraryController({
       if (!result.ok) {
         const feedback = mutationFeedback(result, labelAttachmentError(result.body?.error));
         if (feedback.kind === "unauthorized") redirectToLoginWithCurrentLocation();
-        attachmentOperations.fail(noteId, generation, feedback.message);
+        attachmentOperations.fail(noteId, generation, feedback.kind === "error" ? labelAttachmentError(result.body?.error) : feedback.message);
         return;
       }
       completeIdempotentCommand(commandScope);

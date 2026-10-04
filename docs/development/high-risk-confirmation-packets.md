@@ -2516,3 +2516,11 @@ DEP-2A 最终核验与边界证明见 [验证结果](../../output/dependency-aud
 - [独立运行登记](../../output/dependency-audit/dep-2c-2/run-20261003-01/registration.json)、[设计与委派清单](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/design.md)、[候选及工具绑定](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/artifact-binding.json)。新patch SHA-256为`e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`；原/后像、未应用专项diff均在同一sealed目录。
 - 15个hunk精确匹配、6份JavaScript语法检查、80396条独立有界整数路径模型通过；三项独立只读复核发现的问题已在草案中修订并复核。它们不证明补丁运行或安装生效，运行态/Node24/Linux仍未验证。文档门禁和前后保护以同目录最终记录为准。
 - 下一包 [DEP-2C-3-UNIFIED-DEPTH-20261003](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/next-confirmation.md) **待确认、未实施**，绑定当前HEAD/13输入、工具身份、新patch/五后像/专项diff；列明全workspace force写集、禁optimistic、原生恢复、生成物、排他证据与局部回退。没有复用旧批准，不接受漏洞例外，不改audit策略，不授权Git交付、数据库、容器或生产。DEP-2C-2到准备结束即停止。
+
+### DEP-2C-2 续接封存（run-20261003-02）
+
+开始时发现上述 run-01 已有草案但缺最终 seal 与前后未变证明，先停止写入核对，保留其全部字节；本次使用 [独立登记目录](../../output/dependency-audit/dep-2c-2/run-20261003-02/registration.json)，不追写旧证据。当前采用 [run-02 待确认包](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/next-confirmation.md) 和 [不可变产物绑定](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/artifact-binding.json)，旧包不作为本次批准目标。
+
+五文件patch仍为 `e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`。测试草案经两名独立只读代理复核后补入独立进程解析防缓存漂移、异常路径结束重验、准确完成数/逐例状态、嵌套root与受控异常断言。15 hunk、6份JS及嵌入解析程序语法、80396条独立模型通过；文档门禁、最终封存与前后保护以该目录记录为准。仅完成未应用草案和新确认包准备，不表示安装或补丁运行通过。四个现存fixture保留，DEP-2C-1仍partial，丢失旧字节未恢复；A未通过、B继续阻断。新包仍待明确批准，无Git交付、生产或漏洞例外授权。
+
+**最终状态修正：DEP-2C-2 partial，基线漂移后停止。** 最后前后核对发现HEAD从 `ddf690de7e030b103b36be3d9359ffc32ecaf6bd` 变为 `4b5eec1bbf8d972f7d09f6036624d7a63a89c630`，索引字节也变化；reflog记录同分支23:21:05的新STORAGE提交，本轮未发出Git写命令，不推断提交主体。13输入、安装/生成树、历史证据及四组资源均未变，不能据此声称HEAD/索引未变。详见 [基线漂移记录](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/baseline-drift.json)。以上草案和旧绑定原样保留，当前确认包不可作为可执行批准目标；后续须先按新HEAD/索引重新核验并独立绑定，不能直接批准旧包、自动安装或回退并发成果。

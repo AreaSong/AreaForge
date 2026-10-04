@@ -82,6 +82,7 @@ export function StudyResourceWorkbenchView(props: {
         linkUrl={draft.linkUrl}
         uploads={upload.uploads}
         pending={createPending}
+        retryingFailed={upload.retryingFailed}
         locked={upload.locked || link.pending}
         error={createError}
         onClose={() => {
@@ -95,12 +96,13 @@ export function StudyResourceWorkbenchView(props: {
         onLinkUrlChange={draft.setLinkUrl}
         onSelectFiles={upload.selectFiles}
         onUpload={upload.uploadBatch}
+        onRetryFailed={upload.retryFailedBatch}
         onOpenDuplicates={upload.openDuplicates}
         onCreateLink={link.createLink}
       />
       <Drawer open={upload.duplicateDrawerOpen} title="处理重复资料" onClose={upload.closeDuplicates}>
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">同一批次的重复项在这里一次处理；跳过会清理本次上传的临时文件。</p>
+          <p className="text-sm text-zinc-400">同一批次的重复项在这里一次处理；跳过会提交本次文件的清理，额度在清理完成后释放。</p>
           <ul className="space-y-3">
             {upload.uploads.filter((item) => item.status === "duplicate").map((item) => (
               <li key={item.key} className="space-y-2 rounded-md border border-white/10 p-3">
