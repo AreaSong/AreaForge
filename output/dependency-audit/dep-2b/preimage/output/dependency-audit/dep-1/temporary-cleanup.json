@@ -1,7 +1,0 @@
-{
-  "time": "2026-10-03T05:31:58.767392+00:00",
-  "scope": "DEP-1 自建 TMPDIR 临时缓存/合成 fixture；不涉及源码、preimage、日志、生成客户端或既有 STORAGE 资源",
-  "path": "/Users/as/Ai-Project/project/AreaForge/output/dependency-audit/dep-1/tmp",
-  "fileCount": 3840,
-  "removed": true
-}
