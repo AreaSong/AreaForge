@@ -58,7 +58,8 @@ pnpm ops:backup-restore:preview > /path/to/backup-restore-preview.json
 
 输入文件必须是仓库内或系统临时目录中的 redacted `.md` / `.txt` / `.json` 记录。脚本会拒绝 `.env`、`updater.env`、password/secret/token 命名文件、dump/archive/log/key 文件、上传/备份目录路径和包含数据库 URL、私钥或常见 secret assignment 的内容。显式设置 `AREAFORGE_BACKUP_PREVIEW_RESTORE_DRILL_RECORD` 后，如果文件缺失或不符合 redacted record 规则，命令必须失败，而不是静默当作未提供。即使 preview `status=ready`，`pnpm ops:readiness:summary` 也只能把它当 metadata-only 证据降级为 `warn` / 高风险 scope 下 `blocked`；真实 backup pass 仍需要独立的新鲜备份 hash 或发布/恢复证据链。
 
-v1.6 的纯 Core 删除状态机和内存导出 ZIP 不修改本备份协议。Core deletion ledger 只提供不可变哈希链和历史备份恢复后的只读 replay plan，固定不允许执行；账本持久化、恢复后真实重放、备份副本同步删除和真实导出临时包清理仍需独立确认、实现与 restore fixture，不能由纯状态机、账本计划或 archive bytes 测试代替。
+导出副本存放在独立 `EXPORT_DIR`，不是备份，不改变本协议的数据库、源上传目录和配置备份范围。导出回收只处理已登记的 staging/spool/ZIP 副本；数据库恢复不自动恢复这些文件，也不能让过期、撤销或文件/hash 不符的包重新可下载，详见 [本人数据导出](../modules/data-export.md)。
+旧 Core 删除预览协议只提供不可变哈希链与只读 replay plan，固定不允许执行。独立 DATA-DELETE 协议按[本人数据回收站与删除](../modules/data-deletion.md)处理持久账本：恢复目标先保持隔离，从恢复后的数据库取得账本序号/head 水位，绑定 dump hash 并与外部可信链核对，再重放缺失后缀；不能用备份或删除的墙上时钟筛选，因为未提交事务可能跨越快照。上传文件仍须同周期恢复并完成 metadata/hash 对账。真实重放、备份副本处置和生产恢复须各自确认，不能由导出文件测试或本地恢复证据替代。
 
 ## 命令模板
 

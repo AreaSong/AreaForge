@@ -1,6 +1,6 @@
 ---
 name: areaforge-sre-ops
-description: "Use when Codex needs to inspect, plan, or improve AreaForge production operations: health checks, logs, Nginx, Docker Compose, PostgreSQL, backups, restore drills, GitHub Release updater, update-agent, auto-apply policy, rollback, disk/cert capacity, incident execution support, or operational readiness. This skill owns executing confirmed production operations; hand read-only signal evidence to areaforge-observability and incident severity/containment orchestration to areaforge-incident-response."
+description: "Use for confirmed AreaForge live-system changes and recovery: Docker Compose, Nginx, PostgreSQL, backup/restore, updater apply, rollback, capacity controls, and operational runbooks. Hand read-only signals to areaforge-observability and incident severity/containment to areaforge-incident-response."
 ---
 
 # AreaForge SRE Ops
@@ -9,7 +9,7 @@ Treat production as a managed system with health, backup, restore, update, rollb
 
 ## When To Use / Hand Off
 
-- Use for: planning or executing confirmed production operations: health, backup, restore, updater apply, rollback, Nginx, containers, PostgreSQL.
+- Use for: planning or executing confirmed production changes and recovery: backup, restore, updater apply, rollback, Nginx, containers, and PostgreSQL. Read-only health/status evidence belongs to `areaforge-observability`.
 - Not here: read-only signal inventory and status evidence -> `areaforge-observability`; incident severity and containment orchestration -> `areaforge-incident-response`; release identity and update evidence -> `areaforge-release-operator`; artifact trust -> `areaforge-supply-chain`.
 
 ## Read First
@@ -30,6 +30,8 @@ Treat production as a managed system with health, backup, restore, update, rollb
 14. [docs/development/restore-drill-record-template.md](../../../docs/development/restore-drill-record-template.md)
 15. [docs/development/update-agent-status-record-template.md](../../../docs/development/update-agent-status-record-template.md)
 
+Read the minimum sources relevant to the operation. Always read this skill; load backup, release, incident, security, or live-production references only when the requested action needs them.
+
 ## References
 
 - [references/ops-runbook.md](references/ops-runbook.md): health, backup, restore, updater, rollback, and incident checks.
@@ -43,9 +45,9 @@ Treat production as a managed system with health, backup, restore, update, rollb
 
 1. Classify the request: observe, diagnose, plan, change config, apply update, rollback, restore, or incident response.
 2. For observe/diagnose, prefer read-only checks and hand detailed signal inventory to the observability skill.
-3. For write actions, require explicit confirmation and a rollback plan before changing production, update policy, database, upload directory, or Nginx.
+3. For write actions, require explicit confirmation and a rollback plan before changing production, update policy, database, upload directory, or Nginx. Read-only health/status checks do not require that write confirmation and should be handed to Observability.
 4. Preserve evidence: command, host, timestamp, version, image digest, backup path/hash, status, residual risk.
-5. Keep ownership explicit: SRE Ops may execute confirmed production operations; Observability supplies read-only signals; Release Operator owns release identity/update evidence; Supply Chain owns artifact trust.
+5. Keep ownership explicit: SRE Ops may execute only confirmed production operations; Observability supplies read-only signals; Release Operator owns release identity and auto-apply policy evidence; Supply Chain owns artifact trust. Reuse a confirmation across this handoff only when it explicitly covers the same execution action, target, scope, and still-valid evidence; policy-only approval never authorizes updater apply.
 6. After release/update/rollback, sync docs and tasks through the doc sync skill and record residual items through the residual ledger when they remain.
 
 ## Guardrails

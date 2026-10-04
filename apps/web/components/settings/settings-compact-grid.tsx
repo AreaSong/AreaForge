@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/feedback";
-import type { ExamWorkspaceDto } from "@/lib/contracts";
 
 export interface SettingsCompactGridProps {
   activeWorkspace: {
@@ -19,13 +18,16 @@ export interface SettingsCompactGridProps {
   } | null;
   activeSubjectCount: number;
   aiConfigured?: boolean;
+  currentVersion: string;
 }
 
 export function SettingsCompactGrid({
   activeWorkspace,
   activeSubjectCount,
   aiConfigured = false,
+  currentVersion,
 }: SettingsCompactGridProps) {
+  const versionLabel = currentVersion.startsWith("v") ? currentVersion : `v${currentVersion}`;
   const sections = [
     {
       href: "/settings/exams",
@@ -56,6 +58,15 @@ export function SettingsCompactGrid({
       tone: "neutral" as const,
     },
     {
+      href: "/settings/notifications",
+      title: "通知中心",
+      subtitle: "跨设备事件收件箱",
+      description: "查看成员、私有挑战和申诉状态，管理已读、隐藏与恢复状态",
+      Icon: BellRing,
+      badge: "账户隔离",
+      tone: "neutral" as const,
+    },
+    {
       href: "/settings/ai",
       title: "AI 与隐私",
       subtitle: aiConfigured ? "Provider 已就绪" : "受控外呼",
@@ -76,10 +87,10 @@ export function SettingsCompactGrid({
     {
       href: "/settings/system",
       title: "系统与更新",
-      subtitle: "v1.1.2 (Release)",
+      subtitle: `${versionLabel} 当前运行态`,
       description: "版本发布基线、root update-agent 受控更新与回滚历史",
       Icon: MonitorCog,
-      badge: "v1.1.2",
+      badge: versionLabel,
       tone: "success" as const,
     },
   ] as const;

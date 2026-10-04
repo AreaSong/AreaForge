@@ -9,7 +9,7 @@
 ## 当前结论
 
 - Package A-E 和 docs 100% 当前范围已完成，源事实见 `docs/development/docs-100-completion-record.md`。
-- 当前生产基线为 `1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` / `https://forge.areasong.top/`；最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`。2026-08-01 Web 受控 production apply 已完成并由公网 health 报告 verified runtime identity；`v1.2.0` 尚未执行 production apply。
+- 归档生产交付基线为 `1.1.1` / `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb` / `https://forge.areasong.top/`，对应 2026-08-01 受控 apply。最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；2026-09-14 公网 health 已观测到该版本，但完整服务器交付/回滚证据未核验，继续保持 `needs_live_evidence`，详见 operational-readiness。
 - `docs/development/release-v0.1.9-record.md` 是历史生产记录，`docs/development/release-v0.1.7-record.md` 是更早的历史回滚证据；当前 `v1.1.1` 生产事实已由公网 health、固定 Web digest 与服务器 updater 结果交叉确认，旧记录不能替代这些当前证据。
 - 自动更新当前安全默认是 `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 updater 执行高风险动作。
 - `v0.1.9` 的 OPS-001、OPS-004、OPS-005、OPS-006、OPS-007、OPS-008、SC-001、SC-004 和 UX-001 已按各自证据与人工复核记录进入 `closed-evidence`；SC-002/SC-003 也保持 `closed-evidence`。当前仍开放的是 OPS-002、OPS-003、REL-001，`AF-RISK-DATA-001` 保持 `deferred-work`。这些历史状态不自动证明 `v1.1.1` 当前生产健康，也不授权未来 Release、production apply、migration、写入 smoke 或自动更新策略变化。
@@ -245,7 +245,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 
 - `AF-RISK-OPS-001`：`v0.1.9` production readonly smoke、redacted update-agent status、operational evidence bundle、backup-restore preview 和 closure packet 已通过人工复核并进入 `closed-evidence`；生产版本变化、证据过期或 preflight 失效时重新打开。`v0.1.7` bundle 与 2026-07-11/12 fallback 目录仅保留为历史证据。
 - `AF-RISK-OPS-002`：写入型生产 smoke 仍需专用账号、确认、清理策略和受控记录。
-- `AF-RISK-REL-001`：`AREAFORGE_AUTO_APPLY=none` 是已接受安全默认，启用 patch 自动应用需另行关闭证据。
+- `AF-RISK-REL-001`：历史接受例外为 `expired`，不再作为有效接受；`AREAFORGE_AUTO_APPLY=none` 保持安全默认，启用 patch 自动应用仍需独立确认与关闭证据。
 - `AF-RISK-SC-001`：`v0.1.9` 签名 Release assets、strict 供应链校验、production apply record 与 closeout 人工复核已进入 `closed-evidence`；新 Release、签名策略/workflow 变化或 strict 校验失效时重新打开。
 - `AF-RISK-SC-002`：exact commit `5bec62608d929a796b4ca00a91aa95bdf256b27c` 的成功 CI run `29634081982`、通过校验的 CI-only record 和 clean detached worktree preflight 已支持关闭为 `closed-evidence`。后续 workflow、依赖审计、Release workflow、记录工具或新 Release 变化会触发重新复核；CI-only 证据不关闭 `AF-RISK-SC-001`。
 - `AF-RISK-SC-003`：后续升级 `pg` / `@prisma/adapter-pg` 前重跑 deprecation trace 和本地 UX smoke。
@@ -260,7 +260,7 @@ pnpm release:closeout:audit:validate <release-closeout-audit.json>
 - `AF-RISK-DATA-001`：学习树导入生命周期边界已人工接受，当前保持 `deferred-work`；已确认导入的规范化 Markdown 长期留存并随数据库备份扩散。后续物理删除、备份副本同步删除、完整账户导出、AI history/provider trace 或跨用户可见性变化必须按台账关闭/重开条件独立确认，本地 Release 候选与生产 apply 均不自动关闭该项。
 - `AF-RISK-DATA-002`：v1.4 AUTH 本地实施已确认并由 active 任务承接，身份、Workspace Membership 和 owner-only 边界正在最终验证；该 residual 保持 `deferred-work` 但本地确认范围可执行。v1.5 RBAC、敏感数据授权、Release 和生产证据仍缺，全部齐全后才能进入人工关闭复核。
 - `AF-RISK-DATA-003`：个人成长指标与私有挑战排名属于 v1.8 后续路线，当前保持 `deferred-work` 且不可执行；指标版本、opt-in、隐私字段禁区、反作弊、申诉以及退出/删除重建证据齐全后才能进入人工关闭复核，默认公开排名不在当前版本范围。
-- `AF-RISK-OPS-009`：受控运维中心属于 v1.7 后续路线，当前保持 `deferred-work` 且不可执行；未来仍只允许 Web 提交白名单 operation intent，由 root-only agent 执行，任意 shell、自由路径、Docker socket、root 权限和服务器密钥继续永久禁止。
+- `AF-RISK-OPS-009`：独立 OPS 本地确认已覆盖冻结绑定、root 桥接/登记、锁、日志和回执恢复，38 组合成运行态及 API/桌面/窄屏验收通过；台账仍为 `deferred-work`，生产动作与关闭证据不在本批授权内。Web 仍只提交白名单 operation intent，由独立 root-only agent 执行；任意 shell、自由路径、Docker socket、Web root 权限和服务器密钥继续永久禁止。
 
 ## 本地预检
 

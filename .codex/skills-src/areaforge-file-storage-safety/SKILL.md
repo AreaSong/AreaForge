@@ -22,6 +22,8 @@ Keep file handling boring, private, reversible, and auditable.
 6. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
 7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
+Read the minimum sources relevant to the file lifecycle under review. Always read this skill; load backup, release, or data-lifecycle references only when the changed path needs them.
+
 ## References
 
 - [references/storage-gates.md](references/storage-gates.md): upload, attachment, reconciliation, backup, restore, and migration gates.
@@ -32,13 +34,14 @@ Keep file handling boring, private, reversible, and auditable.
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report findings with file/line evidence and claim scope; do not edit files, metadata, residuals, or docs. Continue with the steps below only when the user explicitly requests a change or a scoped state update.
 1. Classify the work: upload, authenticated download, DTO exposure, metadata/hash, reconciliation, deletion, orphan cleanup, storage migration, backup, restore, or release evidence.
 2. Load the storage gates before proposing edits, cleanup, migration, restore, or deletion.
 3. Identify the file authority pair: database row and private file body. Confirm how metadata, hash, byte size, MIME, and authenticated response stay aligned.
-4. Treat deletion, cleanup, upload directory migration, backup restore, and metadata repair as high-risk actions requiring explicit confirmation.
+4. Treat deletion, cleanup, upload directory migration, backup restore, and metadata repair as high-risk state-changing actions requiring explicit confirmation. Read-only inspection, report-only reconciliation, and design preparation may continue within the existing scope.
 5. Keep reconciliation read-only by default: report differences first, do not repair or delete files unless the confirmed scope says so.
 6. Verify path traversal, symlink escape, public directory exposure, DTO leakage, cache headers, and file/body hash agreement.
-7. Route file export, retention, deletion rights, user migration, and upload lifecycle changes through security governance until a dedicated data-governance owner exists.
+7. Route file export, retention, deletion rights, user migration, and upload lifecycle changes that alter a data/privacy boundary through security governance until a dedicated data-governance owner exists; consume an existing confirmation only for its exact scope rather than opening a duplicate approval loop. Non-boundary bug fixes and local tests may proceed under the normal change workflow.
 8. For file lifecycle work, record the database row/file body authority, backup/restore impact, revocation or rollback path, and whether residual evidence belongs in `AF-RISK-DATA-*` in the future or an existing OPS/security residual now.
 9. Sync architecture, security, deployment, runbook, residual, and task docs when file behavior or evidence requirements change.
 

@@ -31,7 +31,7 @@ commands:
 residual risk:
 ```
 
-For product experience closeout, include desktop and mobile/narrow observations in `docs/development/product-experience-review-record-template.md` and validate the redacted record with `pnpm experience:review:validate <record>`.
+For a formal product-experience release/update closeout, `AF-RISK-UX-001` closure, or an explicitly requested closeout, include desktop and mobile/narrow observations in `docs/development/product-experience-review-record-template.md` and validate the redacted record with `pnpm experience:review:validate <record>`. Routine smoke evidence does not require a separate report file.
 
 ## Production Limits
 

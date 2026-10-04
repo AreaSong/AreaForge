@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -27,6 +28,16 @@ try {
   git(["add", "tracked.txt"]);
   const staged = fingerprint();
   assert(staged.worktreeHash !== secondDirty.worktreeHash, "staging state must change worktree hash");
+  assertLegacyHash(staged.worktreeHash);
+
+  const largeFile = path.join(root, "large.txt");
+  writeFileSync(largeFile, "测试大差异\n".repeat(5_000_000));
+  git(["add", "large.txt"]);
+  const large = fingerprint();
+  assert(large.changedPaths.includes("large.txt"), "large staged diff must remain included");
+  assertLegacyHash(large.worktreeHash);
+  git(["reset", "--", "large.txt"]);
+  unlinkSync(largeFile);
 
   writeFileSync(path.join(root, "untracked.txt"), "one\n");
   const untrackedOne = fingerprint();
@@ -55,6 +66,16 @@ function fingerprint() {
 
 function git(args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+
+function assertLegacyHash(actual: string): void {
+  const digest = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+  const status = git(["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."]);
+  const diff = execFileSync("git", ["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--", "."], {
+    cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024,
+  });
+  assert(actual === digest(JSON.stringify({ statusSha256: digest(status), trackedDiffSha256: digest(diff), untracked: [] })),
+    "chunked hashing must preserve the original fingerprint, including UTF-8 across chunks");
 }
 
 function assert(condition: boolean, message: string): void {

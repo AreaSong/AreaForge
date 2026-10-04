@@ -49,7 +49,7 @@
 | `scripts/ops/long-term-evidence-snapshot.ts`、`scripts/quality/long-term-evidence-snapshot-validate.ts`、`scripts/quality/long-term-evidence-snapshot.selftest.ts`、长期运营只读证据快照 | `pnpm ops:long-term:snapshot:selftest`，`pnpm ops:long-term:snapshot > <snapshot.json>`，`pnpm ops:long-term:snapshot:validate <snapshot.json>`，`pnpm enterprise:operability:preflight`，`pnpm ops:readiness`，`pnpm ops:status`，`pnpm ops:handoff`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check`；schema v3 必须包含 dataIntegrity check/path/file hash/internal doctorHash/freshness/nextCommand，UX check 必须继承共享 evaluator 的四态、同一注入时钟、expected version、安全命令和 record hash，禁止 subprocess 二次判定或读取 workspace 外 UX 路径。默认 validator 必须返回 `bindingStatus: current`，v1/v2 只允许 `--shape-only` 且不可 ready。缺 doctor、OPS-001 或 backup hash 时快照保持 `needs_live_evidence`；validator 通过不等于生产健康、并发根因修复或 residual 关闭 |
 | `docs/development/maintenance-cadence.md`、`scripts/quality/maintenance-cadence-preflight.ts`、维护节奏入口 | `pnpm maintenance:cadence:preflight`，`pnpm ops:readiness`，`pnpm ops:status`，`pnpm ops:status:validate:selftest`，`pnpm ops:status:selftest`，`pnpm ops:handoff`，`pnpm ops:handoff:validate:selftest`，`pnpm ops:handoff:selftest`，`pnpm ops:backup-restore:preview:selftest`，`pnpm residuals:validate`，`pnpm residuals:review-due`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check` |
 | `docs/development/maintenance-window-record-template.md`、`docs/development/maintenance-window-index.json`、`scripts/ops/generate-maintenance-window-record.ts`、`scripts/quality/maintenance-window-record.selftest.ts`、`scripts/quality/maintenance-window-record-validate.ts`、`scripts/quality/maintenance-window-record-validate.selftest.ts`、`scripts/ops/maintenance-window-index.ts`、`scripts/quality/maintenance-window-index-common.ts`、`scripts/quality/maintenance-window-index-validate.ts`、`scripts/quality/maintenance-window-index.selftest.ts` | `pnpm maintenance:window:record:selftest`，`pnpm maintenance:window:selftest`，`pnpm maintenance:window:index:selftest`，`pnpm maintenance:window:index:validate docs/development/maintenance-window-index.json`，`pnpm maintenance:cadence:preflight`，`pnpm enterprise:operability:preflight`，`pnpm docs:readiness`，`git diff --check`；若形成真实维护窗口记录，运行 `pnpm maintenance:window:validate <record>`，完整重建索引后再校验，禁止保留部分索引或把索引当成维护动作证据 |
-| `docs/development/incident-record-template.md`、`docs/development/incident-index.json`、`docs/development/rollback-proof-record-template.md`、`scripts/ops/generate-incident-record.ts`、`scripts/quality/incident-record-validate.ts`、`scripts/quality/incident-record-validate.selftest.ts`、`scripts/ops/incident-index.ts`、`scripts/quality/incident-index-common.ts`、`scripts/quality/incident-index-validate.ts`、`scripts/quality/incident-index.selftest.ts`、`scripts/quality/rollback-proof-record-validate.ts`、`scripts/quality/rollback-proof-record-validate.selftest.ts`、`.codex/skills-src/areaforge-incident-response/**` | `pnpm incident:record:selftest`，`pnpm incident:index:selftest`，`pnpm incident:index:validate docs/development/incident-index.json`，`pnpm rollback:proof:selftest`，`pnpm ops:status:selftest`，`pnpm ops:status:validate:selftest`，`pnpm ops:handoff:selftest`，`pnpm ops:handoff:validate:selftest`，`pnpm ops:readonly-side-effect:selftest`，`pnpm ops:readiness`，`pnpm maintenance:cadence:preflight`，`pnpm enterprise:operability:preflight`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check`；若形成真实事故记录，运行 `pnpm incident:record:validate <record>`，只有 `resolved + postIncidentReview=yes` 的记录可进入历史索引并完整重建；若实际执行 rollback，另运行 `pnpm rollback:proof:validate <record>`，`ready-for-human-review` 不等于自动重新开放更新通道 |
+| `docs/development/incident-record-template.md`、`docs/development/incident-index.json`、`docs/development/rollback-proof-record-template.md`、`scripts/ops/generate-incident-record.ts`、`scripts/quality/incident-record-validate.ts`、`scripts/quality/incident-record-validate.selftest.ts`、`scripts/ops/incident-index.ts`、`scripts/quality/incident-index-common.ts`、`scripts/quality/incident-index-validate.ts`、`scripts/quality/incident-index.selftest.ts`、`scripts/quality/rollback-proof-record-validate.ts`、`scripts/quality/rollback-proof-record-validate.selftest.ts`、`.codex/skills-src/areaforge-incident-response/**` | `pnpm incident:record:selftest`，`pnpm incident:index:selftest`，`pnpm incident:index:validate docs/development/incident-index.json`，`pnpm rollback:proof:selftest`，`pnpm ops:status:selftest`，`pnpm ops:status:validate:selftest`，`pnpm ops:handoff:selftest`，`pnpm ops:handoff:validate:selftest`，`pnpm ops:readonly-side-effect:selftest`，`pnpm ops:readiness`，`pnpm maintenance:cadence:preflight`，`pnpm enterprise:operability:preflight`，`pnpm docs:readiness`，`pnpm skills:validate`，`git diff --check`；若形成真实事故记录，运行 `pnpm incident:record:validate <record>`，`pnpm incident:index` 将 open/mitigated/follow-up 投影到 active，只有 `resolved + postIncidentReview=yes` 的记录进入 resolved 组；若实际执行 rollback，另运行 `pnpm rollback:proof:validate <record>`，`ready-for-human-review` 不等于自动重新开放更新通道 |
 | `docs/development/restore-drill-record-template.md`、`scripts/quality/restore-drill-validate.ts`、`scripts/quality/restore-drill-validate.selftest.ts`、`docs/deployment/backup-restore.md`、`scripts/ops/backup-restore-preview.ts`、`scripts/quality/backup-restore-preview-validate.ts`、`scripts/quality/backup-restore-preview.selftest.ts` | `pnpm restore:drill:selftest`，`pnpm ops:backup-restore:preview:selftest`，`pnpm operator:onboarding:preflight`，`pnpm maintenance:cadence:preflight`，`pnpm enterprise:operability:preflight`，`pnpm ops:readiness`，`pnpm docs:readiness`，`git diff --check`；若形成真实恢复演练记录，运行 `pnpm restore:drill:validate <record>`；若形成备份/恢复证据预览，运行 `pnpm ops:backup-restore:preview:validate <backup-restore-preview.json>` |
 | `docs/development/update-agent-status-record-template.md`、`scripts/ops/generate-update-agent-status-record.ts`、`scripts/quality/update-agent-status-record.selftest.ts`、`scripts/quality/update-agent-status-validate.ts`、`scripts/quality/update-agent-status-validate.selftest.ts`、update-agent redacted status 交接入口 | `pnpm update-agent:status:record:selftest`，`pnpm update-agent:status:selftest`，`pnpm github-release-updater:preflight`，`pnpm ops:readiness`，`pnpm enterprise:operability:preflight`，`pnpm docs:readiness`，`git diff --check`；若形成真实 redacted status JSON，运行 `pnpm update-agent:status:record <status.json> > <record.json>` 和 `pnpm update-agent:status:validate <record.json>`；用于当前版本 OPS-001 或长期运营证据时，带 `AREAFORGE_UPDATE_AGENT_EXPECTED_VERSION=<version>`，需要新鲜度门禁时再带 `AREAFORGE_UPDATE_AGENT_MAX_AGE_SECONDS=<seconds>` |
 | `prisma/schema.prisma`、`prisma/migrations/**` | `pnpm db:validate`，涉及 migration 时补充迁移和回滚说明 |
@@ -548,6 +548,114 @@ CI/Release workflow 还必须通过 `pnpm governance:preflight` 的 GitHub Actio
 - <residual-risk-ids-or-none>
 ```
 
+## 持久后台任务执行内核专项
+
+涉及 `packages/core/src/data-job-queue*`、`packages/db/src/data-job-queue*`、`scripts/workers/data-job-*`、`scripts/workers/ranking-notification-handler.ts`、
+`DataJob` 队列字段或旧预览协议隔离时，运行 Core/DB/Web 对应测试与类型检查、`pnpm worker:data-jobs:typecheck`、
+`pnpm worker:data-jobs:selftest`、`pnpm db:generate`、`pnpm db:validate`、`pnpm check`、文档/风险/治理/secret 门禁及 `git diff --check`。
+通知处理器还须通过 `pnpm --filter @areaforge/db test` 中的 payload/allowlist selftest；域级隔离写入需独立确认，并显式设置 `AREAFORGE_RANKING_NOTIFICATION_ISOLATED_DB=1`。仅运行内核回归不证明通知处理器。
+涉及 `packages/core/src/ranking-notification-job*`、`packages/db/src/ranking-notification-*`、排名通知调用者或
+`scripts/quality/ranking-notification-*` 时，另运行 `pnpm worker:notifications:runtime:selftest`，同时保留内核与通知两项隔离 guard。
+通知专项须覆盖事务回滚/并发去重、全部受控事件、source/scope 伪造、撤销后恢复、运行中开关、锁冲突退避、死信重放、
+失效收件人的业务事务、独立于通知开关的所有权目标有效性，以及 prepare/事务副作用写入后但提交前两个真实进程强杀点。
+运行前核验 loopback 专属合成库与完整 migration ledger/checksum；源业务与队列不得因测试而连接共享库或生产。
+DB 默认 test 已包含 worker 单元测试；根 typecheck 已包含 worker typecheck。
+
+获本批隔离授权后，以新建 loopback `areaforge_v20_worker_*` 数据库完成 migration deploy/repeat deploy，再设置
+`AREAFORGE_DATA_JOB_WORKER_ISOLATED_DB=1` 运行 `pnpm worker:data-jobs:runtime:selftest`。
+脚本不创建或删除数据库；会核对实际库名及完整 canonical migration 名称、完成状态和 SQL checksum。
+须覆盖竞争 claim、scope/partition、持久退避/死信/重放、旧代次、暂停/取消、过期、权限撤销、事务副作用回滚、
+心跳/中止、旧协议隔离、两个真实进程 kill-point、失败/控制请求竞争的返回状态、处理器伪造控制错误和长提交事务；不得把无数据库的普通 check 或 CI 当作该 runtime 的替代证据。
+不执行共享/生产 migration，不生成真实归档或删除真实数据，不证明业务域处理器、浏览器或 Release/生产完成。
+
+## 本人数据导出专项
+
+涉及 `packages/core/src/data-export-*`、`packages/db/src/data-export-*`、`packages/storage/src/data-export-*`、
+`scripts/workers/data-export-*`、数据任务 Web/API 或导出 artifact migration 时，先核对独立 DATA-EXPORT 确认，
+再运行 Core/Storage/DB/Web 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、
+`pnpm db:generate`、`pnpm db:validate`、`pnpm check`、Web 共享能力相关门禁、docs/risk/governance/secrets 和 `git diff --check`。
+
+- `pnpm worker:exports:runtime:selftest`：要求 `AREAFORGE_DATA_EXPORT_ISOLATED_DB=1`、新建 loopback `areaforge_v20_export_*` 专用合成库、`AREAFORGE_DATA_EXPORT_FIXTURE_ROOT` 私有目录；先核对完整 canonical migration ledger/SQL checksum。脚本不建库、不迁移，不读取共享 uploads。
+- 覆盖 Account/Workspace、自有/历史成员上下文、所有权转移与账户暂停后恢复、学习关系/同名附件、并发请求幂等、旧协议隔离、权限版本与开关、回执上限；独立解 ZIP 并核对对象、manifest、附件和整包 SHA-256。
+- 故障覆盖缺失、篡改、软链接、容量上限、暂停/取消/重试/过期、文件已就位但尚无 Package；真实子进程在 intent、首条记录、seal、Package 写入但事务未提交四处 SIGKILL，恢复后仅新代次可成功，旧 key 回收不得触及新 key 或源附件。
+- 下载覆盖并发兑换、撤销/过期、session 撤销、短期 reservation 代次、打开/校验失败不消费、开始前/传输中取消与文件句柄释放；回收覆盖幂等、未登记 sentinel、失败对象轮转及关闭导出后的显式维护。
+- 在同一已迁移导出合成库重跑 `worker:data-jobs:runtime:selftest` / `worker:notifications:runtime:selftest` 时，同时保留内核 guard、通知域 guard 和导出 guard；专用 export 名称只在额外导出 guard 下放行，旧共享/真实数据库不得冒充候选证据。
+- `pnpm worker:exports:browser:selftest`：复用 `dev:test:latest -- --json` 返回且 source fingerprint 匹配的 EXPORT 专用槽，覆盖未登录/跨用户 API、真实 ZIP、响应丢失重试、暂停/恢复/进度、下载/撤销/过期、错误恢复、旧包拒绝及桌面/窄视口。认证材料仅存在合成进程内或 0600 临时文件，截图不得包含 token。
+- 测试池隔离模式改动另跑 `dev:test:selftest` / `dev:test:typecheck` / latest / doctor / snapshot dry-run、`package-e:preflight`；marker、canonical 0700 根、0600 合成 secret、精确库名/仓库/UID 绑定、软链接、同槽所有权与只读文件挂载均需负测。
+
+本地回归不证明生产 migration、真实用户导出、Release、DATA-DELETE、备份恢复、长期运行容量或 v2.0 综合门禁。
+
+## 本人数据删除专项
+
+涉及 `packages/core/src/data-delete-*`、`packages/db/src/data-delete-*`、普通 Prisma 可见性适配、`packages/storage/src/data-delete-*`、
+独立删除进程、删除 API/UI 或对应 additive migration 时，先核对独立 DATA-DELETE 确认，然后运行：
+
+- Core/DB/Storage/Web 测试与类型检查、`pnpm worker:deletions:typecheck`、`pnpm worker:deletions:isolation:selftest`、`pnpm check`。
+- `pnpm worker:deletions:runtime:selftest <本批 fixture 根>`：只允许登记所有权的新建 `areaforge_v20_delete_*` 库与私有目录；核对全部 migration 名称、实际顺序、SQL checksum、完成状态及步骤数。包含五类对象、真实成员/所有权/账户权限变化、并发恢复与 claim、根对象清除、文件一致性、租约/退避/死信、五个真实强杀点、跨备份快照提交及可信账本水位重放。禁止复用 EXPORT/共享库或真实上传目录。
+- `pnpm worker:deletions:browser:selftest <本批 fixture 根>`：复用 DELETE 专属测试池 latest，严格匹配产品源码指纹与 fixture；验证账户/工作区/对象确认、响应丢失幂等、普通读取隐藏、跨用户拒绝、取消/恢复/失败保留、账户退出后回执、桌面和窄视口。
+- 测试池模式变化另运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/dry-run 及原治理门禁；不得覆盖共享槽或 EXPORT 槽。
+- 新模型必须进入导出清单双向分类；内部删除意图、栅栏、文件指纹和恢复账本不得静默作为用户归档输出。
+- 知识画布原生查询必须覆盖节点/边/计数/分页/focus/search 的冻结过滤与恢复；原生读适配补代次变化、旧表兼容和持续竞争负测。真实登录的 API 探针必须使用同一浏览器会话，不能因独立 HTTP 客户端漏带 Secure Cookie 而把 401 误算为越权或撤销验证。
+- 最终编辑后运行 docs/readiness/links/evergreen、tasks/risk/governance/secrets 和 diff 门禁；最终 runtime 或浏览器缺失时只能报告 partial/blocked，不以中途源码证据、构建或绿色 CI 替代。
+
+## 受控运维独立执行专项
+
+涉及 `controlled-operation-*`、`ops/controlled-operation-agent/**` 或 OPS 专用测试池时，先核对独立 OPS 确认包，再运行：
+
+- Core/DB/Web 规则与类型检查、`pnpm ops:controlled:typecheck`、`pnpm ops:controlled:selftest`、`pnpm check`。wire 自测必须进入原 updater 的 strict shell schema，不能只比较两个新实现。
+- `pnpm ops:controlled:runtime:selftest <private-fixture-root>`：完整 canonical migration ledger/checksum、六种白名单动作、跨进程锁/子进程继承、双前态、权限变化、hold/cancel 屏障、旧代次、逐阶段真实 SIGKILL、重复回执恢复、真实数据库写回超时、journal 篡改/截断及跨请求锚。可靠零副作用拒绝不能升级为永久对账阻塞。
+- `pnpm ops:controlled:browser:selftest <private-fixture-root>`：复用 OPS 专属 latest，核对 source fingerprint 与 fixtureId；覆盖真实登录/Operator/重新验证、冻结前态、丢失响应幂等、确认/审批、阶段历史、挂起/恢复/取消、未登录和非 Operator 拒绝、桌面/390px/320px、键盘及无横向溢出。
+- 测试池改动补 `dev:test:selftest` / `dev:test:typecheck` / latest / doctor / snapshot dry-run；同时运行 `github-release-updater:preflight`、`shellcheck:updater`、原 OPS-005/OPS-008 selftest、governance/risk/secrets/docs、ops readiness/handoff 与 `git diff --check`。
+- 只允许本批新建合成库/目录及固定测试命令，不借用 DELETE/EXPORT/共享数据。本地日志与结果必须标为 `local_fixture`，不证明生产签名/backup/apply/rollback、Release、长期运营或 residual 关闭。
+
+## 持久排名重建专项
+
+涉及 `ranking-rebuild-*`、排名 HTTP 重建入口、当前投影过滤或 RANKING 专用测试池时，先核对独立 RANKING 本地确认包：
+
+- Core/DB/Web/config 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm worker:rankings:typecheck`、`pnpm worker:rankings:isolation:selftest`、`pnpm check`。
+- `pnpm worker:rankings:runtime:selftest <private-fixture-root>`：精确 RANKING marker/UID/仓库/数据库/镜像/卷和当前 53 条 migration ledger/checksum；覆盖来源日期及 xmin、代次、身份历史、并发/锁冲突、控制、容量拒绝、空榜证据、真实权限与数据库删除联动、两个进程强杀点、事务中租约过期及标准独立 CLI。`--case=<name>` 仅用于定位，不生成完整验收记录。
+- `pnpm worker:rankings:browser:selftest <private-fixture-root>`：复用 RANKING 专用 latest 并校验产品/fixture 指纹；覆盖 Owner 请求/控制、Member/Viewer/跨工作区拒绝、丢失或残缺 202 同请求重试、乱序刷新、权限/版本变化、冻结可见性及桌面/390px/320px。不得用静态合同测试替代实际页面。
+- runtime 与 browser 输出绑定 `rankingRebuildSourceFingerprint`；采集期间源码变化必须失败。最终编辑后重跑受影响记录，不用相同 base commit 替代当前源码指纹。
+- 测试池改动补 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；所有 fixture 仅挂载其私有 uploads/exports 为只读，不叠加共享上传卷。
+- 同步模块/API/配置/任务/状态入口，运行 docs/links/evergreen、tasks/residual/risk/governance/secrets 和 diff 门禁。独立内核/通知旧运行结果不替代排名域；本地结果不证明 Release、共享/生产 migration、生产启用或残余风险关闭。
+
+## 持久搜索索引专项
+
+涉及 `workspace-search-*`、`search-index-*`、搜索 HTTP 入口、派生副本删除或 SEARCH 测试池时，先核对独立 SEARCH 确认包：
+
+- Core/DB/Web/config 测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm worker:search:typecheck`、`pnpm worker:search:isolation:selftest`、`pnpm check`。
+- `pnpm worker:search:runtime:selftest <private-fixture-root>`：仅本批 `areaforge_v20_search_*` 库，检查完整 canonical migration ledger、SQL checksum 与重复 deploy。覆盖六类源、双用户/工作区、权限/grant/到期/源修订、旧代次、并发、控制/死信、两处真实 SIGKILL、租约过期、冻结保真、精确跨查看者删除及导出排除。
+- 容量覆盖 10,000/10,001 文档、8 KiB 单标题与 16 MiB 总标题；大量 grant/fence、分区占锁与关闭索引时仍安全直查，取消已有任务不依赖索引集合未超限。直查只锁最终候选授权并在返回前重验到期。
+- 提交末端复用 `written` 检查点，在有效租约内并发改源标题或等待 grant 到期；校验事务成功或回滚均无半代副作用，随后查询只返回当前授权可见源，不能交付旧索引标题、计数或时间。
+- `pnpm worker:search:browser:selftest <private-fixture-root>`：复用 SEARCH 专用 latest，校验产品与本域 source fingerprint。覆盖真实登录、请求/控制、202 回执同请求重试、乱序响应、用户与工作区切换、源变化/冻结恢复和错误回退；桌面/390px/320px 必测。涉及顶部共享搜索布局时补七档宽度及真实浏览器 125% 缩放，CSS zoom 只作补充；临时浏览器 profile 不修改用户日常浏览器设置。
+- `--case=<name>` 只定位单项，不保存完整验收记录；最终源码变化后重跑受影响 runtime/browser。新结构不自动升级旧域固定 53 条 migration/hash 的历史证据。
+- 测试池变化运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 和 package-e preflight；核对槽 1/2、旧数据库/卷未变，仅使用当前 SEARCH fixture 的只读空 uploads/exports 挂载。
+- 同步模块、API、配置、体验和状态入口，执行 docs/tasks/residual/risk/governance/secrets/audit 与 diff 门禁。本地结果不证明共享/生产 migration、真实用户数据操作、Release、生产启用或 residual 关闭。
+
+## 后台任务准入配额专项
+
+涉及 `data-job-quota*`、`quota-*` 或三域准入接点时，先核对独立 QUOTA 确认包：
+
+- Core/config/DB/Web 单测与类型检查、`pnpm quota:typecheck`、`pnpm quota:isolation:selftest`、`pnpm check`。配额配置错误只在新准入失败，不得使通用身份配置解析失败。
+- `pnpm quota:runtime:selftest <private-fixture-root>`：仅新建 `areaforge_v20_quota_*` 合成库，54 条 canonical migration 的完整 ledger/checksum 及重复 deploy；不修改旧域固定 hash，不新增 DDL。
+- 覆盖三域真实入队、本人/Workspace/ACCOUNT 分区、同键与跨 key 并发、六个独立进程、滚动窗口与时钟回拨、失败/暂停/取消的名额保留、旧快照先建立后竞争提交、非 Serializable 拒绝、事务回滚及计数后/写入后两处 SIGKILL。仅抢锁失败不能替代旧快照序列化冲突证据。
+- `pnpm quota:browser:selftest <private-fixture-root>`：复用专属测试池 latest 并核对产品与本域源码指纹；实际登录/重新验证、三入口 429/中文恢复反馈、额度满时学习写入与安全直查、越权/未知字段拒绝、取消后恢复、导出不退款及回执丢失同键重试。至少桌面/390px/320px、焦点、状态播报与横向溢出检查。
+- 本批只用合成状态和队列控制模拟结算，不运行 EXPORT/SEARCH/RANKING 业务消费者、ZIP/下载/回收、删除或运维执行器。uploads/exports 为空且 Web 只读挂载；断言无导出包/文件、搜索文档或排名发布副作用。
+- 测试池变更运行 `dev:test:selftest`、`dev:test:typecheck`、latest/doctor/snapshot dry-run 与 package-e preflight；同步 docs/tasks/risk/governance/secrets/audit。范围内最高 R1，不证明成员/存储或全站配额、完整跨域门禁、共享/生产、Release 或 residual 关闭。
+
+## 成员席位与活跃任务总量专项
+
+涉及 `capacity-quotas`、`workspace-member-quota`、`data-job-total-quota`、邀请接受或 CAPACITY 隔离适配时，先核对独立 QUOTA-CAPACITY 确认：
+
+- Core/config/DB/Web 单测和类型检查、`pnpm capacity:typecheck`、`pnpm capacity:isolation:selftest`、`pnpm capacity:fixture:selftest`、`pnpm check`；新开关或坏限额不能使通用身份/个人学习配置失效。 fixture 自测须覆盖失败请求排空、屏障提前结束/超时，以及固定迁移内容与额外文件/软链接拒绝。
+- `pnpm capacity:runtime:selftest <private-fixture-root>` 仅使用新建的专属 CAPACITY 合成库；先核对 54 条 canonical migration 名称、ledger/checksum 与重复 deploy，部署前和运行态均绑定批准的 55 文件内容摘要，不只比较数量或当前工作树 checksum；无新增 DDL。覆盖 Owner 预留、停用/冻结/归档不释放、退出/移除与重新加入、所有权转移、邀请重放及失败完整回滚。
+- 三维任务总量覆盖本人跨 Workspace/ACCOUNT、工作区跨请求者、实例跨域；含新旧开关四组合、同键、全部可恢复状态、到期、并发、旧快照先建立后提交、多进程及计数后/写入后强杀。真实 adapter 的 40001/55P03/57014 不得误报为成功或暴露原始异常。
+- `pnpm capacity:browser:selftest <private-fixture-root>` 使用槽 3 的匹配 fixture/source identity，验证真实邀请接受/429/重试、无半账户、失败输入保留与焦点、预览恢复、三个任务入口超限/取消恢复、学习不受限、权限负向以及桌面/390px/320px。
+- 测试池运行原 selftest/typecheck/latest/doctor/dry-run，并验证 CAPACITY 仅槽 3、七种模式互斥、旧 QUOTA 不接受 CAPACITY 库、只读空 uploads/exports。文件/数据库只保留本批合成写入，不清理历史资源，不运行业务消费者、物理删除或备份恢复。
+- 最终同步 docs/tasks/config/security 并运行风险、治理、密钥、依赖审计和 diff 门禁；记录本域运行态/浏览器源码指纹与当前产品指纹，后续编辑导致漂移时重采。通过只证明本地包，不证明完整 v2.0、其他配额、Release、生产或 residual 关闭。
+
 ## 当前已知验证阻塞
+
+DATA-DELETE 最终源码的本地 runtime/浏览器验证环境状态以 `tasks/backlog/0041-data-lifecycle.md` 为准；Docker 不可用时不得改用共享库、另起非测试池 Web runtime 或省略验收。
 
 仓库使用 pnpm 11.7.0，并通过 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies` 与 `allowBuilds` 允许 Prisma、Sharp 和相关解析依赖执行必要 build script。若当前机器仍提示 ignored builds，按 `docs/development/setup.md` 执行 `pnpm approve-builds --all` 后再跑 `pnpm check`。

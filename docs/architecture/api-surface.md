@@ -97,9 +97,52 @@
 
 ### Platform / Audit
 
+受控运维只允许平台 Operator，协议见[受控运维](../modules/controlled-operations.md)：
+
+- `GET /api/system/operations`：封闭 catalog、执行入口可用性和经 root 文件校验的脱敏前态。
+- `POST /api/system/operations/requests`：strict intent、`executionSnapshotHash` 与幂等键；完整执行绑定在确认前冻结。
+- `GET /api/system/operations/requests`：请求状态与安全执行摘要；不返回租约 token 或私有路径。
+- `GET /api/system/operations/requests/:requestId`：当前状态和经过 schema/hash 校验的阶段投影；原始 journal 只保留其 hash。
+- `POST /api/system/operations/requests/:requestId/{confirm,approve,cancel,hold,resume,retry}`：近期重新验证与 revision/hash/nonce CAS；运行中的停止必须等执行器回执，不能仅清租约。
+
+Web 不启动 agent 或服务器命令。旧未绑定预览不能被 root 消费；新独立执行结果不能由旧手工 worker 接口伪造。
+
+排名与持久重建使用独立 Owner/参与者边界，协议见 [持久排名重建](../modules/ranking-rebuild.md)：
+
+- `GET /api/ranking/challenges/:id/projection`：仅有效参与者读取经当前权限、来源与冻结过滤的安全投影；失效快照返回 `stale=true` 与空 `entries`。
+- `POST /api/ranking/challenges/:id/projection`：挑战 Owner 显式提交严格 `expectedRevision`、`idempotencyKey`，返回 `202` 与最小 `job`；不在 Web 同步发布排名，不接受 actor、workspace、源数据或处理器参数。
+- `GET /api/ranking/challenges/:id/rebuilds`：挑战 Owner 读取本人最近任务与排队可用性；不返回 payload、权限/来源指纹或租约。
+- `PATCH /api/ranking/challenges/:id/rebuilds/:jobId`：本人、挑战归属与当前 session 重验后，接受 `expectedRevision` 和 `PAUSE/RESUME/CANCEL/REPLAY`；恢复/重试不得重绑旧快照，运行中的控制需执行器确认。
+
+独立删除接口不执行文件 IO 或服务器命令，协议见[本人数据回收站与删除](../modules/data-deletion.md)：
+
+- `GET /api/system/deletions`：当前用户的最小回收站/删除状态；不返回冻结正文、路径、租约或 token hash。
+- `GET /api/system/deletions/candidates`：有效工作区中本人对象的有限标题列表，支持名称筛选。
+- `POST /api/system/deletions/preview`：近期重新验证后生成精确影响快照和当前目标标签。
+- `POST /api/system/deletions`：匹配预览指纹、确认词和幂等键后创建冻结意图；账户/工作区冷静期与对象恢复期均由服务端决定。
+- `PATCH /api/system/deletions/:intentId`：近期重新验证及 `expectedRevision` 后取消、恢复或重新确认同一冻结集合。
+- `POST /api/system/deletions/receipt`：同源、短时高熵能力凭据读取最小回执；账户删除后仍可用，不授予控制或正文访问权，token 不进入 URL。
+
+`/api/system/data-jobs` 按协议分流：新 EXPORT 使用 `queueVersion=1`，删除仍为旧协议影响预览。
+旧手工 worker 接口仅处理 `queueVersion=0`，不能领取、完成或通过幂等键接管独立 worker 任务。
+本接口不新增任意处理器注册、进程启动或服务器执行能力；详见 [`持久后台任务`](../modules/background-jobs.md)。
+三个域的新请求在启用配额时统一执行[本人分区准入](../modules/data-job-quotas.md)：超限返回 `DATA_JOB_QUOTA_ACTIVE_LIMIT` 或 `DATA_JOB_QUOTA_EXPORT_LIMIT`（HTTP 429），配置、隔离或锁竞争使用有界 503；不返回内部计数或配置原文，同键复用和已有任务控制不重新计量。
+
+独立[容量准入](../modules/capacity-quotas.md)启用时，三域还检查本人、工作区及实例活跃总量，分别以 `DATA_JOB_QUOTA_USER_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_WORKSPACE_ACTIVE_LIMIT`、`DATA_JOB_QUOTA_INSTANCE_ACTIVE_LIMIT` 返回 429，不附带他人计数。
+总量开启时，新 EXPORT 准入的已识别数据库竞争返回 `DATA_JOB_QUOTA_BUSY`（503），客户端保留同一幂等键与预览；关闭模式及既有控制/下载仍使用原错误映射。
+`POST /api/workspace-invitations/accept` 在原一次性邀请/身份检查后原子检查席位；满额返回 `WORKSPACE_MEMBER_QUOTA_LIMIT`（429），暂时竞争或坏配置返回受控 503，工作区不可加入为 404。拒绝不留下新账户、个人空间或已消费邀请；实际已消费 token 仍走原 409，退出/移除不受新限额限制。
+
+- `POST /api/system/data-jobs/preview`：本人 ACCOUNT/WORKSPACE 的脱敏对象清单，不返回正文或创建包。
+- `GET|POST /api/system/data-jobs`：读取本人回执，或在近期重新验证后幂等申请；新 EXPORT 同时要求生命周期和导出开关。
+- `GET|PATCH /api/system/data-jobs/:id`：本人状态及带 `expectedRevision` 的 `cancel/retry/pause/resume`；进度为 0–1，客户端显示百分比。DTO 仅增加公开调度/可下载状态，不暴露租约或存储 key。
+- `POST|DELETE /api/system/data-jobs/:id/download-grants`：本人已验证包的短时凭证签发/撤销；不存在或非本人任务统一拒绝，不将历史描述信息视为可下载包。
+- `POST /api/system/data-jobs/download-grants/redeem`：strict token body、当前会话、同句柄完整性校验后原子消费，成功直接返回 `application/zip` 二进制，失败仍为标准 JSON 错误；不是 JSON 下载 descriptor。凭证不进入 URL，响应 `private, no-store` / `nosniff`，语义见 [`本人数据导出`](../modules/data-export.md)。
 - `GET /api/system/audit-events`：仅 Platform Operator 可用的只读审计检索；支持 `workspaceId`、`actorId`、`actionPrefix`、`from`、`to` 与 `limit`，服务端统一规范化并按时间倒序返回。响应只包含事件身份、动作、实体、时间和严格 allowlist 的标量 metadata 摘要；不返回请求正文、密码/session/API Key/token/hash、内部路径、objectKey、worker 或 lease 能力材料。该接口不创建、修改或删除任何状态，也不触发 updater、备份、migration 或服务器命令。
-- `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。尚未确认配额数值与执行政策，因此响应明确为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不将观测值解释为限额，不拒绝任何业务写入。
-- `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读搜索；返回活动科目，以及当前 actor 自有任务/知识点/笔记/错题/资料和通过有效对象 grant 可见的笔记/错题。查询先校验 Membership 与授权，再返回标题、资源类型和 canonical href；不搜索或返回正文、附件名、动机档案、情绪、AI prompt/响应或内部路径。响应 `indexed=false` 表明当前直接查询 PostgreSQL，不伪装为已完成的持久搜索索引。
+- `GET /api/system/capacity?workspaceId=`：Platform Operator 或目标 Workspace Owner 的只读工作区总容量快照，返回活动成员/数据任务、最近 24 小时导出与失败数、附件数量/字节和最老活动任务时间。工作区总量/成员/存储配额尚未启用，响应仍为 `limitsConfigured=false`、`enforcementEnabled=false`、`capacityState=OBSERVED_ONLY`；该接口不执行写入准入，也不代表独立的本人任务分区配额关闭。
+- `GET /api/search?workspaceId=&q=&limit=`：当前 ACTIVE Workspace 的鉴权只读标题搜索，仅含活动科目、本人资源与有效 NOTE/MISTAKE grant 资源。`indexed/indexState/indexedAt` 表示本次是否使用经过当前权限、来源与冻结校验的索引；关闭、缺失、失效或索引占锁时安全直查，不返回旧索引计数或时间。不搜索正文、附件名、动机、情绪、AI 内容或内部路径，也不自动申请重建。
+- `GET /api/search/index?workspaceId=`：本人分区及最近任务状态；不返回内部 payload、权限/来源指纹或租约材料。
+- `POST /api/search/index`：strict `{workspaceId, expectedGeneration, idempotencyKey}`，从会话确定请求者，返回 `202` 与最小任务回执。
+- `PATCH /api/search/index/jobs/:jobId`：strict `{workspaceId, expectedRevision, action}`，仅请求者可以 `PAUSE/RESUME/CANCEL/REPLAY`；新权限或源集合不能复用旧请求。协议与回退见[工作区持久搜索](../modules/workspace-search.md)。
 
 ### Analytics
 

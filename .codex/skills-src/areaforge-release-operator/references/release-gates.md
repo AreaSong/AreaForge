@@ -10,6 +10,13 @@
 - Release workflow validate job passes before image build/push.
 - Stable release signing fails closed when cosign private key secrets are missing.
 
+## Claim Scopes
+
+- `release-published`: version/tag, signed assets, immutable digests, validation, residual risk, and rollback target. It does not prove production was updated.
+- `production-applied`: all `release-published` evidence plus confirmed updater check/apply, backup point, migration result, smoke result, and production rollback evidence.
+- `production-deferred`: a valid artifact release state when the requested scope stops before production apply; retain the missing live evidence as an explicit residual or follow-up.
+- Auto-apply policy ownership stays with Release Operator for policy identity/evidence and SRE Ops for execution. A single confirmation may be consumed by both owners only when its text explicitly covers the same policy identity, concrete execution action and target, and it has not been consumed; policy approval alone never authorizes updater apply. A policy, action, target, version, or evidence change requires a new confirmation.
+
 ## Required Evidence
 
 - Commit or diff summary.

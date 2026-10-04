@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const actor = await requireApiUser(request);
     const parsed = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json({ search: await searchWorkspace(actor.id, parsed.data.workspaceId, parsed.data.q, parsed.data.limit) });
+    return NextResponse.json({ search: await searchWorkspace(actor.id, parsed.data.workspaceId, parsed.data.q, parsed.data.limit, actor.sessionId) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return apiErrorResponse(error);
   }

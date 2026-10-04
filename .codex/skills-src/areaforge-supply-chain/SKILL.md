@@ -1,6 +1,6 @@
 ---
 name: areaforge-supply-chain
-description: "Use when Codex needs to inspect, design, or verify AreaForge supply-chain trust: GitHub Actions, Release assets, GHCR images, immutable digests, cosign/GPG signatures, SHA256SUMS, dependency changes, package manager build approvals, updater trust policy, SBOM or provenance gaps. This skill owns artifact and dependency trust verification; hand release creation to areaforge-release-operator and broad security boundary review to areaforge-security-governance."
+description: "Use for AreaForge artifact and dependency provenance: GitHub Actions pins, Release checksums/signatures, GHCR immutable digests, SBOM/provenance, dependency build approval, and updater input trust. Hand artifact publication to areaforge-release-operator and broad security boundaries to areaforge-security-governance."
 ---
 
 # AreaForge Supply Chain
@@ -24,6 +24,8 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 8. [docs/development/setup.md](../../../docs/development/setup.md)
 9. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
+Read the minimum sources relevant to the artifact or dependency under review. Always read this skill; load release, security, governance, or updater references only when the change crosses those surfaces.
+
 ## References
 
 - [references/trust-gates.md](references/trust-gates.md): artifact, dependency, image, updater, and CI trust gates.
@@ -34,6 +36,7 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: inspect trust evidence and report gaps without changing dependencies, workflows, release assets, or residual records. Continue with preparation or edits only when the user explicitly requests that scoped change.
 1. Classify the change: dependency, GitHub Actions, Docker image, release asset, signing key, updater policy, package visibility, or build approval.
 2. Load the trust gates before approving, releasing, or advising auto-update policy.
 3. Verify artifacts by immutable identity: tag, digest, SHA256, signature bundle or GPG signature, workflow run, and manifest contents.
@@ -41,7 +44,7 @@ Use this skill to keep release artifacts, dependencies, and updater inputs trust
 5. Treat public package visibility as distribution convenience, not trust. Trust still comes from signatures, hashes, pinned digests, and rollback evidence.
 6. When reviewing or closing `AF-RISK-SC-002` from CI-only evidence, use `docs/development/ci-supply-chain-record-template.md`, run `pnpm sc:sc-002:preflight`, then validate with `pnpm ci:supply-chain:validate <record>`. CI-only evidence must not close `AF-RISK-SC-001`.
 7. When reviewing or closing `AF-RISK-SC-001` / signed Release supply-chain evidence, use the release supply-chain record template. Generate a redacted draft with `pnpm release:supply-chain:record <release-assets-dir>`, run `pnpm sc:sc-002:preflight` with both `AREAFORGE_SC002_RELEASE_RECORD` and `AREAFORGE_SC002_RELEASE_ASSETS_DIR`, then validate it with `pnpm release:supply-chain:validate <record> <release-assets-dir> --strict` so manifest identity, record hashes, `SHA256SUMS`, assets, and cosign are all rechecked. Record-only validation cannot reach signed Release review readiness.
-8. Keep execution boundaries clear: Supply Chain validates trust evidence and residual close conditions; Release Operator creates or reviews release records; SRE Ops owns production updater/apply evidence.
+8. Keep execution boundaries clear: Supply Chain validates trust evidence and residual close conditions; Release Operator creates or reviews release records and policy identity; SRE Ops owns only confirmed production updater/apply evidence. Trust validation or a handoff does not grant production execution permission.
 9. Record residual gaps such as missing SBOM, missing provenance attestation, missing GitHub Actions run evidence, unpinned action versions, or unavailable vulnerability scan.
 
 ## Guardrails

@@ -19,6 +19,7 @@ import {
 } from "@/components/study-resource-upload-state";
 import type { StudyResourceDraftController } from "@/components/use-study-resource-draft";
 import { listStagingUploads, resolveStagedUpload, stageUploads } from "@/lib/api/uploads";
+import { workspaceStorageQuotaErrorText } from "@/lib/api/workspace-storage-quota-errors";
 import { isConflict, isUnauthorized } from "@/lib/client/api-errors";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "@/lib/client/idempotent-command";
 import {
@@ -123,15 +124,17 @@ export function useStudyResourceUploadWorkflow(input: {
     dispatchUploads({ type: "replace", items: createSelectedUploadItems(selected) });
   }
 
-  async function uploadBatch() {
+  const [retryingFailed, setRetryingFailed] = useState(false);
+  async function uploadBatch(retryFailed = false) {
     const batchToken = batchGateRef.current.acquire();
     if (!batchToken) return;
-    const selected = uploads.filter((item) => item.status === "ready");
+    const selected = uploads.filter((item) => item.status === "ready" || (retryFailed && item.status === "failed" && item.file && !item.staging));
     if (!selected.length) {
       batchGateRef.current.release(batchToken);
       return;
     }
     const metadataSnapshot = currentMetadataSnapshot();
+    setRetryingFailed(retryFailed);
     setPending(true);
     setError(null);
     const selectedKeys = new Set(selected.map((item) => item.key));
@@ -161,7 +164,7 @@ export function useStudyResourceUploadWorkflow(input: {
         return;
       }
       if (!result.ok || !body?.items) {
-        const message = body?.error ?? "上传失败";
+        const message = workspaceStorageQuotaErrorText(body?.error) ?? body?.error ?? "上传失败";
         markSelectedFailed(selectedKeys, message);
         setError(message);
         return;
@@ -170,24 +173,25 @@ export function useStudyResourceUploadWorkflow(input: {
       const staged = selected.map((item, index): UploadItem => {
         const resultItem = body.items?.find((candidate) => candidate.index === index);
         if (!resultItem?.staging || resultItem.error) {
-          return { ...item, status: "failed", error: resultItem?.error ?? "上传失败" };
+          return { ...item, status: "failed", error: workspaceStorageQuotaErrorText(resultItem?.error ?? undefined) ?? resultItem?.error ?? "上传失败" };
         }
         if (resultItem.staging.duplicates.length) {
           return {
             ...item,
             status: "duplicate",
+            error: undefined,
             staging: resultItem.staging,
             decision: "reuse",
             reuseResourceId: resultItem.staging.duplicates[0]?.resourceId,
           };
         }
-        return { ...item, staging: resultItem.staging, decision: "copy" };
+        return { ...item, status: "staging", error: undefined, staging: resultItem.staging, decision: "copy" };
       });
-      const prepared = staged.map((item): UploadItem => item.status === "duplicate"
+      const prepared = staged.map((item): UploadItem => item.status === "duplicate" || item.status === "failed"
         ? item
         : { ...item, status: "duplicate", submittedSnapshot: buildResolutionRequest(item, metadataSnapshot) });
       dispatchUploads({ type: "merge-updates", items: prepared });
-      const autoTargets = prepared.filter((item, index) => staged[index]?.status !== "duplicate");
+      const autoTargets = prepared.filter((item, index) => staged[index]?.status !== "duplicate" && staged[index]?.status !== "failed");
       const settled = await Promise.all(autoTargets.map((item) => resolveItem(
         item,
         item.submittedSnapshot ?? buildResolutionRequest(item, metadataSnapshot),
@@ -212,7 +216,7 @@ export function useStudyResourceUploadWorkflow(input: {
       markSelectedFailed(selectedKeys, message);
       setError(message);
     } finally {
-      if (batchGateRef.current.release(batchToken)) setPending(false);
+      if (batchGateRef.current.release(batchToken)) { setPending(false); setRetryingFailed(false); }
     }
   }
 
@@ -417,6 +421,7 @@ export function useStudyResourceUploadWorkflow(input: {
     uploads,
     pending,
     locked: pending,
+    retryingFailed,
     error,
     recoveredPending,
     duplicateDrawerOpen,
@@ -426,6 +431,7 @@ export function useStudyResourceUploadWorkflow(input: {
     hasDuplicateUpload: uploads.some((item) => item.status === "duplicate"),
     selectFiles,
     uploadBatch: () => void uploadBatch(),
+    retryFailedBatch: () => void uploadBatch(true),
     continuePendingUpload,
     openDuplicates: () => {
       if (batchGateRef.current.isLocked()) return;

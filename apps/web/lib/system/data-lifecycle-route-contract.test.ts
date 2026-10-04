@@ -61,7 +61,7 @@ test("data lifecycle service has no physical deletion or archive filesystem path
 });
 
 test("data inventory includes recipient-scoped notifications without internal event keys", async () => {
-  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  const service = await readFile(path.resolve(webRoot, "../../packages/db/src/data-export-inventory-primary.ts"), "utf8");
   assert.match(service, /"userNotification", "userNotification"/);
   assert.match(service, /recipientUserId: actorId/);
   assert.doesNotMatch(service, /userNotification[\s\S]{0,500}sourceEntityId: true/);
@@ -70,12 +70,23 @@ test("data inventory includes recipient-scoped notifications without internal ev
 
 test("account inventory keeps joined workspace context and workspace jobs scoped", async () => {
   const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  const inventory = await readFile(path.resolve(webRoot, "../../packages/db/src/data-export-inventory-primary.ts"), "utf8");
   assert.match(service, /memberships: \{ some: \{ userId: actor\.id \} \}/);
-  assert.match(service, /scope === "WORKSPACE"[\s\S]*?requestedByUserId: actorId, workspaceId: \{ in: \[\.\.\.workspaceIds\] \}/);
+  assert.match(inventory, /scope === "WORKSPACE"[\s\S]*?requestedByUserId: actorId, workspaceId: \{ in: \[\.\.\.workspaceIds\] \}/);
 });
 
 test("download grant route never accepts a raw path or token hash", async () => {
   const source = await routeSource("app/api/system/data-jobs/[jobId]/download-grants/route.ts");
   assert.doesNotMatch(source, /objectKey|tokenHash|storedName|uri/i);
   assert.match(source, /requireRecentReauthentication\(actor\)/);
+});
+
+test("legacy preview APIs do not claim or mutate durable queue jobs", async () => {
+  const service = await routeSource("lib/system/data-lifecycle-service.ts");
+  assert.match(service, /WHERE "kind" = 'EXPORT' AND "queueVersion" = 0/);
+  assert.equal((service.match(/row\.queueVersion !== 0/g) ?? []).length, 3);
+  assert.match(service, /requestedByUserId: actor\.id, queueVersion: 0/);
+  assert.match(service, /existing\.queueVersion === 0 && existing\.requestFingerprint/);
+  const retry = service.slice(service.indexOf("export async function retryDataLifecycleJob"), service.indexOf("export async function claimDataLifecycleJob"));
+  assert.match(retry, /expectedRevision !== job\.updatedAt\.getTime\(\)/);
 });

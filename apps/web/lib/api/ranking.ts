@@ -64,10 +64,6 @@ export function getChallengeProjection(challengeId: string): Promise<ApiResult<P
   return requestApiResult(`/api/ranking/challenges/${encodeURIComponent(challengeId)}/projection`);
 }
 
-export function rebuildChallengeProjection(challengeId: string, expectedRevision: number): Promise<ApiResult<ProjectionResponse>> {
-  return requestApiResult(`/api/ranking/challenges/${encodeURIComponent(challengeId)}/projection`, createJsonRequest("POST", { expectedRevision }));
-}
-
 export function previewRankingDeletion(workspaceId?: string): Promise<ApiResult<PreviewResponse>> {
   const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : "";
   return requestApiResult(`/api/ranking/deletion-preview${query}`);

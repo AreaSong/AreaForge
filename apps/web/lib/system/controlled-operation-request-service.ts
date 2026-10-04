@@ -1,8 +1,12 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { prisma, type Prisma } from "@areaforge/db";
+import {
+  prisma, type Prisma, bindControlledOperation, boundOperationRequestHash, readStoredOperation,
+  operationIntentHash, operationRequestHash,
+} from "@areaforge/db";
 import {
   transitionControlledOperationRequest,
+  hasControlledOperationLease,
   type ControlledOperationRequestCommand,
   type ControlledOperationRequestState,
   type ControlledOperationRequestStatus,
@@ -15,6 +19,7 @@ import {
 import type { CurrentUser } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/responses";
 import { requirePlatformOperator } from "./operator-policy";
+import { readOperationExecutionContext } from "./controlled-operation-context";
 
 // Journal/lock/reconciliation contracts are re-exported from the request
 // service for the future root-agent adapter.  The Web runtime only validates
@@ -44,8 +49,6 @@ export type {
 
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const OPERATION_REQUEST_DOMAIN = "areaforge.controlled-operation.request.v1";
-const OPERATION_INTENT_DOMAIN = "areaforge.controlled-operation.intent.v1";
 export const CONTROLLED_OPERATION_READ_TTL_MS = 15 * 60_000;
 export const CONTROLLED_OPERATION_MUTATION_TTL_MS = 5 * 60_000;
 export const CONTROLLED_OPERATION_MAX_LEASE_MS = 15 * 60_000;
@@ -99,6 +102,7 @@ export interface ControlledOperationRequestDto {
   revision: number;
   createdAt: string;
   updatedAt: string;
+  execution: { environment: "local_fixture" | "production"; bindingHash: string; currentVersion: string; targetVersion: string | null; targetImage: string | null } | null;
 }
 
 export interface ControlledOperationWorkerLeaseDto {
@@ -133,6 +137,20 @@ export async function createControlledOperationRequest(
   const descriptor = getControlledOperationDescriptor(intent.operation.operation);
   await requirePlatformOperator(actor, { fresh: descriptor.risk === "HIGH_RISK" });
 
+  // 响应丢失后的同键重试必须先返回原请求，不能刷新上下文或 TTL。
+  const intentHash = computeControlledOperationIntentHash(actor.id, intent);
+  const previous = await prisma.controlledOperationRequest.findUnique({
+    where: { requestedByUserId_idempotencyKey: { requestedByUserId: actor.id, idempotencyKey: intent.idempotencyKey } },
+  });
+  if (previous) {
+    if (previous.intentHash !== intentHash) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_IDEMPOTENCY_CONFLICT", 409);
+    return serializeRow(previous);
+  }
+  const context = await readOperationExecutionContext();
+  if ((context && intent.executionSnapshotHash !== context.snapshotHash) || (!context && intent.executionSnapshotHash)) {
+    throw new ControlledOperationRequestError("CONTROLLED_OPERATION_CONTEXT_CHANGED", 409);
+  }
+
   const now = options.now ?? new Date();
   if (!Number.isFinite(now.getTime())) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_TIME_INVALID", 400);
   const nonce = options.nonce ?? randomUUID();
@@ -140,8 +158,7 @@ export async function createControlledOperationRequest(
   const requestedAt = now.toISOString();
   const expiresAt = new Date(now.getTime() + ttlFor(descriptor.risk)).toISOString();
   const id = options.id ?? `opreq_${now.getTime()}_${randomUUID()}`;
-  const intentHash = computeControlledOperationIntentHash(actor.id, intent);
-  const requestHash = computeControlledOperationRequestHash({
+  const hashInput = {
     id,
     actorId: actor.id,
     intent,
@@ -150,7 +167,14 @@ export async function createControlledOperationRequest(
     nonce,
     requestedAt,
     expiresAt,
-  });
+  };
+  let operation: Prisma.InputJsonValue = intent.operation;
+  if (context) {
+    try { operation = bindControlledOperation({ ...hashInput, context, actorEmail: actor.email }) as unknown as Prisma.InputJsonValue; }
+    catch { throw new ControlledOperationRequestError("CONTROLLED_OPERATION_EXECUTION_BINDING_INVALID", 409); }
+  }
+  const bound = readStoredOperation(operation)?.bound;
+  const requestHash = bound ? boundOperationRequestHash(bound) : computeControlledOperationRequestHash(hashInput);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -172,7 +196,7 @@ export async function createControlledOperationRequest(
         data: {
           id,
           operationCode: descriptor.code,
-          operation: intent.operation as unknown as Prisma.InputJsonValue,
+          operation,
           risk: descriptor.risk,
           requiresApproval: descriptor.requiresApproval,
           requestedByUserId: actor.id,
@@ -264,7 +288,8 @@ export async function cancelControlledOperationRequest(actor: CurrentUser, reque
 export async function holdControlledOperationRequest(actor: CurrentUser, requestId: string, binding: unknown): Promise<ControlledOperationRequestDto> {
   const parsed = controlledOperationHoldSchema.safeParse(binding);
   if (!parsed.success) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_BINDING_INVALID", 400);
-  return operatorTransition(actor, requestId, parsed.data, (now) => ({ type: "HOLD", now }), "CONTROLLED_OPERATION_REQUEST_HELD", { holdReasonCode: parsed.data.reasonCode });
+  const { reasonCode, ...requestBinding } = parsed.data;
+  return operatorTransition(actor, requestId, requestBinding, (now) => ({ type: "HOLD", now }), "CONTROLLED_OPERATION_REQUEST_HELD", { holdReasonCode: reasonCode });
 }
 
 export async function resumeControlledOperationRequest(actor: CurrentUser, requestId: string, binding: unknown): Promise<ControlledOperationRequestDto> {
@@ -289,12 +314,13 @@ export async function claimControlledOperationRequest(input: {
   const result = await prisma.$transaction(async (tx) => {
     const row = await lockAndLoad(tx, input.requestId);
     assertRowIntegrity(row);
+    if (readStoredOperation(row.operation)?.bound) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_ROOT_BRIDGE_REQUIRED", 409);
     if (row.expectedBeforeHash !== input.expectedBeforeHash) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_EXPECTED_BEFORE_MISMATCH", 409);
     const result = transitionControlledOperationRequest(rowToState(row), { type: "CLAIM", workerId: input.workerId, now: now.toISOString(), leaseExpiresAt: input.leaseExpiresAt.toISOString() });
     if (result.error === "EXPIRED") {
       const expired = transitionControlledOperationRequest(rowToState(row), { type: "EXPIRE", now: now.toISOString() });
       if (!expired.error) {
-        const updated = await updateState(tx, row, expired.state, { finishedAt: now });
+        const updated = await updateState(tx, row, expired.state, { finishedAt: isTerminalStatus(expired.state.status) ? now : null });
         await audit(tx, null, "CONTROLLED_OPERATION_REQUEST_EXPIRED", row.id, {});
         return { request: serializeRow(updated), leaseToken: "", expired: true };
       }
@@ -368,7 +394,7 @@ export async function expireControlledOperationRequest(requestId: string, now = 
     assertRowIntegrity(row);
     const result = transitionControlledOperationRequest(rowToState(row), { type: "EXPIRE", now: now.toISOString() });
     if (result.error) throw transitionError(result.error);
-    const updated = await updateState(tx, row, result.state, { finishedAt: now });
+    const updated = await updateState(tx, row, result.state, { finishedAt: isTerminalStatus(result.state.status) ? now : null });
     await audit(tx, null, "CONTROLLED_OPERATION_REQUEST_EXPIRED", row.id, {});
     return serializeRow(updated);
   }, { isolationLevel: "Serializable" });
@@ -408,7 +434,7 @@ async function mutateOperatorRequest(
     if (result.error === "EXPIRED") {
       const expired = transitionControlledOperationRequest(rowToState(row), { type: "EXPIRE", now: nowIso });
       if (!expired.error) {
-        const updated = await updateState(tx, row, expired.state, { finishedAt: now });
+        const updated = await updateState(tx, row, expired.state, { finishedAt: isTerminalStatus(expired.state.status) ? now : null });
         await audit(tx, null, "CONTROLLED_OPERATION_REQUEST_EXPIRED", row.id, {});
         return { dto: serializeRow(updated), expired: true };
       }
@@ -433,12 +459,13 @@ async function workerTransition(
   const result = await prisma.$transaction(async (tx) => {
     const row = await lockAndLoad(tx, input.requestId);
     assertRowIntegrity(row);
+    if (readStoredOperation(row.operation)?.bound) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_ROOT_BRIDGE_REQUIRED", 409);
     if (row.workerId !== input.workerId || row.leaseToken !== input.leaseToken) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_LEASE_OWNER_MISMATCH", 409);
     const result = transitionControlledOperationRequest(rowToState(row), command);
     if (result.error === "EXPIRED") {
       const expired = transitionControlledOperationRequest(rowToState(row), { type: "EXPIRE", now: command.now });
       if (!expired.error) {
-        const updated = await updateState(tx, row, expired.state, { finishedAt: new Date(command.now) });
+        const updated = await updateState(tx, row, expired.state, { finishedAt: isTerminalStatus(expired.state.status) ? new Date(command.now) : null });
         await audit(tx, null, "CONTROLLED_OPERATION_REQUEST_EXPIRED", row.id, {});
         return { dto: serializeRow(updated), expired: true };
       }
@@ -446,7 +473,7 @@ async function workerTransition(
     if (result.error) throw transitionError(result.error);
     const updated = await updateState(tx, row, result.state, {
       ...extra,
-      ...(result.state.status !== "RUNNING" ? { leaseToken: null } : {}),
+      ...(!hasControlledOperationLease(result.state) ? { leaseToken: null } : {}),
     });
     await audit(tx, null, `CONTROLLED_OPERATION_REQUEST_${command.type}`, row.id, { workerId: input.workerId, revision: updated.revision });
     return { dto: serializeRow(updated), expired: false };
@@ -479,7 +506,7 @@ async function updateState(
       leaseExpiresAt: state.leaseExpiresAt ? new Date(state.leaseExpiresAt) : null,
       failureCode: state.failureCode,
       retryable: state.retryable,
-      leaseToken: state.status === "RUNNING" || state.status === "CANCEL_REQUESTED" ? row.leaseToken : null,
+      leaseToken: hasControlledOperationLease(state) ? row.leaseToken : null,
       revision: { increment: 1 },
       ...extra,
     },
@@ -507,8 +534,9 @@ function rowToState(row: RequestRow): ControlledOperationRequestState {
 
 function serializeRow(row: RequestRow): ControlledOperationRequestDto {
   assertRowIntegrity(row);
+  const stored = readStoredOperation(row.operation)!;
   const parsed = parseControlledOperationIntent({
-    operation: row.operation,
+    operation: stored.parameters,
     expectedBeforeHash: row.expectedBeforeHash,
     idempotencyKey: row.idempotencyKey,
     requestedReason: row.requestedReason,
@@ -546,11 +574,23 @@ function serializeRow(row: RequestRow): ControlledOperationRequestDto {
     revision: row.revision,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    execution: stored.bound ? {
+      environment: stored.bound.execution.context.environment,
+      bindingHash: stored.bound.execution.bindingHash,
+      currentVersion: stored.bound.execution.context.expectedBefore.currentVersion,
+      targetVersion: stored.bound.parameters.operation === "ROLLBACK_RELEASE"
+        ? stored.bound.execution.context.expectedBefore.rollbackTargetVersion : stored.bound.execution.context.target?.manifestVersion ?? null,
+      targetImage: stored.bound.parameters.operation === "ROLLBACK_RELEASE"
+        ? stored.bound.execution.context.expectedBefore.rollbackTargetImage : stored.bound.execution.context.target?.webImageDigest ?? null,
+    } : null,
   };
 }
 
 function assertRowIntegrity(row: RequestRow): void {
-  const intent = parseControlledOperationIntent({ operation: row.operation, expectedBeforeHash: row.expectedBeforeHash, idempotencyKey: row.idempotencyKey, requestedReason: row.requestedReason });
+  const stored = readStoredOperation(row.operation);
+  if (!stored) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_REQUEST_INTEGRITY_MISMATCH", 409);
+  const intent = parseControlledOperationIntent({ operation: stored.parameters, expectedBeforeHash: row.expectedBeforeHash, idempotencyKey: row.idempotencyKey, requestedReason: row.requestedReason,
+    ...(stored.bound ? { executionSnapshotHash: stored.bound.execution.context.snapshotHash } : {}) });
   if (!intent) throw new ControlledOperationRequestError("CONTROLLED_OPERATION_REQUEST_INTEGRITY_MISMATCH", 409);
   const descriptor = getControlledOperationDescriptor(intent.operation.operation);
   const requestedAtMs = row.requestedAt.getTime();
@@ -572,7 +612,8 @@ function assertRowIntegrity(row: RequestRow): void {
     || row.operationCode !== descriptor.code
     || row.risk !== descriptor.risk
     || row.requiresApproval !== descriptor.requiresApproval
-    || row.requestHash !== expected
+    || (stored.bound ? stored.bound.execution.originalRequestHash !== expected || stored.bound.execution.nonce !== row.nonce
+      || row.requestHash !== boundOperationRequestHash(stored.bound) : row.requestHash !== expected)
     || row.intentHash !== computeControlledOperationIntentHash(row.requestedByUserId, intent)) {
     throw new ControlledOperationRequestError("CONTROLLED_OPERATION_REQUEST_INTEGRITY_MISMATCH", 409);
   }
@@ -622,7 +663,7 @@ function ttlFor(risk: "READ_ONLY" | "HIGH_RISK"): number {
 }
 
 export function computeControlledOperationIntentHash(actorId: string, intent: ControlledOperationIntent): string {
-  return sha256Canonical({ domain: OPERATION_INTENT_DOMAIN, actorId, operation: intent.operation, expectedBeforeHash: intent.expectedBeforeHash, idempotencyKey: intent.idempotencyKey, requestedReason: intent.requestedReason });
+  return operationIntentHash(actorId, intent);
 }
 
 export function computeControlledOperationRequestHash(input: {
@@ -635,37 +676,7 @@ export function computeControlledOperationRequestHash(input: {
   requestedAt: string;
   expiresAt: string;
 }): string {
-  return sha256Canonical({
-    domain: OPERATION_REQUEST_DOMAIN,
-    id: input.id,
-    actorId: input.actorId,
-    operation: input.intent.operation,
-    operationCode: input.descriptor.code,
-    risk: input.descriptor.risk,
-    requiresApproval: input.descriptor.requiresApproval,
-    requestedReason: input.intent.requestedReason,
-    expectedBeforeHash: input.intent.expectedBeforeHash,
-    idempotencyKey: input.intent.idempotencyKey,
-    intentHash: input.intentHash,
-    nonce: input.nonce,
-    requestedAt: input.requestedAt,
-    expiresAt: input.expiresAt,
-  });
-}
-
-function sha256Canonical(value: unknown): string {
-  return `sha256:${createHash("sha256").update(JSON.stringify(canonicalize(value))).digest("hex")}`;
-}
-
-function canonicalize(value: unknown): unknown {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return value;
-  if (typeof value === "number" && Number.isSafeInteger(value)) return value;
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (typeof value === "object" && value !== null) {
-    const record = value as Record<string, unknown>;
-    return Object.fromEntries(Object.keys(record).sort().map((key) => [key, canonicalize(record[key])]));
-  }
-  throw new TypeError("unsupported canonical value");
+  return operationRequestHash(input);
 }
 
 function isPrismaConflict(error: unknown): boolean {

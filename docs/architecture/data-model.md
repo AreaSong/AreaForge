@@ -47,6 +47,41 @@ PostgreSQL 是主状态源事实。附件本体存储在持久化上传目录，
 - `AiProviderCredential`：当前账户 Provider 配置；服务端保存 base URL、model、API Key 密文、fingerprint、revision 和时间字段，API Key 不进入 Web 响应或审计 metadata。
 - `SimulationLossItem`：直接归属分科结果，固定原因、可选考纲节点、0.5 分 lostScore、revision 与软归档；可选 `mistakeId` 记录“转为错题”来源，一个失分项最多关联一条错题。
 
+## 后台任务状态
+
+`DataJob` 通过 `queueVersion` 区分旧手工预览协议与独立 worker 协议；旧行默认保持零。
+`nextAttemptAt`、`maxAttempts`、`leaseVersion`、`pauseRequested`、`deadLetteredAt` 分别保存持久调度、
+重试预算、租约代次、暂停请求和死信时间。新协议的 ACCOUNT/WORKSPACE 范围由 SQL CHECK 保证一致；
+领取由队列索引和 `FOR UPDATE SKIP LOCKED` 支持，不修改其他业务模型或自动执行旧任务。
+副作用和成功状态在同一事务提交，机制与业务处理器的区别见 [`持久后台任务`](../modules/background-jobs.md)。
+
+`RANKING_REBUILD` 复用既有任务结构，在内部 JSON 保存严格协议、权限/来源指纹与挑战 generation；失败和取消任务也参与代次上界。
+`RankingProjection.sourceFingerprint` 绑定整榜快照，公开排序前重验当前来源、授权与删除可见性；空投影需成功任务证明。
+这些字段不构成新的学习源事实，详见 [持久排名重建](../modules/ranking-rebuild.md)。
+
+`SEARCH_INDEX_REBUILD` 绑定请求用户、工作区、分区、代次与来源指纹。
+`WorkspaceSearchPartition` 按 `(userId, workspaceId)` 唯一；`WorkspaceSearchDocument` 通过复合分区外键与六类精确源外键保存标题副本，CHECK 拒绝类型/来源错配。
+两表均受冻结协议保护并从用户导出排除；发布与任务成功同事务，冻结旧副本不能被重建覆盖。参见[工作区持久搜索](../modules/workspace-search.md)。
+
+### 导出文件与下载授权
+
+- `DataExportArtifact`：文件写入前的持久意图，唯一 `(jobId, leaseVersion)` 和随机 `objectKey`；状态为 `STAGING/PUBLISHED/RECLAIMING/RECLAIMED`，保留快照/到期/发布/回收时间及有界错误码。FK 与 CHECK 约束防止解绑、非法 key 和矛盾终态。
+- `DataExportPackage.sourceArtifactId`：nullable unique FK 绑定当前代次 artifact；旧包保持 NULL，不能发放真实文件。Package 只保存 manifest 摘要、计数、长度和摘要，不长期复制正文。
+- `DataExportDownloadGrant`：token 仅存 purpose-separated hash；`reservationId/reservedAt/reservationExpiresAt` 区分校验预留与真正消费，SQL CHECK 约束三字段一致、预留期限和消费状态。
+- 导出模型不改变源记录 owner、不构成备份或删除账本；文件与事务的发布/恢复边界见 [`本人数据导出`](../modules/data-export.md)。
+
+### 删除意图与回收站
+
+删除状态由 `DataDeletionIntent`、`DataDeletionItem`、`DataDeletionFence`、`DataDeletionFile`、`DataDeletionLedger` 与 `DataDeletionVisibility` 承载。
+意图中的 requester/workspace/resource 标识不对待删业务对象建外键；精确对象指纹、可见性代次、持久文件意图与不可变 ledger 分离，根对象删除不会销毁回执。
+这些内部协议模型不进入普通数据导出清单。行为和授权边界见[本人数据回收站与删除](../modules/data-deletion.md)。
+
+### 受控运维请求
+
+`ControlledOperationRequest.operation` 保存版本化执行绑定：参数、完整前态、不可变目标、固定回滚来源、原请求 hash/nonce/初始修订，以及确认前生成的旧 updater wire。
+不新增业务表或列。请求 hash、revision、attempt 与 leaseToken 共同约束审批和执行；心跳不改变用户操作修订，运行中的取消/挂起保留租约直到执行器确认。
+root 原始 journal 不进入数据库正文或 Web；`AuditEvent` 保存严格脱敏阶段投影、原始 hash 和回执来源链接。恢复 claim 与终态来源同事务提交，避免重复恢复丢失已确定结果。具体边界见[受控运维](../modules/controlled-operations.md)。
+
 ## 规划扩展模型
 
 后续实体继续遵循 additive-first；已落地模型见上方与 Prisma schema。完整字段、唯一约束与 migration 顺序见 `workflow/versions/v1.1-learning-action-center.md`。旧数据只读兼容，不批量猜测回填。

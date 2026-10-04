@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 
 import { FileUp, Link2 } from "lucide-react";
 import { Button, buttonClassName } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function StudyResourceCreateDrawer(props: {
   linkUrl: string;
   uploads: UploadItem[];
   pending: boolean;
+  retryingFailed: boolean;
   locked: boolean;
   error: string | null;
   onClose: () => void;
@@ -34,9 +36,19 @@ export function StudyResourceCreateDrawer(props: {
   onLinkUrlChange: (value: string) => void;
   onSelectFiles: (files: FileList | null) => void;
   onUpload: () => void;
+  onRetryFailed: () => void;
   onOpenDuplicates: () => void;
   onCreateLink: () => void;
 }) {
+  const retryButton = useRef<HTMLButtonElement>(null);
+  const retryWasPending = useRef(false);
+  useEffect(() => {
+    if (props.retryingFailed) retryWasPending.current = true;
+    if (!props.pending && retryWasPending.current) {
+      retryButton.current?.focus({ preventScroll: true });
+      retryWasPending.current = false;
+    }
+  }, [props.pending, props.retryingFailed]);
   return (
     <Drawer open={props.open} title="添加资料" onClose={props.onClose}>
       <div className="space-y-5">
@@ -72,6 +84,7 @@ export function StudyResourceCreateDrawer(props: {
             </label>
             {props.uploads.length ? <ul className="space-y-2">{props.uploads.map((item) => <UploadResult key={item.key} item={item} />)}</ul> : null}
             {props.uploads.some((item) => item.status === "ready") ? <Button type="button" variant="primary" size="lg" loading={props.pending} disabled={props.locked} onClick={props.onUpload}>上传并逐项检查</Button> : null}
+            {props.retryingFailed || props.uploads.some((item) => item.status === "failed" && item.file && !item.staging) ? <Button ref={retryButton} type="button" variant="secondary" disabled={props.locked} onClick={props.onRetryFailed}>重试失败文件</Button> : null}
             {props.uploads.some((item) => item.status === "duplicate") ? <Button type="button" variant="secondary" disabled={props.pending} onClick={props.onOpenDuplicates}>处理重复项</Button> : null}
           </div>
         ) : (
@@ -99,7 +112,7 @@ function UploadResult({ item }: { item: UploadItem }) {
         <span className={item.status === "failed" ? "text-rose-300" : item.status === "done" ? "text-emerald-300" : item.status === "duplicate" ? "text-amber-200" : "text-zinc-500"}>{statusLabel(item)}</span>
       </div>
       {item.status === "duplicate" ? <p className="mt-2 text-xs text-amber-200">待确认复用、副本或跳过</p> : null}
-      {item.error ? <p className="mt-2 text-xs text-rose-300">{item.error}</p> : null}
+      {item.error ? <p className="mt-2 text-xs text-rose-300" role="alert">{item.error}</p> : null}
     </li>
   );
 }

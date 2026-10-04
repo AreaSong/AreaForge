@@ -23,6 +23,10 @@ test("controlled operations UI stays typed, operator-gated, and execution-free",
   assert.match(source, /expectedBeforeHash/);
   assert.match(source, /requestHash/);
   assert.match(source, /nonce/);
+  assert.match(source, /aria-label="申请理由"/);
+  assert.match(source, /aria-label="白名单操作"/);
+  assert.match(source, /createExclusiveOperationGate/);
+  assert.match(source, /retryIntent/);
   assert.match(source, /root-only agent/);
   assert.match(source, /不执行服务器命令/);
   assert.doesNotMatch(source, /\bfetch\s*\(/);

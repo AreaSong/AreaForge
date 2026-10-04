@@ -1,0 +1,1187 @@
+{
+  "normal": [
+    {
+      "case": {
+        "id": "root-0",
+        "kind": "roots",
+        "input": "apps/web",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-1",
+        "kind": "roots",
+        "input": "./apps/web",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "./apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-2",
+        "kind": "roots",
+        "input": "apps/web/",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web/"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-3",
+        "kind": "roots",
+        "input": "apps/*",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/(group)",
+        "apps/[id]",
+        "apps/admin",
+        "apps/app-only",
+        "apps/empty",
+        "apps/foo,bar",
+        "apps/link",
+        "apps/literal{one}",
+        "apps/src-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-4",
+        "kind": "roots",
+        "input": "apps/**",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/(group)",
+        "apps/[id]",
+        "apps/admin",
+        "apps/app-only",
+        "apps/empty",
+        "apps/foo,bar",
+        "apps/link",
+        "apps/literal{one}",
+        "apps/src-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web",
+        "apps/admin/pages",
+        "apps/app-only/app",
+        "apps/link/app",
+        "apps/link/pages",
+        "apps/link/src",
+        "apps/src-only/src",
+        "apps/web/app",
+        "apps/web/pages",
+        "apps/web/src",
+        "apps/link/src/app",
+        "apps/link/src/pages",
+        "apps/src-only/src/app",
+        "apps/web/src/app",
+        "apps/web/src/pages"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-5",
+        "kind": "roots",
+        "input": "apps/**/app",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/app-only/app",
+        "apps/link/app",
+        "apps/web/app",
+        "apps/link/src/app",
+        "apps/src-only/src/app",
+        "apps/web/src/app"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-6",
+        "kind": "roots",
+        "input": "apps/.hidden",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/.hidden"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-7",
+        "kind": "roots",
+        "input": "apps/{web,admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web",
+        "apps/admin"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-8",
+        "kind": "roots",
+        "input": "apps/{w1,{w2,w3}}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/w1",
+        "apps/w2",
+        "apps/w3"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-9",
+        "kind": "roots",
+        "input": "apps/w{1..5..2}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/w1",
+        "apps/w3",
+        "apps/w5"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-10",
+        "kind": "roots",
+        "input": "apps/w{01..03}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-11",
+        "kind": "roots",
+        "input": "apps/@(web|admin)",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/admin",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-12",
+        "kind": "roots",
+        "input": "apps/!(admin)",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/(group)",
+        "apps/.hidden",
+        "apps/[id]",
+        "apps/app-only",
+        "apps/empty",
+        "apps/foo,bar",
+        "apps/link",
+        "apps/literal{one}",
+        "apps/src-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-13",
+        "kind": "roots",
+        "input": "apps/[wa]*",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/admin",
+        "apps/app-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-14",
+        "kind": "roots",
+        "input": "apps/missing",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-15",
+        "kind": "roots",
+        "input": "apps/file.txt",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-16",
+        "kind": "roots",
+        "input": "apps/literal{one}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/literal{one}"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-17",
+        "kind": "roots",
+        "input": "apps/{web,}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-18",
+        "kind": "roots",
+        "input": "apps/{web,web}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-19",
+        "kind": "roots",
+        "input": "apps/{web,admin",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-20",
+        "kind": "roots",
+        "input": "!apps/admin",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-21",
+        "kind": "roots",
+        "input": "",
+        "expected": "TypeError"
+      },
+      "category": "TypeError",
+      "error": {
+        "name": "TypeError",
+        "message": "Patterns must be a string (non empty) or an array of strings"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-22",
+        "kind": "roots",
+        "input": "$FIX/apps/web",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "$FIX/apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-23",
+        "kind": "roots",
+        "input": "$FIX/apps/*",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "$FIX/apps/(group)",
+        "$FIX/apps/[id]",
+        "$FIX/apps/admin",
+        "$FIX/apps/app-only",
+        "$FIX/apps/empty",
+        "$FIX/apps/foo,bar",
+        "$FIX/apps/link",
+        "$FIX/apps/literal{one}",
+        "$FIX/apps/src-only",
+        "$FIX/apps/w1",
+        "$FIX/apps/w2",
+        "$FIX/apps/w3",
+        "$FIX/apps/w4",
+        "$FIX/apps/w5",
+        "$FIX/apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-24",
+        "kind": "roots",
+        "input": "apps\\web",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-25",
+        "kind": "roots",
+        "input": "apps/link",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/link"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-26",
+        "kind": "roots",
+        "input": "apps/broken",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-27",
+        "kind": "roots",
+        "input": [
+          "apps/web",
+          "apps/*"
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web",
+        "apps/(group)",
+        "apps/[id]",
+        "apps/admin",
+        "apps/app-only",
+        "apps/empty",
+        "apps/foo,bar",
+        "apps/link",
+        "apps/literal{one}",
+        "apps/src-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-28",
+        "kind": "roots",
+        "input": [
+          "apps/*",
+          "!apps/admin"
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/(group)",
+        "apps/[id]",
+        "apps/admin",
+        "apps/app-only",
+        "apps/empty",
+        "apps/foo,bar",
+        "apps/link",
+        "apps/literal{one}",
+        "apps/src-only",
+        "apps/w1",
+        "apps/w2",
+        "apps/w3",
+        "apps/w4",
+        "apps/w5",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-29",
+        "kind": "roots",
+        "input": [
+          "apps/web",
+          "apps/web"
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web",
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-30",
+        "kind": "roots",
+        "input": [
+          null,
+          7,
+          {},
+          "apps/web"
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "apps/web"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-31",
+        "kind": "roots",
+        "input": [],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "root-32",
+        "kind": "roots",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        "$FIX/different"
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-0",
+        "kind": "normal-braces",
+        "input": "apps/{web,admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/web",
+          "apps/admin"
+        ],
+        "compiled": "apps/(web|admin)",
+        "stringify": "apps/{web,admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-1",
+        "kind": "normal-braces",
+        "input": "apps/w{1..5..2}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/w1",
+          "apps/w3",
+          "apps/w5"
+        ],
+        "compiled": "apps/w(1|3|5)",
+        "stringify": "apps/w{1..5..2}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-2",
+        "kind": "normal-braces",
+        "input": "apps/{web,}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/web",
+          "apps/"
+        ],
+        "compiled": "apps/(web|)",
+        "stringify": "apps/{web,}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-3",
+        "kind": "normal-braces",
+        "input": "apps/{web,web}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/web"
+        ],
+        "compiled": "apps/(web|web)",
+        "stringify": "apps/{web,web}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-4",
+        "kind": "normal-braces",
+        "input": "apps/{w1,{w2,w3}}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/w1",
+          "apps/w2",
+          "apps/w3"
+        ],
+        "compiled": "apps/(w1|(w2|w3))",
+        "stringify": "apps/{w1,{w2,w3}}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-5",
+        "kind": "normal-braces",
+        "input": "apps/${web,admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/${web,admin}"
+        ],
+        "compiled": "apps/${web,admin}",
+        "stringify": "apps/${web,admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-6",
+        "kind": "normal-braces",
+        "input": "apps/{\"web\",admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/web",
+          "apps/admin"
+        ],
+        "compiled": "apps/(web|admin)",
+        "stringify": "apps/{web,admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-7",
+        "kind": "normal-braces",
+        "input": "apps/{web,admin",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/{web,admin"
+        ],
+        "compiled": "apps/{web,admin",
+        "stringify": "apps/{web,admin"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-8",
+        "kind": "normal-braces",
+        "input": "apps/{web},admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/{web},admin}"
+        ],
+        "compiled": "apps/{web},admin}",
+        "stringify": "apps/{web},admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-9",
+        "kind": "normal-braces",
+        "input": "apps/{a,{b,c}}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/a",
+          "apps/b",
+          "apps/c"
+        ],
+        "compiled": "apps/(a|(b|c))",
+        "stringify": "apps/{a,{b,c}}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-10",
+        "kind": "normal-braces",
+        "input": "apps/{a..z..2}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/a",
+          "apps/c",
+          "apps/e",
+          "apps/g",
+          "apps/i",
+          "apps/k",
+          "apps/m",
+          "apps/o",
+          "apps/q",
+          "apps/s",
+          "apps/u",
+          "apps/w",
+          "apps/y"
+        ],
+        "compiled": "apps/(a|c|e|g|i|k|m|o|q|s|u|w|y)",
+        "stringify": "apps/{a..z..2}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-11",
+        "kind": "normal-braces",
+        "input": "apps/{1..3}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/1",
+          "apps/2",
+          "apps/3"
+        ],
+        "compiled": "apps/([1-3])",
+        "stringify": "apps/{1..3}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-12",
+        "kind": "normal-braces",
+        "input": "apps/{web,,admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/web",
+          "apps/",
+          "apps/admin"
+        ],
+        "compiled": "apps/(web|admin)",
+        "stringify": "apps/{web,,admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-13",
+        "kind": "normal-braces",
+        "input": "apps/{}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/{}"
+        ],
+        "compiled": "apps/{}",
+        "stringify": "apps/{}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-14",
+        "kind": "normal-braces",
+        "input": "apps/{{web,admin}}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/{web}",
+          "apps/{admin}"
+        ],
+        "compiled": "apps/{(web|admin)}",
+        "stringify": "apps/{{web,admin}}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-15",
+        "kind": "normal-braces",
+        "input": "apps/{x}{web,admin}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/{x}web",
+          "apps/{x}admin"
+        ],
+        "compiled": "apps/{x}(web|admin)",
+        "stringify": "apps/{x}{web,admin}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "expand-16",
+        "kind": "normal-braces",
+        "input": "apps/{a/b,c/d}",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": {
+        "expanded": [
+          "apps/a/b",
+          "apps/c/d"
+        ],
+        "compiled": "apps/(a/b|c/d)",
+        "stringify": "apps/{a/b,c/d}"
+      },
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-default",
+        "kind": "lint",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 2,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 3,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-src-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-string",
+        "kind": "lint",
+        "input": "apps/web",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 2,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 3,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-src-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-array",
+        "kind": "lint",
+        "input": [
+          "apps/web",
+          42
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 2,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 3,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-src-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-duplicates",
+        "kind": "lint",
+        "input": [
+          "apps/web",
+          "apps/web"
+        ],
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 2,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 3,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/from-src-pages/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        },
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-src-app",
+        "kind": "lint",
+        "input": "apps/src-only",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-app",
+        "kind": "lint",
+        "input": "apps/app-only",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [
+        {
+          "line": 4,
+          "ruleId": "@next/next/no-html-link-for-pages",
+          "message": "Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages",
+          "severity": 2,
+          "fatal": false
+        }
+      ],
+      "warnings": [],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-empty",
+        "kind": "lint",
+        "input": "apps/empty",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [
+        "Pages directory cannot be found at apps/empty/pages or apps/empty/src/pages. If using a custom path, please configure with the `no-html-link-for-pages` rule in your eslint config file."
+      ],
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "case": {
+        "id": "lint-no-roots",
+        "kind": "lint",
+        "input": "apps/missing",
+        "expected": "ok"
+      },
+      "category": "ok",
+      "result": [],
+      "warnings": [
+        "Pages directory cannot be found at . If using a custom path, please configure with the `no-html-link-for-pages` rule in your eslint config file."
+      ],
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "failures": []
+}

@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   hasMasteryProofSubmissionGuard,
   isAllowedBusinessRestoreRoute,
+  isScopedDataDeletionControlRoute,
 } from "./risk-preflight-boundaries";
 
 interface CheckResult {
@@ -1676,7 +1677,10 @@ function checkProductionCompose(): void {
   const forbiddenOpsRouteFiles = apiFiles.filter((file) => {
     const normalized = file.replaceAll(path.sep, "/").toLowerCase();
     if (isAllowedBusinessRestoreRoute(normalized)) return false;
-    const content = readIfExists(file).toLowerCase();
+    const source = readIfExists(file);
+    if (isScopedDataDeletionControlRoute(file, source, readIfExists("apps/web/lib/system/data-deletion-service.ts"))
+      && readIfExists("docs/development/high-risk-confirmation-packets.md").includes("DATA-DELETE 下一批本地实施确认包（本地已确认）")) return false;
+    const content = source.toLowerCase();
     return ["deploy", "backup", "restore", "migration", "migrate"].some((term) =>
       normalized.includes(term) || content.includes(term),
     );

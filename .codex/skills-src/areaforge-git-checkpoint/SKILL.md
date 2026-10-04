@@ -22,6 +22,8 @@ Use this skill when work is ready to become a Git checkpoint or when a dirty wor
 6. [docs/development/production-release-runbook.md](../../../docs/development/production-release-runbook.md)
 7. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
+Read the minimum sources relevant to the checkpoint. Always read this skill; add release, production, or residual references only when the staged scope requires them.
+
 ## References
 
 - [references/checkpoint-policy.md](references/checkpoint-policy.md): branch, staging, commit, push, and release tag checkpoint policy.
@@ -33,19 +35,20 @@ Use this skill when work is ready to become a Git checkpoint or when a dirty wor
 
 ## Workflow
 
+0. If the request is Review/diagnostic or readiness-only, keep the Git index and history unchanged; report checkpoint findings without staging or committing. Stage/commit only when the user requests a checkpoint or the current change workflow explicitly includes one.
 1. Inspect `git status --short --branch` and identify unrelated pre-existing changes before staging.
 2. Review `git diff --stat` and the relevant hunks; do not stage generated noise, private env, backups, release assets, or unrelated edits.
 3. Confirm validation evidence is fresh and matches the changed scope. Use `completion-evidence-checklist.md` and `areaforge-validation-driver` when the command set or completion claim is unclear.
 4. If the checkpoint is release-bound, load `areaforge-release-operator` and ensure version, tag, Release assets, rollback target, and residual risk evidence are ready.
 5. Stage only the intended files, then re-check `git diff --cached --stat` and any high-risk hunks.
-6. Commit with a concise Chinese message only after validation has passed or the remaining unverified items are explicitly documented.
-7. Push only when the user asked for it or the release workflow requires it; creating or pushing a tag remains a release action.
+6. When a checkpoint is explicitly in scope, commit with a concise Chinese message only after validation has passed for the intended checkpoint, or as an explicitly labeled partial/WIP checkpoint with remaining unverified items documented; never describe the latter as complete.
+7. Agent-initiated push, tag, GitHub Release, PR publication, or production update requires explicit user intent. A release workflow's downstream need is not independent local authorization; creating or pushing a tag remains a release action.
 
 ## Guardrails
 
 - Do not commit failed, blocked, stale, or unverified work as complete.
 - Do not mix unrelated dirty worktree changes into a checkpoint.
 - Do not stage production `.env`, secrets, cosign private keys, backup files, database dumps, upload contents, generated Release assets, or smoke credentials.
-- Do not push, tag, create a GitHub Release, or trigger production update unless the user explicitly asked for that action and release gates are satisfied.
+- Do not push, tag, create a GitHub Release, or trigger production update without explicit user intent. Ordinary branch push requires touched-scope checkpoint validation; tag, GitHub Release, updater, and production update additionally require their Release/production gates.
 - Do not call a local commit "deployed"; deployment requires server-side updater or production release evidence.
 - Do not treat dry-run validation, read-only readiness, or advisory residual reports as proof that production was updated.

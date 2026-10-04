@@ -30,6 +30,7 @@ const VISIBILITY_LABEL: Record<WorkspaceSearchResultDto["visibility"], string> =
 };
 
 export function useWorkspaceSearchCommands(
+  actorId: string,
   workspaceId: string | null | undefined,
   query: string,
   onResultsReady: () => void,
@@ -43,7 +44,7 @@ export function useWorkspaceSearchCommands(
   const normalized = query.trim().replace(/\s+/g, " ");
   const enabled = Boolean(activeWorkspaceId) && normalized.length >= 2 && normalized.length <= 80
     && !normalized.startsWith("/") && !normalized.startsWith("$");
-  const searchKey = `${activeWorkspaceId ?? ""}\u0000${normalized}`;
+  const searchKey = `${actorId}\u0000${activeWorkspaceId ?? ""}\u0000${normalized}`;
 
   useEffect(() => {
     const gate = gateRef.current;

@@ -20,11 +20,13 @@
 - `versions/v0.1.9-long-term-operations-release.md`：v0.1.9 发布环重启：承接 v0.1.8 候选范围 + 优化轮成果，走签名 Release、生产受控更新与残余项证据重采。
 - `versions/v1.1-learning-action-center.md`：学习行动中心与闭环体验；`v1.1.0` 与发布后修复 `v1.1.1` 均已发布并完成受控 production apply，`v1.1.2` 已形成稳定 Release 但尚未执行 production apply。
 - `versions/v1.2-high-density-workbench.md`：高密度专业工作台、Dynamic Island、错题 v2 和 Web 共享治理的 `v1.2.0`；第一阶段本地验证、PR、CI 与 squash 合并已完成，第二阶段 annotated tag 与稳定 Release 已发布，production apply 仍待独立确认。
-- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 已合并但未独立 Release/生产；v1.4-v1.8 默认关闭的本地候选已通过总门禁、一次性隔离 runtime，commit `6568c87` 的 branch push CI run `34119581102` 已成功，六类身份 desktop/mobile 可见性、代表性写入与 17 项浏览器失败矩阵已完成；v1.9 已形成纯规则与持久排名通知基础，通用 worker/搜索/配额/MFA/观测等主体 runtime 与 v2.0 综合门禁仍未完成；候选 migration 尚未 apply 到共享测试库或生产，仍缺受保护 PR/合并、Release/生产证据。
+- `versions/v1.3-v2.0-platform-evolution.md`：A -> B 渐进式平台演进总计划；M0 已完成，v1.3 及 v1.4-v1.9 候选已分别由 PR #56、#57 合并。六类身份 desktop/mobile、代表性写入、17 项失败矩阵和通知基础已有隔离证据；SEARCH 已有独立本地专项；QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测与 v2.0 综合门禁继续由后续批次承接。候选 migration 未 apply 到共享库或生产，仍缺新 Release/生产证据。
 
 当前进度快照（详情以各版本计划的状态标头为准）：
 
-- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；生产与回滚基线仍为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。
+- 后续候选已增加持久 worker、受控排名通知和完整 EXPORT 文件链路；51 条 migration 与 15/11/14 组内核/通知/导出 runtime、导出桌面/窄视口浏览器/API 验收通过。DELETE 和 OPS 各有独立本地闭环；RANKING 持久重建也已完成 26 组运行态和 12 组浏览器/API 验收，无新增 DDL。SEARCH 专用 54-migration 合成库已有 33 组运行态与 16 组浏览器/API 专项。QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测、完整跨域门禁、后续分支受保护合并、新 Release 和共享/生产交付仍缺，v2.0 保持 partial；PR #57 / `b04ba98` 已合并。
+
+- 最新稳定 GitHub Release 为 `v1.2.0` / commit `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a`；归档生产交付/回滚基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`。新鲜公网 health 已观测到 `v1.2.0`，但完整服务器交付证据未核验，差异以 operational-readiness 为准。
 - 仓库 package version 为 `1.2.0`；PR #49 的产品代码已 squash 合并，PR CI run `33505174259` 与 main push CI run `33506280124` 均成功；随后从 fresh readback 的 `018cdfaa7a58cea2b32a33acaa0b968f29b9e09a` 创建并推送 annotated tag `v1.2.0`，Release workflow run `33521890241` 成功并发布稳定 Release。production apply、生产 migration、备份恢复、回滚、写入型 smoke、自动应用策略和 residual 状态变更均未执行。
 - `versions/v1.1-learning-action-center.md` 的发布后修复已完成 SC-002/SC-004、browser/compatibility、受保护 PR、Release 资产校验和 Web 受控 production apply。更新后 Web/PostgreSQL healthy、migration 24/24、health/extra smoke PASS、journal clean；`AREAFORGE_AUTO_APPLY=none` 与 residual 状态未改变。
 - 离线运营状态用 `pnpm ops:status --summary` 查看，交接摘要用 `pnpm ops:handoff --summary`；生产运营证据与残余项以 `docs/development/operational-readiness.md` 和 `docs/development/residual-risk-ledger.md` 为入口。

@@ -4,6 +4,14 @@
 
 本文件把 AreaForge 从当前进度推进到 docs 100% 时必须先确认的高风险工作集中管理。只有用户明确确认某个确认包后，才能进入对应代码实现、migration、上传落盘、真实 AI 外呼或生产部署。
 
+## 确认适用与复用
+
+- 上述限制针对改变高风险边界的实现和受控状态写入，不阻止当前请求范围内的只读审阅、诊断、计划、文档准备、静态检查和无真实状态写入的 mock 测试。审阅/诊断请求不因此授权文件修改；临时数据库 migration、合成账号持久化、真实外呼仍按具体确认包处理。
+- 主代理先核对已展示的范围和用户实际确认，不要求用户逐字复制模板，除非具体包明确要求精确确认句、ID/hash 或工具批准。检查动作、目标环境、版本/资源、允许/禁止范围和一次性限制；不能从“全部完成”推定未展示的生产、真实数据、外呼或发布权限。
+- 跨 skill handoff 复用同一有效确认，owner 只验证其覆盖范围；不因切换 skill 重新索要同一批准。确认未覆盖的新动作、目标/版本变化、风险实质增加、前置证据失效、明确失效或一次性批准已消费时重新确认。
+- 历史“已执行”记录不是新任务的执行授权；独立的 rollout、controlled probe、生产只读证据导出、真实 key smoke、Release 和 residual closure 确认保持独立。已有重复本地 fixture 准入仅覆盖文档列明的动作，不外推到数据库/volume 清理。
+- 确认等待只阻止受限动作；可继续已授权且独立的安全工作。优先引用现有确认包和对话证据，不为每次 handoff 新建确认文件或批准系统。
+
 确认前必须回答：
 
 - 影响：会改变哪些数据、文件、服务或隐私边界。
@@ -1881,7 +1889,7 @@ pnpm ops:ops-001:preflight
 
 **确认状态（2026-09-05）**：用户已明确同意按上述边界完成 v1.4 本地实现。当前工作树已形成 schema/migration、账户安全、邀请制身份、Workspace/Membership 生命周期、默认关闭开关、最小成员可见性和隔离 PostgreSQL runtime；最终标准 pnpm 门禁、共享测试池浏览器验收、文档/Git 检查点仍在收口。本确认不授权或证明 v1.5 RBAC、完整账户导出、物理删除、Release/tag、生产 migration/apply、生产 SMTP smoke、备份恢复、服务器命令或 residual 关闭。
 
-## A -> B 后续高风险确认包登记（未确认）
+## A -> B 后续高风险确认包登记（逐包确认）
 
 本节只是下一轮确认包的登记和最低字段，不是实施授权。每个包必须在对应版本开始前，根据当时的 schema、API、数据清单和生产基线补全精确文件/表/API/页面、migration preimage、测试命令、回滚开关和确认句；一个包的确认不得替代另一个包，也不得替代生产 migration/apply 的独立确认。
 
@@ -1889,8 +1897,8 @@ pnpm ops:ops-001:preflight
 |---|---|---|---|---|---|
 | `AUTH` | v1.4 | 数据 owner、邀请/会话策略、Workspace/Membership 生命周期、现有 owner 回填、IDOR 响应 | 双用户/双 Workspace、邀请重放、冻结/移除即时失效、长事务重新授权、旧 owner 无损回填 | 关闭邀请/成员入口，回滚应用并保留 additive 表和旧 owner 兼容路径 | 本地实施已确认；Release/生产未确认 |
 | `RBAC` | v1.5 | 角色/capability、敏感数据矩阵、角色管理、分享 grant 范围/到期/撤销、Coach 协作确认链 | API/service/query 授权矩阵、跨租户/批量/TOCTOU 负向、撤销即时失效、Coach 不可直接改正式记录 | fail closed，关闭角色/分享/协作入口，保留审计与个人 Owner 路径 | 本地实施已确认；Release/生产未确认 |
-| `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 未确认 |
-| `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 未确认 |
+| `DATA-EXPORT` | v1.6 | 账户/Workspace 数据清单、redaction、manifest/checksum、临时包、一次性凭证、过期清理 | 对象/附件/hash 一致，secret/internal path 不导出，下载 grant 撤销与重试幂等 | 撤销下载 grant、清理临时包、保留脱敏任务回执 | 本地已确认；Release/生产未确认 |
+| `DATA-DELETE` | v1.6 | 删除对象图、冷静期、冻结/取消、附件、派生投影、Provider/AI trace、deletion ledger、历史备份恢复语义 | preview/actual 一致、kill-point、补偿、重试、恢复、搜索/附件/排名消失、备份恢复后账本重放 | kill point 前可取消；开始后按持久状态机恢复，不把普通 restore 当作删除回滚 | 本地已确认；Release/生产未确认 |
 | `OPS` | v1.7 | 白名单 operation catalog、参数 schema、风险等级、审批、expected-before/TTL/nonce/hash、请求状态机、root-agent journal | 任意命令/路径/env 拒绝、重放/漂移/超时/崩溃/取消/重试/hold/reconciliation、逐动作生产证据 | agent 进入 hold，按 phase journal 和固定 rollback target 恢复；Web 永不接管执行 | 未确认 |
 | `RANKING` | v1.8 | 指标、`scoreVersion`、窗口/时区/并列、隐私字段禁区、opt-in、挑战状态机、反作弊/申诉、退出/删除联动 | 重算确定性、异常/重复 session、跨租户、挑战 CRUD/参与者/所有权、退出/删除重建 | 关闭挑战与排名投影并重建，不改写个人学习源事实 | 未确认 |
 
@@ -2034,3 +2042,485 @@ v1.5 只增加预设角色 `ADMIN`、`COACH`、`VIEWER`，不开放用户自定�
 **确认状态（2026-09-05）**：用户在收到包含稳定资源 owner、grant、Coach、Operator、验证、Release/生产分层与回滚边界的完整 A → B 计划后明确回复“可以，全部，全部完成”，确认按上述范围实施 v1.5 本地候选。本确认不替代 v1.6 DATA-EXPORT/DATA-DELETE、v1.7 OPS、v1.8 RANKING、GitHub Release、生产 migration/apply、真实账户暂停、备份恢复、服务器命令或 residual 关闭的独立确认。
 
 **总体路线推进口径（2026-09-06）**：用户要求继续完整推进 A → B 下一轮计划；本轮将“全部推进”解释为可以继续编写本地代码、候选 migration、隔离 PostgreSQL fixture、契约/负向测试、文档和共享测试池验证。该口径不授权生产 migration/apply、真实账户操作、物理删除/附件清理、备份 deletion ledger、服务器命令、root-agent 执行、GitHub Release/tag 或 residual 关闭；上述动作仍须对应版本的独立确认包和回滚证据。
+
+## v2.0 持久 worker 首批本地实施确认包
+
+**确认状态（2026-09-08）**：用户在收到首批实施范围、风险、验证、回退与禁止事项后明确回复“可以，现在直至完成至100%”。本次确认覆盖该首批，不替代其他独立确认包，也不降低 v2.0 的最终完成条件。
+
+- 影响：基于现有 `DataJob` 增加兼容的队列协议、下一次执行时间、尝试预算、租约代次、暂停请求和死信字段；实现独立 worker、租约/CAS、重试、死信、暂停/取消/恢复，并隔离旧手工预览协议。
+- 允许：本仓库代码与对应文档、必要 additive migration、新建 loopback PostgreSQL 与合成数据/本批测试资源、静态/事务/子进程故障测试；验证后按原请求提交并推送 `codex/v19-platform-hardening`。不混入用户原有治理改动及截图。
+- 风险：重复执行、旧 worker 越过新租约、跨 Workspace 处理、取消与成功竞争、异常正文入日志，以及副作用与任务状态不同步。
+- 验证：完整 canonical migration ledger/hash、并发领取、旧代次拒绝、持久退避/死信/人工重放、scope 撤销、暂停/取消、过期恢复、事务回滚及真实进程 kill-point；运行 Core/DB/Web 对应检查、完整 `pnpm check`、文档/风险/治理与 secret 门禁。
+- 回退：停止 worker 与新协议生产者；回退至保留协议隔离的应用，保留兼容字段、任务和审计，不 DROP 或清理历史数据。
+- 不包含：共享/生产数据库写入、真实账户与附件操作、正式导出下载、物理删除、备份删除账本、root-agent/服务器执行、Release/tag、production apply、生产备份恢复、自动应用策略或 residual 关闭。业务处理器注册与真实执行仍须各域独立确认。
+
+## 排名通知队列域本地实施确认包（本地已确认）
+
+状态：本地实施已确认（2026-09-09）。此前 `ad3f719` 的通知候选超出首批内核确认，历史问题不追认。维护者在本包已展示、风险/验证/回退边界已说明后，亲自要求“那现在把这些完成至100%，完成至v2.0”；本次据此执行下列通知域本地范围，不再重复索要同一批准。后续其他高风险包、Release 和生产仍独立确认。
+
+自动 goal continuation 只重放既有目标，不是新批准。此前续跑的错误解释已纠正并撤回未提交域代码；此次确认来自维护者的新消息。允许同一已确认范围内反复隔离验证，禁止扩展到真实用户、共享库、生产或新域。
+
+- 影响与目标：仅在 `codex/v19-platform-hardening` 收敛现有排名通知候选；业务事件与 `DataJob` 原子入队，独立 worker 把受控事件写入 `UserNotification`。不新增通知渠道或学习正文读取。
+- 数据边界：payload 只保留 recipient/Workspace、既有 `RANKING_*` 种类、三类源实体 ID、正整数 `eventVersion` 与由其重算的 eventKey；拒绝未知字段、自由路径、正文及 kind/source/version 不匹配。消费前绑定持久任务 scope/请求者/收件人/源实体与指纹，不能凭 payload 自报另一个 Workspace。
+- 权限与生命周期：入队和提交检查 ACTIVE 账户、Workspace/Membership 与合法事件来源；撤销、移除、归档与投递使用一致锁顺序和事务，重复事件不复活已读/隐藏状态。总开关与队列开关必须在生产者和处理器均生效，注册时开关检查不替代执行时检查。
+- 允许的执行环境（确认后）：新建或复用本任务自有 `areaforge_v20_worker_*` loopback 合成库，测试账号与合成通知；静态/mock、数据库/子进程、API 契约与相关文档检查。允许完成验证后提交推送本分支；只清理本批明确创建的合成资源，不触碰用户原有改动。
+- 风险：异步期间权限漂移、跨 Workspace payload、重复或丢失通知、开关关闭后继续写、私密字段进入任务/审计，以及通知失败阻断学习主链。
+- 验证：源业务回滚不留下 job、重复入队/执行只形成一次通知、同 eventKey 异 scope/source 全拒绝、收件人移除/恢复不复活旧权限、开关关闭、kill-point/重试/死信、脱敏和租约代次；运行 Core/DB/Config/Web 检查、完整 `pnpm check`、docs/risk/governance/secrets 与隔离通知回归。
+- 回退：停止通知消费及新队列生产，保持 `PLATFORM_NOTIFICATION_QUEUE_ENABLED=false`，保留任务/审计；未排队的新事件可走既有直接事务路径，已排队事件只能经事件键对账后受控恢复，不批量删除或盲目重放。
+- 不包含：真实用户数据、共享/生产数据库、排名重建/导出/物理删除、MFA/配额、外部通知投递、root-agent/服务器操作、Release/tag、production apply、备份恢复和 residual 关闭；这些仍需各自精确确认。
+
+## DATA-EXPORT 完整本地闭环确认包（本地已确认）
+
+状态：2026-09-13 本地已确认。维护者在收到依赖补丁、到期状态对齐、完整导出三个独立范围及风险/验证/回退说明后明确回复“可以，允许继续”，覆盖本包所列本地实现、合成资源与验证后提交推送。此包不替代 DATA-DELETE、OPS、RANKING 重建、MFA/配额、Release 或生产确认。
+
+- 基线：通知域检查点之后的 `codex/v19-platform-hardening`；Prisma schema SHA-256 为 `a201d53020ffb1ce8f5cb8e15f9df920334886f6c8726cf39d451bf7b26ffab8`，50 条 canonical migration。实施前重新核验，若数据模型或权限前提改变则更新范围后确认，不拿历史记录自动放行。
+- 代码范围：`packages/core/src/data-export-*` / 数据清单规则、`packages/db/src/data-export-*` / 既有 DataJob 接口、`packages/storage/src/data-export-*`、`scripts/workers/data-export-*`、`apps/web/lib/system/data-lifecycle-*` 与数据任务 API/DTO/任务中心、相应测试、配置和文档；只允许导出所需 additive schema/migration，不改变源记录 owner 或角色能力。
+- 影响：首次把授权数据和附件复制为私有临时 ZIP，并向本人提供真实下载。`ACCOUNT` 只导出请求者自有记录及解释它们所需的最小 Workspace/关系上下文；历史 Membership 不授予其他成员正文访问。`WORKSPACE` 保留当前 ACTIVE Owner 申请边界，只导出该 Workspace 内请求者自有记录，不能因 Owner 身份打包其他成员私有正文或仅因 share grant 获得的资源。
+- 范围差异必须显式可见：账户级动机档案、全局通知偏好及无法归属目标 Workspace 的审计不进入 Workspace 包；它们可按现有本人清单进入 Account 包。账号/会话/邀请/Provider 等只保留现有最小生命周期字段，永久排除密码、token、密钥及密文、网络标识 hash、内部路径/objectKey/lease、原始 provider trace；不新增 AI 外呼或历史/费用台账留存。
+- 附件：仅复制本范围内请求者拥有且 `READY` 的附件，经私有句柄读取并校验 metadata、字节数和 SHA-256；包内使用安全相对名并记录来源 ID/hash。缺失、篡改、软链接、非法路径或不一致直接失败，不以“完整包”静默省略，不修改或删除源附件。
+- 快照：请求时冻结显式 scope 与权限版本，worker 在一致数据库快照读取导出内容；manifest 标明实际快照时间与排除项。执行、发布包及下载前重新授权，权限版本漂移/冻结/移除不允许旧任务发布或下载；不把请求时间误写成整个文件系统快照时间。
+- 队列与文件一致性：新 EXPORT 使用 `queueVersion=1`，v0 preview 保持隔离；只有新协议已验证包才可发放文件。持久写入意图、独占 staging、fsync/原子发布、租约代次与包指针绑定；文件 IO 不伪称数据库事务的一部分，崩溃后的孤儿副本通过精确 job/代次对账恢复或回收，不盲目扫描源上传目录。
+- 环境和资源：仅本机新建 `areaforge_v20_export_*` loopback 合成库、合成附件、由 `mktemp -d` 创建并登记所有权的本批私有测试目录；不得读取现有真实 uploads 或共享测试池数据库。本批技术安全上限建议固定为单 worker 并发 1、流式缓冲不超过 64 MiB、单包不超过 512 MiB/100000 条目，超限失败且不可下载；这是导出任务资源保护，不启用平台业务配额。
+- 保留与回收：沿用任务最长 1 小时、下载 grant 最长 15 分钟；包最迟随任务到期不可再下载，worker 仅能回收本批已登记的导出副本及 staging 残留，清理幂等且不改源数据。新的目录/包不是备份，不纳入或改变现有备份策略；不授权历史容器、数据库、volume 或上传孤儿清理。
+- 下载：必须有当前会话、本人 job/scope 和未撤销的一次性 grant，token 只在受控 POST body 中传递，不进入 URL/日志；同句柄校验后原子消费，返回安全文件名、`private, no-store` 和 `nosniff`。并发只允许一次获准开始；打开失败不得伪报已交付，断线可重新验证并申请新 grant。撤销阻止后续开始的下载，但无法收回已交付客户端的字节。
+- 风险与停止条件：私密内容产生新副本、旧租约发布、越权 scope、下载撤销竞争、内存/磁盘耗尽。任一跨用户内容、source 文件修改、secret/internal path 泄漏、旧代次成功或不一致包可下载时停止，不开启默认开关。
+- 验证：双用户/双 Workspace、当前/历史成员和 Owner 转移、暂停/撤销/恢复；独立解 ZIP 对比对象、manifest、附件和整包 SHA-256；缺失/篡改/软链接/容量超限；写入、发布、事务提交各 kill-point、旧租约拒绝、取消/重试/清理幂等；并发兑换/撤销/过期/断线；真实本地 API 与任务中心桌面/窄视口。运行 Core/DB/Storage/Web、schema、导出专项、完整 `pnpm check` 与 docs/risk/governance/secrets 门禁。UI 复用测试池专用槽，只能绑定本批合成库与合成附件目录，不改写其他槽数据或全局/生产配置；操作前列明目标，URL 由测试池返回。工具无法保持这种隔离时报告缺口，不擅自改用共享库。
+- 回退：关闭 EXPORT 新请求、消费和下载，撤销本批 grant，按允许范围仅回收导出副本；保留任务/审计/additive 字段，不 DROP、不改源数据、不把 v1 job 降回 v0。验证通过后允许提交推送当前分支；不包含 Release/tag、共享/生产 migration/apply、服务器命令、备份恢复、数据删除或 residual 关闭。
+
+建议确认：同意上述 DATA-EXPORT 本地完整闭环及限定合成资源验证、验证后提交推送；不包含其他独立高风险包、共享真实数据或生产动作。
+
+## AF-RISK-REL-001 到期状态对齐（已确认，非续期或关闭）
+
+2026-09-13 只读复核：JSON 中 `acceptedException.status=approved`、`expiresAt=2026-09-10` 与当前日期不符；权威 reader 因此拒绝整个台账，`residuals:validate`、`residuals:review-due` 和 `tasks:doctor` 失败。JSON/Markdown 与 `87aa306` 一致，这不是通知实现删除了风险条目。
+
+- 建议动作：仅把该条既有接受事实的状态改为 `expired`，同步 Markdown 台账、任务索引及受影响的只读状态说明；保留 `acceptedAt`、`expiresAt`、`reviewAt`、scope/reason/sourceRef/basisHash、`type=accepted-exception` 和 `executableNow=false`，不生成新的接受事实。
+- 影响与风险：恢复台账的合法历史状态，并继续把这项例外作为无效/待复核展示；不是豁免失效、不意味发布就绪，更不授权 patch 自动应用。
+- 验证：`residuals:validate`、`residuals:review-due`、`tasks:doctor`、`ops:status`、`ops:handoff`、相关只读投影 selftest、docs/risk/governance 门禁；验证 `acceptedExceptionEffective=false`，不能通过改日期或退回旧时间获取 PASS。
+- 回退：保留原接受事实与 Git 历史；发现输入不符则停止本次对齐，不续期或反向恢复过期的有效授权。服务器配置不变，`AREAFORGE_AUTO_APPLY=none`，不执行 Release/updater/生产操作，也不关闭 residual。
+- 本节已于 2026-09-13 获维护者“可以，允许继续”的明确确认，仅覆盖上述 `expired` 对齐；与 DATA-EXPORT、依赖补丁分别受各自边界约束。
+
+## 依赖安全补丁本地实施确认包（本地已确认）
+
+状态：2026-09-13 本地已确认，维护者在收到精确补丁版本和验证/回退范围后回复“可以，允许继续”。历史检查点 `24e344c5004d3c9e832fcd53ea650378713b165a` 的 [CI run 34731611015](https://github.com/AreaSong/AreaForge/actions/runs/34731611015) 在完整依赖审计失败；本地 `pnpm audit:all` 复现 2 critical + 2 high，`pnpm audit:prod` 复现 2 critical + 1 high。这与接受例外到期是两个独立阻塞，升级和过期对齐均不得伪称生产修复。
+
+- 来源：GitHub 未撤回公告 `GHSA-p293-qw3h-jr36`、`GHSA-2xp9-vwfh-vxw4`、`GHSA-rgj7-g3m4-5g8c`、`GHSA-2883-xcg3-v3hh`；发布于 2026-09-08。npm 元数据已确认以下修复版本存在：Next / eslint-config-next 为 MIT、Sharp 为 Apache-2.0、js-yaml 为 MIT。实际 manifest/lock 为 Next `16.3.0`，不能沿用旧文档的 `16.2.11` 描述。
+- 精确升级：`apps/web/package.json` 的 `next` 与 `eslint-config-next` 从 `16.3.0` 到 `16.3.3`；根 `package.json` 的 Sharp 及 `pnpm-workspace.yaml` override 从 `0.35.3` 到 `0.35.4`；js-yaml override 从 `4.3.1` 到 `4.3.2`。只接受这些补丁所必需的 lockfile/平台包变化，保持其他 override、既有 minimatch patch 和 build allowlist，不启用新安装权限。
+- 允许：本仓库 manifest/lock、相关文档/验证和必要的兼容性修复；本地受控依赖安装、构建与合成 fixture。测试池验收复用既有槽位与配置，不连接生产、不改变共享数据库/上传内容、不新增长期 Web 容器；不升级全局 Node/pnpm，不修改生产依赖或镜像。
+- 风险：框架请求处理与图像 native decoder 的回归、平台二进制完整性、安装脚本或传递依赖变化。Windows 专项公告不等于已证明 Linux 部署同路径可利用；当前 Next 配置未显式禁用图像优化，AVIF/图像路径仍须按真实配置核验。此处只确认依赖审计命中，不执行利用实验、不声称生产已遭攻击或已修复。
+- 验证：复核官方公告/registry integrity 与受限 lock diff，`pnpm install --frozen-lockfile`、`pnpm audit:all`、`pnpm audit:prod`、`pnpm check`、品牌与图片处理回归、通知/内核隔离回归、文档/风险/治理/secret 门禁及本地登录/学习/通知只读页面 smoke。受保护分支 CI 必须重新成功；到期例外门禁需按其独立确认包处理，不能通过禁用审计、降低 severity、改旧日期或删除失败步骤获得绿色。
+- 回退与停止：新增不明依赖、安装权限或安全回归时停止升级，保留差异证据；可回退本批本地依赖/应用提交用于定位，但保持安全审计阻断，不把旧易受影响版本标为已修补。不自动回滚或更新生产，不创建 Release/tag，不修改自动更新策略或关闭 residual。
+- 验证通过后允许提交推送 `codex/v19-platform-hardening`。本包只授权依赖补丁；DATA-EXPORT、到期状态对齐、其他高风险域与生产动作仍分别确认。
+
+## DATA-DELETE 下一批本地实施确认包（本地已确认）
+
+本包是 EXPORT 之后的独立范围。2026-09-13 维护者在收到本包的影响、风险、验证、回退与禁止范围，以及 HEAD/远端、51 条 migration 和 schema preimage 核验后，明确回复“同意，允许”。本次批准仅覆盖下列本地实施、限定合成删除/恢复验收及验收后提交推送，不来自先前 EXPORT 授权，不授权其他域、Release 或生产。
+
+- 基线：完成并验收的 EXPORT 检查点、51 条 canonical migration；当前 schema SHA-256 为 `c7941109994b70f5b7eb5a091b4f995ea320355be1c04b667097cb28a44a2bcb`。进入实施前核对该 schema、owner/权限模型及 Git preimage，漂移时先重新界定范围。
+- 拟实现：本人对象回收站/恢复、账户与 Workspace 删除影响预览、近期重新验证、24 小时冷静期、冻结范围、取消及独立 DELETE worker；对象回收站沿用现有纯规则的 30 天恢复期，未到期不能物理清除，不修改真实环境的保留策略。
+- 归属：只处理本人记录及有完整归属证明的附件/关系；Workspace Owner 不能删除其他成员私有数据。未转移的共享所有权、未解散挑战或无法证明归属的引用必须阻断，不静默级联或猜测处置其他成员。
+- 数据与账本：additive 增加删除意图、回收站与最小 deletion ledger，保留必要资源身份、scope/hash、状态、时间和计数以防恢复后复活，不保留待删除正文、凭据或可复原 secret；不新增 AI history/费用台账留存，也不外呼 Provider。
+- 仅允许的真实测试写入：本机全新 loopback `areaforge_v20_delete_*` 合成库、登记所有权的本批私有临时目录和合成附件；允许候选 migration、合成记录/文件删除，以及事前合成备份向另一全新临时库/目录恢复后验证账本重放。不得借用 EXPORT 库、旧测试池共享库、真实 uploads、生产或历史备份。
+- 风险：错误归属、级联误删、文件/数据库半完成、旧租约重放、取消后继续删除、备份恢复使删除内容复活。物理删除不可仅靠回滚应用恢复，测试必须保留合成恢复点；任何跨用户删除、不可解释计数/hash 或失败被误报成功时立即停止消费。
+- 验证：双用户/双 Workspace、权限撤销与所有权变化、预览与执行 fingerprint 一致、冷静期/恢复期边界、取消/恢复/旧租约、文件与 SQL 各提交点强杀、幂等补偿、独立恢复及防复活、API 与桌面/窄视口、完整 `pnpm check` 和安全/文件/文档门禁。测试池只能使用本批专用槽位和合成资源。
+- 回退：关闭新删除请求/消费，保留意图、回执和最小账本；只有已明确列出的合成恢复目标可恢复，不自动重放生产数据、不 DROP、不覆盖其他库/目录。通过验收后允许提交推送当前分支；不授权 Release/tag、共享/生产 migration/apply、真实源数据/附件删除、root 运维、MFA/配额、排名重建或 residual 关闭。
+
+已确认范围：上述 DATA-DELETE 本地实现、限定合成删除/恢复验证和验收后提交推送；不包含真实用户数据、共享库或生产。开工时保留原工作区 56 个预先暂存文件，从 `5f5b5a67b0ae959d3b60176f834a72bdcd9b675a` 的独立工作树实施。2026-09-14 恢复执行时，维护者已将这些原有修改提交推送为 `3c30b76da1a1c9c05bccdaafedcd6fcc6efa91ca`；临时工作树与合成资源目录已不存在，主代理仅从本任务成功补丁记录恢复代码到当前持久工作区，保留新 HEAD，重新创建本包允许的合成资源并验收。批准不等于实现或验收完成。
+
+## OPS 下一批 root-agent 本地实施确认包（本地已确认）
+
+2026-09-14 维护者在读取前序会话及本包接力点后明确回复“那现在继续完成下一步操作，我已批准”。主代理复核当前干净 HEAD `6d20120f8220c386020b3727460dba5447781903`，下列四份源码、schema SHA-256、53 条 canonical migration 与 updater/agent 树对象均匹配。批准仅覆盖本节本地实施、限定合成资源验收及验收后提交推送，不复用 DATA-DELETE、EXPORT、历史 OPS 或 Release/生产确认；批准不等于实现或验收完成。
+
+### Preimage 与已知缺口
+
+- 核对锚点为 `3c30b76da1a1c9c05bccdaafedcd6fcc6efa91ca` 及其后本批 DELETE 变更；不要求回退。当前 schema SHA-256 为 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`，共 53 条 migration。执行前仍核对实际 HEAD/索引和下列文件，保留后续用户修改。
+- `controlled-operation.ts` / `controlled-operation-request-service.ts` / `controlled-operation-journal.ts` 的 SHA-256 依次为 `8d98dc7eca0df2b4b564a5f4b2d70edf975d0af2023f221c57ddbb8362eec1d9`、`ef3b1e5f2f4d7492b8657fcd48bf8373f4abb05c7a0e87709122a4eead03f51a`、`df47a830b612873fc84172998e7c85825abe117d2de6f8ca73619777108a6e4b`；Core lifecycle 为 `8d53361cac3ed1e58696865b6ef71a4bd60b0ba9bde7bab3364b8d44e0f8852e`。root `ops/update-agent` 与 `ops/github-release-updater` Git 树对象分别为 `4a7eff3ad1e35465138bf2309e3aa04003bc9167`、`ab5910c9f28501e527d2d680a35d8f0295d679e0`。
+- 当前 `ControlledOperationRequest` 已有 nonce/hash/revision/审批/lease/结果字段，但未接 root。其 tag-only 意图和 hash 域不能直接冒充旧 updater V2 的完整 expected-before/Release 身份；report-only journal 固定 `executionAttempted=false`，不能冒充真实执行。另有 hold 的 reasonCode 被二次 strict binding 解析拒绝、RUNNING hold 清租约却未确认外部执行停止等缺口。
+
+### 拟允许的本地范围
+
+1. 写集限 `packages/core/src/controlled-operation-*`、相应 DB 访问层、Web 受控运维 service/contract/API/UI、独立 root adapter、现有 updater/agent 的必要集成点及对应测试/文档；不扩大 Operator 权限，不新增任意命令、路径、env 或新的 operation code。
+2. 仅连接六个既有白名单动作：`CHECK_RELEASE`、`BACKUP_PREVIEW`、`DIAGNOSTIC_HEALTH`、`APPLY_RELEASE`、`ROLLBACK_RELEASE`、`MAINTENANCE_HOLD`。`BACKUP_PREVIEW` 永远只预览。生产适配器保留签名/checksum/不可变 digest、两次 expected-before/TTL、备份与固定回滚目标的既有门禁；Web 永不启动命令或持有服务器凭据。
+3. 在现有 operation JSON 中保存版本化严格执行绑定，包含完整 expected-before、不可变 Release/manifest/镜像身份、原请求 hash/nonce/revision 和固定 rollback source。绑定须先于确认/审批冻结；旧 tag-only 请求拒绝执行，不能在消费时重算并视为原批准。本批不新增业务 schema；如实现必须新增 DDL，先另列精确 migration preimage 再确认。
+4. 实施 root-owned 持久请求桥接、跨进程锁、不可覆盖阶段日志、执行代次、心跳、取消/hold 屏障和重启 reconciliation。修复既有 hold 解析；RUNNING 请求不能仅清租约就标为已暂停/取消。原始执行事实与 Web 脱敏投影分别绑定 hash，未知阶段保持需要对账，不重复执行不确定副作用。
+5. 仅允许新建 loopback `areaforge_v20_ops_*` 合成库部署当前 53 条 migration，以及当前 UID/仓库绑定的 `areaforge-v20-ops-*` 私有临时根。root 进程、锁、日志、文件桥接和强杀恢复可真实执行，但副作用适配器只操作本批合成资源/受控测试命令；如需签名 fixture，仅使用本批合成测试密钥，不读取真实签名密钥。不得借用 DELETE/EXPORT/共享库、真实上传/备份、生产 state 目录或历史请求。
+6. 浏览器/API 复用受控三槽池的专用空槽，或在核对后释放本任务槽 3 再绑定新 OPS fixture，保留槽 1/2。不得创建长期额外 Web 容器、挂载 docker.sock 到 Web、安装宿主 systemd 服务或执行 SSH/生产命令。新执行入口默认关闭。
+
+### 风险、验证与回退
+
+- 风险：审批与实际执行身份不一致、旧请求重放、并发双执行、进程被杀后状态与文件不一致、取消/hold 假成功、错误回滚和日志泄漏。发现跨目标、副作用计数异常或无法解释阶段时停止消费并保留对账材料。
+- 验证：Core/DB/Web/协议测试、完整 canonical migration ledger、跨进程双 claim/锁顺序、过期与漂移/旧代次、同请求重放、逐阶段 SIGKILL、取消/hold 与执行竞争、journal hash/篡改/截断、重启恢复和执行后 DB 写回失败；真实 API、桌面/窄视口；`pnpm check`、updater preflight/shellcheck、governance/risk/secrets/docs 与 ops readiness/handoff。模拟副作用证据必须标为 local fixture，不能标为生产 backup/apply/rollback。
+- 回退：关闭新入口和消费，保留请求、不可变 journal、claim 与最小回执；不静默重放不确定操作，不自动恢复数据库或切换生产。通过本批验收后允许只提交自己的变更并推送当前分支、核对新 CI。
+- 明确不包含：真实数据/附件删除、共享或生产 migration/apply/backup/restore/rollback、官方 Release/tag/GHCR 发布、自动策略变更、MFA/配额、排名重建、宿主全局安装/权限修改或任何 residual 关闭。公网 health 的 `v1.2.0` 观测不授权这些动作。
+
+已确认范围：上述 OPS root-agent 本地实施、限定新合成资源与强杀/恢复/API/浏览器验证、验收后提交推送；不包含正式发布或生产操作。
+
+## RANKING 持久重建本地实施确认包（本地已确认）
+
+状态：2026-09-15 本地已确认。维护者在本包及风险、验证、回退、合成资源和提交推送边界已展示后明确回复“可以，继续完成”。主代理重读 HEAD、schema 和下列 Git 树，均与准备基线匹配；仅保留本包准备产生的两份文档修改。本次确认覆盖本节本地范围，不追认或复用其他包，不包含正式发布或生产；实现与验收结果须另行记录。
+
+### Preimage 与实现边界
+
+- 核验基线为干净 `149de93b249bff8d32925e60c4bc552889bebbf6`；schema SHA-256 为 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`，共 53 条 canonical migration，migration Git 树为 `02fdc8d6add97b57a94191f3a112b8c39c074930`。本节准备文档不属于产品源码变更；实施前重读实际 HEAD、工作区与相关源码，不回退后续用户修改。
+- 相关 Git 树：`apps/web/lib/ranking` 为 `eb252a299c583226a337c77230ceb88b45764cf5`，`packages/db/src` 为 `9e0ca2cd424be461f1082ee39a5f8eab12ab1856`，`scripts/workers` 为 `55ba8afa1a76091b2ba276a6d96a50b8285bce9a`。树对象只固定核查来源，不把整个目录都变为允许写集。
+- 现有 `DataJobKind.RANKING_REBUILD`、任务 JSON/指纹/幂等/租约与 `RankingProjection` 可支持最小候选。拟复用现有 53 条 migration，不新增 DDL；如无法在既有结构内满足旧代次拒绝、原子发布或有界执行，先提出精确 schema/migration preimage 再确认，不临时扩大本包。
+- 当前 `rebuildChallengeProjection` 在 Web 的 Serializable 事务内同步重算，通用处理器仅注册 NOTIFICATION/EXPORT。队列最低 scope 检查只验证当前 ACTIVE 状态，不能替代排名域的逐参与者权限历史、冻结可见性和规则/来源版本重验。
+
+### 拟允许的本地范围
+
+1. 写集限排名重建 Core 协议、DB 查询/提交适配、固定 worker handler、既有排名 service/contract/API/UI 与生命周期失效接点，以及必要的队列集成、测试池隔离适配、测试/配置说明和对应文档。业务计分仍使用 `private-challenge-v1`；不改变指标、权重、窗口、时区、并列规则、角色权限或 opt-in 默认值。
+2. 将既有 Owner 显式重建入口接入 `RANKING_REBUILD` 持久任务，提供真实排队/进度/暂停/取消/失败/重试/结果状态；不增加定时自动重建或任意通用执行入口。新队列开关拟为 `RANKING_REBUILD_QUEUE_ENABLED=false`，须与既有排名/投影及独立 worker 开关共同满足，生产者、准备和提交时都检查；Web 不启动消费者。
+3. 严格协议绑定请求者、Workspace、challengeId、challenge revision、scoreVersion/rulesVersion、数据截止边界、幂等键和完整指纹；权限快照覆盖账户 authRevision、Membership ID/revision、挑战所有权、参与记录 revision、opt-in 与字段授权 revision。拒绝未知字段、跨 scope、自报 actor、正文或路径；任务 JSON 不直接经通用 DTO 返回，也不得在失败/重试中覆盖丢失协议。
+4. 计分查询只读取既有 session ID/起止时间/有效分钟/有效标记白名单；昵称及发布字段继续受挑战、参与者和本人授权交集限制。不得读取或写入动机、情绪、复盘、笔记/错题正文、附件内容、AI prompt、私有任务标题或 Provider 信息；不得用排名回写个人学习源事实。
+5. 明确加入/退出/移除、opt-in/字段变更、挑战规则/状态/所有权、成员和账户状态、工作区归档，以及学习来源变更、冻结/恢复/删除对旧榜的影响。撤销隐私与冻结必须先于聚合、排序、计数和返回生效，不能等待后台重建；撤销后重新加入或恢复不得复活旧任务或旧投影。
+6. 在既有删除栅栏、账户/Workspace/Membership、挑战和任务锁之间固定顺序，准备后及提交前重验完整快照与来源指纹；同一传入事务原子发布整榜并提交任务成功。跨任务竞争、旧租约、取消/暂停、数据漂移、事务超时或部分失败不得留下半榜或错误成功；15 秒提交预算不足时应有界失败，不能截断来源后发布，不能静默放宽通用事务预算。
+7. 确认后仅新建 loopback `areaforge_v20_ranking_*` 合成库并 deploy/repeat deploy 既有 53 条 migration，以及当前 UID/仓库绑定的私有 `areaforge-v20-ranking-*` fixture 根。仅创建本批合成账户、工作区、学习记录、挑战、参与者、任务和投影；跨域删除用例仅对本批新建、明确登记的合成对象调用既有冻结/恢复/数据库删除协议，不修改 DELETE 权限或保留期，不执行附件清除或备份恢复。禁止借用 EXPORT/DELETE/OPS/共享库、真实上传/备份、生产配置或凭据；本批库、卷和证据在收尾保留，不自动清理历史资源。
+8. 浏览器/API 使用既有三槽测试池：只使用专用空槽，或在重新核对所有权后停止/替换上批 OPS 专用槽 3 为 RANKING fixture；保留槽 1/2 及原 OPS 数据库、私有目录、卷和证据。新增隔离模式必须有精确库名、fixture marker、UID/仓库/源指纹绑定；不能回落到共享 `.env.local` 或共享库，也不得另建长期 Web 容器。
+
+### 风险、验证与回退
+
+- 风险：跨租户计分泄漏、已撤销成员重新上榜、权限/数据检查与提交竞争、旧任务覆盖新榜、半榜/重复成功、锁序死锁、超时造成学习主链受阻，以及任务/审计泄露内部快照。遇到范围或身份不一致时拒绝发布并保留脱敏失败证据，不自动修复源数据。
+- 静态与协议验证：严格字段/完整指纹、旧协议隔离、默认关闭、Web 不启动进程、DTO/日志脱敏；运行 Core/DB/Web 对应测试与类型检查、`pnpm worker:data-jobs:typecheck`、`pnpm worker:data-jobs:selftest`、`pnpm db:validate`、`pnpm check` 及 docs/tasks/residual/risk/governance/secrets/diff 门禁。
+- 确认后新增排名域独立 runtime/browser 入口并登记 package scripts；核对全部 migration 名称/实际顺序/SQL checksum/完成状态，覆盖双用户/双 Workspace、Owner 与参与者权限、退出重入、冻结恢复/删除、来源变更、规则确定性、异常/重复 session、并发幂等与同键冲突、旧代次、开关运行中关闭、暂停/取消/死信重放、锁冲突与预算边界，以及 prepare 和投影写入后事务提交前的真实进程强杀。内核 15 组与通知 11 组既有结果不能替代本域证据；跨域消费者在本批新库运行时仍须各自 guard。
+- 实际 UI/API 验收覆盖 Owner 请求与控制、Member/Viewer/跨 Workspace 拒绝、响应丢失同任务重试、真实状态/错误恢复、退出/冻结后列表/排名/计数排除、刷新与会话变化，包含桌面、390px、320px 和键盘路径；必须复用本批测试池返回且源指纹匹配的 URL。
+- 回退：关闭新重建生产者和消费者，保留任务、审计和派生数据供对账；继续维持当前权限/冻结过滤，将不可证明有效的榜单标为 stale 或拒绝展示。不得恢复已撤销分享、让旧同步入口接管新任务、盲目重放或回写学习源事实。通过本批最终验收后，只提交本批变更并推送当前分支，核对新 CI。
+- 不包含：真实用户数据操作、共享/生产 migration、生产冻结/删除/恢复、公开全站排名、计分规则改版、持久搜索、配额/MFA、外部通知或 Provider/SMTP 外呼、root/SSH/服务器配置、Release/tag/GHCR、production apply/backup/restore/rollback、自动策略或 residual 关闭。v2.0 发布上线仍须后续独立包、完整验证和生产证据，不由本地 RANKING 验收替代。
+
+已确认范围：上述 RANKING 持久重建本地实现、限定新合成资源与生命周期/强杀/API/浏览器验收，以及验收后提交推送；正式发布和生产操作不在本包内。
+
+## QUOTA 后台任务准入本地确认包（本地已确认）
+
+状态：2026-09-16，维护者在收到「显式配置、默认关闭、仅 EXPORT/SEARCH/RANKING 新请求、新合成库验证并发/幂等/取消恢复、失败关闭配额并保留任务、通过后提交推送，新增 migration/成员存储配额/MFA/Release/生产另行确认」及误拦请求、并发超额风险说明后，明确回复“可以，继续”。本节固定该本地范围，不复用其他域或生产确认。
+
+- Preimage：`e9e0389c37990e31e0ebc0b94f2a4d2ec8c430db`；schema SHA-256 `6001f7ef0e030295a589f4e845eba3f75ba3b214885863f9251e637aa4ae4583`，54 条 migration，migration Git 树 `b4f334e02e7871632d010856b72d72c875fb9f6f`。既有失败截图保留，不混入本批；没有新增 DDL，需要新结构时重新确认。
+- 写集限任务配额纯规则、共同入队适配、三个既有请求服务/错误文案、配置/文档、独立 QUOTA fixture、测试池适配及验证。计数按请求者 × scope × Workspace；ACCOUNT 使用该请求者的 null Workspace 桶。只计三个受控 kind 的持久任务，不读取或暴露他人计数。
+- 活跃名额包括有效期内的 QUEUED/RUNNING/PAUSED/CANCEL_REQUESTED/FAILED；失败仍可人工重放，故不提前释放。成功、已确认取消或到期释放名额；滚动 24 小时 EXPORT 按已接纳记录计数，取消/失败/完成不退次数，重试/重放不重复计量。整个账户/Workspace 生命周期结束即结束该桶，不新增删除后计费账本或留存。
+- `DATA_JOB_QUOTA_ENABLED=false` 默认关闭；开启时显式配置 `DATA_JOB_QUOTA_MAX_ACTIVE_JOBS` 与 `DATA_JOB_QUOTA_MAX_EXPORTS_24H`，非负整数，零表示拒绝相应新准入，无隐式生产阈值。非法配置只阻止新的受控请求，不阻断登录、学习、查询、取消或既有控制。
+- 授权与同键复用先于额度检查。开启配额的三个入口统一使用 Serializable；计数与插入共用原事务及分区 advisory 锁，其他隔离级别拒绝受控入队。拒绝/崩溃整笔回滚，不留下 SEARCH generation 漂移或独立扣费记录。所有生产者须使用一致配置；旧构建或关闭模式混跑不证明配额生效。
+- 仅新建并操作 `areaforge_v20_quota_*` loopback 合成库和同 UID/仓库绑定的私有 fixture，部署/重复部署现有 54 条 canonical migration；不修改 SQL。沿用已准入三槽池，先核对精确槽位与归属，不放宽跨 fixture 覆盖门禁，保留旧库/卷及证据。
+- 验证包括三域真实入队、ACCOUNT/Workspace/用户隔离、阈值/时钟、同键重试、跨 key/跨域/多进程并发、旧快照、拒绝/强杀回滚、暂停/恢复/取消/失败重放、默认关闭/坏配置、鉴权负向，以及桌面/390px/320px 超限反馈与恢复。只用受控合成状态模拟任务结算，不运行 EXPORT/SEARCH/RANKING 业务消费者、ZIP/下载/回收、删除或运维执行器。
+- 回退关闭配额准入，保留任务/审计及原域保护，不清空计数记录或修改已有协议。完整检查、专项与 docs/risk/governance/secrets 门禁通过后，只提交本批并推送当前分支，核对 CI。
+- 不包含新增 DDL、成员/存储配额、全站或跨 Workspace 总量计费、支付、MFA、Provider/SMTP/监控外呼、共享/生产、备份恢复、root/SSH、Release/tag/GHCR、自动策略或 residual 关闭；不代表完整平台配额或 v2.0 综合门禁完成。
+
+## SEARCH 持久索引本地实施确认包（本地已确认）
+
+状态：维护者在已展示「用户 × 工作区隔离、仅授权可见标题、新增索引表和队列枚举、新合成库迁移/撤权删除/强杀/桌面窄屏验收、失败回退安全直查、验收后提交推送、不含共享库/生产/Release」以及风险后，明确回复“可以，继续下一个”。本节固定该本地批准及其工程边界，不复用 RANKING 的零新增 DDL 承诺。
+
+- Preimage：干净 `434c510e7e61d7b4ddf482fc6ef53e1d40f7ad7b`；schema SHA-256 `ab77429b40205a644f13cdf03864f9b73aa45b03003cd4161763bccf33a5a7e0`、53 条 migration、migration Git 树 `02fdc8d6add97b57a94191f3a112b8c39c074930`。现有搜索为六类标题直查，`indexed=false`，没有搜索表或搜索任务 kind。
+- 数据范围：SUBJECT/TASK/KNOWLEDGE_POINT/NOTE/MISTAKE/RESOURCE 的名称或标题及必要标识/版本/排序元数据；每份索引固定请求用户和 Workspace。科目按既有工作区可见规则，其余本人资源或既有有效 NOTE/MISTAKE grant；Workspace Owner/Operator 不因此获得他人索引或私有标题。
+- 新增结构限派生分区 `WorkspaceSearchPartition`、派生文档 `WorkspaceSearchDocument` 和 `DataJobKind.SEARCH_INDEX_REBUILD` 的 additive migration。分区保存请求/发布代次、指纹、时间和数量；文档绑定分区、代次、六类精确源外键和标题。数据库约束确保恰好一个源外键、kind/sourceId 一致，新增表安装既有冻结 guard；不修改学习源字段、角色或 grant 权限模型，不增加外部搜索服务、扩展或依赖。
+- 新增开关默认关闭；生产者、准备、提交均显式检查，Web 仅登记/控制任务，不启动进程。先支持用户显式重建、真实进度、暂停/取消/恢复/重放，不增加定时任务或查询历史留存。查询语义保留现有不区分大小写的子串搜索、六类结果、结果上限和 canonical href。
+- 权限、grant（含到期）、源归属/归档/修订与冻结在入队、准备、提交和读取重验；generation 防止旧请求覆盖新代次。无法证明当前索引有效时不得返回旧标题、计数或截断信息，回退到同样受保护的源查询；不把索引本身视为授权源。
+- 删除/导出联动仅覆盖新增派生副本：两张表从用户导出排除；查看者删除只清自己的分区/副本，不反向删除他人源。源所有者删除可纳入已授权精确源 FK 对应的搜索副本，必须核对 Workspace、kind/sourceId 和既有闭包，不放宽其他模型的外人引用阻断。冻结旧代次保留原 rowHash/fence，重建排除冻结源后发布新代次，仅回收本分区未冻结旧副本，不借用删除执行器绕过 guard。
+- 资源护栏：单分区最多 10,000 个可见文档、单标题最多 8 KiB、整次标题数据最多 16 MiB；超限拒绝索引发布并保留安全直查。采用既有删除共享栅栏、有限锁等待、租约/控制与 15 秒提交预算，整代文档、发布指针和任务成功同事务提交；不把护栏升级为用户配额或阻断学习源写入。
+- 本地资源：仅新建 loopback `areaforge_v20_search_*` 合成库、同 UID/仓库绑定的私有 SEARCH fixture，并部署/重复部署 canonical 迁移。只创建和操作本批登记的合成身份、六类源、grant、索引、任务与冻结/删除案例；不读取旧库/真实附件，不运行备份/恢复。浏览器验收按三槽池规则，经核验后复用槽 3 Web，保留槽 1/2 及旧 RANKING/OPS 库、卷、目录和证据，不新增长期 Web 容器。
+- 风险：复制过期权限标题、误导出的他人索引、源删除遗漏副本、冻结计划被重建破坏、旧代次/半批发布、锁竞争阻断学习、索引与直查语义不一致。出现 scope/身份/集合不一致即拒绝并记录脱敏代码，不修复或回写源事实。
+- 验证：完整 migration ledger/checksum 与重复 deploy；Core/DB/Web、派生分类和冻结 guard 正负测；新库运行态覆盖六类源、双用户/双 Workspace、grant 撤销/到期/恢复、改名/归档/源修改、跨查看者删除、代次/并发/控制/死信/容量、prepare 与文档写入后提交前真实 SIGKILL。实际 API/桌面/390px/320px 覆盖独立索引请求与动态搜索、同请求重试、Workspace/身份切换和错误回退。运行 `pnpm check`、数据库/worker/测试池专项、docs/tasks/residual/risk/governance/secrets/audit 与 diff 门禁。
+- 回退：关闭生产者与消费者、查询回退安全直查；保留兼容表、任务、审计和冻结证据，不 DROP 或回滚旧数据，不恢复已撤销访问。验收通过后只提交本批变更、推送当前分支并核对新 CI。
+- 明确不含：共享/生产 migration、真实用户数据/附件操作、备份恢复、SSH/root/服务器配置、Provider/SMTP/外部搜索调用、配额/MFA/外部观测实施、Release/tag/GHCR、自动策略或 residual 关闭。新结构不使旧分域记录自动成为当前源码证据，后续综合门禁须独立重采。
+
+## QUOTA-CAPACITY 成员席位与活跃任务总量本地确认包（本地已确认）
+
+状态：2026-09-16，维护者在收到本包成员席位与活跃任务总量、默认关闭/显式限额/无新增 DDL、并发与误拦风险、独立合成库/槽 3 验收、关闭开关回退及通过后提交推送说明后，明确回复“可以，允许，继续”。本包本地实现与限定合成验证已获批准；不复用既有 QUOTA 批准，不替代后续 Release/生产确认。
+
+### Preimage 与分包依据
+
+- 基线为 `762081688d71f3e437a5800ee61f4069bc88f48c`；schema SHA-256 `6001f7ef0e030295a589f4e845eba3f75ba3b214885863f9251e637aa4ae4583`，54 条 canonical migration，migration Git 树 `b4f334e02e7871632d010856b72d72c875fb9f6f`。两张既有失败截图保留，不纳入本包成功证据。 该 tree 的 55 个文件按相对路径/内容排序绑定 SHA-256 `c0bef75c08d04669d96db7b204dba5a649a8fa1f3c5e84ea0036260083a66413`；固定摘要只补充既有批准基线，不授权新 SQL。
+- `packages/db/src/data-job-quota.ts` 只按请求者 × scope × Workspace 计量；`apps/web/lib/system/platform-capacity-service.ts` 的成员统计还排除停用账户，且普通 Prisma 的 count/aggregate 会隐藏冻结对象。这些可见性统计不能直接作为实际席位占用。
+- Attachment 的暂存工作区没有独立归属字段，失败/冻结也不代表文件已释放；存储需要单独冻结持久归属、预留与可证释放协议。跨分区滚动导出次数还涉及 Workspace 删除后的短期计量留存；两者不由本次活跃任务总量实现顺带处理。
+
+### 拟允许的实现范围
+
+- 成员席位：每个 Workspace 按 canonical `ExamWorkspace.userId` 预留 1 个 Owner 席位，加原始 membership 表中 `status=ACTIVE` 且非该 Owner 的行数；停用账户、归档工作区和冻结对象继续占位，LEFT/REMOVED 才释放成员席位。Owner 一致性仍走既有 policy，不由配额修复权限数据。
+- 待接受邀请不预占席位；接受邀请时，在原授权、邀请 revision/到期和账户校验后完成原始占用检查与成员写入。配额拒绝必须回滚同一事务内新建的合成账户、个人工作区、邀请状态、成员和审计；不改变既有 token 重放拒绝语义。已是 ACTIVE 的成员不重复占位，正常 Owner 转移不增加席位。
+- 活跃任务总量：只约束新的 EXPORT、SEARCH_INDEX_REBUILD、RANKING_REBUILD 持久任务，分别检查同一请求者跨全部 Workspace（包括 ACCOUNT 桶）、同一 Workspace 跨请求者，以及本实例三域任务总量。计数使用原始受控任务记录，不因普通可见性过滤漏计，也不向调用者暴露其他用户/工作区明细或总量。
+- 活跃状态和期限沿用既有 QUOTA：有效期内的 QUEUED/RUNNING/PAUSED/CANCEL_REQUESTED/FAILED 占位，成功、已确认取消或到期释放；这是准入记录上限，不是操作系统进程并发上限。原有每分区滚动 24 小时导出限制保持原样，不增加跨分区导出次数账本或删除后留存。
+- 成员席位与任务总量分别设置默认关闭的独立开关；开启时显式配置限额，不选择生产阈值。成员上限至少为 1（含预留 Owner），活跃任务上限允许 0 表示拒绝对应新准入；缺失/非法配置仅阻止对应新增协作或后台任务请求。
+- 学习、登录、个人 Owner 工作区建立、读取、成员退出/移除、既有任务暂停/取消/恢复/重试不因本包坏配置或满额而被新增限制。既有超额数据不驱逐、不批量修改；只拒绝增加占用的请求。原授权/冻结/期限等独立限制仍保留。
+- 席位及任务准入采用 Serializable（可序列化事务）、一致的有界锁顺序、同事务计数与写入；授权与有效同键复用先于新额度检查，旧快照/竞争必须整体中止或重试新事务。所有准入进程使用同一配置，混跑旧构建或关闭模式不证明总量限制生效。
+- 写集限 Core/DB 准入规则、成员接受和三域既有任务入口、受控错误/API/UI 反馈、配置与对应文档、专项测试及本地隔离适配。复用现有表、索引和唯一键，不新增 DDL、不回填历史数据；若必须改变 schema、留存或权限模型，停止该部分并重新确认。
+
+### 本地验证与交付范围
+
+- 仅新建 loopback `areaforge_v20_capacity_*` 专用合成库与当前 UID/仓库绑定的私有 fixture，部署/重复部署既有 54 条 migration 并逐条核对 ledger/checksum。只创建本批合成用户、邀请、工作区、成员、任务及冻结状态，不连接既有域/共享/生产库。
+- 允许在本批合成资源测试邀请接受、成员退出/移除/转移、账户停用/恢复、工作区归档/恢复、既有冻结/取消协议和任务控制。邮件采用可注入的合成投递器或预置合成邀请，AI/SMTP/监控外呼关闭；不运行 EXPORT/SEARCH/RANKING 业务消费者、物理删除器、导出文件回收、备份恢复或 OPS 执行器。
+- 浏览器沿用三槽池，显式使用槽 3；先核对并按本包批准精确替换旧 QUOTA Web，保留槽 1/2、旧镜像、库、卷、私有目录及证据，不放宽跨 fixture 覆盖检查、不创建第四个长期 Web 实例。uploads/exports 为空且只读挂载。
+- 验证包括最后席位/额度的跨用户、跨工作区、跨域、多进程竞争，旧快照、事务回滚及提交前强杀；邀请过期/撤销/同 token 重放、LEFT/REMOVED 再加入、冻结取消、停用恢复、Owner 转移、坏配置/关闭模式、超额存量、同键重试和不受配额影响的学习/退出/取消路径。实际 API 与桌面/390px/320px 验证拒绝原因、恢复操作、焦点和无横向溢出。
+- 最终执行 Core/DB/Web 及专项检查、`pnpm db:validate`、`pnpm check`、测试池、docs/tasks/residual/risk/governance/secrets/audit 门禁；本地专项通过后仅提交本批、推送当前分支并核对 CI。已有 8 项配额纯规则/mock 基线通过只证明旧包，不是本包运行态或完成证据。
+
+### 风险、回退与不包含
+
+- 主要风险为并发漏计、冻结/停用造成提前释放、Owner 被配额阻断、跨 scope 计量泄漏、锁竞争扩大和拒绝后残留新账户。遇到不一致按受控错误拒绝，不吞错、不猜 owner、不把异常降级为放行。
+- 回退为关闭本包两个新增准入开关，保留旧分区配额、任务、成员、审计及其他域开关；不驱逐成员、不删除任务、不释放未知文件、不修改已有删除协议或自动更新策略。
+- 不包含存储配额、待接受邀请数量/邮件滥用配额、跨分区滚动导出次数及删除后计量账本、支付计费、MFA、真实外呼、共享/生产 migration/apply、真实数据/附件操作、root/SSH、Release/tag/GHCR、备份恢复或 residual 关闭。这些继续属于原 v2.0 目标的后续独立范围，本包通过不代表完整配额或 v2.0 已完成。
+
+## QUOTA-STORAGE 工作区附件与资料字节配额本地确认包（本地已确认）
+
+状态：2026-09-16，维护者在收到本包范围、兼容迁移、新合成库/文件及恢复验证、风险、回退和通过后提交推送说明后，明确回复“继续下一步”。本包本地实现与限定合成验证已获独立批准，开始实施；不复用 CAPACITY 批准，不替代后续 Release、共享或生产确认。
+
+### Preimage 与目标
+
+- 代码基线为 `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`，CAPACITY 的 [CI run 35093378182](https://github.com/AreaSong/AreaForge/actions/runs/35093378182) 已成功。仍为 54 条 canonical migration、schema SHA-256 `6001f7ef0e030295a589f4e845eba3f75ba3b214885863f9251e637aa4ae4583`；本节本身不是新 schema 或生产批准。
+- `Attachment` 已有 `ownerUserId`、大小、状态和文件身份，没有独立持久的工作区计量归属；暂存工作区只进入 intent 审计。资料 skip/reuse 先提交决策、再调用文件清理；`FAILED`、解除关系或冻结都不能证明字节已释放。删除执行器则先完成精确文件删除与目录 fsync、记录 REMOVED，再提交源行删除。
+- 本包只落实每工作区的 note 附件和 FILE 资料字节准入；不将 `GET /api/system/capacity` 的可见性统计作为源事实。已明确的跨分区滚动导出次数仍待独立包；`EXPORT_DIR` 副本容量、用户/实例级存储总额不在本包，是否需要扩展由后续总门禁另行定界，不把未确定的粒度写成既定需求。
+
+### 拟允许的实现范围
+
+- 增加兼容旧行的持久工作区计量归属与最小预留/释放状态，可使用 Attachment 的 additive 字段、必要内部计量表及索引/约束；不删除、改名或重解释旧字段。仅保存当前占用及释放证明，沿用对象生命周期，不额外延长保留期或增加删除后的长期使用历史。新增模型/字段须明确进入既有导出、冻结和删除分类，不泄露内部路径或他人信息。
+- 独立存储开关默认关闭，启用时显式配置每工作区字节上限，不选择生产阈值。原授权、工作区和文件策略先行；在任何文件写入前，与既有 PENDING intent 同一事务原子预留，计量身份绑定附件而非可变资料关系或当前活动工作区。未知归属、损坏计量或配置不得按零用量放行。
+- READY、PENDING、FAILED、归档、冻结以及清理失败的文件继续占位；按真实文件身份计量，同 hash 副本不能当作免费去重。资料 copy/finalize 不再次扣除已预留字节，reuse/skip 只有在本次精确 staging/final 文件完成安全清理和持久证明后，才按附件身份 CAS 结算一次；不以单个布尔返回或状态字符串作为永久释放依据。
+- DATA-DELETE 的额度结算只能在文件全部 REMOVED 后的源行删除事务中完成；不得提前改写冻结对象、破坏 rowHash 或绕过既有删除范围/身份/账本门禁。取消冻结不返还字节；恢复副本在可信账本重放和占用核验完成前不得开放新准入，不新增备份系统或修改既有保留策略。
+- 旧记录兼容仅用本包合成样例验证：唯一 Note/StudyResource 归属可形成受控转换证据，无归属、多引用、双文件、非法路径等只报告并阻断不安全启用。不得读取、回填或修复旧域、共享库或生产数据，不自动清理历史 orphan。
+- 限额只拒绝增加文件占用的请求；文本学习、已有附件鉴权下载、读取与已有任务控制不因满额或坏配置新增限制。API/UI 返回受控超限和恢复提示，保留用户输入、重复决策与幂等语义，不显示其他工作区明细。
+- 写集限现有附件/资料入口、Core/DB/Storage 计量与文件收口、既有删除/恢复的必要接点、配置/兼容 migration、用户反馈、文档和专项测试；不改变角色/grant/会话或 AI 隐私策略。若需扩大真实数据、长期留存或生产边界，停止该部分重新确认。
+
+### 本地资源、验证与交付
+
+- 仅新建 loopback `areaforge_v20_storage_*` 数据库及同 UID/仓库绑定的 0700 私有 STORAGE 根、0600 合成凭据和本包小型合成文件。允许部署/重复部署本包兼容 migration，并核对完整 ledger/checksum；旧 CAPACITY/QUOTA/SEARCH/RANKING 等库、卷、目录与记录保留。
+- 允许对本包新建文件执行上传、复制、精确 skip/reuse 清理和已确认删除协议；允许生成本包静止合成快照，恢复到全新的本包恢复库/目录并按既有可信账本重放。不得读取已有备份、真实附件或共享 uploads，不执行生产备份恢复，不改变保留策略。AI/SMTP/监控外呼关闭。
+- 浏览器只用三槽池的槽 3，执行前重新核对当前 CAPACITY Web 的精确身份和产品指纹；允许精确替换该 Web，保留其镜像、槽 1/2 与所有旧数据库/卷/私有目录。保持跨 fixture 覆盖拒绝、私有挂载和 Web 服务器命令禁区，不增加第四个长期 Web。
+- 验证并发最后字节、跨用户/工作区、未知旧记录、重复请求、copy/reuse/skip、失败补偿/清理失败、PENDING/FAILED/冻结保留占用，以及预留/落盘/清理/结算之间真实进程强杀。补上传/下载授权、metadata/hash/字节一致、软/硬链接及路径漂移、恢复重放与桌面/390px/320px 的实际 API/UI。
+- 既有域的固定 migration/hash 和历史证据不得被自动升级。新增迁移后的普通测试应将旧域护栏放在其批准快照中验证，新增 STORAGE 运行态使用新专用库；不能改旧常量使历史证据冒充新结构验收。
+- 最终运行 Core/DB/Storage/Web、migration/schema、`pnpm check`、文件/删除/测试池专项、docs/tasks/residual/risk/governance/secrets/audit 与差异门禁，安排独立只读复核。全部本地验收通过后，只提交本包、推送当前分支并核对 CI；不创建 Release 或合并主分支。
+
+### 风险、回退与排除
+
+- 风险：并发超额、暂存漏计、提前归还、重复归还、冻结指纹漂移、恢复后错误用量以及未知旧记录误放行。不能证明占用或清理完成时拒绝新文件准入，不吞错、不猜归属。
+- 回退：关闭新增字节准入开关，停止本包维护收口，保留附件、计量状态和审计以供恢复；不 DROP、删除真实文件、清空账本或恢复已撤销权限。关闭配额不关闭原有文件安全和删除确认规则。
+- 不包含真实用户数据/旧库迁移或回填、历史 orphan 清理、生产/共享 apply、root/SSH、Release/tag/GHCR、支付计费、角色权限变化、MFA、外部观测、跨分区滚动导出计量、导出副本容量、用户/实例级存储总额、自动更新策略或 residual 关闭。完整 v2.0 与生产交付仍需后续独立门禁。
+
+
+## DEP 本地依赖修补确认包（DEP-0；待确认、未实施）
+
+以下 DEP-0 小节保留准备时的历史状态；当前批准消费及结果见本文件末尾“DEP-1 本地执行回执”。
+
+2026-10-03 DEP-0 仅完成诊断与准备；DEP-1 尚未批准。此包独立于历史“依赖安全补丁本地实施确认包”，不复用其提交推送授权，不扩展 STORAGE 原批准，不关闭任何生产 residual。已有可证明的局部修补路径，但 **braces 仍阻断全量 high/critical 门禁**；批准局部降低风险不等于接受例外或批准发布。
+
+### 内容基线与新鲜审计
+
+- 项目 `/Users/as/Ai-Project/project/AreaForge`，分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；索引为空，前序 STORAGE 和根 package.json 修改保留。
+- 依赖输入集合：根与全部八个 workspace package.json、pnpm-lock.yaml、pnpm-workspace.yaml、全部现有 patches。内容聚合 SHA-256：`c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72`。算法为路径→文件 SHA-256 映射按 key 排序、紧凑 JSON UTF-8 后再 SHA-256；完整清单与安装树快照见 [baseline.json](../../output/dependency-audit/dep-0/baseline.json)。实施前重算，漂移必须核对，不能用 HEAD 替代工作区内容。
+- 关键 preimage：根 package.json `92ac240bf921bddc7832af0f0ca8c5d29aa2430507b060ab3706523be218903c`；Web package.json `4c9f645f3275b1cdb5d76bf3ef8cf8a49fac4d937638541f3b02bd525da04419`；lockfile `3be0848b961adafb28cd720cf4078b00109e99e4a764913d37f3b8c2acd7e345`；workspace YAML `5e237ba1bcf905406b1f9b7731d5d283d77d8552c3dd7dc583bbfaaf3e5f32e2`。
+- 2026-10-03 北京时间 **10:36:04–10:36:07**：`pnpm audit:all` 退出 1，1 critical / 7 high / 5 moderate / 0 low；`pnpm audit:prod` 退出 1，1 critical / 4 high / 4 moderate / 0 low。两者为 registry 返回漏洞命中，无网络/工具故障，未重试原始审计。日志采用 subprocess 捕获并单独记录真实退出码，无管道掩盖；见 [all 日志](../../output/dependency-audit/dep-0/audit-all.log)、[prod 日志](../../output/dependency-audit/dep-0/audit-prod.log) 和同目录 `audit-*-result.json`。
+- 同目录 `audit-all.json` / `audit-prod.json` 为追加 `--json` 的独立新鲜结果。为读取被 high 显示过滤隐藏的 moderate，另执行 `pnpm audit:all --json --audit-level low`，仅本次明细展示与更严格退出级别，不修改脚本、CI 阈值或政策；[完整明细](../../output/dependency-audit/dep-0/audit-details.json) 为 13 条公告。最初 JSON 包装解析遇到尾部生命周期文本，修正解析后重新采集；不影响原始两次审计结果。
+- 历史 `output/storage-quota/stage-1a-audit.log` 保持原样，不沿用其数量作当前结果。CI `.github/workflows/ci.yml:65–69` 与 Release `.github/workflows/release.yml:77–81` 均要求两项审计；[依赖策略](dependency-policy.md) 的 high/critical 阻断不变。
+
+### 精确候选、链与分类
+
+| 包 | 当前声明 / lock 与安装版本 | DEP-1 精确目标 | 理由与入口 |
+| --- | --- | --- | --- |
+| next / eslint-config-next | Web dependencies / devDependencies 均 16.3.3；实际均 16.3.3 | 均 16.3.6 | 配套框架与 lint 版本；修复 next/og critical |
+| nodemailer | Web dependencies 10.0.0；实际 10.0.0 | 10.0.9 | high 最低修复 10.0.6，额外同线 patch 消除收件人错误等三项 moderate；认证邮件真实运行入口 |
+| fast-uri | 无直接声明；override 3.1.6；实际 3.1.6 | override 3.1.8 | 3.1.7 修复两项 high，3.1.8 再修复大小写规范化 moderate；不升级 Prisma |
+| brace-expansion | 无直接声明；override 5.0.9；实际 5.0.9 | override 5.0.12 | 5.0.11 修复两项 high，5.0.12 再修复 CPU DoS moderate；保留 minimatch patch |
+| braces | 无直接声明/override；实际 3.0.3 | 暂无可批准版本 | registry latest 仍 3.0.3；不能安装尚不存在的 3.0.4 |
+| prisma / @prisma/client / @prisma/adapter-pg | 根 dev / DB dependencies 均 ^7.9.1；实际均 7.9.1 | 保持 7.9.1 | 不用范围代替解析版本；无需为了 fast-uri 升级数据库引擎/客户端 |
+
+[安装链](../../output/dependency-audit/dep-0/dependency-tree.json)、[glob 链](../../output/dependency-audit/dep-0/glob-tree.json)、[lock/安装对照](../../output/dependency-audit/dep-0/lock-installed-comparison.json) 已核验上述包版本一致；未以安装修复差异。完整全树可重现性尚未经冻结安装验证。
+
+- fast-uri：根 dev `prisma@7.9.1 → @prisma/dev@0.24.17 → @prisma/streams-local@0.1.11 → ajv@8.20.0 → fast-uri@3.1.6`；另一链从 DB 的 prod `@prisma/client@7.9.1` 经 optional peer Prisma 进入同链，因此被 prod audit 纳入。审计聚合 finding 标记 optional=false 不等于每条边都非可选。ESLint 的 ajv@6 使用 uri-js，不是此 fast-uri 链。
+- brace-expansion：Web dev eslint@9.39.4 → @eslint/config-array/@eslint/eslintrc → minimatch@3.1.5；另有 eslint-config-next → typescript-eslint → typescript-estree → minimatch@10.2.6。override 统一到 5.0.9，audit 报告 96 路径。现有 patch SHA-256 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36` 恢复函数/`{ expand }` 导出兼容，不能删除。
+- braces：Web dev eslint-config-next → @next/eslint-plugin-next@16.3.3 → fast-glob@3.3.1 → micromatch@4.0.8 → braces@3.0.3。升级 eslint-config-next 本身不能假定移除此链；当前 upstream micromatch@4.0.8 与 fast-glob@3.3.3 仍保留它；已核验目标 @next/eslint-plugin-next@16.3.6 仍依赖 fast-glob@3.3.1。
+- Next 实际 standalone 服务器入口及默认图像配置见 `apps/web/next.config.ts:8`、`infra/docker/web.Dockerfile:47`；固定 SVG 的 next/image 和附件预览（`apps/web/app/(app)/knowledge/resources/[resourceId]/preview/page.tsx:55` 为 unoptimized）不证明框架端点不存在。未见应用直接 next/og 消费不豁免 critical；未运行 PoC 或生产可利用性测试。
+- SMTP：`apps/web/lib/auth/mail.ts:13`、`:19`、`:50` 为 sendAuthMail/sendMail/transport；收件人来自邀请表单或账户 email，normalizeEmail 仅 trim/lowercase，from 来自 SMTP_FROM；已有 `mail.test.ts` 主要验证正文/action URL，地址解析及 transport 回归需补证据。不能仅凭入口有 z.email 就认为解析漏洞不适用。
+- Prisma 工具链实际由 `prisma.config.ts` 与 generate/validate 脚本使用；业务运行时使用 `packages/db/src/index.ts:30` 的 pg adapter 串行化、`:85` 的冻结扩展，以及 `data-delete-result-visibility.ts:8` 的 omit 补键/移除。未见应用直接导入 fast-uri，不等于不可达证明。
+
+### 正式公告核验
+
+以下为 GitHub 正式公告公开时间（UTC）及与本次版本有关的范围；公告 JSON（含完整 references、updated_at、withdrawn_at）保存在 `output/dependency-audit/dep-0/GHSA-*.json`，本次均未撤回。
+
+| 公告 | 级别 / 包 | 发布时间 UTC | 受影响范围 → 首个修复 |
+| --- | --- | --- | --- |
+| [GHSA-vcvr-r3jv-pc5j](https://github.com/advisories/GHSA-vcvr-r3jv-pc5j) | critical / next | 2026-09-30T14:48:30Z | >= 16.2.0, < 16.3.6 → 16.3.6 |
+| [GHSA-58mr-gqgx-xq4g](https://github.com/advisories/GHSA-58mr-gqgx-xq4g) | high / fast-uri | 2026-09-28T21:23:35Z | = 3.1.6 → 3.1.7 |
+| [GHSA-6j4f-fj2g-mc7p](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p) | high / brace-expansion | 2026-09-29T23:44:58Z | >= 4.0.0, < 5.0.10 → 5.0.10 |
+| [GHSA-prgh-xp8r-p3m5](https://github.com/advisories/GHSA-prgh-xp8r-p3m5) | high / nodemailer | 2026-09-30T14:41:01Z | >= 9.1.0, <= 10.0.4 → 10.0.5 |
+| [GHSA-qhr7-859c-m2p7](https://github.com/advisories/GHSA-qhr7-859c-m2p7) | high / brace-expansion | 2026-09-29T23:45:17Z | >= 4.0.0, < 5.0.11 → 5.0.11 |
+| [GHSA-qw65-cvwx-89v3](https://github.com/advisories/GHSA-qw65-cvwx-89v3) | high / fast-uri | 2026-09-28T21:24:39Z | >= 3.0.0, < 3.1.7 → 3.1.7 |
+| [GHSA-v53p-9fqp-m79j](https://github.com/advisories/GHSA-v53p-9fqp-m79j) | high / nodemailer | 2026-09-29T23:43:36Z | <= 10.0.5 → 10.0.6 |
+| [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | high / braces | 2026-09-18T18:31:41Z | <= 3.0.3 → unknown |
+| [GHSA-6vj9-mwq6-2f5v](https://github.com/advisories/GHSA-6vj9-mwq6-2f5v) | medium / nodemailer | 2026-09-28T21:56:05Z | >= 5.0.0, < 10.0.2 → 10.0.2 |
+| [GHSA-8vvx-rff5-p5rq](https://github.com/advisories/GHSA-8vvx-rff5-p5rq) | medium / nodemailer | 2026-09-29T18:23:50Z | < 10.0.2 → 10.0.2 |
+| [GHSA-g57g-f23g-4646](https://github.com/advisories/GHSA-g57g-f23g-4646) | medium / nodemailer | 2026-09-29T23:44:04Z | >= 9.1.0, < 10.0.9 → 10.0.9 |
+| [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) | medium / fast-uri | 2026-09-29T23:54:25Z | >= 3.0.0, < 3.1.8 → 3.1.8 |
+| [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | medium / brace-expansion | 2026-09-29T23:45:39Z | >= 4.0.0, < 5.0.12 → 5.0.12 |
+
+- **fast-uri unknown 已有上游证据**：npm audit 的 GHSA-58mr-gqgx-xq4g patched=null，但 GitHub 公告明确 3.1.7；[官方 3.1.7 发布说明](https://github.com/fastify/fast-uri/releases/tag/v3.1.7) 同时点名两个 high。最终选择 3.1.8 基于 moderate 公告，不是依据“不在等号范围内”猜测安全。
+- **braces 仍无修复证据**：npm audit 给出 `>=3.0.4`，GitHub 公告 first_patched_version=null，npm registry 没有已发布 3.0.4，官方 [issue #70](https://github.com/micromatch/braces/issues/70) 仍 open。不能把 audit 推导范围当成已发布修复。可选路径是等待上游安全发布，或另做带源码/契约测试的上游替换/补丁提案并独立确认；本包不批准自制 braces patch、替换 glob 实现或大版本迁移，且不接受风险例外。
+- moderate 逐项：Nodemailer DNS cache/TLS servername 可能触及 SMTP 凭据（虽当前单套配置，不能豁免），结构化地址数组与 quoted local-part 分别影响解析深度与 envelope 正确性；10.0.9 同线覆盖三者。fast-uri percent-encoded host 规范化影响 URI 一致性，3.1.8 覆盖。brace-expansion 的 CPU 消耗影响 lint/build，5.0.12 覆盖。无 low。选择这些 patch 是同一受影响包的局部修补，不把政策改成“必须全零”。
+
+### 兼容与供应链核验范围
+
+- npm 官方 registry 元数据见同目录 `registry-*.json`，含 published、engines、peers、dependencies、optionalDependencies、license、scripts、dist integrity；只是已核实元数据，未下载执行包、未验证新 tarball 内容/签名、未生成新 lockfile。
+- Next 16.3.3→16.3.6 的 Node 要求均 >=20.9；React/React DOM peer 均包含 ^19，当前 19.2.8 匹配；eslint-config-next 要求 ESLint >=9、TypeScript >=3.3.1，当前 9.39.4/5.9.3 匹配。Next/env/SWC/Next ESLint plugin 同步 16.3.6；sharp 可选范围从 ^0.35.3 到 ^0.35.4，现有 override 0.35.4 满足，禁止顺带升级。其他直接依赖声明保持，Next/SWC 为 MIT，Sharp 既有 Apache-2.0。
+- Nodemailer 10.0.0→10.0.9 均 Node >=20、MIT-0、无运行依赖/peer；build/prepare 元数据不变，无新增 install/postinstall。fast-uri 3.1.6→3.1.8 均 BSD-3-Clause、无 engines 声明、无运行依赖/peer/安装 hook；无 engines 不是全版本 Node 兼容证明。brace-expansion 5.0.9→5.0.12 均 MIT、Node `20 || >=22`、balanced-match ^4.0.2，prepare=tshy 保持，仅新增 format:check 开发命令；CJS/ESM exports 元数据保留，真实 patch 配合仍待测试。
+- Prisma 保持三包 7.9.1，client/CLI Node `^20.19 || ^22.12 || >=24.0`、TypeScript >=5.4；adapter 绑定 driver-adapter-utils 7.9.1、pg ^8.16.3。client 可选 peer Prisma=* 不代表任意混版本已验证，本包要求现有组合不变。历史 dependency-policy 中 7.8.0 属旧证据，不用它覆盖当前 lock 7.9.1。
+- 本机 Node v25.1.0 / pnpm 11.7.0；CI/镜像 Node 24，满足上述数值要求但本机验证不能冒充 Node24/Linux native 运行验收。所有目标的实际 peer 解算、可选平台二进制、安装 hook 执行行为、构建产物及 SMTP/omit 行为均待 DEP-1；公开 release说明已核对 Next 16.3.6、Nodemailer、fast-uri。brace-expansion 的 GitHub release endpoint v5.0.11 返回404，不冒充已取得 release notes；其修复以正式公告、提交引用和已发布 registry 版本为依据。
+
+### DEP-1 拟允许写集与停止条件（未生效）
+
+1. 只修改 `apps/web/package.json` 的 next/eslint-config-next=16.3.6、nodemailer=10.0.9；`pnpm-workspace.yaml` 的 fast-uri=3.1.8、brace-expansion=5.0.12；以及 `pnpm-lock.yaml` 对应解析。根 package.json 不在依赖编辑写集，必须保留前序 STORAGE scripts。
+2. 必须配套的传递版本仅 `@next/env`、`@next/eslint-plugin-next`、既有八个 `@next/swc-*` 平台包到 16.3.6，以及上述 fast-uri/brace-expansion 的引用和 peer snapshot 标识更新。保持 balanced-match 等既有解析，不接受全树重新求解造成无关升级。若 pnpm 无法仅改变这些节点、出现新增包/许可证/安装 hook、Prisma/pg/Sharp 变化，停止展示 diff 后核对，不自动扩大批准。
+3. 保留其余所有 override：@hono/node-server 2.0.10、deepmerge-ts 8.0.0、js-yaml 4.3.2、mysql2 3.24.3、nanoid 3.3.18、postcss 8.5.23、sharp 0.35.4；minimatch@3.1.5 patch 字节和 hash 不变；onlyBuiltDependencies/allowBuilds 仍只有 @prisma/engines、esbuild、prisma、sharp、unrs-resolver。禁止 approve-builds、放宽脚本、审计忽略或修改阈值。
+4. 本地安装产物范围为当前仓库 node_modules、pnpm 管理缓存、构建输出；仅为明确版本的 registry tarball 获取和既有 build allowlist。先生成受限 lock 差异并核验，再冻结安装；不得运行包的任意 update/build/prepare 命令，不安装全局 Node/pnpm，不调用 npx/dlx。遇到新的 hook 请求停止。
+5. 证据写入限 `output/dependency-audit/dep-1/`；文档限本包、0045、dependency-policy 当前版本事实；现有测试可补 `apps/web/lib/auth/mail.test.ts`，不修改认证/冻结/计量业务。需要新脚本、额外测试文件或兼容代码修改时先列精确文件与行为再确认。
+6. **Prisma 生成/数据库单列**：本候选不升级 Prisma/pg，不要求迁移或数据库写入。`pnpm check` 经根 `typecheck` 脚本首先调用 `pnpm db:generate`，故 DEP-1 完整检查确实包含按当前未改 schema 生成客户端，仅写既定 `packages/db/generated/prisma` 和 `packages/db/generated/data-delete`（schema 第1–9行的两个 generator，含既有删除目录生成器），不包含 schema/DDL 修改。任何实际 adapter/omit/冻结数据库专项需另列 loopback 合成库名称、现有 migration/schema hash、目录/owner 和允许动作再确认；不复用 STORAGE 旧数据库批准，不授权共享或生产 migration、容器/测试池、备份恢复或真实数据。
+
+### 验证、回滚与后续整包
+
+- DEP-1 先核对基线与精确 lock diff，再 `pnpm install --frozen-lockfile`、`pnpm audit:all`、`pnpm audit:prod`、`pnpm secrets:scan`、`pnpm governance:preflight`、`pnpm check`、`git diff --check`。保留非零结果；braces 未解决时全量 gate 应继续 fail，不能宣称 DEP 修复 complete 或进入发布。
+- 按实际影响补：Next standalone 构建、固定 SVG/受控本地图像处理、Sharp 既有品牌图片检查；minimatch patch 的 CJS expand 合约和 lint glob；邮件既有内容测试、正常/边界地址解析与 JSON transport，SMTP 用进程内替代/loopback 合成收件箱验证成功/失败，不发送真实邮件或使用真实凭据。没有本地运行环境批准时页面/API 运行验收保持缺口，不自动刷新测试池。
+- Prisma/adapter/pg 版本若未变，运行现有无 DB 单测、类型检查，核对生成客户端与 schema；若解析导致这些版本变化，本包先停止，不以“补跑测试”自动扩权。独立批准后再按依赖策略跑 `pg:trace-deprecation`、真实 omit 13 项和冻结查询；这不是 DEP-0 已验证事项。
+- 最终源码 fingerprint、完整 STORAGE 浏览器/API、最终源码整包验证与必要恢复环境验收，集中在依赖稳定后的整包阶段按独立批准执行；不每改一个包就重建恢复库。本次不重跑 STORAGE 数据库、强杀、删除或恢复矩阵，旧 1B-5 证据仍只覆盖其原指纹。
+- 回滚：DEP-1 开始时保存**当前工作区**三份拟改文件 preimage 和本批 diff，回退只撤销本批字段/lock变化；若其后有别人编辑先做三方核对。必要时按恢复的 lock 受控冻结重装旧依赖，仍保留旧漏洞阻断。禁止 git reset --hard、整工作区覆盖、用 HEAD 覆盖已有 package.json、清理 STORAGE 成果或回滚数据库。生成物仅在本批确有变化时针对生成目录处理。
+- Git 提交/推送/合并、Release、生产和 residual closure 不包含在 DEP-1 本地批准内，需后续独立授权。
+
+建议后续明确批准内容（本句为草案，不是已获批准）：
+
+> 确认 DEP-1 局部本地修补，基线为本包 HEAD 与依赖输入 hash。允许 Web Next/eslint-config-next 16.3.6、Nodemailer 10.0.9、fast-uri override 3.1.8、brace-expansion override 5.0.12，以及本包列明的 lock/Next 配套节点、本地安装、既定生成目录和无真实数据库写入的验证；保留所有其他依赖、override、patch 与 build allowlist。braces 无修复仍为阻塞，不接受例外。超出写集或版本范围先停止核对。不包含数据库/容器/测试池、真实邮件、STORAGE 授权扩展、Git 交付、Release 或生产。
+
+
+### DEP-0 本轮重新核验（2026-10-03 11:20 北京时间；待确认、未实施）
+
+本节是当前接续依据，保留前述 10:36 审计和既有记录；不把历史完成声明当作本轮证据。确认标识为 **DEP-1-LOCAL-20261003**，沿用本包上述精确写集与禁止边界，尚未获实施批准。DEP-0 的完成仅指诊断、来源核对和确认包准备；依赖修补、全量审计通过和 STORAGE 整体验收均未完成。
+
+- **当前绑定**：分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；12 个依赖输入内容聚合 SHA-256 仍为 `c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72`。本轮 [baseline.json](../../output/dependency-audit/dep-0-current/baseline.json) 记录逐文件 hash、Git 索引、安装树及前序文件，不能仅用 HEAD 作为实施前置条件。
+- **新鲜审计**：2026-10-03 **11:20:50–11:20:52 +08:00**，`pnpm audit:all` 为 **1 critical / 7 high / 5 moderate / 0 low，退出 1**；`pnpm audit:prod` 为 **1 critical / 4 high / 4 moderate / 0 low，退出 1**。均为正常取得 registry 结果后的漏洞命中，无网络故障或重试。subprocess 捕获 stdout/stderr，单独保存真实退出码，未通过管道覆盖。原始 [all 日志](../../output/dependency-audit/dep-0-current/audit-all.log)、[prod 日志](../../output/dependency-audit/dep-0-current/audit-prod.log) 及同目录 `audit-*-result.json` 可核对起止 UTC 时间。随后加 `--json --audit-level low` 仅收集完整低等级明细，退出级别更严格，不修改政策或脚本。
+- **公告清单**：本轮重新获取全部 13 条正式公告（8 条 high/critical、5 条 moderate），其公告 ID、发布时间、受影响区间和修复版本与本包表格一致，均未撤回；[本轮公告摘要](../../output/dependency-audit/dep-0-current/advisory-summary.json) 和同目录 `GHSA-*.json` 保留 URL、获取时间、updated_at 和完整引用。moderate 的 SMTP DNS/TLS、结构化地址、quoted local-part、URI 规范化与 glob CPU 消耗分别评估，仍采用上述同线 patch；不是改为强制全零。
+- **依赖链复核**：本轮 `pnpm -r why ... --json` 退出 0；[安装链](../../output/dependency-audit/dep-0-current/dependency-tree.json)、[lock 对照](../../output/dependency-audit/dep-0-current/lock-comparison.json)、[实际安装 manifest](../../output/dependency-audit/dep-0-current/installed-manifests.json) 确认所有命中版本一致，`node_modules/.pnpm/lock.yaml` 与仓库 lock 解析内容完全一致。fast-uri 的 prod 命中来自 DB client 的 optional Prisma peer 链；brace-expansion 的 96 条 finding 路径和 braces 的 lint 链均为 dev。Next 的 SWC/Sharp 是可选平台依赖，不把 audit 聚合 optional=false 当成逐边分类。
+
+| 包 | 本轮实际解析 | 精确候选（需 DEP-1 批准） | 本轮修复来源 |
+| --- | --- | --- | --- |
+| next / eslint-config-next | 16.3.3 / 16.3.3 | 16.3.6 / 16.3.6 | [Next 安全发布](https://github.com/vercel/next.js/releases/tag/v16.3.6)，配套 env/SWC/ESLint plugin |
+| nodemailer | 10.0.0 | 10.0.9 | [地址解析修补](https://github.com/nodemailer/nodemailer/releases/tag/v10.0.9)，两项 high 和三项 moderate 的最小共同 patch 下界 |
+| fast-uri override | 3.1.6 | 3.1.8 | [3.1.7](https://github.com/fastify/fast-uri/releases/tag/v3.1.7) 明确修复两项 high；[3.1.8](https://github.com/fastify/fast-uri/releases/tag/v3.1.8) 再修复 moderate |
+| brace-expansion override | 5.0.9 | 5.0.12 | [最后一项修复公告](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr)，同时覆盖另两项 high |
+| braces | 3.0.3 | 无可批准已发布修复 | [正式公告](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) first_patched_version 仍为空；registry 无 3.0.4，[issue 70](https://github.com/micromatch/braces/issues/70) 仍 open |
+
+- **unknown 的区别**：fast-uri 的 npm patched=null 已被上述官方公告和发布说明补足；braces 的 audit `>=3.0.4` 仍只是范围，不能证明该版本存在。候选 Next plugin 仍依赖 fast-glob 3.3.1；升级现有候选无法消除 braces。可等待已验证上游版本，或另立精确补丁/替代 glob 提案；本包不批准自制 patch、风险例外或无依据 major 升级，故全量 high/critical 门禁仍阻塞。
+- **兼容与供应链**：本轮 `registry-*.json` 重新核对当前/目标 engines、peer、依赖、optional、license、scripts 和 integrity。Next Node >=20.9、React 19 peer 与 ESLint >=9 要求不变；Nodemailer Node >=20、MIT-0、无运行依赖；fast-uri BSD-3-Clause、无 engines 声明或运行依赖；brace-expansion Node `20 || >=22`、MIT、balanced-match ^4.0.2 不变。新增脚本仅 brace-expansion 的 `format:check`，无新增 install hook，prepare 不执行。配套 [Next 九包元数据](../../output/dependency-audit/dep-0-current/next-companions.json) 为 env 与八个 SWC 包，MIT，无安装 hook；Linux/macOS/Windows 及 libc 选择仍待实际安装验证。所有五个精确候选的 GitHub `affects=包@版本` 查询均返回空列表、无后续页，见 `target-*.json`；这只是公告快照，不替代新 lock 的 audit。
+- **保留范围**：Prisma/client/adapter 均为 7.9.1，pg 8.22.0、Sharp 0.35.4 不变；Prisma client/CLI Node `^20.19 || ^22.12 || >=24.0`、TS >=5.4，adapter 绑定 utils 7.9.1。当前本机 Node 25.1.0/pnpm 11.7.0，CI/镜像 Node24；尚未取得候选 Node24/Linux native 运行证据。只准改 Web 三个声明、workspace 两个 override 和对应 lock/peer snapshot；其余 override、minimatch patch（SHA-256 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36`）、build allowlist、根 STORAGE scripts 全部保留。新增依赖、其他版本漂移或新安装 hook 均须停止核对，不能用范围声明解释无关 churn。
+- **实际入口的限定**：独立只读复核并由主代理抽查：standalone 在 `apps/web/next.config.ts:10`；应用未检出 next/og 消费，图片端点存在不等于 next/og RCE 可利用。`apps/web/lib/auth/mail.ts:13–24` 的收件人进入 sendMail，`normalizeEmail` 仅规范化，现有正文测试不覆盖解析/envelope；未发送 SMTP。Prisma generate/validate 使用 CLI，不证明必然执行 fast-uri 解析。adapter 串行化、冻结扩展及 omit 补键/移除仍是数据库敏感契约，不能以未启用某路径豁免审计。本阶段未做攻击 PoC 或生产测试。
+- **实施与验证分离**：DEP-1 获准后先受限解析并审阅 lock diff，再冻结安装、audit:all/prod、secrets、governance、pnpm check、diff；补正常/边界邮件解析与 JSON/mock/loopback SMTP、本地图像/Next 构建、minimatch 导出/lint glob、无 DB 的 Prisma/冻结测试。`pnpm check → typecheck → db:generate` 会写 `packages/db/generated/prisma` 与 `packages/db/generated/data-delete`，须纳入本地批准。schema/迁移不变；`pg:trace-deprecation` 含真实 create，不能归为只读。本包不提供数据库资源授权；如需真实 adapter/omit/STORAGE 回归，先独立列明 loopback 合成库名、owner、目录、schema/migration hash 和动作再确认。依赖稳定后集中最终源码指纹、整包和完整浏览器/API 验收，不逐包重建恢复环境。
+- **回退与交付**：只撤回 DEP-1 实际依赖字段、lock 和本批生成物；使用当前工作区 preimage，遇后续编辑做三方核对。禁止 reset --hard 或用 HEAD 覆盖整个文件/工作区。必要旧 lock 冻结重装仍需受控，并恢复旧漏洞阻塞。提交/推送/Release/生产、共享库 migration、真实邮件、容器/测试池、备份恢复与 residual closure 均不包含；STORAGE 原批准和历史指纹不扩展。
+
+后续可明确批准：**“确认 DEP-1-LOCAL-20261003，仅按本包当前 HEAD、依赖内容 hash、五个精确候选、配套 Next 节点和受限写集进行本地安装/生成/无数据库写入验证；braces 保持阻塞，不接受例外，超范围停止；不含 Git 交付、数据库、容器、邮件外发或生产。”** 本阶段到确认包准备为止，不启动 DEP-1。
+
+本阶段收尾证据：docs:readiness、docs:links、docs:evergreen、tasks:doctor、docs:completion、risk:preflight、governance:preflight、residuals:validate 和 diff 检查均退出 0；见 [验证记录](../../output/dependency-audit/dep-0-current/validation-results.json)。这些仅是文档/静态门禁，不是升级后运行验证。独立只读复核未发现阻断问题；未独立重复远端查询或全树 hash。前后内容核对见 [未变证明](../../output/dependency-audit/dep-0-current/unchanged-proof.json)：依赖输入、39,577 个安装树文件/软链接条目、生成目录和索引保持，索引仍为空；两份文档只在原内容末尾追加，前序其他文件保留。DEP-0 complete，DEP-1 待确认，到此停止。
+
+### DEP-1 本地执行回执（2026-10-03）
+
+- **批准与绑定**：用户在本轮明确确认 `DEP-1-LOCAL-20261003`，仅用于本批局部依赖、安装、既定生成及无数据库写入验证。执行前 HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`、分支 `codex/v19-platform-hardening`、12 个逐文件 hash 与聚合 `c107ea961f568e8922c46cc4e80e10fd2fc8da1d0ebd5027ed7ad3ab2f985c72` 匹配；索引为空且 hash 匹配。与 DEP-0 原始快照相比，仅确认包和 0045 追加了既有收尾事实，其他前序工作保留。本次 [baseline 与 preimage](../../output/dependency-audit/dep-1/baseline.json) 取自当前工作区，不取 HEAD 版本覆盖文件。
+- **实际写集**：Web next/eslint-config-next=16.3.6、nodemailer=10.0.9；workspace fast-uri=3.1.8、brace-expansion=5.0.12；lock 同步 env/plugin/既有八个 SWC=16.3.6 与对应引用。精确 registry 元数据驱动的确定性生成未执行包脚本；[lock 范围核对](../../output/dependency-audit/dep-1/scope-check.json) 确认 689 个 package/snapshot 数量均不变，逆转批准版本及 integrity 后与原像全字节相同。无其他求解、许可证或安装 hook 变化。
+- **保留项**：Prisma/client/adapter 实际均 7.9.1，pg 8.22.0、Sharp 0.35.4、balanced-match 和其余依赖不变；其他 override、onlyBuiltDependencies/allowBuilds、根 STORAGE scripts、schema/migration 和 minimatch patch 均保留。patch SHA-256 仍为 `28b4c71225869f15a755c74f2d16a508a61a525e1dbd48758ba33c89bc313b36`。按当前 schema 生成的 Prisma/client 与 deletion catalog 共 107 个文件无内容差异。
+- **本地验证**：`pnpm install --frozen-lockfile` 退出 0，明确跳过重新解析；实际安装 manifest/peer 核对通过，本机 SWC darwin-arm64 16.3.6 可加载，其他七个平台只核验 lock/元数据。`mail.test.ts` 共 7 项通过，新增覆盖三用途 JSON 邮件、正常/带引号注释地址与 envelope、深层/循环结构、长文本、sendAuthMail 成功/失败；无真实 SMTP。minimatch 旧函数与 `{ expand }` 兼容、实际 lint glob、64 份品牌 raster/12 份 runtime copy、SVG→PNG、Next 本地图像优化及坏输入拒绝通过。
+- **完整 check**：北京时间 13:28:03–13:29:20，`pnpm check` 退出 0，含两处 Prisma 生成、类型、1,364 项 workspace 测试、既有无 DB 冻结/worker 自测、lint、schema validate 和 Next standalone 构建。`secrets:scan`、`governance:preflight` 已退出 0。此前环境文件隔离影响扫描、邮件新增测试类型错误、全出站隔离阻断 Turbopack IPC 的失败日志均保留；修正测试与本地执行隔离后重新验证，没有修改产品规则或降低门禁。[执行环境](../../output/dependency-audit/dep-1/execution-environment.json) 使用合成配置、不读取真实 env；仅精确构建子进程可连接自身 argv 指定的 loopback IPC，其他连接受阻，standalone 不含真实 env 文件。
+- **新鲜审计**：北京时间 13:18:29–13:18:31，audit:all=0 critical/1 high/0 moderate/0 low、退出 1；audit:prod 全零、退出 0。13:20 JSON 明细一致。唯一剩余公告为 braces@3.0.3 / GHSA-vfj7-8cjw-p6xm，不接受例外；[原始日志与退出码](../../output/dependency-audit/dep-1/audit-summary.json) 保留，DEP-0 原证据未覆盖。
+- **后续独立包**：实际链为 eslint-config-next@16.3.6 → @next/eslint-plugin-next@16.3.6 → fast-glob@3.3.1 → micromatch@4.0.8 → braces@3.0.3。13:20:30 重新获取的 [上游来源](../../output/dependency-audit/dep-1/braces-upstream.json) 仍显示 registry latest=3.0.3、没有 3.0.4、正式公告 first_patched_version=null、issue #70 open。下一包必须有精确已发布修复或独立补丁/替换方案及批准，本包不继续处理。
+- **当前指纹与边界**：依赖输入聚合 SHA-256 为 `75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376`，逐文件见 [dependency-state.json](../../output/dependency-audit/dep-1/dependency-state.json)。本机 Node25.1.0/macOS arm64/pnpm11.7.0，不代表 Node24/Linux、真实数据库/adapter/omit、浏览器或 STORAGE 整包验收。旧 STORAGE 证据只绑定旧指纹；没有容器/测试池、真实邮件/Provider、备份恢复、Git 交付、Release、生产或 residual 关闭。
+- **停止与回退**：DEP-1 局部修补检查点已完成；依赖治理和 STORAGE 整体仍为 partial。只回退本批依赖字段/lock/实际生成差异，使用本批当前工作区 preimage；后续编辑先三方核对。受控重装旧 lock 会恢复旧漏洞阻塞。本确认已用于本批，不能复用为下一阶段或扩权授权。最终文档门禁与独立只读复核记录保存在同一 DEP-1 证据目录。
+
+## DEP-2B braces 局部深度保护确认包（DEP-2A 准备；待确认、未实施）
+
+确认标识：**DEP-2B-BRACES-DEPTH-20261003**。本包独立于已消费的 DEP-1 和 STORAGE 批准，只准备一个可审查的**局部风险缓解**候选；不承诺全量依赖门禁通过。DEP-2A 的 complete 只限调查、草案与确认包准备。上述为 DEP-2A 准备时状态；用户已明确批准本包，本轮执行结果见下方 DEP-2B 本地执行回执。依赖治理和 STORAGE 整体仍为 partial。
+
+### 绑定与最新来源
+
+- 分支 `codex/v19-platform-hardening`，HEAD `ddf690de7e030b103b36be3d9359ffc32ecaf6bd`；12 个依赖输入聚合 SHA-256：`75397d8b4490129710668a9bde00f2f104b399a0d63b55d6071472892345a376`。算法为逐文件 SHA-256 映射按键排序、无空格 JSON 的 SHA-256。逐文件与安装/生成目录/索引基线见 [DEP-2A baseline](../../output/dependency-audit/dep-2a/baseline.json)，已逐项匹配 DEP-1。实施前重新核验，不能仅凭 HEAD；原 STORAGE 和 DEP-1 均未提交、索引为空。
+- 2026-10-03 北京时间 **13:56–14:10** 的定向查询：[正式公告](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) / CVE-2026-93687 仍为 high，受影响 `<=3.0.3`，`first_patched_version=null`；公告更新时间 `2026-10-02T22:36:34Z`。registry latest=3.0.3，版本表无 3.0.4。`audit` 推导的 `>=3.0.4` 不是发布证明。
+- [issue #70](https://github.com/micromatch/braces/issues/70) 仍 open；相关 [PR #72](https://github.com/micromatch/braces/pull/72) 为 open、`merged=false`，head **`d0d575e55e74a4e0218e5248fafb79efc3e54ebb`**，base **`e53730e6f935498326c72d768889ac194eedc0e0`**。最新主线提交仍为该 base；PR 的 `mergeable_state=clean` 只说明可合并，不代表已合并、已验证或已发布。其余已合并维护提交不是本公告修复。
+- 已发布 Next plugin 16.3.8 与预发布 16.4.0-canary.58 均仍依赖 fast-glob 3.3.1；fast-glob latest 3.3.3 仍依赖 micromatch ^4.0.8；micromatch latest 4.0.8 仍依赖 braces ^3.0.3。不能据这些版本声明消除链。查询已结束，不轮询等待发布。[上游快照](../../output/dependency-audit/dep-2a/upstream.json)、[PR 快照](../../output/dependency-audit/dep-2a/braces-pr72.json)、[PR 文件](../../output/dependency-audit/dep-2a/braces-pr72-files.json)、[精确 registry 元数据](../../output/dependency-audit/dep-2a/exact-metadata.json) 保留 URL/时间/内容；[来源索引](../../output/dependency-audit/dep-2a/source-index.json) 同时保留失败查询，不将 404 当作取得源码。
+- 审计数字沿用 DEP-1 13:18–13:20 的实际结果：all=0 critical/1 high/0 moderate，退出 1；prod 全零、退出 0。本阶段没有重新全盘审计或安装候选，未生成“升级后审计”证据。
+
+### 完整保留路径与真实消费契约
+
+对全部 lock importers/snapshots 的 dependencies、devDependencies、optionalDependencies 查找反向边，并用 `pnpm -r why braces --json` 与真实模块解析交叉核对。只有：`@areaforge/web(devDependencies)` → `eslint-config-next@16.3.6` → `@next/eslint-plugin-next@16.3.6` → `fast-glob@3.3.1` → `micromatch@4.0.8` → `braces@3.0.3`。没有另一个 braces 版本或第二父节点；已安装 lock 与仓库 lock 解析一致。此结论限当前完整锁图/安装解析，不外推到未来图或所有 bundle 内容。[反向边](../../output/dependency-audit/dep-2a/reverse-edges.json)、[why](../../output/dependency-audit/dep-2a/pnpm-why-braces.json)、[解析路径](../../output/dependency-audit/dep-2a/resolved-paths.json) 可定位下列包相对 file:line。
+
+| 实际符号与位置 | 契约与用途 |
+| --- | --- |
+| plugin `dist/utils/get-root-dirs.js:14`，`processRootDir` | 唯一 fast-glob 执行调用，行 15 同步 `globSync(rootDir.replace(/\\/g, '/'), {onlyDirectories:true})`，返回 `string[]`；无 async、stream 或其他显式选项。 |
+| 同文件 `getRootDirs:19–32` | 未设 settings.next.rootDir 时返回 `[context.cwd]`，不 glob；字符串直接调用；数组逐字符串调用后 flat，非字符串项忽略，跨数组项不去重。负模式单项不会成为其他数组项的全局 ignore。 |
+| plugin `dist/rules/no-html-link-for-pages.js:168–202` | 用根目录查找 pages/src/pages 与 app/src/app，通过 fs 存在性过滤，建立内部 URL 正则；234–239 报告原生 `<a>` 内部导航。重复根可能产生重复报告，不能擅自全局去重。当前 Web ESLint 配置未指定 rootDir，普通 lint 不能覆盖 glob 分支。 |
+| fast-glob `out/settings.js:22–45` | cwd 默认 **process.cwd()**；onlyDirectories 将 onlyFiles 设 false；dot=false、ignore=[]、caseSensitiveMatch=true、braceExpansion/extglob/globstar/followSymbolicLinks=true、unique=true、absolute=false、markDirectories=false。不得改成 context.cwd、额外注入 ignore 或屏蔽 dot/extglob。 |
+| fast-glob `out/utils/pattern.js:130–146` | 调 micromatch.braces(pattern,{expand:true,nodupes:true})，展开结果按字符串长度排序、去空串；最终结果顺序还受 task/遍历影响，非全局字典序。相对/绝对及 `./`、目录尾斜杠来自既有实现。 |
+| 同文件 `getPatternParts:149–167`、`makeRe:169–171` | micromatch.scan(parts:true) 与 makeRe；micromatch `index.js:392、408` 本身直接转发到已安装 picomatch 2.3.2。braces 入口 `index.js:74、96、120` 还允许直接 AST，不能只保护字符串 parse。 |
+
+既有固定小 fixture 共 25 组 glob 输入、17 组展开输入；只加载已安装的库，无下载代码执行、候选安装或补丁执行。[观察脚本](../../output/dependency-audit/dep-2a/observe-existing.cjs)、[glob 结果](../../output/dependency-audit/dep-2a/glob-observations.json)、[展开结果](../../output/dependency-audit/dep-2a/expansion-observations.json)。临时目录已删除。这些是旧行为/替代库差异证据，不是补丁验收。
+
+### 选择与必须明示的取舍
+
+| 方案 | 结论、门禁与维护成本 |
+| --- | --- |
+| 已发布修复或受维护上游升级 | 当前查到的 stable 升级都保留链；没有公告对应的已发布安全 braces。暂不可作为可执行完整解法；本包不升级 Next/fast-glob/micromatch。 |
+| plugin 改用已安装 tinyglobby 0.2.17 | 即使配置 expandDirectories=false，仍观测到 `{1..5..2}` 误选 w2、目录 symlink 漏选、`**` 包含根、绝对路径/尾斜杠变化。需要额外适配和测试，不能直接换 import/别名。 |
+| fast-glob 辅助层改用 picomatch 2.3.2 + brace-expansion 5.0.12 | 保留遍历层较窄，但引号、畸形括号行为已有差异；新展开器还有截断式资源上限，不能静默少 lint 目录。若真移除 micromatch/braces，须显式批准依赖删除/新增边及包管理 manifest hook 或受维护 fork，并验证全部相关语义；仅 patch package.json 不证明 pnpm 已改变图。本包不批准该兼容开发或 hook。 |
+| **推荐：基于 PR72 的安全子集回移，保留 braces 3.0.3 身份** | 五个内部文件加深度保护，不换 glob 引擎，不改包名/版本、Next 规则和依赖边；保留既有普通语法、遍历、排序和过滤。引入的行为取舍是 >100 层嵌套受控抛错；调用方未捕获时 lint 仍可非零退出，不能称为“进程绝不退出”或通用资源 DoS 已消除。维护者需承担本地 patch 和未来移除责任。**只进入 A 类验证，B 仍阻断。** |
+
+唯一完整门禁阻塞是：没有已核验、能保留既定消费契约且在真实新依赖图上消除该 high 的候选。包名改写、自报 3.0.4、audit ignore/阈值变更或删除 lint 不属于解法。没有已验证的 A+B 方案时，不无限扩大本批兼容重构。推荐现在批准精确局部风险缓解，并继续阻断交付；若用户要求 DEP-2B 必须同时通过 B，则本包不能满足，须等待真实修复发布或另行批准兼容替换及其额外维护范围。
+
+### 精确候选与拟允许写集（尚未生效）
+
+1. 原包仍为 registry `braces@3.0.3`，来源 `https://registry.npmjs.org/braces/-/braces-3.0.3.tgz`；integrity `sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==`。本阶段未下载/安装 tarball、未验证其 registry 签名；已核对精确 metadata、现有安装版本和五文件原像。
+2. [未应用源码草案](../../output/dependency-audit/dep-2a/braces-3.0.3-depth-guard.patch)，SHA-256 **`97e90c15ea31c7bac144a42e20c8ce68e98a75d8042a3c6d9a8ce1b4f05d1141`**。只针对原包 `lib/constants.js`、`lib/parse.js`、`lib/compile.js`、`lib/expand.js`、`lib/stringify.js`。parse 在下钻前限制 brace/paren 混合深度；三个 AST 递归 walker 同样限制；默认/最大 100，允许更低上限，不能用 Infinity 提高。原 maxLength=10000、rangeLimit 默认 1000 保留；没有引入输出数量/全流程成本的新保证。
+3. 该草案不是 PR72 原样补丁：只取安全五文件，且 stringify 递归 parent 继续传 `{}`，保留 3.0.3 的 escapeInvalid 行为；排除 PR 顺带的 parent=node 语义变化和文档/其他主线变化。[静态核验](../../output/dependency-audit/dep-2a/draft-validation.json) 记录五个已安装原像与拟后像 SHA-256，hunk 精确匹配、Node 语法解析通过；没有应用、require 或执行修改后代码。
+4. DEP-2B 拟新增 **`patches/braces@3.0.3.patch`**，内容必须等于上述草案。`pnpm-workspace.yaml` 仅增加该 patchedDependencies 注册；[注册草案](../../output/dependency-audit/dep-2a/registration.diff) SHA-256 **`71414143a085442b5f62cf5c5e5ce9a0a40efc718f0254d2c912a2d2615accc6`**。pnpm-lock.yaml 只允许 patch hash/受影响 snapshot 身份与引用变化，不删 braces、不改 registry identity、不引入无关重新求解。实际 pnpm patch hash 由已批准的 lock 更新产生，不能用本节 SHA-256 冒充 pnpm 内部 hash。
+5. 允许按上述 patch/lock 做本地安装和冻结重放，安装目录只由包管理器更新；新增专项 **`scripts/quality/braces-depth-regression.cjs`**，仅无网络、无数据库的固定 fixture/AST/ESLint 回归，不增加根 package scripts。测试设计见下节。文档限本包、0045、dependency-policy 的本地补丁事实；证据限 `output/dependency-audit/dep-2b/`。**不新增 `.pnpmfile.cjs`、readPackage/afterAllResolved hook、vendored 包、fork、新依赖或 ESLint 配置变更**。
+6. 保持 DEP-1：next/eslint-config-next 16.3.6、nodemailer 10.0.9、fast-uri 3.1.8、brace-expansion 5.0.12；Prisma/client/adapter 7.9.1、pg 8.22.0、Sharp 0.35.4；全部其他 override、minimatch patch、build allowlist、安全规则和既有 STORAGE 源码/schema/migration/文档成果。不得复用 HEAD 覆盖未提交文件。
+7. 无新包准入：braces 是 MIT/CommonJS、Node >=8，无 preinstall/install/postinstall/prepare，现有依赖 fill-range 不变；PR 来源及本地变体须保留。现有 Node25.1.0/macOS arm64/pnpm11.7.0 可做本地验证，CI Node24/Linux 尚缺证据，不能自动安装系统运行时或把本机等同 CI。未来安全发布时须复核并移除 patch；维护责任为 AreaForge 维护者，不冒充上游承诺。
+
+### DEP-2B 验证、停止与回退
+
+- **A（代码风险）**：仅拟验证字符串 parse 与直接 AST compile/expand/stringify 的深度边界。固定 99/100/101 层、混合 brace/paren、未闭合、转义、引号、低 maxDepth、Infinity/NaN/超大 maxDepth、escapeInvalid；不得运行原包的无界崩溃 PoC。拒绝必须为有界 SyntaxError/RangeError，不静默过滤根目录。固定输入每子进程超时 5 秒、内存 128 MiB；旧包只跑小规模普通输入，101 层边界仅针对批准后的补丁。保留长度和 rangeLimit 的既有错误检查。A 通过不能证明一切资源耗尽风险已消除。
+- **普通行为与规则**：以已安装 DEP-1 原像在独立合成目录记录对照，再验证补丁；涵盖默认/字符串/数组 rootDir、process.cwd≠context.cwd、非字符串项、重叠/负模式、相对/绝对/反斜杠、文件/目录、dot/显式隐藏目录、ignore 默认、brace 列表/步长/嵌套/空分支、extglob、symlink/断链、路径尾斜杠、返回顺序/重复数。实际 ESLint `no-html-link-for-pages` 必测 pages/src/pages/app/src/app 内部链接命中、外链/Link/target=_blank/download 不命中、空根警告及重复根的报告数；用真实 plugin + ESLint Linter 和固定合成源码，不启动 Web、浏览器或测试池。不能只跑默认配置 lint。
+- **B（政策门禁）**：在真实 lock 和冻结安装后运行原样 `pnpm audit:all`、`pnpm audit:prod`，保留原始输出和退出码。依赖边不变且 braces 仍 3.0.3，在公告不变时 all **预期仍为 1 high/退出 1**，不是本阶段实测的补丁后结果；prod 预期无该公告。不能把预期失败记为 PASS，也不能忽略其非零退出。B 通过只能由未来实际解析和新鲜审计证明，本推荐本身不提供 B 的完整解法。
+- 生成精确 patch lock 后执行 `pnpm install --frozen-lockfile`；复核包内后像、未失效的 patch、完整反向图、完整 lock 语义差异。运行专项 `node scripts/quality/braces-depth-regression.cjs`、`pnpm secrets:scan`、`pnpm governance:preflight`、**`pnpm check`**、docs:readiness/links/evergreen、tasks:doctor、risk:preflight 与 `git diff --check`。审计预期失败后可继续独立本地检查收证，但不推进交付或改变失败分类；其他新公告/额外依赖变化/语义失败须停止该实施路径。
+- `pnpm check` 会调用 db:generate；拟允许仅按未改 schema 生成 **`packages/db/generated/prisma`、`packages/db/generated/data-delete`**，以及既有 Next build/typecheck 产物 **`apps/web/.next`、`apps/web/next-env.d.ts`、`apps/web/tsconfig.tsbuildinfo`**；不写 schema/DDL，不连接数据库。构建/测试使用合成配置并排除真实 `.env*`，关闭 SMTP/AI/遥测，沿 DEP-1 已核验隔离方式仅放行精确 loopback 构建 IPC；registry 网络只用于获准安装/audit。执行前记录这些生成路径原像，若 check 需额外写集或真实外呼则停止核对。
+- 最终实际差异、专项与检查证据完成后安排独立只读复核，特别检查语义变化、patch 是否真实生效、audit 是否被绕过。未获 Node24/Linux 证据时保留该平台缺口，不安装系统工具、不启动容器补齐。
+- 回退只撤销 DEP-2B 自身的 patch 注册、lock patch identity、专项测试和本批文档事实，恢复**实施前当前工作区原像**后按旧 lock 受控冻结重装；有后续编辑先三方核对。仅处理实际改变的生成文件。不执行 reset/整文件 HEAD 覆盖、不清理前序成果；回退后原 braces 风险和审计阻塞仍存在。
+- 不包含数据库、migration、容器/测试池、备份恢复、真实邮件/Provider、Git stage/commit/push、Release、生产或 residual closure；不继承任何 STORAGE 批准。
+
+建议批准语句（草案，不代表已批准）：
+
+> 确认 DEP-2B-BRACES-DEPTH-20261003，以本包 HEAD、12 输入 hash 和草案 SHA-256 为基线，仅实施该 braces@3.0.3 安全子集回移、patch 注册/lock、本地安装、列明的专项测试与生成目录验证。保留 DEP-1、STORAGE、audit 策略和安全规则。接受本次交付目标仅为 A 类局部深度保护验证，明确 B 类 audit:all 仍阻断；这不是漏洞例外、发布许可或依赖治理完成。超范围/版本漂移/其他门禁失败先停止，不包含数据库、容器、Git 交付或生产。
+
+DEP-2A 最终核验与边界证明见 [验证结果](../../output/dependency-audit/dep-2a/validation-results.json)、[独立只读复核](../../output/dependency-audit/dep-2a/independent-review.json)、[未变证明](../../output/dependency-audit/dep-2a/unchanged-proof.json)。这些只支持调查准备范围；不得当作 DEP-2B 实施证据。
+
+
+### DEP-2B 本地执行回执（2026-10-03）
+
+用户在本会话明确确认 `DEP-2B-BRACES-DEPTH-20261003`；绑定分支、HEAD、12 输入 hash、补丁草案 hash 与空索引均匹配。**本轮 partial / A 阻塞：patch 已注册并完成一次退出 0 的冻结安装，但实际加载的五文件仍为原包，不能声明深度保护生效。B 仍 FAIL，交付继续阻断。** 旧证据目录中的未完成尝试保留，本轮只引用 [execution 证据](../../output/dependency-audit/dep-2b/execution/)。
+
+- 原样新增 `patches/braces@3.0.3.patch`，SHA-256 `97e90c15ea31c7bac144a42e20c8ce68e98a75d8042a3c6d9a8ce1b4f05d1141`。pnpm 11.7.0 实际生成的 patch hash 恰好同值，来源分别记录，未用文件摘要冒充包管理器推导；PR72 仍仅沿用 DEP-2A 的未合并来源快照。
+- 初次离线 lock 重算产生无关 optional/peer 变化，候选已拒绝并恢复本轮原像。只移植包管理器实际生成的 patch 登记、braces snapshot 身份、micromatch 引用三项差异；归一化后三项之外完整 lock 深相等，包身份、registry integrity、全部依赖边及 DEP-1 不变，见 [lock 范围核验](../../output/dependency-audit/dep-2b/execution/lock-scope.json)。
+- 初次禁网安装因供应链校验请求 registry 而中止；其父进程虽报 0，记录明确为 interrupted，不能算通过。获准 registry 网络下 `pnpm install --frozen-lockfile` 退出 0；随后仅本地 `pnpm rebuild braces` 与冻结强制重放（不读写 side-effects cache）均未改变后像。真实 Next plugin → fast-glob → micromatch 已解析到带 patch hash 的 braces 目录，五个已加载文件却全部等于原像，见 [实际加载证明](../../output/dependency-audit/dep-2b/execution/installed-proof.json)。根因尚未定论，不把目录命名或安装退出码当作补丁应用证据；没有手改 node_modules、build allowlist 或草案字节。
+- 旧包 58 组普通 glob/展开/真实 ESLint Linter 基线通过，涵盖不同 cwd、数组/负模式/重复根及 pages/src/pages/app/src/app。重复根在根列表保留，但本 fixture 的 URL 去重保持报告数量；外链、Link、blank、download 不报告，空根产生警告。首次 fixture 对旧 app URL 行为的错误假设保留为诊断记录，修正 fixture 后才冻结旧包基线。专项脚本在安装后身份断言退出 1，未进入 99/100/101 或直接 AST 矩阵；因此深度计数、受控拒绝、超限 lint 错误传播以及补丁后普通语义均**未验证**，未在原包运行深度 PoC。
+- 北京时间 15:55:35–15:55:37 `pnpm audit:all`：0 critical / 1 high / 0 moderate / 0 low，退出 1；唯一公告 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)，braces <=3.0.3。15:56:05–15:56:08 `pnpm audit:prod` 全零、退出 0。随后 JSON 原始明细保存在同一证据目录；未改名、自报版本、隐藏依赖、忽略公告或改阈值。审计针对本次实际 lock/安装状态，不能称为有效补丁后的 A 验收。
+- 独立本地检查及最终只读复核结果见 [验证汇总](../../output/dependency-audit/dep-2b/execution/validation-results.json)。check 即使通过也只证明当前实际安装状态，不替代缺失的 A 矩阵。平台限 Node25.1.0/macOS arm64/pnpm11.7.0；Node24/Linux、数据库、容器、浏览器、STORAGE 矩阵和发布均未执行。
+- 当前原 12 输入聚合 hash `5fa77dbeb49a01c566b17a497643b30732d38b9d85f59c24f0223934792d1451`；含新补丁的 13 输入 hash `87b695d96c1bae7ee736de191cfa88df5e0b0690f95040472cb2f5f3e496f858`。原像、生成目录归档、逐文件 hash、被拒 lock 和执行日志均在本轮目录。回退仅撤销本批注册/三项 lock 身份/专项及本批文档、生成变化；遇后续编辑先三方核对，使用本轮 preimage，不 reset 或覆盖 HEAD，不清理 STORAGE。必要时恢复旧 lock 后受控冻结重装；原漏洞风险仍存在。
+- [独立只读复核](../../output/dependency-audit/dep-2b/execution/independent-review.json) 确认后像阻塞、完整 lock 等价、前序原像与索引保护，同时发现静态契约缺口：`expand` 的 invalid/dollar 分支调用 `stringify(node, options)`，后者按非 root 重新从 1 计深；“99 外层容器 + 第 100 层 invalid/dollar 容器 + 99 内层容器”整体 199 层可能通过分段 100 限制。当前专项直接 AST 只构造 paren 链，未覆盖该路径。此为经主代理抽查的静态推论，未运行候选，不是无界 DoS 已复现或消除的证明。
+- 本实施路径停止。后续建议分两项界定：先诊断同版本精确 patch 的包管理器实际应用问题；同时修订跨 walker 深度预算（或入口全树深度检查），补充不同外层深度下 invalid/dollar 的整体 99/100/101 与低 maxDepth 测试。若保持整棵 AST 上限 100 的目标，不能只解决安装后就判 A 通过；任何草案字节、工具版本或批准范围变化均须提交精确差异、新 hash 并另行确认。本轮不修改草案、不扩大替换方案，不推进 Git、Release、生产或 residual closure。
+
+### DEP-2C-1 补丁安装归因交接（2026-10-03）
+
+本阶段只读调查与两个独立临时 fixture 已执行；**partial：归因与方案已形成，但资源计数及证据保留存在缺口，当前项目未修复、A 未通过、B 仍阻断**。原样 patch 在既有 pnpm11.7.0 的干净冻结安装中五后像全部匹配，格式/注册无需先改；真实项目新进程仍加载五原像。首次漏应用的最强静态解释是增量图省略未变直接根，导致新增传递 patch 未被 buildModules 调度；缺当时进程轨迹，未将推导写成原链动态复现。DEP-2B force 重放的 Already up to date 没有重建证据，rebuild 也不是 patch 应用入口。
+
+[完整归因、假设反证与操作方案](../../output/dependency-audit/dep-2c-1/report.md) 及 [隔离产物](../../output/dependency-audit/dep-2c-1/fixture-proof.json) 独立保留，不改 DEP-2B 历史。下一阶段须重新绑定修订 patch/后像/测试输出、依赖输入与工具身份及当前安装树重建批准；建议显式关闭 optimisticRepeatInstall，受控 force 重物化并在任何安全测试前校验真实消费者五后像。该方案可能重导入全 workspace，不是仅重装 braces；本阶段未实施。expand→stringify 的总深度重置仍是未动态验证的静态缺口，移交 DEP-2C-2；没有例外、审计或发布放行。
+
+独立复核发现：DEP-2C-1 已有两组临时复现未被初始盘点识别，本轮又新增两组；三份旧同名日志和一个旧证明脚本被覆盖，旧字节尚未恢复。全部四组资源保留，已停止安装与清理；详见 [范围偏差](../../output/dependency-audit/dep-2c-1/scope-deviation.json)。前述历史保护仅覆盖 DEP-2C-1 之外的证据；当前依赖输入、安装树、生成物、索引及 DEP-2B 历史未变，不能声称所有本阶段证据完整或遵守两组上限。
+
+
+## DEP-2C-2 统一深度预算草案与下一确认包（2026-10-03）
+
+本轮仅完成**未应用草案与待确认包准备**；未安装、应用、rebuild或运行深度测试，当前项目五文件仍为原像，A未通过、B继续阻断。DEP-2C-1保持partial，四个旧fixture保留，三份旧日志和一个证明脚本的遗失字节未恢复；不改历史事实。
+
+- 五文件候选采用操作内总深度，覆盖expand invalid/dollar、range-empty和parse range-comma三处stringify委派；默认/硬上限100，有限小数取整、负数收紧到0，零剩余预算不回退。保留3.0.3 escapeInvalid parent与可见选项语义。199层仍为静态案例。
+- [独立运行登记](../../output/dependency-audit/dep-2c-2/run-20261003-01/registration.json)、[设计与委派清单](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/design.md)、[候选及工具绑定](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/artifact-binding.json)。新patch SHA-256为`e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`；原/后像、未应用专项diff均在同一sealed目录。
+- 15个hunk精确匹配、6份JavaScript语法检查、80396条独立有界整数路径模型通过；三项独立只读复核发现的问题已在草案中修订并复核。它们不证明补丁运行或安装生效，运行态/Node24/Linux仍未验证。文档门禁和前后保护以同目录最终记录为准。
+- 下一包 [DEP-2C-3-UNIFIED-DEPTH-20261003](../../output/dependency-audit/dep-2c-2/run-20261003-01/sealed/next-confirmation.md) **待确认、未实施**，绑定当前HEAD/13输入、工具身份、新patch/五后像/专项diff；列明全workspace force写集、禁optimistic、原生恢复、生成物、排他证据与局部回退。没有复用旧批准，不接受漏洞例外，不改audit策略，不授权Git交付、数据库、容器或生产。DEP-2C-2到准备结束即停止。
+
+### DEP-2C-2 续接封存（run-20261003-02）
+
+开始时发现上述 run-01 已有草案但缺最终 seal 与前后未变证明，先停止写入核对，保留其全部字节；本次使用 [独立登记目录](../../output/dependency-audit/dep-2c-2/run-20261003-02/registration.json)，不追写旧证据。当前采用 [run-02 待确认包](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/next-confirmation.md) 和 [不可变产物绑定](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/artifact-binding.json)，旧包不作为本次批准目标。
+
+五文件patch仍为 `e9464ba5ace7e12c490eab62d6f7e12eefd54055bea3bb1ed6bade14233ef3df`。测试草案经两名独立只读代理复核后补入独立进程解析防缓存漂移、异常路径结束重验、准确完成数/逐例状态、嵌套root与受控异常断言。15 hunk、6份JS及嵌入解析程序语法、80396条独立模型通过；文档门禁、最终封存与前后保护以该目录记录为准。仅完成未应用草案和新确认包准备，不表示安装或补丁运行通过。四个现存fixture保留，DEP-2C-1仍partial，丢失旧字节未恢复；A未通过、B继续阻断。新包仍待明确批准，无Git交付、生产或漏洞例外授权。
+
+**最终状态修正：DEP-2C-2 partial，基线漂移后停止。** 最后前后核对发现HEAD从 `ddf690de7e030b103b36be3d9359ffc32ecaf6bd` 变为 `4b5eec1bbf8d972f7d09f6036624d7a63a89c630`，索引字节也变化；reflog记录同分支23:21:05的新STORAGE提交，本轮未发出Git写命令，不推断提交主体。13输入、安装/生成树、历史证据及四组资源均未变，不能据此声称HEAD/索引未变。详见 [基线漂移记录](../../output/dependency-audit/dep-2c-2/run-20261003-02/sealed/baseline-drift.json)。以上草案和旧绑定原样保留，当前确认包不可作为可执行批准目标；后续须先按新HEAD/索引重新核验并独立绑定，不能直接批准旧包、自动安装或回退并发成果。

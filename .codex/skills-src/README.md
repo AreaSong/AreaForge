@@ -41,7 +41,7 @@
 | `areaforge-enterprise-governance` | CI、发布治理、依赖准入、仓库规则、review/ownership/安全政策 | 供应链细节交给 `areaforge-supply-chain`；安全细节交给 `areaforge-security-governance`；验证交给 `areaforge-validation-driver` |
 | `areaforge-public-maintenance` | 公开 issue、support intake、贡献者 PR、敏感信息边界、维护者 triage | 仓库政策交给 `areaforge-enterprise-governance`；安全披露交给 `areaforge-security-governance`；ops 支持交给 `areaforge-sre-ops`；release/update 交给 `areaforge-release-operator` |
 | `areaforge-operating-loop` | 任务分级、owner skill 路由、验证选择、文档同步和残余风险收口编排 | 具体语义交给对应 owner skill；数据生命周期临时交给 `areaforge-security-governance` 协调；生产动作交给 `areaforge-sre-ops`；发布交给 `areaforge-release-operator` |
-| `areaforge-release-operator` | Release、tag、GitHub Release、镜像 digest、server updater、回滚证据 | 验证交给 `areaforge-validation-driver`；生产状态交给 `areaforge-sre-ops`；文档同步交给 `areaforge-doc-sync` |
+| `areaforge-release-operator` | Release、tag、GitHub Release、镜像 digest、更新请求和 release 证据；区分 `release-published` 与 `production-applied` | 验证交给 `areaforge-validation-driver`；确认后的生产执行交给 `areaforge-sre-ops`；文档同步交给 `areaforge-doc-sync` |
 | `areaforge-qa-smoke` | 用户旅程、浏览器/API smoke、截图和体验证据 | 产品判断交给 `areaforge-product-experience`；release smoke 交给 `areaforge-release-operator` |
 | `areaforge-doc-sync` | README/docs/tasks/workflow/ops/skills 状态一致性 | 运行门禁交给 `areaforge-validation-driver`；release 字段交给 `areaforge-release-operator` |
 | `areaforge-git-checkpoint` | staging、commit、push、release tag 前的范围隔离、验证证据和残余风险检查 | 验证选择交给 `areaforge-validation-driver`；release/tag 交给 `areaforge-release-operator`；文档同步交给 `areaforge-doc-sync` |
@@ -56,12 +56,19 @@
 | `areaforge-ai-governance` | AI 上下文、provider、fallback、限流、日志、history/token/cost/provider trace 留存和费用边界 | 高风险安全审查和数据生命周期归口交给 `areaforge-security-governance` |
 | `areaforge-validation-driver` | 验证选择、命令执行、证据报告 | 不拥有产品语义；失败归因后交回对应 owner |
 
+## Shared Confirmation And Closeout Rules
+
+- A high-risk confirmation is tied to an exact action, target, scope, version/resource boundary, and one-time/expiry condition. Owner skills reuse a still-valid confirmation only within that exact scope; a handoff alone is not a new approval gate, while independent rollout, probe, Release, provider-call, or residual-closure confirmations remain separate.
+- Read-only review, diagnosis, plans, docs, preflight, static checks, and no-real-write mocks may proceed before a high-risk action. Migration, data repair, batch delete/clear, irreversible changes, export/retention/deletion-rights or user migration, real provider calls, cross-service writes, payment/billing/quota/metering, shared/production writes, deletion, restore, rollback, update apply, and changed security/privacy boundaries still require the matching confirmation packet.
+- Human reports use `complete`, `partial`, `blocked`, and `not-applicable`; evidence records retain their existing PASS/FAIL/BLOCKED/NOT-READY schema. `release-published` does not mean `production-applied`.
+- Test-pool latest is required only for UI/browser/test-pool/URL-scoped work. Other tasks report it as `not-applicable`; a pre-existing instance is never a task-owned optimized latest, but may support evidence when its source fingerprint matches the requested scope and it is reported as pre-existing.
+
 ## 维护规则
 
 - `health`、`readiness`、`doctor`、`gate` 和 `smoke` 是不同证据词，不能互相替代；缺哪个证据就保留对应 residual 或降级结论。
 - 项目级 skill 以 `.codex/skills-src/<skill>/SKILL.md` 为源。
 - `.agents/skills/<skill>` 仅作为自动发现入口，默认指向 `.codex/skills-src/<skill>`。
 - 不在 skill 目录内添加 README、changelog 或低价值说明。
-- 变更 skill 时同时核对 `agents/openai.yaml` 的 `display_name`、`short_description` 和 `default_prompt` 是否仍覆盖 `SKILL.md` 的触发语义；`pnpm skills:validate` 会检查每个 skill 的关键触发词。
+- 变更 skill 时同时核对 `agents/openai.yaml` 的 `display_name`、`short_description` 和 `default_prompt` 是否仍覆盖 `SKILL.md` 的触发语义；只有 owner/trigger/scope 语义变化才同步修改 metadata，纯文案或护栏编辑只需验证未漂移。`pnpm skills:validate` 会检查每个 skill 的关键触发词。
 - 变更 skill 后运行 quick validate、`git diff --check`，并按改动范围运行 docs/risk/check 门禁。
 - 每次 Release 前、季度维护或 owner 边界变化时，复核相关 skill 是否仍指向当前源事实：release/update 看 release、supply-chain、SRE、observability；生产 smoke 和体验看 QA/product；残余关闭看 residual/doc-sync；安全、AI、上传或数据生命周期变化看 security、AI 和 file-storage。复核后至少运行 `pnpm skills:validate`、`pnpm docs:readiness` 和对应 owner preflight。

@@ -1,4 +1,6 @@
 import { ArrowRight, Download, FileText, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ListDetailLink } from "@/components/list-return-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
@@ -20,6 +22,17 @@ export function NoteCard({
   uploadError,
   onUpload,
 }: NoteCardProps) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const retryButton = useRef<HTMLButtonElement>(null);
+  const [retrying, setRetrying] = useState(false);
+  useEffect(() => {
+    if (uploading) return;
+    if (uploadError) {
+      if (retrying) retryButton.current?.focus({ preventScroll: true });
+    } else {
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }, [uploading, uploadError, retrying]);
   const events = note.reviewSchedule?.events ?? [];
   const attemptCount = events.length;
   const passedCount = events.filter((e) => e.result === "PASSED").length;
@@ -94,17 +107,18 @@ export function NoteCard({
                 <p className="text-xs font-medium text-zinc-200">附件管理</p>
                 <p className="text-[11px] text-zinc-500">PDF、PNG、JPEG、WebP</p>
               </div>
-              <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-teal-300/30 px-2.5 text-xs text-teal-100 transition-colors hover:bg-teal-300/10">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-teal-300/30 px-2.5 text-xs text-teal-100 transition-colors hover:bg-teal-300/10 focus-within:ring-2 focus-within:ring-teal-300">
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 {uploading ? "上传中" : "上传"}
                 <input
                   className="sr-only"
+                  ref={fileInput}
                   type="file"
                   accept="application/pdf,image/png,image/jpeg,image/webp"
                   disabled={uploading}
                   onChange={(event) => {
+                    setRetrying(false);
                     const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = "";
                     onUpload(file);
                   }}
                 />
@@ -127,6 +141,8 @@ export function NoteCard({
               </div>
             ) : <p className="pt-2 text-xs text-zinc-500">还没有附件。</p>}
             {uploadError ? <p className="pt-2 text-xs text-red-300" role="alert">{uploadError}</p> : null}
+            {uploadError || (uploading && retrying) ? <Button ref={retryButton} type="button" size="sm" disabled={uploading}
+              onClick={() => { setRetrying(true); onUpload(fileInput.current?.files?.[0]); }}>重试上传</Button> : null}
           </div>
         </details>
       </div>

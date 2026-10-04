@@ -60,6 +60,14 @@
 - `modules/simulation-exam.md`：全真模拟。
 - `modules/periodic-reports.md`：周审判与月复盘。
 - `modules/ai-stage-adjustment.md`：AI 阶段调整。
+- `modules/background-jobs.md`：持久后台任务、租约代次、重试、死信和事务提交边界。
+- `modules/data-job-quotas.md`：本人分区的新任务准入、活跃名额、滚动导出次数、幂等与可恢复控制。
+- `modules/capacity-quotas.md`：成员席位、用户/工作区/实例三维活跃任务总量、冻结占用及失败回退。
+- `modules/ranking-rebuild.md`：持久排名申请、权限/来源快照、代次、冻结过滤和整榜原子发布。
+- `modules/workspace-search.md`：用户与工作区隔离的标题索引、显式重建、冻结副本保真及安全直查回退。
+- `modules/data-export.md`：本人数据/READY 附件导出、私有 ZIP、一次性下载、保留与精确副本回收。
+- `modules/data-deletion.md`：本人回收站、冻结范围、独立删除执行器、文件意图与备份账本重放边界。
+- `modules/controlled-operations.md`：受控运维冻结绑定、root 独立执行、停止屏障与阶段证据；执行器说明见 `ops/controlled-operation-agent/README.md`。
 - `modules/exam-workspace.md`：考试工作区（`v1.1.0` 已进入生产；首次设置与科目管理体验修复已随 `v1.1.1` Release 发布并完成 production apply）。
 - `modules/plan-inbox.md`：计划收件箱（`v1.1.0` 已进入生产）。
 - `modules/unified-review.md`：统一复习（`v1.1.0` 已进入生产）。

@@ -44,17 +44,21 @@ const requiredOpenAiPromptTerms: Record<string, string[]> = {
   "areaforge-file-storage-safety": ["upload", "attachment", "backup"],
   "areaforge-git-checkpoint": ["git", "checkpoint", "release"],
   "areaforge-incident-response": ["incident", "evidence"],
-  "areaforge-observability": ["signals", "evidence"],
+  "areaforge-observability": ["signals", "evidence", "read-only", "status"],
   "areaforge-operating-loop": ["classify", "owner", "evidence"],
   "areaforge-product-experience": ["user", "journeys", "product"],
   "areaforge-public-maintenance": ["public", "support", "contributor"],
-  "areaforge-qa-smoke": ["user", "journey", "smoke"],
-  "areaforge-release-operator": ["signed", "release", "updater", "evidence"],
+  "areaforge-qa-smoke": ["user", "journey", "smoke", "local", "production"],
+  "areaforge-release-operator": ["signed", "release", "updater", "evidence", "supply chain"],
   "areaforge-residual-ledger": ["blockers", "exceptions", "residual"],
-  "areaforge-security-governance": ["security", "privacy", "supply-chain"],
-  "areaforge-sre-ops": ["production", "backups", "updater", "rollback"],
+  "areaforge-security-governance": ["security", "privacy", "data", "secrets", "server-command"],
+  "areaforge-sre-ops": ["production", "backups", "updater", "rollback", "confirmed", "observability"],
   "areaforge-supply-chain": ["release", "digests", "signatures", "dependencies", "updater"],
   "areaforge-validation-driver": ["validation", "gates"],
+};
+
+const forbiddenOpenAiPromptTerms: Record<string, string[]> = {
+  "areaforge-security-governance": ["supply-chain risk", "artifact provenance", "dependency trust"],
 };
 
 function fail(message: string): never {
@@ -192,6 +196,11 @@ for (const skill of requiredSkills) {
   for (const term of requiredOpenAiPromptTerms[skill] ?? []) {
     if (!promptCorpus.includes(term.toLowerCase())) {
       fail(`${skill} openai.yaml metadata missing trigger term "${term}"`);
+    }
+  }
+  for (const term of forbiddenOpenAiPromptTerms[skill] ?? []) {
+    if (promptCorpus.includes(term.toLowerCase())) {
+      fail(`${skill} openai.yaml metadata crosses owner boundary with forbidden term "${term}"`);
     }
   }
 

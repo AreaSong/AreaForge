@@ -1,5 +1,6 @@
 import {
   hasWorkspaceCapability,
+  workspaceGrantAllowsActor,
   listWorkspaceCapabilities,
   type WorkspaceCapability,
   type WorkspaceRole,
@@ -133,15 +134,7 @@ export function grantAllowsActor(
   requiredAccess: WorkspaceShareGrantAccess,
   now = new Date(),
 ): boolean {
-  if (grant.revokedAt || (grant.expiresAt && grant.expiresAt <= now)) return false;
-  if (requiredAccess === "COACH" && (grant.access !== "COACH" || actor.role !== "COACH")) return false;
-  if (grant.scope === "USER") return grant.granteeUserId === actor.actorId && !grant.granteeRole;
-  if (grant.scope === "ROLE") return !grant.granteeUserId && grant.granteeRole === actor.role;
-  return grant.scope === "WORKSPACE"
-    && requiredAccess === "VIEW"
-    && grant.access === "VIEW"
-    && !grant.granteeUserId
-    && !grant.granteeRole;
+  return workspaceGrantAllowsActor(grant, actor, requiredAccess, now);
 }
 
 async function resolveSharedResource(

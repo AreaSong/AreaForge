@@ -29,9 +29,30 @@ export const serverEnvSchema = z.object({
   AUTH_MULTI_USER_ENABLED: booleanFromString.default(false),
   AUTH_RBAC_ENABLED: booleanFromString.default(false),
   DATA_LIFECYCLE_ENABLED: booleanFromString.default(false),
+  DATA_DELETE_ENABLED: booleanFromString.default(false),
+  DATA_DELETE_WORKER_ENABLED: booleanFromString.default(false),
+  DATA_EXPORT_ENABLED: booleanFromString.default(false),
+  EXPORT_DIR: optionalNonEmptyString,
   RANKING_ENABLED: booleanFromString.default(false),
   RANKING_PROJECTION_ENABLED: booleanFromString.default(false),
+  RANKING_REBUILD_QUEUE_ENABLED: booleanFromString.default(false),
+  SEARCH_INDEX_ENABLED: booleanFromString.default(false),
+  SEARCH_INDEX_QUEUE_ENABLED: booleanFromString.default(false),
   PLATFORM_NOTIFICATIONS_ENABLED: booleanFromString.default(false),
+  PLATFORM_NOTIFICATION_QUEUE_ENABLED: booleanFromString.default(false),
+  DATA_JOB_WORKER_ENABLED: booleanFromString.default(false),
+  // 严格限额校验仅在新任务准入执行，坏配置不能阻断身份、学习或既有任务控制。
+  DATA_JOB_QUOTA_ENABLED: booleanFromString.default(false),
+  DATA_JOB_QUOTA_MAX_ACTIVE_JOBS: optionalNonEmptyString,
+  DATA_JOB_QUOTA_MAX_EXPORTS_24H: optionalNonEmptyString,
+  DATA_JOB_TOTAL_QUOTA_ENABLED: booleanFromString.default(false),
+  DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_USER: optionalNonEmptyString,
+  DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_WORKSPACE: optionalNonEmptyString,
+  DATA_JOB_TOTAL_QUOTA_MAX_ACTIVE_INSTANCE: optionalNonEmptyString,
+  WORKSPACE_MEMBER_QUOTA_ENABLED: booleanFromString.default(false),
+  WORKSPACE_MEMBER_QUOTA_MAX_SEATS: optionalNonEmptyString,
+  WORKSPACE_STORAGE_QUOTA_ENABLED: booleanFromString.default(false),
+  WORKSPACE_STORAGE_QUOTA_MAX_BYTES: optionalNonEmptyString,
   AUTH_ACTION_TOKEN_SECRET: z.preprocess(
     (value) => (typeof value === "string" && value.length >= 32 ? value : undefined),
     z.string().min(32).optional(),
@@ -81,6 +102,13 @@ export const serverEnvSchema = z.object({
       code: "custom",
       path: ["AUTH_RBAC_ENABLED"],
       message: "AUTH_RBAC_ENABLED requires AUTH_MULTI_USER_ENABLED",
+    });
+  }
+  if (env.PLATFORM_NOTIFICATION_QUEUE_ENABLED && !env.PLATFORM_NOTIFICATIONS_ENABLED) {
+    context.addIssue({
+      code: "custom",
+      path: ["PLATFORM_NOTIFICATION_QUEUE_ENABLED"],
+      message: "PLATFORM_NOTIFICATION_QUEUE_ENABLED requires PLATFORM_NOTIFICATIONS_ENABLED",
     });
   }
   if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {

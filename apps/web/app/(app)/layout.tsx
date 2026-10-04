@@ -20,7 +20,12 @@ export default async function ProtectedAppLayout({ children }: { children: React
     <QuickReviewActivityGuardProvider userId={user.id}>
       <WindowSystemProvider userId={user.id}>
         <GlobalToolProvider>
-          <AppShell initialStatus={status} email={user.email} userId={user.id}>
+          <AppShell
+            initialStatus={status}
+            email={user.email}
+            userId={user.id}
+            notificationsEnabled={process.env.PLATFORM_NOTIFICATIONS_ENABLED === "true"}
+          >
             {children}
           </AppShell>
         </GlobalToolProvider>

@@ -3,8 +3,109 @@ generator client {
   output   = "../packages/db/generated/prisma"
 }
 
+generator deletionCatalog {
+  provider = "node ./scripts/quality/generate-deletion-catalog.mjs"
+  output   = "../packages/db/generated/data-delete"
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+// 删除源账户后仍须保留最小回执，因此这些标识刻意不建立到业务对象的外键。
+model DataDeletionIntent {
+  id                 String   @id @default(cuid())
+  requesterId        String
+  scope              String
+  workspaceId        String?
+  resourceType       String?
+  resourceId         String?
+  state              String
+  revision           Int      @default(1)
+  idempotencyKey     String
+  requestHash        String
+  fingerprint        String
+  authorizationHash  String
+  schemaHash         String
+  availableAt        DateTime
+  frozenAt           DateTime @default(now())
+  irreversibleAt     DateTime?
+  leaseOwner         String?
+  leaseVersion       Int      @default(0)
+  leaseExpiresAt     DateTime?
+  attempt            Int      @default(0)
+  maxAttempts        Int      @default(5)
+  nextAttemptAt      DateTime?
+  executionPid       Int?
+  errorCode          String?
+  completedAt        DateTime?
+  receiptTokenHash   String
+  receiptExpiresAt   DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  items              DataDeletionItem[]
+  fences             DataDeletionFence[]
+  files              DataDeletionFile[]
+  ledger             DataDeletionLedger?
+
+  @@unique([requesterId, idempotencyKey])
+  @@index([state, availableAt, nextAttemptAt])
+  @@index([requesterId, createdAt])
+}
+
+model DataDeletionItem {
+  id           String @id @default(cuid())
+  intentId     String
+  model        String
+  keyJson      Json
+  identityHash String
+  rowHash      String
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([intentId, identityHash])
+}
+
+model DataDeletionFence {
+  id           String @id @default(cuid())
+  intentId     String
+  model        String
+  keyJson      Json
+  identityHash String
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([model, identityHash])
+  @@index([intentId])
+}
+
+model DataDeletionFile {
+  id           String @id @default(cuid())
+  intentId     String
+  identityHash String
+  storageKind  String
+  storageKey   String?
+  expectedHash String?
+  expectedSize BigInt?
+  phase        String @default("PENDING")
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@unique([intentId, identityHash])
+}
+
+model DataDeletionLedger {
+  sequence     BigInt @id @default(autoincrement())
+  intentId     String @unique
+  scope        String
+  scopeHash    String
+  previousHash String?
+  entryHash    String @unique
+  manifest     Json
+  completedAt  DateTime
+  intent       DataDeletionIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+}
+
+model DataDeletionVisibility {
+  id       Int    @id @default(1)
+  revision BigInt @default(0)
 }
 
 enum SubjectCode {
@@ -93,6 +194,7 @@ enum DataJobKind {
   DELETE
   RANKING_REBUILD
   NOTIFICATION
+  SEARCH_INDEX_REBUILD
 }
 
 enum DataJobScope {
@@ -433,6 +535,7 @@ model User {
   rankingInvitationsSent       PrivateChallengeParticipant[] @relation("RankingParticipantInviter")
   rankingAppealsSubmitted      RankingAppeal[]                @relation("RankingAppealSubmitter")
   rankingAppealsReviewed       RankingAppeal[]                @relation("RankingAppealReviewer")
+  searchPartitions             WorkspaceSearchPartition[]
 }
 
 model AuthSession {
@@ -503,6 +606,7 @@ model ExamWorkspace {
   rankingPreferences           RankingPreference[]
   privateChallenges            PrivateChallenge[]
   userNotifications            UserNotification[]
+  searchPartitions             WorkspaceSearchPartition[]
 
   @@unique([userId, stableKey])
   @@index([userId])
@@ -664,33 +768,42 @@ model AuthThrottleBucket {
 }
 
 model DataJob {
-  id                 String             @id @default(cuid())
+  id                 String               @id @default(cuid())
   kind               DataJobKind
   scope              DataJobScope
   requestedByUserId  String
   workspaceId        String?
-  status             DataJobStatus      @default(QUEUED)
-  attempt            Int                @default(0)
-  progress           Float              @default(0)
+  status             DataJobStatus        @default(QUEUED)
+  attempt            Int                  @default(0)
+  progress           Float                @default(0)
   leaseOwner         String?
   leaseExpiresAt     DateTime?
   idempotencyKey     String
   requestFingerprint String
   resultJson         Json?
   errorCode          String?
-  retryable          Boolean            @default(false)
+  retryable          Boolean              @default(false)
+  // 零表示旧的手工 preview 协议；独立 worker 只消费显式入队的协议一任务。
+  queueVersion       Int                  @default(0)
+  nextAttemptAt      DateTime?
+  maxAttempts        Int                  @default(5)
+  leaseVersion       Int                  @default(0)
+  pauseRequested     Boolean              @default(false)
+  deadLetteredAt     DateTime?
   expiresAt          DateTime
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  requestedBy        User               @relation("DataJobRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
-  workspace          ExamWorkspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  requestedBy        User                 @relation("DataJobRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  workspace          ExamWorkspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   exportPackage      DataExportPackage?
+  exportArtifacts    DataExportArtifact[]
 
   @@unique([requestedByUserId, idempotencyKey])
   @@index([status, kind, createdAt])
   @@index([leaseExpiresAt, status])
   @@index([workspaceId, createdAt])
   @@index([requestedByUserId, createdAt])
+  @@index([queueVersion, status, nextAttemptAt])
 }
 
 // v1.7 candidate only: Web persists a typed request and its lifecycle, while
@@ -740,40 +853,72 @@ model ControlledOperationRequest {
   @@index([requestedByUserId, createdAt])
 }
 
+enum DataExportArtifactState {
+  STAGING
+  PUBLISHED
+  RECLAIMING
+  RECLAIMED
+}
+
+model DataExportArtifact {
+  id               String                  @id @default(cuid())
+  jobId            String
+  leaseVersion     Int
+  state            DataExportArtifactState @default(STAGING)
+  objectKey        String                  @unique
+  snapshotAt       DateTime?
+  expiresAt        DateTime
+  publishedAt      DateTime?
+  reclaimedAt      DateTime?
+  reclaimErrorCode String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  job              DataJob                 @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  exportPackage    DataExportPackage?
+
+  @@unique([jobId, leaseVersion])
+  @@index([state, expiresAt])
+}
+
 model DataExportPackage {
-  id              String                    @id @default(cuid())
-  jobId           String                    @unique
-  protocol        String
-  schemaVersion   Int
-  manifest        Json
-  manifestSha256  String
-  objectKey       String                    @unique
-  archiveSha256   String
-  sizeBytes       BigInt
-  contentType     String
-  fileName        String
-  recordCount     Int
-  attachmentCount Int
-  expiresAt       DateTime
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  job             DataJob                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  downloadGrants  DataExportDownloadGrant[]
+  id               String                    @id @default(cuid())
+  jobId            String                    @unique
+  sourceArtifactId String?                   @unique
+  protocol         String
+  schemaVersion    Int
+  manifest         Json
+  manifestSha256   String
+  objectKey        String                    @unique
+  archiveSha256    String
+  sizeBytes        BigInt
+  contentType      String
+  fileName         String
+  recordCount      Int
+  attachmentCount  Int
+  expiresAt        DateTime
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  job              DataJob                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceArtifact   DataExportArtifact?       @relation(fields: [sourceArtifactId], references: [id], onDelete: Restrict)
+  downloadGrants   DataExportDownloadGrant[]
 
   @@index([expiresAt])
 }
 
 model DataExportDownloadGrant {
-  id                String            @id @default(cuid())
-  packageId         String
-  requestedByUserId String
-  tokenHash         String            @unique
-  expiresAt         DateTime
-  consumedAt        DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  exportPackage     DataExportPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  requestedBy       User              @relation("DataExportDownloadRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  id                   String            @id @default(cuid())
+  packageId            String
+  requestedByUserId    String
+  tokenHash            String            @unique
+  expiresAt            DateTime
+  consumedAt           DateTime?
+  reservationId        String?
+  reservedAt           DateTime?
+  reservationExpiresAt DateTime?
+  revokedAt            DateTime?
+  createdAt            DateTime          @default(now())
+  exportPackage        DataExportPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  requestedBy          User              @relation("DataExportDownloadRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
 
   @@index([packageId, expiresAt])
   @@index([requestedByUserId, createdAt])
@@ -821,6 +966,7 @@ model Subject {
   relatedKnowledgePoints   KnowledgePointSubject[]
   knowledgeGroups          KnowledgeGroup[]
   learningArrangements     LearningArrangement[]
+  searchDocuments          WorkspaceSearchDocument[] @relation("SearchSourceSubject")
 
   @@index([workspaceId])
   @@index([groupId])
@@ -927,6 +1073,7 @@ model StudyTask {
   studyResourceLinks      StudyResourceTaskLink[]
   stageLinks              StudyTaskStageLink[]
   knowledgePointLinks     StudyTaskKnowledgePoint[]
+  searchDocuments         WorkspaceSearchDocument[] @relation("SearchSourceTask")
 
   @@index([plannedDate])
   @@index([ownerUserId, plannedDate])
@@ -1193,6 +1340,7 @@ model Note {
   mistakeLinks         NoteMistakeLink[]
   studyResourceLinks   StudyResourceNoteLink[]
   reviewSchedules      ReviewSchedule[]
+  searchDocuments      WorkspaceSearchDocument[] @relation("SearchSourceNote")
 
   @@index([subjectId])
   @@index([ownerUserId, archivedAt])
@@ -1240,6 +1388,10 @@ model Attachment {
   reconciliationClaimedAt      DateTime?
   reconciliationLeaseExpiresAt DateTime?
   reconciliationAttempt        Int              @default(0)
+  /// 计量桶不是授权父关系，故不建 FK，不扩大既有导出或删除闭包。
+  storageWorkspaceId           String?
+  storageReleasedAt            DateTime?
+  storageReleaseProof          String?
   createdAt                    DateTime         @default(now())
   updatedAt                    DateTime         @updatedAt
   note                         Note?            @relation(fields: [noteId], references: [id])
@@ -1250,6 +1402,7 @@ model Attachment {
   @@index([ownerUserId, status])
   @@index([noteId])
   @@index([status, createdAt])
+  @@index([storageWorkspaceId, storageReleasedAt])
 }
 
 model Mistake {
@@ -1277,6 +1430,7 @@ model Mistake {
   attempts            MistakeAttempt[]
   simulationLossItems SimulationLossItem[]
   reviewSchedules     ReviewSchedule[]
+  searchDocuments     WorkspaceSearchDocument[] @relation("SearchSourceMistake")
 
   @@index([subjectId])
   @@index([ownerUserId, archivedAt])
@@ -1706,6 +1860,7 @@ model StudyResource {
   mistakeLinks          StudyResourceMistakeLink[]
   syllabusNodeLinks     StudyResourceSyllabusNodeLink[]
   reviewSchedules       ReviewSchedule[]
+  searchDocuments       WorkspaceSearchDocument[] @relation("SearchSourceResource")
 
   @@unique([workspaceId, stableKey])
   @@index([workspaceId])
@@ -2183,6 +2338,7 @@ model KnowledgePoint {
   retestLinks       KnowledgeRetestPoint[]
   evidence          KnowledgeEvidence[]
   taskLinks         StudyTaskKnowledgePoint[]
+  searchDocuments   WorkspaceSearchDocument[] @relation("SearchSourceKnowledgePoint")
 
   @@unique([workspaceId, userId, stableKey])
   @@index([workspaceId, masteryState, archivedAt])
@@ -2547,6 +2703,63 @@ model RankingAppeal {
  * v1.8/v1.9 local candidate. Content is rendered from the controlled kind;
  * private challenge names, appeal bodies and learning text are never stored.
  */
+// 派生标题副本按查看者分区，不是学习源事实或用户导出内容。
+model WorkspaceSearchPartition {
+  id                  String                    @id @default(cuid())
+  userId              String
+  workspaceId         String
+  generation          Int                       @default(0)
+  publishedGeneration Int?
+  sourceFingerprint   String?
+  documentCount       Int                       @default(0)
+  indexedAt           DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace           ExamWorkspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents           WorkspaceSearchDocument[]
+
+  @@unique([userId, workspaceId])
+  @@unique([id, workspaceId])
+  @@index([workspaceId])
+}
+
+// 多代保留只用于不覆盖仍在回收站冻结的旧副本；发布指针只指向完整的一代。
+model WorkspaceSearchDocument {
+  id               String                   @id @default(cuid())
+  partitionId      String
+  workspaceId      String
+  generation       Int
+  kind             String
+  sourceId         String
+  title            String
+  sourceRevision   String
+  sourceUpdatedAt  DateTime
+  sortOrder        Int                      @default(0)
+  subjectId        String?
+  taskId           String?
+  knowledgePointId String?
+  noteId           String?
+  mistakeId        String?
+  resourceId       String?
+  partition        WorkspaceSearchPartition @relation(fields: [partitionId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  subject          Subject?                 @relation("SearchSourceSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  task             StudyTask?               @relation("SearchSourceTask", fields: [taskId], references: [id], onDelete: Cascade)
+  knowledgePoint   KnowledgePoint?          @relation("SearchSourceKnowledgePoint", fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  note             Note?                    @relation("SearchSourceNote", fields: [noteId], references: [id], onDelete: Cascade)
+  mistake          Mistake?                 @relation("SearchSourceMistake", fields: [mistakeId], references: [id], onDelete: Cascade)
+  resource         StudyResource?           @relation("SearchSourceResource", fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([partitionId, generation, kind, sourceId], map: "WorkspaceSearchDocument_scope_source_key")
+  @@index([partitionId, generation, kind])
+  @@index([subjectId])
+  @@index([taskId])
+  @@index([knowledgePointId])
+  @@index([noteId])
+  @@index([mistakeId])
+  @@index([resourceId])
+}
+
 model UserNotification {
   id               String               @id @default(cuid())
   recipientUserId  String

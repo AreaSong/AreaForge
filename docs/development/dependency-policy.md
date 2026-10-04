@@ -80,10 +80,27 @@ pnpm ops:readiness
 
 ## 残余风险
 
-当前 Web 运行时和 lint 配置固定为 `next@16.2.11` / `eslint-config-next@16.2.11`。lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.23`、已修复 advisory 的 `nanoid` 固定为 `3.3.18`，Prisma dev 工具链的 `deepmerge-ts` 固定为 `8.0.0`、`mysql2` 固定为 `3.24.3`，其他可选传递依赖 `@hono/node-server` 固定为 `2.0.10`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.6`、Next 可选图像依赖 `sharp` 固定为 `0.35.3`、eslint 工具链传递依赖 `js-yaml` 固定为 `4.3.1`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `5.0.9`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。AreaForge 的数据库运行时仍使用 PostgreSQL；`mysql2` 仅由 Prisma CLI 间接引入。`minimatch@3.1.5` 仍按旧 CommonJS 函数导出调用 `brace-expansion`，因此 workspace 使用 hash 绑定的 `patches/minimatch@3.1.5.patch` 同时兼容旧函数导出与 `5.0.9` 的 `{ expand }` 导出；该补丁只恢复调用契约，不改变 glob 语义或放宽安全上限。根工具依赖 `sharp` 同样固定到 `0.35.3`；后续升级 Next、Prisma、eslint、minimatch、postcss、nanoid、deepmerge-ts、fast-uri、mysql2、js-yaml 或 sharp 上游时应优先移除已不再需要的 override/patch，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
+当前 Web 运行时和 lint 配置固定为 `next@16.3.6` / `eslint-config-next@16.3.6`。lockfile 通过 workspace `overrides` 将 Next 传递依赖 `postcss` 固定为 `8.5.23`、已修复 advisory 的 `nanoid` 固定为 `3.3.18`，Prisma dev 工具链的 `deepmerge-ts` 固定为 `8.0.0`、`mysql2` 固定为 `3.24.3`，其他可选传递依赖 `@hono/node-server` 固定为 `2.0.10`、Prisma/ajv 传递依赖 `fast-uri` 固定为 `3.1.8`、Next 可选图像依赖 `sharp` 固定为 `0.35.4`、eslint 工具链传递依赖 `js-yaml` 固定为 `4.3.2`、eslint/minimatch 传递依赖 `brace-expansion` 固定为 `5.0.12`，用于修复对应 advisory，同时避免升级 Next/Prisma/eslint 主版本。AreaForge 的数据库运行时仍使用 PostgreSQL；`mysql2` 仅由 Prisma CLI 间接引入。`minimatch@3.1.5` 仍按旧 CommonJS 函数导出调用 `brace-expansion`，因此 workspace 使用 hash 绑定的 `patches/minimatch@3.1.5.patch` 同时兼容旧函数导出与 `5.0.12` 的 `{ expand }` 导出；该补丁只恢复调用契约，不改变 glob 语义或放宽安全上限。根工具依赖 `sharp` 同样固定到 `0.35.4`；后续升级 Next、Prisma、eslint、minimatch、postcss、nanoid、deepmerge-ts、fast-uri、mysql2、js-yaml 或 sharp 上游时应优先移除已不再需要的 override/patch，并重新运行 `pnpm audit:all`、`pnpm audit:prod`、`pnpm check` 和 Prisma 验证。
 
 当前 Release workflow 已接入基础 SBOM 与 provenance 生成路径，并把资产纳入 `SHA256SUMS` 和签名覆盖范围。`v0.1.7` 已产生真实签名 Release 的 SBOM/provenance 资产、checksum/signature 校验输出和发布记录证据，并已由服务器侧 updater 应用到生产；残余项 `AF-RISK-SC-001` 仍保持打开，是因为关闭台账需要维护者人工复核，生产 apply 不自动关闭 residual。
 
 `AF-RISK-SC-002` 已关闭为 CI-only 证据项：CI/Release 外部 Actions 已 pin 到 40 位 commit SHA，`pnpm audit:prod` 已进入 CI/Release validate gate，且机器台账要求后续记录中的 `expectedGitCommit` 与 GitHub run `gitCommit` 一致。后续修改 GitHub Actions、依赖审计策略、Release workflow、供应链记录生成/校验或创建新 Release 前，必须重新生成 CI-only 或签名 Release 供应链记录并通过 `pnpm sc:sc-002:preflight` 与对应 validator。CI-only 证据不关闭 `AF-RISK-SC-001`；签名 Release 路径仍需 SBOM/provenance、checksum/signature 和发布记录证据。
 
-`AF-RISK-SC-003` 已关闭为证据项：本地 UX smoke 曾复现 `pg` transaction client query queue deprecation；当前 `packages/db` 对 Prisma pg adapter transaction query 做串行化，避免同一 transaction client 并发排队触发 `pg@9` 风险。当前 lockfile 只有 `pg@8.22.0`，`@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy`、增强后的 `NODE_OPTIONS=--trace-deprecation pnpm pg:trace-deprecation` 和本地 `NODE_OPTIONS=--trace-deprecation pnpm smoke:local-ux` 均未再出现 deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑这些检查。
+`AF-RISK-SC-003` 已关闭为证据项：本地 UX smoke 曾复现 `pg` transaction client query queue deprecation；当前 `packages/db` 对 Prisma pg adapter transaction query 做串行化，避免同一 transaction client 并发排队触发 `pg@9` 风险。该历史验收的 lockfile 只有 `pg@8.22.0`，当时 `@prisma/adapter-pg@7.8.0` 也解析到同一 `pg@8.22.0`；临时 PostgreSQL 16 库上执行 `pnpm db:migrate:deploy`、增强后的 `NODE_OPTIONS=--trace-deprecation pnpm pg:trace-deprecation` 和本地 `NODE_OPTIONS=--trace-deprecation pnpm smoke:local-ux` 均未再出现 deprecation warning。后续升级 `pg` 或 Prisma adapter 时需重跑这些检查。
+
+### DEP-1 本地依赖检查点（2026-10-03）
+
+本批按 `DEP-1-LOCAL-20261003` 明确批准，只更新 Next/eslint-config-next 16.3.6、Nodemailer 10.0.9、fast-uri 3.1.8、brace-expansion 5.0.12 及配套 Next env/plugin/八个 SWC 节点；其他 override、balanced-match、minimatch patch 和安装 build allowlist 均保留。当前 Prisma/client/adapter 实际均为 7.9.1，pg 8.22.0、Sharp 0.35.4；本批未升级或运行真实数据库验收，前述 SC-003 历史数据库证据不能升级为本批证据。
+
+2026-10-03 北京时间 13:18:29–13:18:31，升级后 `pnpm audit:all` 仍有 **1 high / 0 critical / 0 moderate / 0 low，退出 1**，唯一命中 `braces@3.0.3` / [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)；`pnpm audit:prod` 全零，退出 0。13:20 的独立 JSON 审计明细与此一致。high/critical 阈值不变，不接受风险例外；全量依赖治理和 STORAGE 整体仍为 partial。冻结安装、实际差异及本地验证日志见 [DEP-1 证据](../../output/dependency-audit/dep-1/)；阶段交接见 [0045](../../tasks/backlog/0045-platform-hardening.md)。本批不删除 override/patch、不关闭 residual、不包含 Git 交付或发布。
+
+
+### DEP-2B 精确补丁执行状态（2026-10-03）
+
+按 `DEP-2B-BRACES-DEPTH-20261003` 注册 `patches/braces@3.0.3.patch`，保留 registry 的 braces 3.0.3 身份及全部依赖边。草案 SHA-256 与 pnpm11.7.0 实际生成的 patch hash 分别记录，本次实测恰好同为 `97e90c15ea31c7bac144a42e20c8ce68e98a75d8042a3c6d9a8ce1b4f05d1141`。完整 lock 除登记、braces snapshot 身份、micromatch 引用外语义不变；未扩大 override、build allowlist 或审计例外。
+
+**不能认定缓解生效：** 冻结安装退出 0，实际消费目录虽有 patch hash，五文件仍是原包；A 在身份断言失败，99/100/101、直接 AST 和补丁后兼容/错误传播未验证。北京时间 15:55–15:56 的 audit:all 仍为唯一 braces high、退出 1，prod 全零、退出 0；不把安装、局部源草案或独立 check 成功当作安全门禁通过。维护者需先核验同字节 patch 的实际应用；若需变更草案或工具链，另行精确确认。未来已发布修复的复核和 patch 移除仍由维护者负责，不冒充未合并上游 PR 的发布承诺。
+
+本轮停止，依赖治理与 STORAGE 整体 partial；实际证据及只读复核见 [DEP-2B 验证汇总](../../output/dependency-audit/dep-2b/execution/validation-results.json)，绑定、回退和未验证边界见 [执行回执](./high-risk-confirmation-packets.md#dep-2b-本地执行回执2026-10-03)。
+
+独立复核另指出，现有草案的 `expand → stringify` invalid/dollar fallback 会重置计深；整棵 AST 的 100 层目标存在静态缺口，专项尚未覆盖。该路径未经运行验证，后续需补组合深度测试并对修订草案重新确认，不能把安装问题解决视为 A 已完成。

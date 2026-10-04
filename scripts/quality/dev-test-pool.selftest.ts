@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { acquirePoolLock } from "../dev/dev-test-pool-lock";
+import { assertExportFixtureSlot, exportFixtureEnvironment, loadDevTestExportFixture } from "../dev/dev-test-export-fixture";
 import {
   DEFAULT_DEV_TEST_PORTS,
   compareOldest,
@@ -27,6 +29,7 @@ try {
   testRealLockContention();
   testStaleLockRecovery();
   testSourceGuardrails();
+  testExportFixtureAdmission();
   console.log("dev test pool selftest passed.");
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
@@ -140,9 +143,47 @@ function testSourceGuardrails(): void {
   assert(dockerSource.includes("verbatimSymlinks: true"), "pnpm standalone links must remain container-relative");
   assert(!imageSource.includes("pnpm install") && !imageSource.includes("npm install"),
     "the test image must not download workspace dependencies again");
-  assert(cliSource.indexOf("docker.build(identity)") < cliSource.indexOf("acquirePoolLock();", cliSource.indexOf("docker.build(identity)")),
+  assert(cliSource.indexOf("docker.build(identity,") < cliSource.indexOf("acquirePoolLock();", cliSource.indexOf("docker.build(identity,")),
     "the candidate image must build before the swap lock is acquired");
   assert(cliSource.includes("rollbackSlot(fixedName, backupName"), "failed health must restore the previous slot");
+  assert(cliSource.includes("assertExportFixtureSlot(selection, fixture)"), "fixture slots must be checked under the swap lock");
+  assert(dockerSource.includes("dst=/app/exports,readonly") && dockerSource.includes("dst=/app/uploads,readonly"),
+    "export fixture Web runtime may read but never change synthetic file bodies");
+  assert(dockerSource.includes("filter: (source: string)"), "standalone packaging must exclude local environment files");
+}
+
+function testExportFixtureAdmission(): void {
+  const base = realpathSync(mkdtempSync(path.join(tmpdir(), "areaforge-v20-export-")));
+  try {
+    const marker = { schemaVersion: 1, fixtureKind: "data-export", databaseName: "areaforge_v20_export_pool_selftest",
+      ownerUid: process.getuid?.(), ownerGid: process.getgid?.(), repositoryHash: createHash("sha256").update(root).digest("hex") };
+    mkdirSync(path.join(base, "uploads"), { mode: 0o700 }); mkdirSync(path.join(base, "exports"), { mode: 0o700 });
+    writeFileSync(path.join(base, ".areaforge-data-export-fixture.json"), JSON.stringify(marker), { mode: 0o600 });
+    const secrets = path.join(base, ".fixture.private.json");
+    writeFileSync(secrets, JSON.stringify({ sessionSecret: randomBytes(32).toString("hex"), actionSecret: randomBytes(32).toString("hex") }), { mode: 0o600 });
+    const env = { AREAFORGE_DEV_TEST_EXPORT_FIXTURE_ROOT: base, AREAFORGE_DATA_EXPORT_ISOLATED_DB: "1",
+      AREAFORGE_DEV_TEST_DATABASE_URL: `postgresql://localhost:5432/${marker.databaseName}` };
+    if (process.getuid?.() === 0) { assert.throws(() => loadDevTestExportFixture(root, env), /FIXTURE_INVALID/); return; }
+    const fixture = loadDevTestExportFixture(root, env)!;
+    assert.equal(loadDevTestExportFixture(root, {}), undefined);
+    const runtime = exportFixtureEnvironment(fixture, 2, 43172, "1.2.0");
+    assert.equal(runtime.AI_ENABLED, "false"); assert.equal(runtime.DATA_EXPORT_ENABLED, "true");
+    assert.equal(runtime.AUTH_SESSION_COOKIE_NAME, "af_dev_test_2"); assert.equal(runtime.AI_API_KEY, undefined);
+    assertExportFixtureSlot(selectSlot("refresh", [], [...DEFAULT_DEV_TEST_PORTS], 2), fixture);
+    const shared = instance(1, 1); const own = { ...instance(2, 2), fixtureId: fixture.id };
+    assert.throws(() => assertExportFixtureSlot(selectSlot("refresh", [shared], [...DEFAULT_DEV_TEST_PORTS], 1), fixture), /SLOT_MISMATCH/);
+    assert.throws(() => assertExportFixtureSlot(selectSlot("refresh", [own], [...DEFAULT_DEV_TEST_PORTS], 2)), /SLOT_MISMATCH/);
+    assertExportFixtureSlot(selectSlot("refresh", [own], [...DEFAULT_DEV_TEST_PORTS], 2), fixture);
+    for (const override of [{ AREAFORGE_DATA_EXPORT_ISOLATED_DB: "0" }, { AREAFORGE_DEV_TEST_DATABASE_URL: "postgresql://remote.example/areaforge_v20_export_pool_selftest" },
+      { AREAFORGE_DEV_TEST_DATABASE_URL: "postgresql://localhost/areaforge" }, { AREAFORGE_DEV_TEST_DATABASE_URL: "postgresql://localhost/areaforge_v20_export_other" }]) {
+      assert.throws(() => loadDevTestExportFixture(root, { ...env, ...override }), /FIXTURE_INVALID/);
+    }
+    assert.throws(() => loadDevTestExportFixture(`${root}/wrong`, env), /FIXTURE_INVALID/);
+    chmodSync(path.join(base, "exports"), 0o755);
+    assert.throws(() => loadDevTestExportFixture(root, env), /FIXTURE_INVALID/); chmodSync(path.join(base, "exports"), 0o700);
+    renameSync(secrets, `${secrets}.original`); symlinkSync(`${secrets}.original`, secrets);
+    assert.throws(() => loadDevTestExportFixture(root, env), /FIXTURE_INVALID/); unlinkSync(secrets);
+  } finally { rmSync(base, { recursive: true, force: true }); }
 }
 
 function instance(slot: SlotNumber, generation: number): PoolInstance {

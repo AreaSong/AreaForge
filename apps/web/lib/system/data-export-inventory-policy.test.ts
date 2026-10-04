@@ -25,33 +25,34 @@ test("every Prisma model has an explicit export lifecycle disposition", async ()
   }), {});
   assert.deepEqual(dispositionCounts, {
     INCLUDED_PREVIEW: 83,
-    EXCLUDED_SECURITY: 5,
-    DERIVED_REBUILDABLE: 1,
+    EXCLUDED_SECURITY: 12,
+    DERIVED_REBUILDABLE: 3,
   });
 });
 
 test("included preview delegates and security exclusions stay aligned with implementation", async () => {
   const service = [
-    "data-lifecycle-service.ts",
+    "data-export-inventory-primary.ts",
+    "data-export-inventory.ts",
     "data-export-inventory-records.ts",
     "data-export-inventory-related-records.ts",
-  ].map((file) => readFile(path.join(webRoot, "lib/system", file), "utf8"));
+  ].map((file) => readFile(path.join(repoRoot, "packages/db/src", file), "utf8"));
   const implementation = (await Promise.all(service)).join("\n");
   const includedDelegates = Array.from(
-    implementation.matchAll(/appendRows\(db, records, "[^"]+", "([^"]+)"/g),
+    implementation.matchAll(/appendRows\(db, (?:records|metadataOnlyTarget\(records\)), "[^"]+", "([^"]+)"/g),
     (match) => `${match[1]![0]!.toUpperCase()}${match[1]!.slice(1)}`,
   ).sort();
   const classifiedIncluded = DATA_EXPORT_MODEL_DISPOSITIONS
     .filter((item) => item.disposition === "INCLUDED_PREVIEW")
     .map((item) => item.model)
     .sort();
-  assert.deepEqual(includedDelegates, classifiedIncluded);
+  assert.deepEqual([...new Set(includedDelegates)].sort(), classifiedIncluded);
 
-  for (const item of DATA_EXPORT_MODEL_DISPOSITIONS.filter((entry) => entry.disposition === "EXCLUDED_SECURITY")) {
+  for (const item of DATA_EXPORT_MODEL_DISPOSITIONS.filter((entry) => ["EXCLUDED_SECURITY", "DERIVED_REBUILDABLE"].includes(entry.disposition))) {
     assert.equal(includedDelegates.includes(item.model), false, `${item.model} must stay outside export preview`);
   }
   assert.doesNotMatch(
     implementation,
-    /passwordHash:\s*true|tokenHash:\s*true|ipHash:\s*true|userAgentHash:\s*true|apiKeyCiphertext:\s*true|encryptedApiKey:\s*true|objectKey:\s*true|nonce:\s*true|previewNonce:\s*true|idempotencyKey:\s*true|requestFingerprint:\s*true|intentHash:\s*true|requestHash:\s*true|workerId:\s*true|leaseToken:\s*true/,
+    /passwordHash:\s*true|tokenHash:\s*true|ipHash:\s*true|userAgentHash:\s*true|apiKeyCiphertext:\s*true|encryptedApiKey:\s*true|objectKey:\s*true|nonce:\s*true|previewNonce:\s*true|idempotencyKey:\s*true|requestFingerprint:\s*true|intentHash:\s*true|requestHash:\s*true|workerId:\s*true|leaseToken:\s*true|storageWorkspaceId:\s*true|storageReleasedAt:\s*true|storageReleaseProof:\s*true/,
   );
 });

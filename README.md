@@ -18,7 +18,7 @@ AreaForge 不是普通打卡软件，也不是单纯的待办清单。它把直�
 
 - 产品重点：服务一个人的长期备考闭环，不做通用团队项目管理。
 - 功能状态：任务、计时、考纲、笔记附件、错题、复盘、AI 建议、模拟考试、周期报告、阶段草稿和发布/备份/恢复/回滚链路都有实现与验证记录。
-- 当前边界：稳定 Release/生产仍是单管理员私有 Web 应用；v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作，以及 v1.6-v1.8 的数据任务预览、受控运维请求和私有挑战/排名投影已进入默认关闭的本地候选，尚未形成 Release/生产能力。AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
+- 当前边界：稳定 Release/生产仍是单管理员私有 Web 应用；v1.4 身份/Workspace/Membership、v1.5 RBAC/隐私授权/Coach 协作以及 v1.6-v1.9 平台候选已以默认关闭形态合并 `main`，但尚未形成新 Release/生产能力。AI 只生成建议或草稿，附件走私有鉴权访问，Web runtime 不直接执行服务器命令。
 - README 只突出内容重点、当前状态和常用入口；功能追踪、发布证据、验证矩阵和残余风险以 `docs/**` 为准。
 
 ## 核心闭环
@@ -49,23 +49,27 @@ AreaForge 的重点不是记录得更多，而是让每次学习都留下可复�
 | 层级 | 当前事实 |
 |---|---|
 | 仓库状态 | 最新稳定 GitHub Release 为 `v1.2.0`（commit `018cdfa`）；Release workflow、不可变镜像 digest、SBOM、provenance、checksum 与签名资产已严格验证 |
-| 当前候选 | 当前 checkout 的 package version 为 `1.2.0`，对应高密度工作台、Dynamic Island、错题 v2 与 Web 治理门禁的稳定 Release；未执行 production apply |
-| A -> B 本地进度 | v1.3 动态个人版已合并 `main` 但未独立 Release；v1.4-v1.8 默认关闭的本地候选已通过总门禁与一次性隔离 runtime，commit `6568c87` 的 branch push CI run `34119581102` 已成功，六类身份 desktop/mobile 可见性、代表性写入与 17 项浏览器失败矩阵已完成；v1.9 已形成纯规则与持久排名通知基础。候选 migration 尚未 apply 到共享测试库或生产，仍缺受保护 PR/合并、Release 和生产证据 |
-| 线上基线 | `1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`，公网 health 与 verified production runtime identity 已验证 |
+| 当前候选 | 当前 checkout 的 package version 仍为 `1.2.0`；新增 v2.0 分域候选不因版本号与既有 Release 相同而视为发布或上线 |
+| A -> B 本地进度 | v1.3 与 v1.4-v1.9 默认关闭候选已由 PR #56/#57 合并；内核、通知、EXPORT、DELETE、OPS 已有分域本地证据。RANKING 持久重建新增 26 组运行态和 12 组真实浏览器/API 验收，复用 53 条 migration，无新增 DDL。SEARCH 持久索引已有 54 条迁移、33 组运行态和 16 组浏览器/API 本地专项证据。QUOTA 后台任务准入已有 24/12 组本地专项；CAPACITY 成员席位与用户/工作区/实例活跃任务总量已有 33/18 组本地运行态/浏览器证据；存储及跨分区滚动导出计量、MFA/观测、完整跨域门禁、受保护合并、新 Release、共享/生产与运营证据仍缺；v2.0 整体保持 partial |
+| 生产交付记录 | 归档基线为 `v1.1.1` / commit `f995310e30c41270ee1e0a1c1ceeae9b6a8017eb`；不是当前公网版本的新鲜证明 |
+| 公网只读观测 | 2026-09-14 `05:39:05Z` health 报告 `v1.2.0` / `018cdfa` / verified；本批未执行更新，服务器迁移/备份/agent/回滚证据待独立核验 |
 | 更新策略 | `AREAFORGE_AUTO_APPLY=none`；Web 版本中心只提交受控请求，服务器侧 update-agent/updater 执行签名校验、备份、migration、切换、smoke 和回滚 |
-| 当前收口 | `v1.2.0` 已完成全量检查、桌面/移动验收、受保护 PR、annotated tag、稳定 Release 与严格资产校验；本次未执行 production apply，生产和回滚目标仍为 `v1.1.1`，`AREAFORGE_AUTO_APPLY=none` 与 residual 状态均未改变 |
+| 当前收口 | `v1.2.0` 的既有 Release 制品记录已完成；公网观测与旧生产交付记录有版本差异，详见 operational-readiness。本批未执行 production apply，不改自动策略，不关闭 residual；v2.0 综合门禁仍 partial |
 | 状态详情 | 只读快照用 `pnpm ops:status --summary`；其中旧版本默认绑定只能作为历史证据，当前生产事实以公网 health、服务器 updater 状态与 [运营 readiness](docs/development/operational-readiness.md) 为准，剩余缺口见 [残余风险台账](docs/development/residual-risk-ledger.md) |
 
 深入的状态证据入口：[长期运营控制面](docs/development/long-term-operability-control-plane.md)、[治理登记册](docs/development/governance-register.md)、[Operations lifecycle](docs/development/operations-lifecycle.md)、[docs 100% 完成记录](docs/development/docs-100-completion-record.md)、[版本历史](CHANGELOG.md)。
 
 ## 产品边界
 
-- 稳定 Release 和当前生产仍是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；v1.4-v1.5 本地候选正在增加邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
+v2.0 首批持久后台任务执行内核已形成本地候选：持久退避/死信、租约代次、暂停/取消/重放、事务提交及独立进程恢复。
+最新 51-migration 专用导出合成库的 15 组内核、11 组通知、14 组导出 runtime，以及桌面/390px/320px 导出浏览器/API 证据见 `tasks/backlog/0041-data-lifecycle.md` 和 `tasks/backlog/0045-platform-hardening.md`；DELETE、OPS 与 RANKING 另有独立本地闭环。排名重建的 26/12 组证据见 `tasks/backlog/0043-ranking-platform-hardening.md`，SEARCH 的 33/16 组运行态/浏览器证据见 `tasks/backlog/0045-platform-hardening.md`；仍缺平台综合门禁及共享/生产交付，不等于 v2.0 完成。
+
+- 稳定 Release 的产品边界是单管理员、电脑优先、移动端响应式适配的私有 Web 应用；已合并 `main` 但默认关闭的 v1.4-v1.5 候选提供邀请制账户、Workspace/Membership、五级 RBAC、对象分享和 Coach 协作。
 - PostgreSQL 是结构化状态的源事实；附件本体保存在私有上传目录，并通过鉴权 API 访问。
 - AI 默认不读取动机档案、完整情绪记录、完整复盘正文、附件内容或完整任务标题；外部 Provider 还需当前浏览器在 `/settings/ai` 显式开启，Provider key 不进入客户端。
 - 报告、债务重排和阶段调整都保留用户确认边界，不静默自动应用。
 - Web runtime 不执行 Docker、备份、恢复、migration、回滚或服务器命令。
-- v1.5 本地候选已提供五级预设角色、对象级分享、Coach 建议确认链与脱敏 Operator 管理面；v1.6-v1.9 已提供默认关闭的数据任务/删除预览、受控运维请求、私有挑战/排名投影、反作弊、持久申诉和跨设备排名通知候选，但完整导出归档、物理删除、备份删除账本、root-agent 执行链、通用通知 worker 及删除/导出完整联动仍未实现。小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
+- v1.5-v1.9 候选已提供 RBAC、对象分享、Coach、受控运维请求、私有挑战/投影/申诉与持久通知；完整导出、物理删除与备份账本重放已有各自本地验收。OPS 冻结绑定、root 桥接/锁/日志/恢复和 RANKING 持久重建也已有独立本地验收；平台加固与完整跨域联动仍缺，不能描述为只差发版。小程序、原生 App、AI 自动完整计划和复杂 PDF 自动解析仍未实现。
 
 ## 技术架构
 
@@ -133,7 +137,7 @@ pnpm dev:test:latest
 pnpm dev:test:list
 ```
 
-测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；`latest` 按最后一次成功部署标记唯一最新槽位和访问地址，不能用槽位数字猜测。候选构建或健康检查失败时恢复旧实例且不改变 latest。它只读取 `apps/web/.env.local` 的本地 allowlist 配置，共享本地测试数据库与 uploads volume，不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
+测试池使用 `areaforge-dev-test-1/2/3` 和 `127.0.0.1:43171/43172/43173`。`refresh` 默认替换最新槽位，`snapshot` 在第四个候选进入时按 FIFO（先进先出）淘汰最老实例；`latest` 按最后一次成功部署标记唯一最新槽位和访问地址，不能用槽位数字猜测。候选失败时恢复旧实例。普通模式使用 `.env.local` allowlist、共享本地测试库与 uploads volume；已确认的 EXPORT/DELETE/OPS 专用模式要求精确 fixture marker、合成库/密钥、只读文件挂载与显式槽位，不得覆盖共享槽。不运行 migration、不删除数据库或 volume，也不触碰生产。完整边界见 [Docker Compose 部署](docs/deployment/docker-compose.md)。
 
 浏览器/Playwright 验收只访问 latest 返回的地址，不为每个任务或页面创建新的 Web 容器。历史上可能出现的 `areaforge-v11browser-runtime-*` 只能作为一次性验收 runtime，验收结束必须删除；它们不属于测试池，也不得作为长期服务保留。
 

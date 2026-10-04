@@ -2,8 +2,11 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readResidualLedgerV2 } from "./residual-ledger-common";
 
 const root = process.cwd();
+const currentResidualType = readResidualLedgerV2({ root }).items.find(item => item.id === "AF-RISK-SC-001")?.type;
+if (!currentResidualType) throw new Error("SC-001 fixture requires an authoritative ledger entry");
 const tempDir = mkdtempSync(path.join(tmpdir(), "areaforge-residual-closure-review-"));
 
 try {
@@ -35,7 +38,7 @@ try {
     .replace("residualLedgerAction: requires-separate-ledger-update", "residualLedgerAction: none"));
   writeFileSync(invalidSecretRecord, `${createRecord()}\nleaked: GITHUB_TOKEN=abcdef1234567890abcdef1234567890\n`);
   writeFileSync(invalidOutcomeRecord, createRecord().replace("validatorOutcome: ready-for-sc001-sc002-review", "validatorOutcome: fail"));
-  writeFileSync(invalidTypeRecord, createRecord().replace("currentResidualType: deferred-work", "currentResidualType: current-blocker"));
+  writeFileSync(invalidTypeRecord, createRecord().replace(`currentResidualType: ${currentResidualType}`, `currentResidualType: ${currentResidualType === "current-blocker" ? "deferred-work" : "current-blocker"}`));
   writeFileSync(invalidMissingEvidenceRecord, createRecord().replace("docs/development/release-v0.1.7-record.md", "docs/development/definitely-missing-evidence.md"));
   writeFileSync(invalidKeepOpenActionRecord, createRecord()
     .replace("reviewDecision: close", "reviewDecision: keep-open")
@@ -85,7 +88,7 @@ function createRecord(): string {
     "reviewedAt: 2026-07-13T12:00:00+08:00",
     "reviewer: AreaForge maintainer",
     "residualRiskId: AF-RISK-SC-001",
-    "currentResidualType: deferred-work",
+    `currentResidualType: ${currentResidualType}`,
     "reviewDecision: close",
     "decisionRationale: Signed release supply-chain evidence reached ready review state and maintainer recorded the decision boundary.",
     "evidenceUris: docs/development/release-supply-chain-v0.1.7.md, docs/development/release-v0.1.7-record.md",

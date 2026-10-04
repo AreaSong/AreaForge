@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, rename } from "node:fs/promises";
-import { parseAttachmentUri } from "@areaforge/storage";
-import { prisma } from "@areaforge/db";
+import { checkedRoot, parseAttachmentUri } from "@areaforge/storage";
+import path from "node:path";
+import { prisma, type Prisma } from "@areaforge/db";
+import { withAttachmentFileOperation, settleAttachmentStorageCleanup, storageCleanupDescriptor, storageCleanupSelect } from "./attachment-storage-service";
 import { getAuthEnv } from "@/lib/auth/env";
 import {
   attachmentProtocolVersion,
@@ -19,6 +21,8 @@ import {
  */
 
 export interface AttachmentReconciliationOptions {
+  /** 显式维护时收窄到选定意图；空数组不处理任何记录，不扩大原 PENDING/协议门禁。 */
+  attachmentIds?: readonly string[];
   /** 单次运行处理的最大记录数（按 createdAt,id 稳定排序）。 */
   limit?: number;
   /** intent 最小年龄；更年轻的 PENDING 视为可能仍在进行的上传，不 claim。 */
@@ -129,6 +133,7 @@ export async function reconcileNewProtocolAttachments(
     where: {
       status: "PENDING",
       protocolVersion: { gte: attachmentProtocolVersion },
+      ...(options.attachmentIds ? { AND: [{ id: { in: [...options.attachmentIds] } }] } : {}),
       ...(awaitingDecisionIds.length ? { id: { notIn: awaitingDecisionIds } } : {}),
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -236,17 +241,36 @@ interface ClaimedIntentContext {
 }
 
 async function reconcileClaimedIntent(context: ClaimedIntentContext): Promise<void> {
+  try {
+    await withAttachmentFileOperation(context.attachment.id, async tx => {
+      const owned = await tx.attachment.findFirst({ where: { id: context.attachment.id, status: "PENDING", reconciliationClaimId: context.claimId },
+        select: { id: true } });
+      if (!owned) { context.counts.lostClaimCount += 1; return; }
+      await reconcileClaimedIntentInTransaction(context, tx);
+    });
+  } catch {
+    context.counts.retryLaterCount += 1;
+    await releaseClaim(context.attachment.id, context.claimId, prisma).catch(() => undefined);
+  }
+}
+
+async function reconcileClaimedIntentInTransaction(context: ClaimedIntentContext, tx: Prisma.TransactionClient): Promise<void> {
   const { attachment, claimId, uploadDir, counts } = context;
 
   const storedName = parseAttachmentUri(attachment.uri);
   if (!storedName) {
-    await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_invalid_uri");
+    await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_invalid_uri", tx);
     counts.failedIntegrityMismatchCount += 1;
     return;
   }
 
   const finalPath = getSafeAttachmentPath(uploadDir, storedName);
   const stagingPath = attachment.stagingName ? getSafeStagingPath(uploadDir, attachment.stagingName) : null;
+  await checkedRoot(finalPath.uploadRoot, false);
+  if (stagingPath) {
+    try { await checkedRoot(path.dirname(stagingPath.filePath), false); }
+    catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error; }
+  }
   const finalProbe = await probeFile(finalPath.filePath, attachment.hash, attachment.sizeBytes);
   const stagingProbe = stagingPath
     ? await probeFile(stagingPath.filePath, attachment.hash, attachment.sizeBytes)
@@ -254,25 +278,25 @@ async function reconcileClaimedIntent(context: ClaimedIntentContext): Promise<vo
 
   if (finalProbe.present && stagingProbe.present) {
     // 决策表：PENDING + staging + final 同时存在 -> blocked/AMBIGUOUS_DUAL_FILE，人工复核，不删除。
-    await releaseClaim(attachment.id, claimId);
+    await releaseClaim(attachment.id, claimId, tx);
     counts.blockedDualFileCount += 1;
     return;
   }
 
   if (!finalProbe.present && !stagingProbe.present) {
     if (context.now.getTime() - attachment.createdAt.getTime() < context.minIntentAgeMs) {
-      await releaseClaim(attachment.id, claimId);
+      await releaseClaim(attachment.id, claimId, tx);
       counts.skippedYoungIntentCount += 1;
       return;
     }
-    await markFailedWithClaim(attachment.id, claimId, "MISSING_FILE_AFTER_INTENT", "reconciliation_missing_file");
+    await markFailedWithClaim(attachment.id, claimId, "MISSING_FILE_AFTER_INTENT", "reconciliation_missing_file", tx);
     counts.failedMissingFileCount += 1;
     return;
   }
 
   if (stagingProbe.present && !finalProbe.present) {
     if (!stagingProbe.matches || !stagingPath) {
-      await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_staging_verify");
+      await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_staging_verify", tx);
       counts.failedIntegrityMismatchCount += 1;
       return;
     }
@@ -281,17 +305,17 @@ async function reconcileClaimedIntent(context: ClaimedIntentContext): Promise<vo
       await fsyncDirectory(finalPath.uploadRoot);
     } catch {
       // rename 失败保留 PENDING 与 staging 文件，释放 claim 等待下一次显式维护运行。
-      await releaseClaim(attachment.id, claimId);
+      await releaseClaim(attachment.id, claimId, tx);
       counts.retryLaterCount += 1;
       return;
     }
     const verified = await probeFile(finalPath.filePath, attachment.hash, attachment.sizeBytes);
     if (!verified.present || !verified.matches) {
-      await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_post_rename_verify");
+      await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_post_rename_verify", tx);
       counts.failedIntegrityMismatchCount += 1;
       return;
     }
-    if (await finalizeReadyWithClaim(context, attachment.id, claimId)) {
+    if (await finalizeReadyWithClaim(context, attachment.id, claimId, tx)) {
       counts.finalizedFromStagingCount += 1;
     } else {
       counts.lostClaimCount += 1;
@@ -301,11 +325,11 @@ async function reconcileClaimedIntent(context: ClaimedIntentContext): Promise<vo
 
   // final 存在、staging 不存在。
   if (!finalProbe.matches) {
-    await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_final_verify");
+    await markFailedWithClaim(attachment.id, claimId, "INTEGRITY_MISMATCH", "reconciliation_final_verify", tx);
     counts.failedIntegrityMismatchCount += 1;
     return;
   }
-  if (await finalizeReadyWithClaim(context, attachment.id, claimId)) {
+  if (await finalizeReadyWithClaim(context, attachment.id, claimId, tx)) {
     counts.readyFromFinalCount += 1;
   } else {
     counts.lostClaimCount += 1;
@@ -316,9 +340,10 @@ async function finalizeReadyWithClaim(
   context: ClaimedIntentContext,
   attachmentId: string,
   claimId: string,
+  tx: Prisma.TransactionClient,
 ): Promise<boolean> {
   await context.hooks?.beforeFinalizeCas?.(attachmentId);
-  const updated = await prisma.attachment.updateMany({
+  const updated = await tx.attachment.updateMany({
     where: { id: attachmentId, status: "PENDING", reconciliationClaimId: claimId },
     data: {
       status: "READY",
@@ -339,8 +364,9 @@ async function markFailedWithClaim(
   claimId: string,
   failureCode: string,
   failurePhase: string,
+  tx: Prisma.TransactionClient,
 ): Promise<void> {
-  await prisma.attachment.updateMany({
+  const changed = await tx.attachment.updateMany({
     where: { id: attachmentId, status: "PENDING", reconciliationClaimId: claimId },
     data: {
       status: "FAILED",
@@ -351,10 +377,14 @@ async function markFailedWithClaim(
       reconciliationLeaseExpiresAt: null,
     },
   });
+  if (changed.count === 1 && failureCode === "MISSING_FILE_AFTER_INTENT") {
+    const row = await tx.attachment.findUniqueOrThrow({ where: { id: attachmentId }, select: storageCleanupSelect });
+    await settleAttachmentStorageCleanup(tx, storageCleanupDescriptor(row), {}, { boundNote: true, mode: "absence-only" });
+  }
 }
 
-async function releaseClaim(attachmentId: string, claimId: string): Promise<void> {
-  await prisma.attachment.updateMany({
+async function releaseClaim(attachmentId: string, claimId: string, tx: Prisma.TransactionClient | typeof prisma): Promise<void> {
+  await tx.attachment.updateMany({
     where: { id: attachmentId, status: "PENDING", reconciliationClaimId: claimId },
     data: {
       reconciliationClaimId: null,
@@ -371,16 +401,17 @@ async function probeFile(
 ): Promise<{ present: boolean; matches: boolean }> {
   let handle: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const stat = await handle.stat();
-    if (!stat.isFile()) return { present: true, matches: false };
+    if (!stat.isFile() || stat.nlink !== 1 || stat.size !== expectedSize) return { present: true, matches: false };
     const bytes = await handle.readFile();
     const matches = stat.size === expectedSize
       && createHash("sha256").update(bytes).digest("hex") === expectedHash;
     return { present: true, matches };
   } catch (error) {
     if (isSymlinkRejection(error)) return { present: true, matches: false };
-    return { present: false, matches: false };
+    return error && typeof error === "object" && "code" in error && error.code === "ENOENT"
+      ? { present: false, matches: false } : { present: true, matches: false };
   } finally {
     await handle?.close().catch(() => undefined);
   }

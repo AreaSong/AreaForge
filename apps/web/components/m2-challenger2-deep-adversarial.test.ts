@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { NoteCard } from "./note-card";
+import type { NoteCardProps } from "./note-card";
+
+function renderNote(props: NoteCardProps) {
+  const noop = () => {};
+  return renderToStaticMarkup(createElement(AppRouterContext.Provider, {
+    value: { back: noop, forward: noop, refresh: noop, push: noop, replace: noop, prefetch: noop, bfcacheId: "synthetic-render" },
+  }, createElement(NoteCard, props)));
+}
 import { MistakeCard } from "./mistake-card";
 import { KnowledgePointCard } from "./knowledge-point-card";
 import { StudyResourceCard } from "./study-resource-card";
@@ -96,16 +107,14 @@ test("NoteCard: Renders cleanly with full data and attachments", () => {
     createdAt: "2026-08-20T00:00:00.000Z",
   };
 
-  const element = NoteCard({
+  const html = renderNote({
     note,
     uploading: false,
     uploadError: null,
     onUpload: () => {},
   });
-
-  const { props } = inspectElement(element);
-  assert.equal(props.variant, "master");
-  assert.ok(props.className.includes("p-3.5") || props.className.includes("p-4") || props.className.includes("p-5"));
+  assert.match(html, /p-4|p-5/);
+  assert.match(html, /下载/);
 
   // Check details & attachments rendering
   const source = loadSource("components/note-card.tsx");
@@ -141,28 +150,15 @@ test("NoteCard: Resilient to missing optional fields, zero attachments, and uplo
     createdAt: "2026-08-26T08:00:00.000Z",
   };
 
-  const element = NoteCard({
+  const html = renderNote({
     note: noteMinimal,
     uploading: true,
     uploadError: "文件超出最大限制 (10MB)",
     onUpload: () => {},
   });
-
-  const { props } = inspectElement(element);
-  assert.equal(props.variant, "master");
-
-  const [topSection, bottomSection] = props.children;
-  // Check top section: syllabusNodeTitle fallback
-  const topChildren = topSection.props.children;
-  assert.equal(topChildren[3].props.children, "未关联考纲");
-
-  // Check bottom section: upload error role="alert"
-  const details = bottomSection.props.children[1];
-  const detailsBox = details.props.children[1];
-  const alertP = detailsBox.props.children[2];
-  assert.ok(alertP != null);
-  assert.equal(alertP.props.children, "文件超出最大限制 (10MB)");
-  assert.equal(alertP.props.role, "alert");
+  assert.match(html, /未关联考纲/);
+  assert.match(html, /role="alert"[^>]*>文件超出最大限制 \(10MB\)/);
+  assert.match(html, /<button[^>]*disabled=""[^>]*>重试上传<\/button>/);
 });
 
 test("NoteLibraryView: 3-column responsive grid architecture", () => {

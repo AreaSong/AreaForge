@@ -1,6 +1,6 @@
 ---
 name: areaforge-incident-response
-description: "Use when Codex needs to triage or manage an AreaForge incident, outage, failed deployment, failed update, bad release, data-access issue, backup or restore failure, AI provider incident, upload/download failure, security suspicion, rollback decision, or post-incident review. This skill owns incident orchestration from severity to closeout; hand read-only signals to areaforge-observability and confirmed production execution to areaforge-sre-ops."
+description: "Use when AreaForge user impact or operational risk needs incident coordination: severity, evidence freeze, containment, post-incident review, and follow-up records. Hand read-only signal collection to areaforge-observability and confirmed live actions to areaforge-sre-ops."
 ---
 
 # AreaForge Incident Response
@@ -26,6 +26,8 @@ Use this skill when signals indicate user impact or operational risk and the nex
 10. [docs/security/threat-model.md](../../../docs/security/threat-model.md)
 11. [docs/security/file-ai-safety.md](../../../docs/security/file-ai-safety.md)
 
+Read the minimum sources relevant to the incident signal and proposed action. Always read this skill; load backup, security, release, or production runbooks only when the incident crosses those boundaries.
+
 ## References
 
 - [references/incident-runbook.md](references/incident-runbook.md): severity, triage, containment, rollback, communication, and closeout.
@@ -36,10 +38,11 @@ Use this skill when signals indicate user impact or operational risk and the nex
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report severity, evidence gaps, and file/line sources without changing incident records, residuals, or production state. Continue with containment or record updates only when the user explicitly requests the scoped action.
 1. Declare severity and scope: user-visible outage, degraded feature, data risk, security suspicion, release/update failure, or unknown.
 2. Freeze evidence before changing state: timestamp, version, digest, endpoint, logs, screenshots, failing action, backup status, and current updater state.
 3. Choose containment before repair: disable risky feature, pause auto-apply, fall back to local rules, stop further writes, or prepare rollback.
-4. For any write action, provide impact, rollback plan, validation, and explicit confirmation request before executing.
+4. For any production or external state-changing action, provide impact, rollback plan, validation, and an explicit confirmation request before executing. Local redacted incident/rollback evidence records and deterministic indexes are closeout documentation, not a second production authorization; validate them with the matching record validator.
 5. After containment or rollback, verify health, authenticated smoke, data accessibility, upload access, AI fallback/provider behavior, and update-agent status.
 6. Close only after recording root cause or accepted unknown, user impact, actions taken, validation evidence, residual risk, and follow-up owner.
 7. If rollback was executed, save a redacted proof from `docs/development/rollback-proof-record-template.md` and run `pnpm rollback:proof:validate <record>`; `ready-for-human-review` does not reopen the update channel or close residuals.
@@ -48,7 +51,7 @@ Use this skill when signals indicate user impact or operational risk and the nex
 
 ## Guardrails
 
-- Do not run destructive commands, restore, migration, rollback, updater apply, backup deletion, upload deletion, or production config writes without explicit confirmation.
+- Do not run destructive commands, restore, migration, rollback, updater apply, backup deletion, upload deletion, or production config writes without explicit confirmation. A local evidence-record write never authorizes any of these actions.
 - Do not hide uncertainty; classify unverified items as unknown or residual risk.
 - Do not rewrite historical audit, release, backup, or incident evidence to make the incident look clean.
 - Do not send full user records, attachment content, full review text, or secrets to AI during incident analysis.

@@ -44,6 +44,9 @@ export * from "./data-trash";
 export * from "./platform-hardening";
 export * from "./user-notification";
 export * from "./data-jobs";
+export * from "./data-job-queue";
+export * from "./data-export-job";
+export * from "./ranking-notification-job";
 export * from "./ranking-metrics";
 export * from "./ranking-policy";
 export * from "./controlled-operation-lifecycle";
@@ -768,3 +771,10 @@ function createRecoveryReason(input: RecoveryPlanInput): string {
   if (input.debtCount >= 6) return `当前有 ${input.debtCount} 项欠账，必须缩小战线。`;
   return "今日有效学习不足 30 分钟，先完成恢复任务。";
 }
+export * from "./data-delete-plan";
+export * from "./data-delete-ledger";
+export * from "./ranking-rebuild-job";
+export * from "./workspace-search-job";
+export * from "./data-job-quota";
+export * from "./capacity-quotas";
+export * from "./workspace-storage-quota";

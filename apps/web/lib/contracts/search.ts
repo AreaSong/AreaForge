@@ -9,10 +9,12 @@ export interface WorkspaceSearchResultDto {
 }
 
 export interface WorkspaceSearchResponseDto {
-  contractVersion: "workspace-search-v1";
+  contractVersion: "workspace-search-v2";
   workspaceId: string;
   query: string;
   results: WorkspaceSearchResultDto[];
   truncated: boolean;
-  indexed: false;
+  indexed: boolean;
+  indexState: "DISABLED" | "MISSING" | "STALE" | "CURRENT";
+  indexedAt: string | null;
 }

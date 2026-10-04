@@ -107,6 +107,8 @@
 
 复核记录：
 
+- `search-index-checkpoint-review-record.md`：SEARCH 本地接力检查点的受保护路径审阅边界，不替代运行态、CI、Release 或生产证据。
+
 - `product-experience-review-20260710-local.md`、`product-experience-review-v0.1.7-20260712-local.md`、`product-experience-review-20260715.md`、`product-experience-review-20260716.md`、`product-experience-review-20260716-ops-control-plane.md`、`product-experience-review-20260718-5bec626.md`、`product-experience-review-20260720-ltops.md`、`product-experience-review-20260806-current.md`
 - `residual-closure-review-20260716.md`、`residual-closure-review-20260720-ops-001.md`、`residual-closure-review-20260720-ops-005.md`、`residual-closure-review-20260720-sc-004.md`、`residual-closure-review-20260720-ops-006.md`
 

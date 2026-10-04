@@ -9,6 +9,8 @@ import { consumeActionTokenFragment, clearStoredActionToken } from "@/lib/auth/t
 import { formatDateTime } from "@/lib/formatters";
 import {
   acceptWorkspaceInvitation,
+  invitationAcceptErrorText,
+  invitationPreviewFailure,
   previewWorkspaceInvitation,
   rejectWorkspaceInvitation,
   type WorkspaceInvitationPreviewView,
@@ -24,11 +26,22 @@ export function InvitationAcceptClient({ currentUser }: { currentUser: { id: str
   const router = useRouter();
   const tokenRef = useRef("");
   const actionPendingRef = useRef(false);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  const focusNoticeRef = useRef(false);
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [preview, setPreview] = useState<WorkspaceInvitationPreviewView | null>(null);
   const [pending, setPending] = useState(true);
   const [done, setDone] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const [previewRetryable, setPreviewRetryable] = useState(false);
+  useEffect(() => {
+    if (!pending && notice && focusNoticeRef.current) {
+      noticeRef.current?.focus();
+      focusNoticeRef.current = false;
+    }
+  }, [notice, pending]);
   useEffect(() => {
     let active = true;
     tokenRef.current = consumeActionTokenFragment(invitationTokenStorageKey);
@@ -42,29 +55,37 @@ export function InvitationAcceptClient({ currentUser }: { currentUser: { id: str
       }
       const result = await previewWorkspaceInvitation(tokenRef.current);
       if (!active) return;
+      const failure = invitationPreviewFailure(result);
       setPreview(result.ok ? result.body?.invitationPreview ?? null : null);
-      setNotice(result.ok ? null : result.status === 0 ? "网络连接不可用，请恢复后重试。" : "邀请无效、已使用或已过期。");
+      setPreviewRetryable(!result.ok && failure.retryable);
+      focusNoticeRef.current = !result.ok && previewAttempt > 0;
+      setNotice(result.ok ? null : failure.message);
       setPending(false);
     }
     void loadPreview();
     return () => { active = false; };
-  }, []);
+  }, [previewAttempt]);
+  function retryPreview() {
+    if (pending || actionPendingRef.current) return;
+    setPending(true);
+    setNotice(null);
+    setPreviewAttempt(value => value + 1);
+  }
   async function accept() {
     if (actionPendingRef.current) return;
     if (!tokenRef.current) return setNotice("邀请链接无效或缺少一次性凭证。");
     actionPendingRef.current = true;
     setPending(true);
+    setNotice(null);
     try {
       const result = await acceptWorkspaceInvitation(tokenRef.current, password || undefined);
       setDone(result.ok);
+      setAccepted(result.ok);
       if (result.ok) clearStoredActionToken(invitationTokenStorageKey);
+      focusNoticeRef.current = !result.ok;
       setNotice(result.ok
         ? "邀请已接受，可以进入工作区。"
-        : result.status === 0
-          ? "网络连接不可用，请恢复后重试。"
-          : result.body?.error === "WORKSPACE_INVITATION_CONTINUATION_REQUIRED"
-            ? "请使用受邀账户登录，或检查邀请是否仍有效；新账户需要设置符合策略的密码。"
-            : "邀请无效、已使用或已过期。");
+        : invitationAcceptErrorText(result));
     } finally {
       actionPendingRef.current = false;
       setPending(false);
@@ -110,5 +131,28 @@ export function InvitationAcceptClient({ currentUser }: { currentUser: { id: str
   }
   const accountMatchesInvite = !currentUser || !preview
     || currentUser.email.trim().toLowerCase() === preview.invitedEmail.trim().toLowerCase();
-  return <div aria-busy={pending} className="space-y-4">{preview ? <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300"><p className="break-words font-medium text-white">{preview.workspaceName}</p><p className="mt-1 break-all text-xs text-zinc-400">受邀邮箱：{preview.invitedEmail}</p><p className="mt-1 text-xs text-zinc-500">有效期至：{formatDateTime(preview.expiresAt)}</p></div> : null}{currentUser ? <p className="break-all rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-400">当前登录：{currentUser.email}{accountMatchesInvite ? "" : "（与受邀邮箱不一致）"}</p> : null}<label className="block text-sm text-zinc-300">仅新账户需要设置密码<Input className="mt-2" disabled={pending || done || Boolean(currentUser)} onChange={(event) => setPassword(event.target.value)} type="password" value={password} /></label><Button disabled={pending || done || !preview || !accountMatchesInvite} fullWidth onClick={accept} type="button">{pending ? "正在处理邀请…" : "接受邀请"}</Button>{currentUser ? <Button disabled={pending || done || !preview || !accountMatchesInvite} fullWidth onClick={reject} type="button" variant="secondary">拒绝邀请</Button> : null}{notice ? <p aria-live="polite" className="text-sm text-zinc-300">{notice}</p> : null}{currentUser ? <Button disabled={pending} fullWidth onClick={switchAccount} type="button" variant="secondary">退出并切换账户</Button> : <Link className="block text-center text-sm text-teal-300" href={invitationLoginHref}>已有账户？先登录</Link>}</div>;
+  return <div aria-busy={pending} className="space-y-4">
+    {preview ? <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-300">
+      <p className="break-words font-medium text-white">{preview.workspaceName}</p>
+      <p className="mt-1 break-all text-xs text-zinc-400">受邀邮箱：{preview.invitedEmail}</p>
+      <p className="mt-1 text-xs text-zinc-500">有效期至：{formatDateTime(preview.expiresAt)}</p>
+    </div> : null}
+    {currentUser ? <p className="break-all rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-400">
+      当前登录：{currentUser.email}{accountMatchesInvite ? "" : "（与受邀邮箱不一致）"}
+    </p> : null}
+    <label className="block text-sm text-zinc-300">仅新账户需要设置密码
+      <Input autoComplete="new-password" className="mt-2" controlHeight="lg" disabled={pending || done || Boolean(currentUser)}
+        onChange={(event) => setPassword(event.target.value)} type="password" value={password} />
+    </label>
+    <Button disabled={pending || done || !preview || !accountMatchesInvite} fullWidth onClick={accept} size="lg" type="button">
+      {pending ? "正在处理邀请…" : "接受邀请"}
+    </Button>
+    <p aria-atomic="true" aria-live="polite" className={notice ? "rounded text-sm text-zinc-300 focus:outline-2 focus:outline-offset-2 focus:outline-teal-400" : "sr-only"}
+      ref={noticeRef} role="status" tabIndex={-1}>{notice}</p>
+    {previewRetryable && !preview && !done ? <Button disabled={pending} fullWidth onClick={retryPreview} size="lg" type="button" variant="secondary">重新读取邀请</Button> : null}
+    {currentUser ? <Button disabled={pending || done || !preview || !accountMatchesInvite} fullWidth onClick={reject} size="lg" type="button" variant="secondary">拒绝邀请</Button> : null}
+    {accepted ? <Link className="block rounded-xl border border-teal-400/30 px-4 py-3 text-center text-sm text-teal-300" href="/settings/workspaces">进入工作区</Link>
+      : currentUser ? <Button disabled={pending} fullWidth onClick={switchAccount} size="lg" type="button" variant="secondary">退出并切换账户</Button>
+      : <Link className="block text-center text-sm text-teal-300" href={invitationLoginHref}>已有账户？先登录</Link>}
+  </div>;
 }

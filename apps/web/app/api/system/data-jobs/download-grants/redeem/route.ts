@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { readJson, requireApiUser } from "@/lib/api/auth";
 import { apiErrorResponse, zodErrorResponse } from "@/lib/api/responses";
@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
     const actor = await requireApiUser(request);
     const parsed = redeemSchema.safeParse(await readJson(request));
     if (!parsed.success) return zodErrorResponse(parsed.error);
-    return NextResponse.json({ download: await redeemExportDownloadGrant(actor, parsed.data.token) });
+    const download = await redeemExportDownloadGrant(actor, parsed.data.token, request.signal);
+    return new Response(download.body, { headers: download.headers });
   } catch (error) {
     return apiErrorResponse(error);
   }

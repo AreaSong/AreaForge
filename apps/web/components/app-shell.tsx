@@ -40,6 +40,7 @@ export function AppShell(props: {
   initialStatus: AppShellStatusDto;
   email: string;
   userId: string;
+  notificationsEnabled: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -145,6 +146,7 @@ export function AppShell(props: {
             userId={props.userId}
             workspaceId={status.workspaceId}
             hasWorkspace={Boolean(status.workspaceId)}
+            notificationsEnabled={props.notificationsEnabled}
             statusTone={displayStatus.mobileTop.tone}
             statusSummary={displayStatus.mobileTop.summary}
             activeSession={status.activeSession}

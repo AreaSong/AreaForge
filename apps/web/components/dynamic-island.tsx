@@ -100,6 +100,7 @@ import {
   useDirectResumeSession,
   useDirectPauseSession,
   DynamicIslandCollapsedBar,
+  DynamicIslandCompactTrigger,
   DynamicIslandExpandedFold,
 } from "./dynamic-island-helpers";
 import type { QuickReviewActivityClaim } from "@/lib/client/quick-review-activity";
@@ -355,7 +356,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
 
   const localCommands = useMemo(() => filterGlobalCommands(query, props.commands ?? GLOBAL_COMMANDS), [props.commands, query]);
   const resetSearchSelection = useCallback(() => setActiveIndex(0), []);
-  const workspaceSearch = useWorkspaceSearchCommands(props.workspaceId, query, resetSearchSelection);
+  const workspaceSearch = useWorkspaceSearchCommands(props.userId, props.workspaceId, query, resetSearchSelection);
   const commands = useMemo(
     () => [...workspaceSearch.commands, ...localCommands],
     [workspaceSearch.commands, localCommands],
@@ -373,6 +374,7 @@ export function DynamicIsland(props: DynamicIslandProps) {
 
   const containerGlowClass = getCapsuleGlowStyle(currentItem.kind, isOpen);
   const expandedAuraClass = getExpandedHubAuraClass(currentItem.kind);
+  const expanded = isOpen || morph.isExpanded || morph.isCollapsing;
 
   const handleCapsuleClick = () => {
     if (!isOpen && !morph.isMerging) {
@@ -390,11 +392,13 @@ export function DynamicIsland(props: DynamicIslandProps) {
       ref={containerRef}
       {...ticker.containerProps}
       onWheel={handleWheel}
-      className="relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-start justify-center gap-2 z-[var(--af-layer-modal)]"
+      className={`relative mx-auto flex h-9 w-full min-w-0 max-w-[32rem] items-start justify-center gap-2 z-[var(--af-layer-modal)] ${props.compactOnNarrow && expanded ? "max-[359px]:w-[calc(100vw-1rem)]" : ""}`}
     >
+      <DynamicIslandCompactTrigger enabled={Boolean(props.compactOnNarrow) && !expanded} inputRef={inputRef}
+        onOpen={() => { setViewMode("search"); morph.fastForwardToExpanded(); }} />
       {/* Main Capsule */}
       <div
-        className={`overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`${props.compactOnNarrow && !expanded ? "max-[359px]:hidden" : ""} overflow-hidden border bg-[#090e12]/98 shadow-2xl backdrop-blur-2xl transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           morph.capsuleMorphClass
         } ${
           (isOpen || morph.isExpanded || morph.isCollapsing)

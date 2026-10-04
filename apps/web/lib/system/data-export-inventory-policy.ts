@@ -87,9 +87,18 @@ export const DATA_EXPORT_MODEL_DISPOSITIONS = [
   excluded("AuthActionToken", "purpose-separated credential material is never exported"),
   excluded("AuthThrottleBucket", "anti-abuse keys and counters are internal security state"),
   excluded("DataExportPackage", "artifact storage identity and objectKey are internal"),
+  excluded("DataExportArtifact", "per-lease staging and cleanup identity is internal storage state"),
   excluded("DataExportDownloadGrant", "download capability hashes are never exported"),
   excluded("AiRuntimeSetting", "global server runtime configuration is not account data"),
+  excluded("DataDeletionIntent", "internal deletion authorization, lease and receipt capability state"),
+  excluded("DataDeletionItem", "internal frozen identity and row fingerprint manifest"),
+  excluded("DataDeletionFence", "internal visibility and mutation fences are not portable source data"),
+  excluded("DataDeletionFile", "internal exact file cleanup identity and crash journal"),
+  excluded("DataDeletionLedger", "restore anti-resurrection ledger requires an independently trusted head"),
+  excluded("DataDeletionVisibility", "global internal visibility cache generation"),
   derived("RankingProjection", "rebuildable from opt-in challenge source facts"),
+  derived("WorkspaceSearchPartition", "actor-scoped derived index metadata is not portable source data"),
+  derived("WorkspaceSearchDocument", "derived copies may include granted titles, not owned export records"),
 ] as const satisfies readonly DataExportModelDisposition[];
 
 export type DataExportDisposition = "INCLUDED_PREVIEW" | "PLANNED_MINIMIZED" | "EXCLUDED_SECURITY" | "DERIVED_REBUILDABLE";

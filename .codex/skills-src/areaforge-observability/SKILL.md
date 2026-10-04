@@ -1,6 +1,6 @@
 ---
 name: areaforge-observability
-description: "Use when Codex needs to inspect, design, or improve AreaForge observability: health checks, logs, update-agent status, backup freshness, disk/cert capacity, release evidence, alert thresholds, smoke signals, operational dashboards, or production readiness signals. This skill owns read-only evidence; hand production write actions to areaforge-sre-ops and incident orchestration to areaforge-incident-response."
+description: "Use for read-only AreaForge runtime signals: health/readiness, logs, backup freshness, updater status, alerts, disk/certificate capacity, release identity, and production evidence. Hand state changes to areaforge-sre-ops and incident coordination to areaforge-incident-response."
 ---
 
 # AreaForge Observability
@@ -25,6 +25,8 @@ Use this skill to prove what the system is doing before diagnosing, releasing, r
 9. [docs/development/support-bundle-preview.md](../../../docs/development/support-bundle-preview.md)
 10. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 
+Read the minimum sources relevant to the observation target. Always read this skill; load live production, backup, release, or UX references only when the requested evidence needs them.
+
 ## References
 
 - [references/signals.md](references/signals.md): signal inventory, thresholds, evidence format, and gaps.
@@ -48,6 +50,6 @@ Use this skill to prove what the system is doing before diagnosing, releasing, r
 
 - Do not mark production healthy from a single local command, cached screenshot, or stale release record.
 - Do not expose tokens, cookies, `.env`, database URLs, upload paths, backup paths with secrets, or full logs containing user content.
-- Do not execute production deploy, updater apply, backup, restore, migration, rollback, or server command from this skill without explicit confirmation through the SRE or incident skill.
+- Do not execute a state-changing production/server command, production deploy, updater apply, backup, restore, migration, or rollback from this skill without explicit confirmation through the SRE or incident skill. Redacted read-only health, log, status, and evidence collection remains allowed within its existing capability scope and must not expose secrets.
 - Do not treat `GET /api/health` alone as complete product health; pair it with authenticated smoke or an explicit limitation.
 - Do not invent green status for missing metrics. Report `unknown` and the missing evidence.

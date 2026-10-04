@@ -1,3 +1,4 @@
+import { workspaceStorageQuotaErrorText } from "@/lib/api/workspace-storage-quota-errors";
 import type {
   NoteDto,
   NoteMasteryStatusDto,
@@ -40,6 +41,8 @@ export interface NoteFormDraft {
 }
 
 export function labelAttachmentError(error?: string): string {
+  const quotaMessage = workspaceStorageQuotaErrorText(error);
+  if (quotaMessage) return quotaMessage;
   switch (error) {
     case "ATTACHMENT_TOO_LARGE": return "附件超过大小限制";
     case "ATTACHMENT_UNSUPPORTED_TYPE": return "只支持 PDF、PNG、JPEG、WebP";

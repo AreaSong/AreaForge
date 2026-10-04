@@ -57,6 +57,7 @@ export interface ControlledOperationIntentInput {
   expectedBeforeHash: string;
   idempotencyKey: string;
   requestedReason: string;
+  executionSnapshotHash?: string;
 }
 
 export interface ControlledOperationRequestBinding {
@@ -97,6 +98,17 @@ export interface ControlledOperationRequestView {
   revision: number;
   createdAt: string;
   updatedAt: string;
+  execution?: { environment: "local_fixture" | "production"; bindingHash: string; currentVersion: string; targetVersion: string | null; targetImage: string | null } | null;
+}
+
+export interface ControlledOperationContextView {
+  snapshotHash: string; expectedBeforeHash: string; environment: "local_fixture" | "production"; observedAt: string;
+  currentVersion: string; currentImage: string | null; targetVersion: string | null; targetImage: string | null;
+  rollbackTargetVersion: string | null; rollbackTargetImage: string | null; signatureRequired: boolean;
+}
+export interface ControlledOperationEvidenceView {
+  rawEventHash: string; projectionHash: string; requestHash: string; recordedAt: string;
+  phase: string; state: "started" | "complete" | "uncertain"; executionAttempted: boolean; environment: "local_fixture" | "production";
 }
 
 export type ControlledOperationRequestDto = ControlledOperationRequestView;
@@ -107,6 +119,9 @@ export interface ControlledOperationsResponse {
   operations?: ControlledOperationDescriptorView[];
   requests?: ControlledOperationRequestView[];
   request?: ControlledOperationRequestView;
+  executionStatus?: "ready" | "disabled" | "unavailable";
+  executionContext?: ControlledOperationContextView | null;
+  evidence?: ControlledOperationEvidenceView[];
 }
 
 export function listControlledOperations(): Promise<ApiResult<ControlledOperationsResponse>> {

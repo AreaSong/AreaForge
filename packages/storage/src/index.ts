@@ -493,3 +493,9 @@ export {
   parseSingleFileMultipart,
 } from "./bounded-multipart";
 export type { BoundedFileScan, BoundedMultipartFailure } from "./bounded-multipart";
+export * from "./data-export-files";
+export * from "./data-export-zip";
+export * from "./data-export-archive";
+export { inspectDeletionFile, removeDeletionFile, DataDeleteStorageError, type DeletionFileDescriptor, type DeletionFileRoots } from "./data-delete-files";
+export { verifyStorageQuotaInventory, removeStorageQuotaAttachmentFiles, assertStorageQuotaFilesAbsent, StorageQuotaFileError,
+  type StorageFileClaim, type StorageCleanupIdentity, type StorageCleanupHooks, type StorageCleanupMode } from "./workspace-storage-quota-files";

@@ -18,13 +18,16 @@ export function searchWorkspaceApi(
 export function isWorkspaceSearchResponse(value: unknown): value is WorkspaceSearchResponseDto {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Partial<WorkspaceSearchResponseDto>;
-  return candidate.contractVersion === "workspace-search-v1"
+  return candidate.contractVersion === "workspace-search-v2"
     && typeof candidate.workspaceId === "string"
     && typeof candidate.query === "string"
-    && candidate.indexed === false
+    && typeof candidate.indexed === "boolean"
+    && ["DISABLED", "MISSING", "STALE", "CURRENT"].includes(String(candidate.indexState))
+    && (candidate.indexed ? candidate.indexState === "CURRENT" && typeof candidate.indexedAt === "string" && Number.isFinite(Date.parse(candidate.indexedAt))
+      : candidate.indexState !== "CURRENT" && candidate.indexedAt === null)
     && typeof candidate.truncated === "boolean"
     && Array.isArray(candidate.results)
-    && candidate.results.every(isWorkspaceSearchResult);
+    && candidate.results.length <= 100 && candidate.results.every(isWorkspaceSearchResult);
 }
 
 function isWorkspaceSearchResult(item: unknown): boolean {

@@ -7,18 +7,21 @@ import test from "node:test";
 const systemRoot = path.dirname(fileURLToPath(import.meta.url));
 
 test("workspace search authenticates and filters before returning private labels", async () => {
-  const [service, route] = await Promise.all([
+  const [service, route, scope, source] = await Promise.all([
     readFile(path.join(systemRoot, "workspace-search-service.ts"), "utf8"),
     readFile(path.join(systemRoot, "../../app/api/search/route.ts"), "utf8"),
+    readFile(path.join(systemRoot, "../../../../packages/db/src/workspace-search-scope.ts"), "utf8"),
+    readFile(path.join(systemRoot, "../../../../packages/db/src/workspace-search-source.ts"), "utf8"),
   ]);
   assert.match(route, /requireApiUser/);
   assert.match(route, /searchWorkspace\(actor\.id/);
-  assert.match(service, /requireWorkspacePolicy/);
-  assert.match(service, /grantAllowsActor/);
-  assert.match(service, /filterWorkspaceSearchCandidates/);
-  assert.match(service, /ownerUserId:\s*actorId/);
-  assert.match(service, /indexed:\s*false/);
-  assert.doesNotMatch(service, /content:\s*true|questionText:\s*true|reason:\s*true|originalName:\s*true|email:\s*true/);
+  assert.match(service, /captureSearchScope/);
+  assert.match(service, /queryWorkspaceSearch/);
+  assert.match(service, /Serializable/);
+  assert.match(scope, /workspaceGrantAllowsActor/);
+  assert.match(source, /resourceOwnerUserId.*ownerUserId/);
+  assert.match(source, /ownerFilter/);
+  assert.doesNotMatch(service + scope + source, /content:\s*true|questionText:\s*true|reason:\s*true|originalName:\s*true|email:\s*true/);
 });
 
 test("workspace search route is read-only", async () => {

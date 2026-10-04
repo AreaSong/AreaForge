@@ -15,6 +15,7 @@ import {
   type BoundedFileScan,
 } from "@areaforge/storage";
 import { prisma, type Prisma } from "@areaforge/db";
+import { guardAttachmentStorageTransaction } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type {
   StagingUploadResult,
@@ -1153,6 +1154,7 @@ async function lockStudyResourceUploadResolution(
   actorId: string,
   attachmentId: string,
 ): Promise<void> {
+  await guardAttachmentStorageTransaction(tx);
   const scope = `${actorId}:${attachmentId}`;
   await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${studyResourceResolutionLockNamespace}, hashtext(${scope}))`;
 }

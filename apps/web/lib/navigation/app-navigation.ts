@@ -36,6 +36,7 @@ export const SETTINGS_TAB_ITEMS = [
   { id: "exams", href: "/settings/exams", label: "考试与科目" },
   { id: "profile", href: "/settings/profile", label: "个人与恢复" },
   { id: "learning", href: "/settings/learning", label: "学习与提醒" },
+  { id: "notifications", href: "/settings/notifications", label: "通知中心" },
   { id: "ai", href: "/settings/ai", label: "AI 与隐私" },
   { id: "data", href: "/settings/data", label: "数据与安全" },
   { id: "system", href: "/settings/system", label: "系统与更新" },

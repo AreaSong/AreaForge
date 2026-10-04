@@ -21,11 +21,21 @@ test("data job center is feature-gated and exposes the complete safe lifecycle s
     "retryDataLifecycleJob",
     "createExportDownloadGrant",
     "revokeExportDownloadGrants",
+    "redeemExportDownloadGrant",
+    "pauseDataLifecycleJob",
+    "resumeDataLifecycleJob",
   ]) assert.match(component, new RegExp(symbol));
   assert.match(page, /DATA_LIFECYCLE_ENABLED/);
   assert.match(component, /不会物理删除/);
-  assert.match(component, /不会在 Web 容器写入归档文件/);
+  assert.match(component, /归档由独立 worker 写入/);
   assert.match(component, /不执行服务器命令/);
+  assert.match(component, /createLatestOperationGate/);
+  assert.match(component, /createExclusiveOperationGate/);
+  assert.match(component, /requestIdentity\.current/);
+  assert.match(component, /job\.downloadable === true/);
+  assert.doesNotMatch(component, /clipboard|value=\{[^}]*grant[^}]*token|任务状态未改变/);
+  assert.match(component, /redeemExportDownloadGrant\(issued\.body\.grant\.token/);
+  assert.match(page, /DATA_EXPORT_ENABLED/);
   assert.doesNotMatch(component, /\bfetch\s*\(/);
   assert.doesNotMatch(component, /<button\b|<input\b|<select\b|<textarea\b/);
 });

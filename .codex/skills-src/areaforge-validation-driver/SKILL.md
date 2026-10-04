@@ -22,6 +22,8 @@ Choose validation from risk and touched paths, then report evidence honestly.
 6. [package.json](../../../package.json)
 7. The nearest path-local `AGENTS.md` for changed files.
 
+Read only the sources relevant to the changed paths and risk profile. The matrix is authoritative for command selection; this skill does not turn every listed profile into a required command set.
+
 ## References
 
 - [references/validation-map.md](references/validation-map.md): path-to-check mapping and report format.
@@ -40,14 +42,14 @@ Choose validation from risk and touched paths, then report evidence honestly.
 2. Load the validation map before selecting commands.
 3. For repo-local skill changes, treat `agents/openai.yaml` metadata drift as part of validation scope, not as cosmetic text.
 4. For data lifecycle work, combine security, file-storage, AI, backup/restore, residual, and docs checks as applicable; do not let docs readiness or typecheck alone prove privacy, export, deletion, retention, or migration safety.
-5. Run checks after the final relevant edit.
+5. Run checks after the final relevant edit, including final doc/skill metadata synchronization. If a later edit changes the checked scope, rerun the affected profile.
 6. If a command fails, classify whether the failure is caused by the change, environment, stale generated files, or an unrelated dirty worktree.
 7. Report commands, result, evidence class, scope covered, skipped checks, blockers, release requirement, and residual unverified risk.
-8. When the local test pool is in scope, validate `pnpm dev:test:latest -- --json` after the final pool operation. Report whether this task updated the pool; only a successful task-owned `refresh` or `snapshot` may be called the latest optimized instance. Browser validation must reuse that URL; do not multiply Web containers, and clean up any one-shot `areaforge-v11browser-runtime-*` runtime before closeout.
+8. When the local test pool is in scope, validate `pnpm dev:test:latest -- --json` after the final pool operation. Report whether this task updated the pool; only a successful task-owned `refresh` or `snapshot` may be called the latest optimized instance. A pre-existing instance may support evidence when its source fingerprint matches the requested scope, but must remain labeled pre-existing. Browser validation must reuse that URL; do not multiply Web containers, and clean up any one-shot `areaforge-v11browser-runtime-*` runtime before closeout.
 
 ## Guardrails
 
-- Do not claim completion without executed validation or an explicit blocked reason.
+- Do not mark a task `complete` without executed validation for its required scope. A missing required command may produce `blocked` only when a material approval, environment, or evidence gap remains after safe alternatives are exhausted; otherwise use `partial` or `not-applicable` with a written reason. Review/diagnostic work may complete as a read-only review with source/line evidence and an explicit claim scope; it must not claim the fix or runtime health.
 - Do not use `pnpm check` alone to prove release, production, AI privacy, upload safety, or UX.
 - Do not use docs gates to prove runtime behavior.
 - Do not use docs gates or static checks alone to prove data lifecycle safety when real export, deletion, retention, migration, provider trace, or backup behavior changed.

@@ -2,8 +2,9 @@ import { Database, Download, FileInput, HardDrive, ShieldCheck } from "lucide-re
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DataJobCenterClient } from "@/components/data-job-center-client";
+import { DataDeletionCenter } from "@/components/data-deletion-center";
 import { RankingChallengeClient } from "@/components/ranking-challenge-client";
-import { UserNotificationInboxClient } from "@/components/user-notification-inbox-client";
+import { SearchIndexPanel } from "@/components/search-index-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/feedback";
 import { PageFrame, PageHeader } from "@/components/ui/page";
@@ -19,15 +20,14 @@ export default async function SettingsDataPage() {
   if (!user) redirect("/login");
   const dataLifecycleEnabled = process.env.DATA_LIFECYCLE_ENABLED === "true";
   const rankingEnabled = process.env.RANKING_ENABLED === "true";
-  const platformNotificationsEnabled = process.env.PLATFORM_NOTIFICATIONS_ENABLED === "true";
-  const workspaces = dataLifecycleEnabled || rankingEnabled ? await listExamWorkspaces(user.id) : [];
+  const workspaces = await listExamWorkspaces(user.id);
 
   return (
     <PageFrame variant="dashboard-wide" className="space-y-6">
       <PageHeader
         eyebrow="设置 / 数据与安全"
         title="数据与安全"
-        description="管理学习树的导入导出入口，了解数据边界和恢复原则。删除、迁移与生产备份仍由受控运维流程处理。"
+        description="管理本人数据的导出、回收站与删除；生产迁移和备份恢复仍由独立受控运维流程处理。"
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
@@ -161,17 +161,23 @@ export default async function SettingsDataPage() {
           <section aria-labelledby="data-job-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="data-job-center-title" className="text-base font-semibold text-white">数据任务中心</h2>
-              <p className="mt-0.5 text-xs text-zinc-400">v1.6 候选能力：预览、提交和观察任务；删除与归档边界仍保持关闭。</p>
+              <p className="mt-0.5 text-xs text-zinc-400">预览本人数据并申请私有 ZIP；真实删除请使用下方独立流程。</p>
             </div>
             <DataJobCenterClient
+              key={user.id}
               enabled={dataLifecycleEnabled}
-              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({
+              exportEnabled={dataLifecycleEnabled && process.env.DATA_EXPORT_ENABLED === "true"}
+              workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE" && workspace.membershipRole === "OWNER").map((workspace) => ({
                 id: workspace.id,
                 name: workspace.name,
                 role: workspace.membershipRole,
               }))}
             />
           </section>
+          <DataDeletionCenter key={user.id + "-deletion"} enabled={dataLifecycleEnabled && process.env.DATA_DELETE_ENABLED === "true"}
+            workspaces={workspaces.filter(workspace => workspace.status === "ACTIVE").map(workspace => ({ id: workspace.id, name: workspace.name, role: workspace.membershipRole }))} />
+          <SearchIndexPanel key={user.id + "-search"} actorId={user.id} enabled={process.env.SEARCH_INDEX_ENABLED === "true"}
+            workspaces={workspaces.filter(workspace => workspace.status === "ACTIVE").map(workspace => ({ id: workspace.id, name: workspace.name }))} />
           <section aria-labelledby="ranking-center-title" className="space-y-3">
             <div className="border-b border-white/10 pb-3">
               <h2 id="ranking-center-title" className="text-base font-semibold text-white">成长指标与私有挑战</h2>
@@ -182,13 +188,6 @@ export default async function SettingsDataPage() {
               currentUserId={user.id}
               workspaces={workspaces.filter((workspace) => workspace.status === "ACTIVE").map((workspace) => ({ id: workspace.id, name: workspace.name }))}
             />
-          </section>
-          <section aria-labelledby="notification-inbox-title" className="space-y-3">
-            <div className="border-b border-white/10 pb-3">
-              <h2 id="notification-inbox-title" className="text-base font-semibold text-white">成员与排名通知</h2>
-              <p className="mt-0.5 text-xs text-zinc-400">通知按账户和 Workspace 隔离，支持跨设备已读、隐藏和恢复。</p>
-            </div>
-            <UserNotificationInboxClient enabled={platformNotificationsEnabled} />
           </section>
         </main>
       </div>

@@ -1,6 +1,6 @@
 ---
 name: areaforge-product-experience
-description: "Use when Codex needs to audit, design, or improve AreaForge real user experience, product flows, learning loop clarity, dashboard information architecture, task/timer/review ergonomics, reports usefulness, recovery mode, update center usability, accessibility, empty states, copy, or visual polish. This skill owns product design judgment; executing browser/API smoke and collecting verification evidence belongs to areaforge-qa-smoke."
+description: "Use for AreaForge UX design judgment: task/timer/review flows, information architecture, accessibility, copy, empty/recovery states, mobile fit, learning-loop clarity, and visual polish. Browser/API evidence belongs to areaforge-qa-smoke; behavior-doc synchronization belongs to areaforge-doc-sync."
 ---
 
 # AreaForge Product Experience
@@ -24,6 +24,8 @@ Judge the app by whether a tired student can understand the next action and trus
 8. [docs/development/residual-risk-ledger.md](../../../docs/development/residual-risk-ledger.md)
 9. [docs/development/long-term-operability-control-plane.md](../../../docs/development/long-term-operability-control-plane.md)
 
+Read the minimum sources relevant to the persona and journey under review. Always read this skill; load QA, module, release, or long-term references only when the change or claim needs them.
+
 ## References
 
 - [references/experience-rubric.md](references/experience-rubric.md): product experience rubric and journey checklist.
@@ -32,6 +34,7 @@ Judge the app by whether a tired student can understand the next action and trus
 
 ## Workflow
 
+0. If the request is Review/diagnostic, keep it read-only: report the affected journey, observations, and evidence gaps without editing UI, docs, or residuals. Continue with implementation or behavior-doc updates only when the user explicitly requests a change.
 1. Pick the target persona and moment: first setup, morning planning, focus session, end-session closeout, evening review, weekly report, recovery, simulation, or update.
 2. Trace the user journey before proposing UI changes.
 3. Evaluate clarity, trust, friction, feedback, recovery, accessibility, and mobile fit.

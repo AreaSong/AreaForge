@@ -1,4 +1,4 @@
 interface:
   display_name: "AreaForge Security Governance"
   short_description: "Security privacy and data lifecycle guardrails"
-  default_prompt: "Use $areaforge-security-governance to review AreaForge security, privacy, data lifecycle, and supply-chain risk."
+  default_prompt: "Use $areaforge-security-governance to review AreaForge security, privacy, data lifecycle, secrets, and server-command boundaries; hand release asset trust to Supply Chain."

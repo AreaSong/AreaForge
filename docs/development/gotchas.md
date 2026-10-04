@@ -25,12 +25,47 @@
 
 ## 并发与事务
 
+### 对象递归排序序列化会悄悄丢失 Date，恢复原值还可能绕过内容指纹
+
+- 触发：把数据库 session 的 Date 直接交给 `stableStringify` 构造来源指纹；或修改学习时长后又恢复原值。
+- 根因：递归按对象键序列化的实现不调用 `Date.toJSON`，无可枚举键的日期变成空对象；仅比较最终内容也识别不了“改过再改回”的 ABA 历史。
+- 规避：日期先显式转换 ISO 字符串，来源快照同时绑定可信行修订；排名使用 session `xmin`，并在准备和提交时重读比较。保持摘要内部可见，不把修订当作学习指标或 DTO 字段。
+- 关联：`packages/db/src/ranking-rebuild-snapshot.ts`、`scripts/quality/ranking-rebuild-runtime.selftest.ts`、`docs/modules/ranking-rebuild.md`。
+
+### 删除事务的记录时间不能当作备份快照水位
+
+- 触发：删除已写入 `completedAt` 但事务未提交时启动数据库备份；按备份时间筛选恢复账本。
+- 根因：备份仍能看到旧记录，而账本中的时间早于备份开始；时间过滤会跳过这次后来提交的删除。
+- 规避：从恢复库取得账本序号/head 快照，绑定 dump hash 并核对外部可信源链，重放缺失后缀；保持恢复目标未发布。用提交前屏障与真实 dump/restore 验证该竞争窗口。
+- 关联：`packages/core/src/data-delete-ledger.ts`、`scripts/quality/data-delete-restore-runtime.ts`、`docs/modules/data-deletion.md`。
+
+### ORM 的回收站过滤不会自动覆盖原生 SQL 聚合
+
+- 触发：普通详情已隐藏回收站对象，知识画布搜索仍返回其标题或图关系。
+- 根因：Prisma `$allModels` 扩展不处理 `$queryRaw`；聚合、计数和分页已在数据库中执行，事后删 DTO 不够。
+- 规避：原生读显式在节点/边/计数/分页之前接入冻结谓词，并在查询后重验可见性代次；补 focus/search 的真实 API 验收。
+- 关联：`packages/db/src/data-delete-visibility.ts`、`apps/web/lib/study/knowledge-canvas-query.ts`。
+
+### 把失效收件人的通知失败传播回源事务，会让挑战无法结束或清退参与者
+
+- 触发：参与者离开或被移除工作区、账户被暂停后，Owner 结束/解散挑战、移除参与者或处理申诉返回通知授权冲突。
+- 根因：Membership 生命周期与挑战参与记录独立，通知仍遍历既有参与者；收件人校验抛错会回滚整个业务事务。
+- 规避：生产阶段先锁定并验证请求者、工作区和事件来源，仅跳过已失效收件人；已排队事件在消费阶段仍严格拒绝。不能吞掉请求者失效、跨工作区 source 或锁冲突；所有权转移目标的有效性必须在源事务独立检查，不能依赖通知开关。
+- 关联：`packages/db/src/ranking-notification-authorization.ts`、`scripts/quality/ranking-notification-source-runtime.ts`、`docs/modules/background-jobs.md`。
+
 ### Prisma pg adapter 在同一 transaction client 上并发发查询会触发 deprecation 并有排队风险
 
 - 触发：事务回调里用 `Promise.all` 或未 await 的查询共享同一个 transaction client；本地 UX smoke 曾真实复现 `pg` 的 query queue deprecation 告警。
 - 根因：`pg` 的同一连接不支持并发查询，Prisma adapter 把并发请求排队，行为依赖 `pg` 版本的容忍度。
 - 规避：`packages/db` 已对 transaction 内查询串行化；升级 `pg` / `@prisma/adapter-pg` 前先运行 `pnpm pg:trace-deprecation` 复核。
 - 关联：`packages/db`、residual `AF-RISK-SC-003`（closed-evidence）。
+
+### 原生 SQL 的序列化冲突不一定直接返回 P2034
+
+- 触发：并发/旧快照测试只判断 Prisma 顶层错误码，把正常中止误判为未知失败。
+- 根因：pg adapter 可用 `P2010` 包装原生 SQL 错误，真实 SQLSTATE 位于 metadata 或 driver cause；ORM 冲突与 raw query 的外层代码不同。
+- 规避：只识别受控的 `40001`、`40P01`、`55P03` 和相应 ORM 冲突；重试必须开启新事务并保留原幂等键，不能把所有 `P2010` 当成可重试错误，也不打印原始驱动消息。
+- 关联：`packages/db/src/data-job-derived-guard.ts`、`scripts/quality/quota-runtime-support.ts`、`quota-concurrency-runtime.ts` 的旧快照专项。
 
 ### Prisma schema 无法表达「仅活跃行唯一」，伪造 `@@unique([status])` 会约束全部历史状态
 
@@ -47,6 +82,20 @@
 - 关联：`docs/development/ops-006-business-state-concurrency-design.md`、`apps/web/lib/study/concurrency.ts`、residual `AF-RISK-OPS-006`。
 
 ## 安全与 HTTP 边界
+
+### 浏览器真实登录成功，独立 HTTP 测试客户端仍可能漏带 loopback Secure Cookie
+
+- 触发：production-build 测试池使用 HTTP `127.0.0.1`，浏览器操作成功而 Playwright `context.request` 返回 401。
+- 根因：浏览器允许可信 loopback 上的 Secure Cookie；独立 HTTP 客户端的本地域名例外不一定覆盖 IP。直接把 401 计为撤销成功会形成假阳性。
+- 规避：鉴权探针复用已登录页面的同源请求，并先断言正常会话成功，再测试撤销；不要关闭产品 Secure Cookie 或注入非 Secure 替代凭据。
+- 关联：`scripts/quality/data-delete-browser.selftest.ts`、`apps/web/lib/auth/cookies.ts`。
+
+### 下载流尚未首次读取就取消，生成器 finally 不会关闭外部已打开的句柄
+
+- 触发：先打开并校验文件，再用异步生成器包装为 Web 响应；客户端在首次 pull 前取消。
+- 根因：未启动的生成器不执行函数体或 finally，外部文件句柄可能泄漏；换成文件流后若沿用按 chunk 计数的 Web highWaterMark，还可能预取整包。
+- 规避：让 FileHandle 的原生流管理关闭与 abort，并显式按字节设置 Web 背压；同时测试首次读取前取消、中途取消、abort 和无消费者的预取上限，不能只测完整下载。
+- 关联：`packages/storage/src/data-export-files.ts`、`packages/storage/src/data-export.test.ts`、`docs/modules/data-export.md`。
 
 ### 直接取 X-Forwarded-For 第一跳做限速键，登录限速可被伪造头绕过
 
@@ -178,6 +227,27 @@
 - 根因：它与 `getEffectiveStudyStreak` 的连续性口径分叉，同时启用会出现两个不同的「连续天数」。
 - 规避：接入或删除前先做产品口径决策；此分叉已登记在优化轮「登记不修复」清单。
 - 关联：`packages/core`、优化轮记录。
+
+### 表单控件内容会污染嵌套 label 的精确名称
+
+- 触发：受控运维选择器能看到但精确 `getByLabel` 不匹配；文本框第一次可填写，填入内容后不能再次按同一名称定位。
+- 根因：嵌套 option/textarea 的文本进入 label 文本，名称随选项或已填写正文变化。
+- 规避：保留可见 label，并为关键控件设置稳定、同义的 `aria-label` 或独立 `htmlFor/id`；浏览器验收必须包含填入后的再次编辑。
+- 关联：`apps/web/components/controlled-operations-client.tsx`、`scripts/quality/controlled-operation-browser.selftest.ts`。
+
+### 静态命令禁区不能用任意 exec 子串判定
+
+- 触发：只读 `executionStatus` / `readOperationExecutionContext` 被判为 Web 执行命令。
+- 根因：正则没有调用/标识符边界，把元数据名当成 process capability。
+- 规避：检查具体调用与能力 import，保留 `exec/execFile/spawn/child_process` 等危险反例；不能通过删掉整个 guard 解决误报。
+- 关联：`apps/web/lib/system/operator-route-contract.test.ts`。
+
+### Linux Node 子进程的标准输入不能一律作为路径重开
+
+- 触发：macOS 通过的协议自测在 Linux CI 中读取 `/dev/stdin` 退出 2，错误被库内重定向隐藏。
+- 根因：Node 子进程的管道可由 Unix socket 实现，Linux 对 `/dev/stdin` 再次 open 会返回 `ENXIO`；直接读 fd 0 正常。
+- 规避：命令支持标准输入时使用 `-` 或直接读取 fd 0，不重开 `/dev/stdin`；用无网络 Linux Node 进程补跨平台负向复现。
+- 关联：`scripts/quality/controlled-operation-wire.selftest.ts`。
 
 ## 维护
 
