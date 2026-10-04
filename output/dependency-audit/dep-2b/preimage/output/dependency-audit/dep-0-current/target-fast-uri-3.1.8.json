@@ -1,6 +1,0 @@
-{
-  "url": "https://api.github.com/advisories?ecosystem=npm&affects=fast-uri%403.1.8&per_page=100",
-  "fetchedAt": "2026-10-03T03:24:32.947193+00:00",
-  "pagination": null,
-  "advisories": []
-}

@@ -1,5 +1,0 @@
-{
-  "command": "pnpm audit:all --json --audit-level low",
-  "exitCode": 1,
-  "end": "2026-10-03T02:38:45.720757+00:00"
-}
