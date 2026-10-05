@@ -46,6 +46,7 @@ import {
   canProceedFromFirstUseRows,
   canUseTakeoverPreview,
   hasConfiguredFirstUseRows,
+  restoreFirstUseDraftRows,
   nextAvailableGeneratedKey,
   type FirstUseGroupDraft,
   type FirstUseSubjectDraft,
@@ -127,8 +128,8 @@ export function WorkspaceSettingsClient(props: {
         setName(draft.name);
         setStableKey(draft.stableKey);
         setTargetExamDate(draft.targetExamDate);
-        setSetupSubjects(draft.subjects);
-        setSetupGroups(draft.groups);
+        setSetupSubjects(restoreFirstUseDraftRows("subject", draft.subjects));
+        setSetupGroups(restoreFirstUseDraftRows("group", draft.groups));
         setTemplateIds(draft.templateIds);
       }
       setSetupDraftReady(true);
@@ -242,7 +243,7 @@ export function WorkspaceSettingsClient(props: {
     } catch (caught) {
       setError(isShanghaiDateInputError(caught)
         ? "目标考试日期无效，请重新选择。"
-        : "网络不可用，设置尚未保存，请恢复网络后重试");
+        : "未能确认保存结果，草稿已保留；恢复网络后请使用原设置重试。");
     } finally {
       setPending(false);
     }

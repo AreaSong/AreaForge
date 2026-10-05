@@ -1,4 +1,4 @@
-import { parseSafeMarkdown } from "@areaforge/core";
+import { getStudyResourceCategoryLabel, parseSafeMarkdown } from "@areaforge/core";
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import type { ReviewTargetDto } from "@/lib/contracts/review-target";
@@ -14,9 +14,9 @@ import { masteryStatusForSyllabusLevel, masteryStatusLabel, type SyllabusMastery
 
 export type { ReviewTargetDto } from "@/lib/contracts/review-target";
 
-export async function getReviewTarget(actorId: string, scheduleId: string): Promise<ReviewTargetDto> {
-  const workspace = await resolveSelectedMemberWorkspace(actorId);
-  const schedule = await prisma.reviewSchedule.findFirst({
+export async function getReviewTarget(actorId: string, scheduleId: string, client = prisma): Promise<ReviewTargetDto> {
+  const workspace = await resolveSelectedMemberWorkspace(actorId, client);
+  const schedule = await client.reviewSchedule.findFirst({
     where: { id: scheduleId, workspaceId: workspace.id, ownerUserId: actorId },
     select: {
       targetType: true,
@@ -29,7 +29,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   if (!schedule) throw new ApiError("REVIEW_SCHEDULE_NOT_FOUND", 404);
 
   if (schedule.targetType === "NOTE" && schedule.noteId) {
-    const note = await prisma.note.findFirst({
+    const note = await client.note.findFirst({
       where: { id: schedule.noteId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       include: { subject: { select: { id: true, name: true } } },
     });
@@ -49,7 +49,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   }
 
   if (schedule.targetType === "MISTAKE" && schedule.mistakeId) {
-    const mistake = await prisma.mistake.findFirst({
+    const mistake = await client.mistake.findFirst({
       where: { id: schedule.mistakeId, ownerUserId: actorId, subject: { workspaceId: workspace.id } },
       include: { subject: { select: { id: true, name: true } } },
     });
@@ -75,7 +75,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   }
 
   if (schedule.targetType === "STUDY_RESOURCE" && schedule.studyResourceId) {
-    const resource = await prisma.studyResource.findFirst({
+    const resource = await client.studyResource.findFirst({
       where: { id: schedule.studyResourceId, workspaceId: workspace.id, ownerUserId: actorId },
       include: {
         subject: { select: { id: true, name: true } },
@@ -93,7 +93,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
       subjectId: resource.subjectId,
       type: "STUDY_RESOURCE",
       title: resource.title,
-      subtitle: `${resource.subject?.name ?? "未分科"} · ${resourceCategoryLabel(resource.category)}`,
+      subtitle: `${resource.subject?.name ?? "未分科"} · ${getStudyResourceCategoryLabel(resource.category)}`,
       canonicalHref: studyResourceDetailRoute(resource.id),
       body: parseSafeMarkdown(`${source}${tags}`),
       revealTitle: null,
@@ -103,7 +103,7 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
   }
 
   if (schedule.targetType === "SYLLABUS_NODE" && schedule.syllabusNodeId) {
-    const node = await prisma.syllabusNode.findFirst({
+    const node = await client.syllabusNode.findFirst({
       where: { id: schedule.syllabusNodeId, subject: { workspaceId: workspace.id } },
       include: {
         subject: { select: { id: true, name: true } },
@@ -138,10 +138,6 @@ export async function getReviewTarget(actorId: string, scheduleId: string): Prom
 
 function noteKindLabel(value: string) {
   return ({ GENERAL: "通用卡片", CONCEPT: "概念卡片", METHOD: "方法卡片", EXAMPLE: "例题卡片", JOURNAL: "学习记录", SUMMARY: "总结卡片" } as Record<string, string>)[value] ?? "知识卡片";
-}
-
-function resourceCategoryLabel(value: string) {
-  return ({ BOOK: "书籍", COURSE: "课程", ARTICLE: "文章", PAPER: "试卷", VIDEO: "视频", OTHER: "学习资料" } as Record<string, string>)[value] ?? "学习资料";
 }
 
 function syllabusKindLabel(value: string) {

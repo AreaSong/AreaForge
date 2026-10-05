@@ -35,7 +35,7 @@ import {
   type TaskEditConflict,
   type TaskEditValues,
 } from "@/components/task-detail-editor-utils";
-import { isTaskType, TASK_TYPE_DEFINITIONS, type TaskType } from "@areaforge/core";
+import { isTaskType, isSupportedTaskType, TASK_TYPE_DEFINITIONS, type TaskType } from "@areaforge/core";
 
 export function TaskDetailEditor(props: {
   snapshot: TaskUpdateSnapshotDto;
@@ -132,6 +132,10 @@ export function TaskDetailEditor(props: {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    if (!isSupportedTaskType(values.type)) {
+      setError("当前任务类型已不受支持，请重新选择类型后保存；其他输入仍保留。");
+      return;
+    }
     if (draftNeedsRebase) {
       setError("请先确认以服务端最新版本为基线，或放弃旧草稿。");
       return;
@@ -265,7 +269,7 @@ export function TaskDetailEditor(props: {
               value={values.type}
               onChange={(event) => setValues((current) => ({ ...current, type: event.target.value as TaskType }))}
             >
-              {!isTaskType(values.type) ? <option value={values.type}>学习（历史类型）</option> : null}
+              {!isTaskType(values.type) ? <option value={values.type}>{values.type === "focus" ? "学习（历史类型）" : `未知类型：${values.type}，请重新选择`}</option> : null}
               {TASK_TYPE_DEFINITIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}

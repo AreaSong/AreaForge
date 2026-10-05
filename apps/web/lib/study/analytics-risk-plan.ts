@@ -10,7 +10,7 @@ export interface AnalyticsRiskPlanDraft {
   plannedDate: string;
   estimatedMinutes: number;
   priority: "MEDIUM" | "HIGH" | "CRITICAL";
-  type: "focus";
+  type: "study";
   primaryNodeId: string | null;
   relatedNodeIds: string[];
 }
@@ -49,7 +49,7 @@ export function buildAnalyticsRiskPlanDraft(
     plannedDate,
     estimatedMinutes: riskMinutes(risk),
     priority: risk.severity === "danger" ? "CRITICAL" : risk.severity === "warning" ? "HIGH" : "MEDIUM",
-    type: "focus",
+    type: "study",
     primaryNodeId: risk.syllabusNodeId ?? null,
     relatedNodeIds: risk.syllabusNodeId ? [risk.syllabusNodeId] : [],
   };

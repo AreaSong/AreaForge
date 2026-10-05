@@ -100,6 +100,7 @@ export function FocusSessionClient(props: {
   });
 
   const {
+    evidencePending,
     activeEvidenceType,
     setActiveEvidenceType,
     evidenceReceipts,
@@ -359,6 +360,7 @@ export function FocusSessionClient(props: {
       onEvidenceTypeChange={setActiveEvidenceType}
       onLinkEvidence={linkEvidence}
       onEditReceipt={handleEditReceipt}
+      evidencePending={evidencePending}
       onDeleteReceipt={handleDeleteReceipt}
       onCancelEditEvidence={handleCancelEditEvidence}
       onUpdateEvidence={handleUpdateEvidence}

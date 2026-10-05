@@ -1,3 +1,4 @@
+import { isTaskType, TASK_TYPE_DEFINITIONS } from "@areaforge/core";
 import Link from "next/link";
 import { CalendarDays, Clock3, Pencil } from "lucide-react";
 import { ConflictResolutionModal } from "@/components/conflict-resolution-modal";
@@ -174,8 +175,11 @@ export function PlanInboxItemView(props: {
               <option value="CRITICAL">关键</option>
             </Select>
           </Field> : null}
-          {props.editorFields === "all" ? <Field label="类型" htmlFor="inbox-draft-type">
-            <Input id="inbox-draft-type" disabled={readOnly} value={draft.type} onChange={(event) => props.onDraftChange({ type: event.target.value })} />
+          {isPlanInboxEditorFieldVisible(props.editorFields, "type") ? <Field label="类型" htmlFor="inbox-draft-type">
+            <Select id="inbox-draft-type" disabled={readOnly} value={draft.type} onChange={(event) => props.onDraftChange({ type: event.target.value })}>
+              {!isTaskType(draft.type) ? <option value={draft.type}>{draft.type === "focus" ? "学习（历史类型，保存后统一）" : `未知类型：${draft.type}，请重新选择`}</option> : null}
+              {TASK_TYPE_DEFINITIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </Select>
           </Field> : null}
           {isPlanInboxEditorFieldVisible(props.editorFields, "planMilestoneId") || props.editorFields === "all" ? <Field label="里程碑" htmlFor="inbox-draft-milestone">
             <Select id="inbox-draft-milestone" disabled={readOnly} value={draft.planMilestoneId} onChange={(event) => props.onDraftChange({ planMilestoneId: event.target.value })}>

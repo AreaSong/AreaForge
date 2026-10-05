@@ -295,7 +295,7 @@ async function syncRecoveryMinimumInbox(
     plannedDate: getStudyDayRange().start.toISOString(),
     estimatedMinutes: recovery.targetMinutes,
     priority: "HIGH",
-    type: "focus",
+    type: "study",
   });
 }
 

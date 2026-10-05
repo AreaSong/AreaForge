@@ -13,6 +13,7 @@ import {
   canUseTakeoverPreview,
   materializeFirstUseTemplateSelection,
   nextAvailableGeneratedKey,
+  nextFirstUseDraftId,
   validateFirstUseRows,
   type FirstUseGroupDraft,
   type FirstUseSubjectDraft,
@@ -251,7 +252,7 @@ export function WorkspaceSetupSection(props: WorkspaceSetupSectionProps) {
   function addSubject() {
     const stableKey = nextAvailableGeneratedKey("subject", props.subjects.map((subject) => subject.stableKey));
     props.setSubjects([...props.subjects, {
-      id: `draft:${stableKey}`,
+      id: nextFirstUseDraftId("subject", props.subjects),
       stableKey,
       name: "",
       color: subjectColors[props.subjects.length % subjectColors.length] ?? subjectColors[0],
@@ -261,7 +262,7 @@ export function WorkspaceSetupSection(props: WorkspaceSetupSectionProps) {
 
   function addGroup() {
     const stableKey = nextAvailableGeneratedKey("group", props.groups.map((group) => group.stableKey));
-    props.setGroups([...props.groups, { id: `draft:${stableKey}`, stableKey, name: "" }]);
+    props.setGroups([...props.groups, { id: nextFirstUseDraftId("group", props.groups), stableKey, name: "" }]);
   }
 
   function changeGroup(id: string, field: "name" | "stableKey", value: string) {

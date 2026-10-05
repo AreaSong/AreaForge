@@ -33,3 +33,10 @@ export function getTaskTypeLabel(value: string): string {
   if (value === "focus") return "学习";
   return TASK_TYPE_DEFINITIONS.find((item) => item.value === value)?.label ?? value;
 }
+
+// 只兼容明确的历史别名；未知非空值须由用户重新选择。
+export function resolveDraftTaskType(value: string | null | undefined): TaskType | null {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "focus") return "study";
+  return isTaskType(normalized) ? normalized : null;
+}

@@ -48,7 +48,7 @@ export function PlanInboxItemClient({ userId, item: initialItem, options, return
   const [plannedDate, setPlannedDate] = useState(toPlanInboxFormDraft(initialItem).plannedDate);
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialItem.estimatedMinutes?.toString() ?? "");
   const [priority, setPriority] = useState(initialItem.priority?.toUpperCase() ?? "MEDIUM");
-  const [type, setType] = useState(initialItem.type ?? "focus");
+  const [type, setType] = useState(toPlanInboxFormDraft(initialItem).type);
   const [planMilestoneId, setPlanMilestoneId] = useState(initialItem.planMilestoneId ?? "");
   const [createdMilestone, setCreatedMilestone] = useState<{ id: string; subjectId: string | null; title: string } | null>(null);
   const [primaryNodeId, setPrimaryNodeId] = useState(initialItem.primaryNodeId ?? "");

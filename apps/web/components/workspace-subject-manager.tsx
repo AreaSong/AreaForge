@@ -28,7 +28,7 @@ import {
   undoSubjectMerge,
   updateSubjectGroup,
   updateWorkspaceSubject,
-  type WorkspaceMutationResponse,
+  readWorkspaceConflictRevision,
 } from "@/lib/api/workspace";
 import {
   GroupManager,
@@ -56,7 +56,9 @@ export function WorkspaceSubjectManager(props: {
   const revision = localRevision.workspaceId === props.workspace.id
     ? Math.max(localRevision.value, props.workspace.revision)
     : props.workspace.revision;
-  const setRevision = (value: number) => setLocalRevision({ workspaceId: props.workspace.id, value });
+  const setRevision = (value: number) => {
+    if (Number.isSafeInteger(value) && value >= 0) setLocalRevision({ workspaceId: props.workspace.id, value });
+  };
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -84,6 +86,7 @@ export function WorkspaceSubjectManager(props: {
   );
   const activeSubjects = props.subjects.filter((subject) => !subject.archivedAt);
   const archivedSubjects = props.subjects.filter((subject) => subject.archivedAt);
+  const visibleSubjects = [...activeSubjects, ...archivedSubjects.filter((subject) => subject.id === editingSubjectId)];
 
   async function addSubject() {
     if (pending || !newSubjectName.trim()) return;
@@ -331,10 +334,11 @@ export function WorkspaceSubjectManager(props: {
   }
 
   function absorbLatestRevision(
-    body: WorkspaceMutationResponse | null,
+    body: { latest?: unknown } | null,
     failure: ReturnType<typeof classifyApiFailure>,
   ) {
-    if (body?.latest) setRevision(body.latest.revision);
+    const latestRevision = readWorkspaceConflictRevision(body);
+    if (latestRevision !== null) setRevision(latestRevision);
     if (failure.code === "WORKSPACE_NOT_FOUND") {
       router.replace("/settings/exams");
       router.refresh();
@@ -356,10 +360,11 @@ export function WorkspaceSubjectManager(props: {
       </div>
 
       <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-white/[0.01]">
-        {activeSubjects.map((subject, index) => (
+        {visibleSubjects.map((subject, index) => (
           <SubjectRow
-            key={`${subject.id}:${subject.name}:${subject.color}:${subject.groupId ?? "none"}`}
+            key={`${props.workspace.id}:${subject.id}`}
             subject={subject}
+            workspaceRevision={props.workspace.revision}
             groups={props.groups}
             activeGroups={activeGroups}
             editing={editingSubjectId === subject.id}

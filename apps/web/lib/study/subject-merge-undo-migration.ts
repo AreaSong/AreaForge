@@ -6,7 +6,7 @@ import type {
   SubjectMergeReferencePreimage,
   SubjectMergeScope,
 } from "./subject-merge-support";
-import { buildMergedPlanInboxState } from "./subject-merge-migration";
+import { advanceSubjectMergeParentRevisions, buildMergedPlanInboxState } from "./subject-merge-migration";
 
 type MergeTx = Prisma.TransactionClient;
 
@@ -108,33 +108,36 @@ export async function restoreSubjectMergeReferences(
   const counts = emptyCounts();
   counts.studyTasks = await restoreGrouped(scope.studyTasks, targetSubjectId, tx.studyTask);
   counts.studySessions = await restoreGrouped(scope.studySessions, targetSubjectId, tx.studySession);
-  counts.syllabusNodes = await restoreGrouped(scope.syllabusNodes, targetSubjectId, tx.syllabusNode);
-  counts.notes = await restoreGrouped(scope.notes, targetSubjectId, tx.note);
+  counts.syllabusNodes = await restoreGrouped(scope.syllabusNodes, targetSubjectId, tx.syllabusNode, true);
+  counts.notes = await restoreGrouped(scope.notes, targetSubjectId, tx.note, true);
   counts.mistakes = await restoreGrouped(scope.mistakes, targetSubjectId, tx.mistake);
   counts.simulationSubjectResults = await restoreGrouped(
     scope.simulationSubjectResults,
     targetSubjectId,
     tx.simulationSubjectResult,
+    true,
   );
-  counts.planMilestones = await restoreGrouped(scope.planMilestones, targetSubjectId, tx.planMilestone);
+  counts.planMilestones = await restoreGrouped(scope.planMilestones, targetSubjectId, tx.planMilestone, true);
   counts.planInboxItems = await restoreInboxItems(tx, targetSubjectId, scope);
-  counts.studyResources = await restoreGrouped(scope.studyResources, targetSubjectId, tx.studyResource);
+  counts.studyResources = await restoreGrouped(scope.studyResources, targetSubjectId, tx.studyResource, true);
   counts.primaryKnowledgePoints = await restorePrimaryKnowledgePoints(tx, targetSubjectId, scope);
-  counts.knowledgeGroups = await restoreGrouped(scope.knowledgeGroups, targetSubjectId, tx.knowledgeGroup);
+  counts.knowledgeGroups = await restoreGrouped(scope.knowledgeGroups, targetSubjectId, tx.knowledgeGroup, true);
   counts.learningArrangements = await restoreGrouped(
     scope.learningArrangements,
     targetSubjectId,
     tx.learningArrangement,
+    true,
   );
   const recreatedRelatedKnowledgePointLinks = await restoreKnowledgePointLinks(tx, targetSubjectId, scope);
   counts.relatedKnowledgePointLinks = scope.relatedKnowledgePointLinks.length;
+  await advanceSubjectMergeParentRevisions(tx, scope);
   return { counts, recreatedRelatedKnowledgePointLinks };
 }
 
 type SubjectUpdateDelegate = {
   updateMany(args: {
     where: { id: { in: string[] }; subjectId: string };
-    data: { subjectId: string };
+    data: { subjectId: string; revision?: { increment: number } };
   }): Promise<{ count: number }>;
 };
 
@@ -142,12 +145,13 @@ async function restoreGrouped(
   rows: SubjectMergeReferencePreimage[],
   targetSubjectId: string,
   delegate: SubjectUpdateDelegate,
+  bumpRevision = false,
 ): Promise<number> {
   let total = 0;
   for (const [sourceSubjectId, sourceIds] of groupIdsBySource(rows)) {
     const changed = await delegate.updateMany({
       where: { id: { in: sourceIds }, subjectId: targetSubjectId },
-      data: { subjectId: sourceSubjectId },
+      data: { subjectId: sourceSubjectId, ...(bumpRevision ? { revision: { increment: 1 } } : {}) },
     });
     if (changed.count !== sourceIds.length) throw scopeChanged();
     total += changed.count;

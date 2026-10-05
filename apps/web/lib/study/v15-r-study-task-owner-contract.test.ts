@@ -90,8 +90,9 @@ test("v1.5-R keeps StudyTask owner lineage additive and fail-closed", async () =
   assert.match(motivation, /workspaceId: workspace\.id,[\s\S]*?ownerUserId: userId,[\s\S]*?originType: \"LOW_CONVERSION\"/);
   assert.match(capacity, /workspaceOwnerWhere\(actorId\)/);
   assert.match(mistakes, /simulationExam: \{ workspaceId: workspace\.id, ownerUserId: actorId \}/);
-  assert.match(duplicateQuery, /tasks: \{ where: \{ ownerUserId: actorId \} \}/);
-  assert.match(duplicateQuery, /ownerUserId: actorId, subjectId/);
+  // 管理预览覆盖全体迁移范围；私有明细另由运行式脱敏回归约束。
+  assert.match(duplicateQuery, /requireWorkspacePolicy\(client, actorId, workspaceId, "workspace:manage"\)/);
+  assert.match(duplicateQuery, /referenceDetails: referencePreview\.details/);
   assert.match(recoveryState, /findActiveRecoveryState\(actorId, workspace\.id, tx\)/);
   assert.match(recoveryState, /userId: actorId,[\s\S]*?workspaceId: workspace\.id/);
   assert.match(recoveryState, /OR: workspaceId[\s\S]*?userId: actorId[\s\S]*?actorId, userId: null/);

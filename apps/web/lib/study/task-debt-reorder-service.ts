@@ -1,3 +1,4 @@
+import { requireSplitTaskType } from "./task-split-type";
 import {
   previewTaskDebtReorderApplication,
   type TaskDebtReorderAction,
@@ -453,7 +454,7 @@ async function mutateTaskForDebtReorderItem(
           syllabusNodeId: task.syllabusNodeId,
           parentTaskId: task.id,
           title: `${task.title} / 最小推进`,
-          type: task.type === "simulation_exam" ? "review" : task.type,
+          type: requireSplitTaskType(task.type),
           status: "TODO",
           priority: task.priority,
           debtStatus: "ACCEPTABLE",

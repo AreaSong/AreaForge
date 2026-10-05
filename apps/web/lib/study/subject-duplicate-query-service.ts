@@ -1,9 +1,9 @@
+import { summarizeSimulationInboxMergeConflicts } from "./subject-merge-preview-conflicts";
+export { summarizeSimulationInboxMergeConflicts } from "./subject-merge-preview-conflicts";
+import { loadSubjectMergePreviewReferences } from "./subject-merge-preview-references";
 import { createHash } from "node:crypto";
 import {
-  buildSimulationRemediationOriginKey,
   findSubjectDuplicateSets,
-  SIMULATION_LOSS_REASONS,
-  type SimulationLossReason,
   type SubjectDuplicateCandidate,
 } from "@areaforge/core";
 import { prisma, type Prisma, type PrismaClient } from "@areaforge/db";
@@ -33,17 +33,18 @@ export async function listSubjectDuplicatePreviewsWithClient(
   client: SubjectPreviewClient,
 ): Promise<SubjectDuplicateSetDto[]> {
   const workspace = await assertOwnedWorkspace(actorId, workspaceId, client);
-  const rows = await loadSubjectPreviewRows(client, workspaceId, actorId);
+  const rows = await loadSubjectPreviewRows(client, workspaceId);
   if (rows.length < 2) return [];
 
-  const referencesById = await buildReferenceCounts(client, workspaceId, actorId, rows);
+  const referencesById = await buildReferenceCounts(client, rows);
   const sets = findSubjectDuplicateSets(buildCandidates(rows, referencesById));
   return Promise.all(sets.map(async (set, index) => {
     const targetId = set.recommendedTargetId;
     const sourceIds = set.subjectIds.filter((subjectId) => subjectId !== targetId);
-    const [conflictPreview, primaryKnowledgePoints] = await Promise.all([
-      previewSubjectMergeConflicts(client, workspaceId, actorId, targetId, sourceIds),
-      countPrimaryKnowledgePoints(client, actorId, sourceIds),
+    const [conflictPreview, primaryKnowledgePoints, referencePreview] = await Promise.all([
+      previewSubjectMergeConflicts(client, targetId, sourceIds),
+      countPrimaryKnowledgePoints(client, sourceIds),
+      loadSubjectMergePreviewReferences(client, [targetId, ...sourceIds], actorId, targetId),
     ]);
     const { simulationOriginInboxItems, ...conflictCounts } = conflictPreview;
     const subjects = joinSubjects(set.subjectIds, rows, referencesById);
@@ -57,6 +58,7 @@ export async function listSubjectDuplicatePreviewsWithClient(
       conflictCounts,
       simulationOriginInboxItems,
       primaryKnowledgePoints,
+      referenceIdentities: referencePreview.references,
     });
     return {
       id: "duplicate-set-" + (index + 1) + "-" + set.subjectIds.join("-"),
@@ -70,6 +72,8 @@ export async function listSubjectDuplicatePreviewsWithClient(
         primaryKnowledgePoints,
         simulationOriginInboxItems,
       },
+      referenceDetails: referencePreview.details,
+      privateReferenceCounts: referencePreview.privateCounts,
       totalReferenceCount: subjects.reduce((sum, item) => sum + item.references.total, 0),
       canAutoApply: false,
       requiresUserConfirmation: true,
@@ -87,9 +91,11 @@ export function buildSubjectDuplicateSnapshotHash(input: {
   conflictCounts: SubjectDuplicateSetDto["conflictCounts"];
   simulationOriginInboxItems: number;
   primaryKnowledgePoints: number;
+  referenceIdentities: readonly unknown[];
 }): string {
   const canonical = JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
+    referenceIdentities: input.referenceIdentities,
     workspaceId: input.workspaceId,
     workspaceRevision: input.workspaceRevision,
     targetId: input.targetId,
@@ -109,25 +115,25 @@ export function buildSubjectDuplicateSnapshotHash(input: {
   return `sha256:${createHash("sha256").update(canonical, "utf8").digest("hex")}`;
 }
 
-async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId: string, actorId: string) {
+async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId: string) {
   return client.subject.findMany({
-    where: { workspaceId },
+    where: { workspaceId, archivedAt: null },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       _count: {
         select: {
-          tasks: { where: { ownerUserId: actorId } },
-          sessions: { where: { userId: actorId } },
+          tasks: true,
+          sessions: true,
           syllabusNodes: true,
-          notes: { where: { ownerUserId: actorId } },
-          mistakes: { where: { ownerUserId: actorId } },
-          simulationSubjectResults: { where: { simulationExam: { ownerUserId: actorId } } },
-          planMilestones: { where: { ownerUserId: actorId } },
-          studyResources: { where: { ownerUserId: actorId } },
-          primaryKnowledgePoints: { where: { userId: actorId } },
-          relatedKnowledgePoints: { where: { knowledgePoint: { userId: actorId } } },
-          knowledgeGroups: { where: { userId: actorId } },
-          learningArrangements: { where: { userId: actorId } },
+          notes: true,
+          mistakes: true,
+          simulationSubjectResults: true,
+          planMilestones: true,
+          studyResources: true,
+          primaryKnowledgePoints: true,
+          relatedKnowledgePoints: true,
+          knowledgeGroups: true,
+          learningArrangements: true,
         },
       },
     },
@@ -136,18 +142,16 @@ async function loadSubjectPreviewRows(client: SubjectPreviewClient, workspaceId:
 
 async function buildReferenceCounts(
   client: SubjectPreviewClient,
-  workspaceId: string,
-  actorId: string,
   rows: SubjectPreviewRow[],
 ): Promise<Map<string, SubjectReferenceCountDto>> {
   const subjectIds = rows.map((row) => row.id);
   const [activeSessions, inboxItems] = await Promise.all([
     client.studySession.findMany({
-      where: { subjectId: { in: subjectIds }, userId: actorId, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
+      where: { subjectId: { in: subjectIds }, status: { in: ["RUNNING", "PAUSED", "CLOSING"] } },
       select: { subjectId: true },
     }),
     client.planInboxItem.findMany({
-      where: { workspaceId, ownerUserId: actorId, subjectId: { in: subjectIds } },
+      where: { subjectId: { in: subjectIds } },
       select: { subjectId: true },
     }),
   ]);
@@ -215,8 +219,6 @@ function joinSubjects(
 
 async function previewSubjectMergeConflicts(
   client: SubjectPreviewClient,
-  workspaceId: string,
-  actorId: string,
   targetId: string,
   sourceIds: string[],
 ): Promise<SubjectDuplicateSetDto["conflictCounts"] & { simulationOriginInboxItems: number }> {
@@ -227,22 +229,22 @@ async function previewSubjectMergeConflicts(
       select: { subjectId: true, stableKey: true },
     }),
     client.simulationSubjectResult.findMany({
-      where: { subjectId: { in: candidateIds }, simulationExam: { ownerUserId: actorId } },
+      where: { subjectId: { in: candidateIds } },
       select: { subjectId: true, simulationExamId: true },
     }),
     client.knowledgePointSubject.findMany({
-      where: { subjectId: { in: candidateIds }, knowledgePoint: { userId: actorId } },
+      where: { subjectId: { in: candidateIds } },
       select: { subjectId: true, knowledgePointId: true },
     }),
     client.planInboxItem.findMany({
       where: {
-        workspaceId,
-        ownerUserId: actorId,
         originType: "SIMULATION_LOSS",
         subjectId: { in: candidateIds },
       },
       select: {
         subjectId: true,
+        ownerUserId: true,
+        workspaceId: true,
         originKey: true,
         originVersion: true,
         originSnapshot: true,
@@ -260,58 +262,10 @@ async function previewSubjectMergeConflicts(
   };
 }
 
-export function summarizeSimulationInboxMergeConflicts(
-  rows: Array<{
-    subjectId: string | null;
-    originKey: string;
-    originVersion: number;
-    originSnapshot: Prisma.JsonValue;
-  }>,
-  targetSubjectId: string,
-): { collisions: number; invalid: number } {
-  const counts = new Map<string, number>();
-  let invalid = 0;
-  for (const row of rows) {
-    const originKey = row.subjectId === targetSubjectId
-      ? row.originKey
-      : deriveMergedSimulationOriginKey(row.originSnapshot, targetSubjectId);
-    if (!originKey) {
-      invalid += 1;
-      continue;
-    }
-    const uniqueKey = `${originKey}:v${row.originVersion}`;
-    counts.set(uniqueKey, (counts.get(uniqueKey) ?? 0) + 1);
-  }
-  return {
-    collisions: [...counts.values()].filter((count) => count > 1).length,
-    invalid,
-  };
-}
-
-function deriveMergedSimulationOriginKey(
-  value: Prisma.JsonValue,
-  targetSubjectId: string,
-): string | null {
-  const snapshot = value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, Prisma.JsonValue>
-    : {};
-  const examId = typeof snapshot.examId === "string" ? snapshot.examId : "";
-  const reasonValue = typeof snapshot.reason === "string" ? snapshot.reason : "";
-  const reason = SIMULATION_LOSS_REASONS.includes(reasonValue as SimulationLossReason)
-    ? reasonValue as SimulationLossReason
-    : null;
-  const syllabusNodeId = typeof snapshot.syllabusNodeId === "string" && snapshot.syllabusNodeId
-    ? snapshot.syllabusNodeId
-    : null;
-  return examId && reason
-    ? buildSimulationRemediationOriginKey({ examId, subjectId: targetSubjectId, reason, syllabusNodeId })
-    : null;
-}
-
-async function countPrimaryKnowledgePoints(client: SubjectPreviewClient, actorId: string, sourceIds: string[]): Promise<number> {
+async function countPrimaryKnowledgePoints(client: SubjectPreviewClient, sourceIds: string[]): Promise<number> {
   return sourceIds.length === 0
     ? 0
-    : client.knowledgePoint.count({ where: { primarySubjectId: { in: sourceIds }, userId: actorId } });
+    : client.knowledgePoint.count({ where: { primarySubjectId: { in: sourceIds } } });
 }
 
 export function countCrossSubjectKeys<T extends { subjectId: string }>(

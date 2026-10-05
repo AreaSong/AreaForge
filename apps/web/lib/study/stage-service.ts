@@ -776,13 +776,15 @@ async function resolveStagePlan(
   });
 }
 
-async function getLatestSimulationExamScoreRate(workspaceId: string, ownerUserId: string): Promise<number | null> {
-  const exam = await prisma.simulationExam.findFirst({
+export async function getLatestSimulationExamScoreRate(
+  workspaceId: string, ownerUserId: string, client: Pick<PrismaClient, "simulationExam"> = prisma,
+): Promise<number | null> {
+  const exam = await client.simulationExam.findFirst({
     where: { workspaceId, ownerUserId, actualScore: { not: null }, targetScore: { not: null }, subjectResults: { some: {} } },
     orderBy: [{ examDate: "desc" }, { updatedAt: "desc" }],
     select: { actualScore: true, targetScore: true },
   });
-  if (!exam?.actualScore || !exam.targetScore || exam.targetScore <= 0) return null;
+  if (exam?.actualScore == null || exam.targetScore == null || exam.targetScore <= 0) return null;
   return exam.actualScore / exam.targetScore;
 }
 

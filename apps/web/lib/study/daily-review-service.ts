@@ -313,6 +313,6 @@ async function syncReviewMinimumInbox(
     plannedDate: plannedDate.toISOString(),
     estimatedMinutes: 25,
     priority: "MEDIUM",
-    type: "focus",
+    type: "study",
   });
 }

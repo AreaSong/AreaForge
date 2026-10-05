@@ -113,32 +113,35 @@ export async function migrateSubjectReferences(
   const counts = emptyCounts();
   counts.studyTasks = await updateSubjectReferences(tx.studyTask, targetSubjectId, sourceSubjectIds);
   counts.studySessions = await updateSubjectReferences(tx.studySession, targetSubjectId, sourceSubjectIds);
-  counts.syllabusNodes = await updateSubjectReferences(tx.syllabusNode, targetSubjectId, sourceSubjectIds);
-  counts.notes = await updateSubjectReferences(tx.note, targetSubjectId, sourceSubjectIds);
+  counts.syllabusNodes = await updateSubjectReferences(tx.syllabusNode, targetSubjectId, sourceSubjectIds, true);
+  counts.notes = await updateSubjectReferences(tx.note, targetSubjectId, sourceSubjectIds, true);
   counts.mistakes = await updateSubjectReferences(tx.mistake, targetSubjectId, sourceSubjectIds);
   counts.simulationSubjectResults = await updateSubjectReferences(
     tx.simulationSubjectResult,
     targetSubjectId,
     sourceSubjectIds,
+    true,
   );
-  counts.planMilestones = await updateSubjectReferences(tx.planMilestone, targetSubjectId, sourceSubjectIds);
+  counts.planMilestones = await updateSubjectReferences(tx.planMilestone, targetSubjectId, sourceSubjectIds, true);
   counts.planInboxItems = await migratePlanInboxItems(tx, targetSubjectId, sourceSubjectIds, scope);
-  counts.studyResources = await updateSubjectReferences(tx.studyResource, targetSubjectId, sourceSubjectIds);
+  counts.studyResources = await updateSubjectReferences(tx.studyResource, targetSubjectId, sourceSubjectIds, true);
   counts.primaryKnowledgePoints = (
     await tx.knowledgePoint.updateMany({
       where: { primarySubjectId: { in: sourceSubjectIds } },
       data: { primarySubjectId: targetSubjectId },
     })
   ).count;
-  counts.knowledgeGroups = await updateSubjectReferences(tx.knowledgeGroup, targetSubjectId, sourceSubjectIds);
+  counts.knowledgeGroups = await updateSubjectReferences(tx.knowledgeGroup, targetSubjectId, sourceSubjectIds, true);
   counts.learningArrangements = await updateSubjectReferences(
     tx.learningArrangement,
     targetSubjectId,
     sourceSubjectIds,
+    true,
   );
 
   const relatedLinks = await migrateRelatedKnowledgePointLinks(tx, targetSubjectId, scope.relatedKnowledgePointLinks);
   counts.relatedKnowledgePointLinks = relatedLinks.processed;
+  await advanceSubjectMergeParentRevisions(tx, scope);
   return {
     counts,
     deduplicatedRelatedKnowledgePointLinks: relatedLinks.deduplicated,
@@ -149,7 +152,7 @@ export async function migrateSubjectReferences(
 type SubjectUpdateDelegate = {
   updateMany(args: {
     where: { subjectId: { in: string[] } };
-    data: { subjectId: string };
+    data: { subjectId: string; revision?: { increment: number } };
   }): Promise<{ count: number }>;
 };
 
@@ -157,11 +160,12 @@ async function updateSubjectReferences(
   delegate: SubjectUpdateDelegate,
   targetSubjectId: string,
   sourceSubjectIds: string[],
+  bumpRevision = false,
 ): Promise<number> {
   return (
     await delegate.updateMany({
       where: { subjectId: { in: sourceSubjectIds } },
-      data: { subjectId: targetSubjectId },
+      data: { subjectId: targetSubjectId, ...(bumpRevision ? { revision: { increment: 1 } } : {}) },
     })
   ).count;
 }
@@ -176,7 +180,7 @@ async function migratePlanInboxItems(
   const remainingCount = (
     await tx.planInboxItem.updateMany({
       where: { subjectId: { in: sourceSubjectIds } },
-      data: { subjectId: targetSubjectId },
+      data: { subjectId: targetSubjectId, revision: { increment: 1 } },
     })
   ).count;
   return simulationCount + remainingCount;
@@ -346,4 +350,24 @@ function references(
 
 function compareReferences(left: SubjectMergeReferencePreimage, right: SubjectMergeReferencePreimage): number {
   return left.id.localeCompare(right.id);
+}
+
+// 子关联的迁移也使父对象编辑快照过期；主科目和关联科目共用一次版本推进。
+export async function advanceSubjectMergeParentRevisions(tx: MergeTx, scope: SubjectMergeScope): Promise<void> {
+  const pointIds = [...new Set([
+    ...scope.primaryKnowledgePoints.map((row) => row.id),
+    ...scope.relatedKnowledgePointLinks.map((row) => row.knowledgePointId),
+  ])];
+  if (pointIds.length) await tx.knowledgePoint.updateMany({
+    where: { id: { in: pointIds } }, data: { revision: { increment: 1 } },
+  });
+  if (!scope.simulationSubjectResults.length) return;
+  const results = await tx.simulationSubjectResult.findMany({
+    where: { id: { in: scope.simulationSubjectResults.map((row) => row.id) } },
+    select: { simulationExamId: true },
+  });
+  await tx.simulationExam.updateMany({
+    where: { id: { in: [...new Set(results.map((row) => row.simulationExamId))] } },
+    data: { revision: { increment: 1 } },
+  });
 }

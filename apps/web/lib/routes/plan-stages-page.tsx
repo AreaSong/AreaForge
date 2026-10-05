@@ -36,7 +36,18 @@ export default async function StageOverviewPage({
     listPlanMilestones(user.id),
     getLatestStageAdjustmentDecisionResult(user.id),
   ]);
-  const plan = plans.find((item) => item.status === "active") ?? plans[0];
+  return <StageOverviewContent plans={plans} drafts={drafts} milestones={milestones} latestDecision={latestDecision} query={query} />;
+}
+
+export function StageOverviewContent({ plans, drafts, milestones, latestDecision, query }: {
+  plans: Awaited<ReturnType<typeof listStagePlans>>;
+  drafts: Awaited<ReturnType<typeof listStageAdjustmentDrafts>>;
+  milestones: Awaited<ReturnType<typeof listPlanMilestones>>;
+  latestDecision: Awaited<ReturnType<typeof getLatestStageAdjustmentDecisionResult>>;
+  query: { createMilestone?: string; returnTo?: string };
+}) {
+  const plan = plans.find((item) => item.status === "active") ?? plans.find((item) => item.status === "draft");
+  const history = plans.filter((item) => item.status === "completed" || item.status === "archived");
   const draft = drafts.find((item) => item.status === "draft");
   const latestRejectedDraft = drafts.find((item) => item.status === "rejected");
   const planMilestones = plan ? milestones.filter((item) => item.stagePlanId === plan.id) : [];
@@ -55,7 +66,7 @@ export default async function StageOverviewPage({
         eyebrow="阶段"
         title="阶段总览"
         description="区分当前生效计划、待确认建议和已经处理的结果，持续跟踪下一周期。"
-        status={plan ? <Badge tone={plan.status === "active" ? "success" : "neutral"}>{plan.status === "active" ? "当前计划生效中" : "历史阶段"}</Badge> : <Badge tone="warning">尚未建立阶段</Badge>}
+        status={plan ? <Badge tone={plan.status === "active" ? "success" : "neutral"}>{plan.status === "active" ? "当前计划生效中" : "阶段草稿"}</Badge> : <Badge tone="warning">尚未建立当前阶段</Badge>}
       />
 
       <Card variant="accent" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6">
@@ -72,7 +83,7 @@ export default async function StageOverviewPage({
       {plan ? (
         <section className="space-y-4">
           <SectionHeader
-            title="当前生效计划"
+            title={plan.status === "active" ? "当前生效计划" : "当前阶段草稿"}
             description="这是阶段源事实；待确认建议只有在你确认后才会更新这里。"
             action={!draft ? <StageDraftCreateAction stagePlanId={plan.id} label={latestRejectedDraft ? "重新评估" : "生成调整建议"} /> : null}
           />
@@ -96,6 +107,19 @@ export default async function StageOverviewPage({
           </Card>
         </section>
       )}
+
+      {history.length > 0 ? (
+        <section className="space-y-4" aria-label="历史阶段">
+          <SectionHeader title="历史阶段" description="已完成和已归档的阶段保留在此，不影响建立下一阶段。" />
+          {history.map((item) => (
+            <Card key={item.id} variant="subtle" className="space-y-2 p-5">
+              <p className="break-words font-medium text-zinc-200">{item.name} · {item.status === "completed" ? "已完成" : "已归档"}</p>
+              <p className="break-words text-sm text-zinc-400">{item.goal}</p>
+              <p className="text-xs text-zinc-500">{formatDateMonthDay(item.startDate)} - {formatDateMonthDay(item.endDate)}</p>
+            </Card>
+          ))}
+        </section>
+      ) : null}
 
       {draft ? (
         <Card

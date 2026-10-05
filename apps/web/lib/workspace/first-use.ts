@@ -80,6 +80,25 @@ function uniqueText(value: string): string {
   return value.trim().toLocaleLowerCase();
 }
 
+export function nextFirstUseDraftId(prefix: "subject" | "group", rows: Array<{ id: string }>): string {
+  const used = new Set(rows.map((row) => row.id));
+  let suffix = 1;
+  while (used.has(`draft:${prefix}-${suffix}`)) suffix += 1;
+  return `draft:${prefix}-${suffix}`;
+}
+
+// 旧草稿可能已经含有重复 ID；恢复时只修复行身份，保留用户填写的全部字段。
+export function restoreFirstUseDraftRows<T extends { id: string }>(prefix: "subject" | "group", rows: T[]): T[] {
+  const reserved = [...rows];
+  const seen = new Set<string>();
+  return rows.map((row) => {
+    const id = row.id && !seen.has(row.id) ? row.id : nextFirstUseDraftId(prefix, reserved);
+    seen.add(id);
+    reserved.push({ ...row, id });
+    return { ...row, id };
+  });
+}
+
 function hasDuplicate(values: string[]): boolean {
   const normalized = values.map(uniqueText).filter(Boolean);
   return new Set(normalized).size !== normalized.length;
@@ -103,7 +122,7 @@ export function materializeFirstUseTemplateSelection(input: {
     if (groupKeys.has(uniqueText(group.stableKey))) continue;
     groupKeys.add(uniqueText(group.stableKey));
     groups.push({
-      id: `template:${input.templateId}:group:${group.stableKey}`,
+      id: nextFirstUseDraftId("group", groups),
       stableKey: group.stableKey,
       name: group.name,
     });
@@ -113,7 +132,7 @@ export function materializeFirstUseTemplateSelection(input: {
     subjectKeys.add(uniqueText(subject.stableKey));
     subjectNames.add(uniqueText(subject.name));
     subjects.push({
-      id: `template:${input.templateId}:subject:${subject.stableKey}`,
+      id: nextFirstUseDraftId("subject", subjects),
       stableKey: subject.stableKey,
       name: subject.name,
       color: subject.color,
@@ -238,6 +257,9 @@ export function workspaceSetupErrorMessage(code: string | undefined): string {
   }
   if (code === "SUBJECT_STABLE_KEY_DUPLICATE") return "新科目的内部标识重复，请返回修改。";
   if (code === "WORKSPACE_ACTIVE_SUBJECT_REQUIRED") return "至少添加一个科目、选择一个模板，或沿用一个已有科目。";
-  if (code === "INTERNAL_ERROR") return "设置未完成，请刷新后重试；草稿仍保留。";
-  return code ?? "创建工作区失败，首次设置草稿已保留";
+  if (code === "WORKSPACE_CREATE_IDEMPOTENCY_CONFLICT") return "这个内部标识已用于另一份设置，请刷新核对已保存的工作区；当前草稿仍保留。";
+  if (code === "WORKSPACE_STABLE_KEY_ALREADY_EXISTS") return "这个内部标识的工作区已存在，请刷新核对；当前草稿仍保留。";
+  if (code === "WORKSPACE_CREATE_SELECTION_CHANGED") return "设置已保存，但当前工作区已变化；请刷新核对，系统不会自动切回。";
+  if (!code || code === "INTERNAL_ERROR") return "未能确认保存结果，草稿已保留；恢复网络后请使用原设置重试。";
+  return code;
 }
