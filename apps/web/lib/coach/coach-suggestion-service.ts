@@ -1,3 +1,4 @@
+import { resolveDraftTaskType } from "@areaforge/core";
 import { createHash } from "node:crypto";
 import {
   nextCoachSuggestionStatus,
@@ -213,8 +214,10 @@ async function createPlanInboxLineage(
   return item.id;
 }
 
-function normalizePayload(input: CoachSuggestionPayload): CoachSuggestionPayload {
+function normalizePayload(input: CoachSuggestionPayload, preserveUnknownType = false): CoachSuggestionPayload {
   const title = input.title.trim();
+  const type = resolveDraftTaskType(input.type);
+  if (!type && !preserveUnknownType) throw new ApiError("COACH_SUGGESTION_PAYLOAD_INVALID", 400);
   if (!title || title.length > 200) throw new ApiError("COACH_SUGGESTION_PAYLOAD_INVALID", 400);
   if (input.estimatedMinutes !== null && (!Number.isInteger(input.estimatedMinutes) || input.estimatedMinutes < 1 || input.estimatedMinutes > 1440)) {
     throw new ApiError("COACH_SUGGESTION_PAYLOAD_INVALID", 400);
@@ -225,7 +228,7 @@ function normalizePayload(input: CoachSuggestionPayload): CoachSuggestionPayload
     plannedDate: input.plannedDate ?? null,
     estimatedMinutes: input.estimatedMinutes ?? null,
     priority: input.priority?.trim().slice(0, 32) ?? null,
-    type: input.type?.trim().slice(0, 64) ?? null,
+    type: type ?? input.type,
     subjectId: input.subjectId?.trim() || null,
     primaryNodeId: input.primaryNodeId?.trim() || null,
   };
@@ -233,7 +236,7 @@ function normalizePayload(input: CoachSuggestionPayload): CoachSuggestionPayload
 
 function parsePayload(value: Prisma.JsonValue): CoachSuggestionPayload {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError("COACH_SUGGESTION_PAYLOAD_INVALID", 409);
-  return normalizePayload(value as unknown as CoachSuggestionPayload);
+  return normalizePayload(value as unknown as CoachSuggestionPayload, true);
 }
 
 async function assertPayloadSubject(tx: Prisma.TransactionClient, workspaceId: string, subjectId: string | null): Promise<void> {

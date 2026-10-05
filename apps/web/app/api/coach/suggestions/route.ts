@@ -1,3 +1,4 @@
+import { SUPPORTED_TASK_TYPES } from "@areaforge/core";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser, readJson } from "@/lib/api/auth";
@@ -15,7 +16,7 @@ const createSchema = z.object({
     plannedDate: z.string().datetime().nullable(),
     estimatedMinutes: z.number().int().min(1).max(1440).nullable(),
     priority: z.string().trim().max(32).nullable(),
-    type: z.string().trim().max(64).nullable(),
+    type: z.enum(SUPPORTED_TASK_TYPES).nullable(),
     subjectId: z.string().trim().max(191).nullable(),
     primaryNodeId: z.string().trim().max(191).nullable(),
   }).strict(),

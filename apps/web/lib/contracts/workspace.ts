@@ -61,6 +61,16 @@ export interface SubjectReferenceCountDto {
   total: number;
 }
 
+export interface SubjectReferenceDetailDto {
+  conflict: string | null;
+  kind: string;
+  id: string;
+  subjectId: string;
+  label: string;
+  key: string | null;
+  href: string | null;
+}
+
 export interface SubjectDuplicateSetDto {
   id: string;
   workspaceRevision: number;
@@ -87,6 +97,8 @@ export interface SubjectDuplicateSetDto {
     primaryKnowledgePoints: number;
     simulationOriginInboxItems: number;
   };
+  referenceDetails: SubjectReferenceDetailDto[];
+  privateReferenceCounts: Record<string, number>;
   totalReferenceCount: number;
   canAutoApply: false;
   requiresUserConfirmation: true;

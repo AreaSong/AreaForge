@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpenCheck, FileText, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -11,10 +11,12 @@ import {
   redirectToLoginWithCurrentLocation,
   removePrivateBusinessDraft,
 } from "@/lib/client/private-business-drafts";
+import { canSaveFocusNote, loadEditableFocusNote } from "@/lib/client/focus-note-edit";
+import { createLatestOperationGate } from "@/lib/client/operation-gates";
 import { classifyApiFailure } from "@/lib/client/api-errors";
 import type { FocusEvidenceReceipt, FocusEvidenceType } from "@/components/focus-session-evidence";
 import type { NoteMasteryStatusDto } from "@/lib/contracts";
-import { createNote, getNote, updateNote } from "@/lib/api/notes";
+import { createNote, updateNote } from "@/lib/api/notes";
 import {
   isShanghaiDateInputError,
   isoToShanghaiDateTimeInput,
@@ -46,23 +48,30 @@ export function FocusNoteForm(props: EvidenceContext & {
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [editingRevision, setEditingRevision] = useState(1);
+  const editingId = isEditing ? props.editingReceipt!.evidenceId : null;
+  const editContext = JSON.stringify([props.userId, props.sessionId, editingId]);
+  const [baseline, setBaseline] = useState<{ context: string; revision: number } | null>(null);
+  const [detailAttempt, setDetailAttempt] = useState(0);
+  const detailGate = useRef(createLatestOperationGate());
+  const hasBaseline = canSaveFocusNote(editContext, baseline);
+  const editBlocked = isEditing && !hasBaseline;
   const [error, setError] = useState<string | null>(null);
 
   useEvidenceDraft(draftKey, draft, setDraft, hydrated, setHydrated, isNoteDraft, emptyNoteDraft, isEditing);
 
   useEffect(() => {
-    if (!isEditing || !props.editingReceipt) return;
-    let active = true;
+    const gate = detailGate.current;
+    const token = gate.begin();
     void Promise.resolve().then(async () => {
-      if (!active) return;
+      if (!gate.isCurrent(token)) return;
+      setBaseline(null);
+      if (!editingId) { setLoadingDetail(false); return; }
+      setDraft(emptyNoteDraft);
       setLoadingDetail(true);
       setError(null);
-      const res = await getNote(props.editingReceipt!.evidenceId);
-      if (!active) return;
-      setLoadingDetail(false);
-      if (res.ok && res.body?.note) {
-        const note = res.body.note;
+      try {
+        const note = await loadEditableFocusNote(editingId);
+        if (!gate.isCurrent(token)) return;
         setDraft({
           title: note.title,
           content: note.content,
@@ -70,19 +79,19 @@ export function FocusNoteForm(props: EvidenceContext & {
           masteryStatus: note.masteryStatus || "partial",
           nextReviewAt: note.nextReviewAt ? isoToShanghaiDateTimeInput(note.nextReviewAt) : "",
         });
-        setEditingRevision(note.revision || 1);
-      } else {
-        setError("获取知识卡片详情失败，请重试。");
+        setBaseline({ context: editContext, revision: note.revision });
+      } catch {
+        if (gate.isCurrent(token)) setError("获取知识卡片详情失败，请重试。");
+      } finally {
+        if (gate.finish(token)) setLoadingDetail(false);
       }
     });
-    return () => {
-      active = false;
-    };
-  }, [isEditing, props.editingReceipt]);
+    return () => { gate.invalidate(); };
+  }, [editingId, editContext, detailAttempt]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || loadingDetail) return;
+    if (saving || loadingDetail || editBlocked) return;
     setSaving(true);
     setError(null);
     try {
@@ -99,7 +108,7 @@ export function FocusNoteForm(props: EvidenceContext & {
 
       if (isEditing && props.editingReceipt) {
         const result = await updateNote(props.editingReceipt.evidenceId, {
-          expectedRevision: editingRevision,
+          expectedRevision: baseline!.revision,
           ...payload,
         });
         if (!result.ok || !result.body?.note) {
@@ -165,7 +174,7 @@ export function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.kind}
                 onChange={(event) => setDraft({ ...draft, kind: event.target.value as NoteDraft["kind"] })}
-                disabled={loadingDetail}
+                disabled={saving || loadingDetail || editBlocked}
               >
                 <option value="GENERAL">通用</option>
                 <option value="CONCEPT">概念</option>
@@ -182,7 +191,7 @@ export function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.masteryStatus}
                 onChange={(event) => setDraft({ ...draft, masteryStatus: event.target.value as NoteMasteryStatusDto })}
-                disabled={loadingDetail}
+                disabled={saving || loadingDetail || editBlocked}
               >
                 <option value="understood">理解了</option>
                 <option value="partial">似懂非懂</option>
@@ -202,7 +211,7 @@ export function FocusNoteForm(props: EvidenceContext & {
               value={draft.title}
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
               placeholder="例如：极值定理的核心判别步骤"
-              disabled={loadingDetail}
+              disabled={saving || loadingDetail || editBlocked}
             />
           </Field>
         </div>
@@ -218,7 +227,7 @@ export function FocusNoteForm(props: EvidenceContext & {
               value={draft.content}
               onChange={(event) => setDraft({ ...draft, content: event.target.value })}
               placeholder="写下自己的理解、核心方法、反思或推导关键..."
-              disabled={loadingDetail}
+              disabled={saving || loadingDetail || editBlocked}
             />
           </Field>
         </div>
@@ -233,7 +242,7 @@ export function FocusNoteForm(props: EvidenceContext & {
                 className={inputClass}
                 value={draft.nextReviewAt}
                 onChange={(event) => setDraft({ ...draft, nextReviewAt: event.target.value })}
-                disabled={loadingDetail}
+                disabled={saving || loadingDetail || editBlocked}
               />
             </Field>
           </div>
@@ -247,7 +256,7 @@ export function FocusNoteForm(props: EvidenceContext & {
                 disabled={saving || loadingDetail}
                 leftIcon={<Trash2 className="size-4" aria-hidden="true" />}
               >
-                删除此条
+                归档此条
               </Button>
             ) : null}
 
@@ -256,6 +265,7 @@ export function FocusNoteForm(props: EvidenceContext & {
                 type="button"
                 variant="ghost"
                 onClick={() => {
+                  setBaseline(null);
                   setDraft(emptyNoteDraft);
                   props.onCancelEdit?.();
                 }}
@@ -269,7 +279,7 @@ export function FocusNoteForm(props: EvidenceContext & {
             <Button
               type="submit"
               variant="primary"
-              disabled={saving || loadingDetail || !draft.title.trim() || !draft.content.trim()}
+              disabled={saving || loadingDetail || editBlocked || !draft.title.trim() || !draft.content.trim()}
               loading={saving || loadingDetail}
               loadingLabel={isEditing ? "保存修改中..." : "保存中..."}
               leftIcon={<BookOpenCheck className="size-4" aria-hidden="true" />}
@@ -280,6 +290,11 @@ export function FocusNoteForm(props: EvidenceContext & {
         </div>
 
         {error ? <Alert tone="danger">{error}</Alert> : null}
+        {editBlocked && !loadingDetail ? (
+          <Button type="button" variant="secondary" disabled={saving} onClick={() => setDetailAttempt((value) => value + 1)}>
+            重试加载知识卡片
+          </Button>
+        ) : null}
       </form>
     </div>
   );

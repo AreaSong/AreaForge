@@ -20,6 +20,7 @@ export const subjectColors = ["#35d7c5", "#22c55e", "#f59e0b", "#3b82f6", "#ef44
 
 export function SubjectRow(props: {
   subject: WorkspaceSubjectDto;
+  workspaceRevision: number;
   groups: SubjectGroupDto[];
   activeGroups: SubjectGroupDto[];
   editing: boolean;
@@ -34,6 +35,9 @@ export function SubjectRow(props: {
 }) {
   const [name, setName] = useState(props.subject.name);
   const [color, setColor] = useState(props.subject.color);
+  const [baseRevision, setBaseRevision] = useState(props.workspaceRevision);
+  const stale = baseRevision !== props.workspaceRevision;
+  const archived = Boolean(props.subject.archivedAt);
   const [groupId, setGroupId] = useState(() => (
     props.activeGroups.some((group) => group.id === props.subject.groupId)
       ? props.subject.groupId ?? ""
@@ -44,6 +48,13 @@ export function SubjectRow(props: {
   if (props.editing) {
     return (
       <div className="space-y-3 p-3 bg-white/[0.02] rounded-xl border border-white/10">
+        {archived ? <p role="alert" className="text-sm text-amber-200">科目已被归档，你的输入仍保留。请先在下方恢复科目，再核对最新状态后保存。</p> : null}
+        {stale && !archived ? (
+          <div role="alert" className="space-y-2 break-words text-sm text-amber-200">
+            <p>服务端已更新，你的输入已保留。最新名称：{props.subject.name}；颜色：{props.subject.color}；分组：{props.groups.find((group) => group.id === props.subject.groupId)?.name ?? "未分组"}。</p>
+            <Button type="button" variant="secondary" size="sm" disabled={props.pending} onClick={() => setBaseRevision(props.workspaceRevision)}>已核对，保留输入继续编辑</Button>
+          </div>
+        ) : null}
         <div className="af-content-grid-two grid gap-3">
           <label className="text-sm text-zinc-400">
             名称
@@ -66,7 +77,7 @@ export function SubjectRow(props: {
             <Button type="button" variant="secondary" size="sm" disabled={props.pending} onClick={props.onCancel}>
               <X size={15} aria-hidden="true" />取消
             </Button>
-            <Button type="button" variant="primary" size="sm" disabled={props.pending || !name.trim()} onClick={() => void props.onSave({ name, color, groupId: effectiveGroupId || null })}>
+            <Button type="button" variant="primary" size="sm" disabled={props.pending || archived || stale || !name.trim()} onClick={() => void props.onSave({ name, color, groupId: effectiveGroupId || null, expectedWorkspaceRevision: baseRevision })}>
               <Save size={15} aria-hidden="true" />保存
             </Button>
           </div>
@@ -88,7 +99,13 @@ export function SubjectRow(props: {
       <div className="flex items-center gap-1">
         <IconButton label={`${props.subject.name}上移`} disabled={props.pending || !props.canMoveUp} onClick={() => props.onMove("UP")}><ArrowUp size={15} /></IconButton>
         <IconButton label={`${props.subject.name}下移`} disabled={props.pending || !props.canMoveDown} onClick={() => props.onMove("DOWN")}><ArrowDown size={15} /></IconButton>
-        <IconButton label={`编辑${props.subject.name}`} disabled={props.pending} onClick={props.onEdit}><Pencil size={15} /></IconButton>
+        <IconButton label={`编辑${props.subject.name}`} disabled={props.pending} onClick={() => {
+          setName(props.subject.name);
+          setBaseRevision(props.workspaceRevision);
+          setColor(props.subject.color);
+          setGroupId(props.subject.groupId ?? "");
+          props.onEdit();
+        }}><Pencil size={15} /></IconButton>
         <IconButton label={`归档${props.subject.name}`} disabled={props.pending} onClick={props.onArchive}><Archive size={15} /></IconButton>
       </div>
     </div>

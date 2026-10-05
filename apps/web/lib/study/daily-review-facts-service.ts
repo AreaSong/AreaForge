@@ -1,4 +1,5 @@
-import { prisma, type Prisma } from "@areaforge/db";
+import { filterCurrentSessionEvidence, parseSessionEvidenceReceipt } from "./session-evidence-contract";
+import { prisma } from "@areaforge/db";
 import type { DailyReviewFactsDto } from "@/lib/contracts/daily-review";
 import { getStudyDayRange } from "./date";
 import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
@@ -46,7 +47,7 @@ export async function getDailyReviewFacts(actorId: string, targetDate = new Date
   ]);
 
   const evidence = sessions.length > 0
-    ? await listEvidenceReceipts(actorId, sessions.map((session) => session.id))
+    ? await listEvidenceReceipts(actorId, workspace.id, sessions.map((session) => session.id))
     : [];
   const subjectFacts = new Map<string, DailyReviewFactsDto["subjects"][number]>();
   for (const session of sessions) {
@@ -79,6 +80,7 @@ export async function getDailyReviewFacts(actorId: string, targetDate = new Date
 
 async function listEvidenceReceipts(
   actorId: string,
+  workspaceId: string,
   sessionIds: string[],
 ): Promise<StudySessionEvidenceReceiptDto[]> {
   const events = await prisma.auditEvent.findMany({
@@ -91,24 +93,10 @@ async function listEvidenceReceipts(
     orderBy: { createdAt: "asc" },
     select: { metadata: true },
   });
-  return events.flatMap((event) => {
-    const receipt = parseEvidenceReceipt(event.metadata);
+  return filterCurrentSessionEvidence(prisma, actorId, workspaceId, events.flatMap((event) => {
+    const receipt = parseSessionEvidenceReceipt(event.metadata);
     return receipt ? [receipt] : [];
-  });
-}
-
-function parseEvidenceReceipt(value: Prisma.JsonValue | null): StudySessionEvidenceReceiptDto | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  if (
-    (value.evidenceType !== "note" && value.evidenceType !== "mistake" && value.evidenceType !== "retest")
-    || typeof value.evidenceId !== "string"
-    || typeof value.label !== "string"
-  ) return null;
-  return {
-    evidenceType: value.evidenceType,
-    evidenceId: value.evidenceId,
-    label: value.label,
-  };
+  }));
 }
 
 function countEvidence(

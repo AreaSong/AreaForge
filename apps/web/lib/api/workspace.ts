@@ -1,6 +1,7 @@
 import { createJsonRequest, requestApiResult, type ApiResult } from "@/lib/api/client";
 import type {
   ExamWorkspaceDto,
+  SubjectDuplicateSetDto,
   SubjectMergeResultDto,
   SubjectMergeUndoResultDto,
   SubjectGroupDto,
@@ -22,6 +23,18 @@ export interface WorkspaceMutationResponse {
   merge?: SubjectMergeResultDto;
   undo?: SubjectMergeUndoResultDto;
   error?: string;
+}
+
+export interface SubjectMergeMutationResponse extends Omit<WorkspaceMutationResponse, "latest"> {
+  latest?: SubjectDuplicateSetDto;
+}
+
+export function readWorkspaceConflictRevision(body: { latest?: unknown } | null): number | null {
+  const latest = body?.latest;
+  if (!latest || typeof latest !== "object") return null;
+  const value = "workspaceRevision" in latest ? latest.workspaceRevision
+    : "revision" in latest ? latest.revision : null;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 export interface ConfirmSubjectMergeInput {
@@ -175,7 +188,7 @@ export function updateSubjectGroup(
 export function confirmSubjectMerge(
   workspaceId: string,
   input: ConfirmSubjectMergeInput,
-): Promise<ApiResult<WorkspaceMutationResponse>> {
+): Promise<ApiResult<SubjectMergeMutationResponse>> {
   return requestApiResult(
     `/api/exam-workspaces/${encodeURIComponent(workspaceId)}/subject-merges`,
     createJsonRequest("POST", input),

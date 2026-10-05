@@ -66,6 +66,7 @@ interface FocusSessionWorkspaceProps {
   onEvidenceTypeChange: (type: FocusEvidenceType) => void;
   onLinkEvidence: (input: { evidenceType: FocusEvidenceType; evidenceId: string; label: string }) => Promise<void>;
   onEditReceipt?: (receipt: FocusEvidenceReceipt) => void;
+  evidencePending?: boolean;
   onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onCancelEditEvidence?: () => void;
   onUpdateEvidence?: (receipt: FocusEvidenceReceipt) => Promise<void> | void;
@@ -122,12 +123,15 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
           activeType={props.activeEvidenceType}
           canRetest={Boolean(props.session.syllabusNodeId)}
           receipts={props.evidenceReceipts}
+          pending={props.evidencePending}
+          editingReceiptType={props.editingReceipt?.evidenceType}
           editingReceiptId={props.editingReceipt?.evidenceId}
           onEditReceipt={props.onEditReceipt}
           onDeleteReceipt={props.onDeleteReceipt}
           onTypeChange={props.onEvidenceTypeChange}
           onComplete={props.onCompleteEvidence}
         >
+          <fieldset disabled={props.evidencePending} className="min-w-0">
           <FocusEvidenceForms
             userId={props.userId}
             sessionId={props.session.id}
@@ -144,6 +148,7 @@ export function FocusSessionWorkspace(props: FocusSessionWorkspaceProps) {
             onEvidenceSaved={props.onLinkEvidence}
             onEvidenceUpdated={props.onUpdateEvidence}
           />
+          </fieldset>
         </EvidenceWorkspace>
       ) : null}
       {props.phase === "complete" ? (

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, History, RotateCcw, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Modal } from "@/components/ui/overlays";
 import { formatDateTime } from "@/lib/formatters";
 import type {
@@ -43,6 +43,8 @@ export function SubjectDuplicatePreview(props: {
 }) {
   const [selected, setSelected] = useState<SubjectDuplicateSetDto | null>(null);
   const [selectedUndo, setSelectedUndo] = useState<SubjectMergeOperationDto | null>(null);
+  const mergeCurrent = isMergeConfirmationCurrent(selected, props.sets);
+  const undoCurrent = isUndoConfirmationCurrent(selectedUndo, props.mergeOperations ?? []);
   return (
     <section className="space-y-3" aria-labelledby="subject-duplicate-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -91,6 +93,7 @@ export function SubjectDuplicatePreview(props: {
         allowEscape={!props.pending}
       >
         <div className="space-y-4 text-sm text-zinc-300">
+          {selected && !mergeCurrent ? <p role="alert">预览已变化，请关闭确认框并重新核对最新预览。</p> : null}
           <p>
             保留“{selected ? subjectName(selected, selected.recommendedTargetId) : "目标科目"}”，并把
             {selected ? selected.subjects.length - 1 : 0} 个来源科目的全部引用迁移过去。
@@ -105,12 +108,12 @@ export function SubjectDuplicatePreview(props: {
             <Button
               type="button"
               variant="danger"
-              disabled={props.pending || !selected}
+              disabled={props.pending || !mergeCurrent}
               loading={props.pending}
               onClick={() => {
-                if (!selected || !props.onConfirm) return;
-                void props.onConfirm(selected).then((merged) => {
-                  if (merged) setSelected(null);
+                if (!selected || !mergeCurrent || !props.onConfirm) return;
+                void props.onConfirm(selected).then(() => {
+                  setSelected((current) => current === selected ? null : current);
                 });
               }}
             >
@@ -127,6 +130,7 @@ export function SubjectDuplicatePreview(props: {
         allowEscape={!props.pending}
       >
         <div className="space-y-4 text-sm text-zinc-300">
+          {selectedUndo && !undoCurrent ? <p role="alert">撤销范围已变化，请关闭确认框并重新核对最新记录。</p> : null}
           <p>
             将“{selectedUndo?.sourceSubjects.map((subject) => subject.name).join("、") || "来源科目"}”恢复为活动科目，
             并把本次合并迁移的引用精确恢复到原科目。
@@ -141,12 +145,12 @@ export function SubjectDuplicatePreview(props: {
             <Button
               type="button"
               variant="danger"
-              disabled={props.pending || !selectedUndo}
+              disabled={props.pending || !undoCurrent}
               loading={props.pending}
               onClick={() => {
-                if (!selectedUndo || !props.onUndo) return;
-                void props.onUndo(selectedUndo).then((undone) => {
-                  if (undone) setSelectedUndo(null);
+                if (!selectedUndo || !undoCurrent || !props.onUndo) return;
+                void props.onUndo(selectedUndo).then(() => {
+                  setSelectedUndo((current) => current === selectedUndo ? null : current);
                 });
               }}
             >
@@ -157,6 +161,17 @@ export function SubjectDuplicatePreview(props: {
       </Modal>
     </section>
   );
+}
+
+export function isMergeConfirmationCurrent(selected: SubjectDuplicateSetDto | null, sets: SubjectDuplicateSetDto[]) {
+  return Boolean(selected && sets.some((set) => set.id === selected.id
+    && set.snapshotHash === selected.snapshotHash && set.workspaceRevision === selected.workspaceRevision));
+}
+
+export function isUndoConfirmationCurrent(selected: SubjectMergeOperationDto | null, operations: SubjectMergeOperationDto[]) {
+  return Boolean(selected && selected.status === "AVAILABLE" && operations.some((operation) => operation.id === selected.id
+    && operation.status === "AVAILABLE" && operation.undoSnapshotHash === selected.undoSnapshotHash
+    && operation.workspaceRevision === selected.workspaceRevision));
 }
 
 function RecentSubjectMergeOperations(props: {
@@ -318,6 +333,8 @@ function DuplicateSetCard(props: {
         ) : null}
       </div>
 
+      <ReferenceDetails key={set.snapshotHash} set={set} />
+
       <div className="flex items-start gap-2 text-xs leading-5 text-zinc-500">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-teal-300" aria-hidden="true" />
         <p>自动应用已关闭。真实转换会迁移全部引用并软归档来源科目，不做物理删除。</p>
@@ -352,4 +369,37 @@ function formatReferenceSummary(references: SubjectReferenceCountDto): string {
     .filter(([key]) => references[key] > 0)
     .map(([key, label]) => label + " " + references[key]);
   return parts.length > 0 ? parts.join("、") : "暂无业务引用";
+}
+
+function ReferenceDetails({ set }: { set: SubjectDuplicateSetDto }) {
+  const [page, setPage] = useState(0);
+  const rows = set.referenceDetails;
+  const visible = rows.slice(page * 20, (page + 1) * 20);
+  const labels = Object.fromEntries(referenceLabels);
+  return (
+    <details className="rounded-lg border border-white/10 p-3 text-sm text-zinc-300">
+      <summary className="cursor-pointer py-2">核对关联明细（本人及共享考纲 {rows.length} 条）</summary>
+      <p className="my-2 text-xs text-zinc-400">下列明细包含保留和来源科目；可根据科目、对象和内部标识定位冲突。其他成员的私有内容不可查看。</p>
+      {Object.entries(set.privateReferenceCounts).map(([kind, count]) => (
+        <p key={kind} className="text-xs text-zinc-400">其他成员 · {labels[kind] ?? kind}：{count} 条（仅汇总）</p>
+      ))}
+      <ul className="divide-y divide-white/10">
+        {visible.map((row) => (
+          <li key={`${row.kind}:${row.id}`} className="min-w-0 break-all py-3">
+            {row.conflict ? <p className="font-medium text-amber-200">{row.conflict}</p> : null}
+            <p>{labels[row.kind] ?? row.kind} · {subjectName(set, row.subjectId)} · {row.label}</p>
+            <p className="text-xs text-zinc-400">对象：{row.id}{row.key ? ` · 标识：${row.key}` : ""}</p>
+            {row.href ? <ButtonLink href={row.href} variant="ghost" size="sm">查看{labels[row.kind] ?? "关联对象"}</ButtonLink> : null}
+          </li>
+        ))}
+      </ul>
+      {rows.length > 20 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>上一页</Button>
+          <span aria-live="polite">第 {page + 1} / {Math.ceil(rows.length / 20)} 页</span>
+          <Button type="button" variant="ghost" disabled={(page + 1) * 20 >= rows.length} onClick={() => setPage(page + 1)}>下一页</Button>
+        </div>
+      ) : null}
+    </details>
+  );
 }

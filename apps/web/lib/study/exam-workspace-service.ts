@@ -14,6 +14,7 @@ import type { ExamWorkspaceDto, SubjectGroupDto, TakeoverPreviewDto, WorkspaceSu
 import { requireWorkspaceOwner, workspaceOwnerWhere } from "@/lib/workspace/access-service";
 import { requireWorkspacePolicy } from "@/lib/workspace/policy-service";
 import { getStudyDayRange } from "./date";
+import { recoverWorkspaceCreation, workspaceCreateFingerprint, type WorkspaceCreateInput } from "./workspace-create-recovery";
 
 export const workspaceLockNamespace = 2026072112;
 
@@ -195,29 +196,14 @@ export async function listExamWorkspaces(actorId: string): Promise<ExamWorkspace
 
 export async function createExamWorkspace(
   actorId: string,
-  input: {
-    stableKey: string;
-    name: string;
-    targetExamDate?: string | null;
-    stageSummary?: string | null;
-    activate?: boolean;
-    subjects?: Array<{
-      stableKey: string;
-      name: string;
-      color: string;
-      sortOrder?: number;
-      groupStableKey?: string | null;
-    }>;
-    groups?: Array<{
-      stableKey: string;
-      name: string;
-      sortOrder?: number;
-    }>;
-    takeoverSubjectIds?: string[];
-  },
+  input: WorkspaceCreateInput,
+  client: Pick<typeof prisma, "$transaction"> = prisma,
 ): Promise<ExamWorkspaceDto> {
-  return prisma.$transaction(async (tx) => {
+  return client.$transaction(async (tx) => {
     await lockActorWorkspaceScope(tx, actorId);
+    const requestFingerprint = workspaceCreateFingerprint(input);
+    const recovered = await recoverWorkspaceCreation(tx, actorId, input, requestFingerprint);
+    if (recovered) return serializeWorkspace(recovered);
 
     const activate = input.activate !== false;
     const stableKeys = input.subjects?.map((subject) => subject.stableKey.trim()) ?? [];
@@ -362,6 +348,7 @@ export async function createExamWorkspace(
         metadata: {
           subjectCount: input.subjects?.length ?? 0,
           takeoverSubjectCount: requestedTakeover.length,
+          requestFingerprint,
         } as Prisma.InputJsonValue,
       },
     });

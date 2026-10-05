@@ -169,6 +169,7 @@ export async function seedCompleteSubjectMergeGraph(
   ]);
   const exam = await prisma.simulationExam.create({
     data: {
+      ownerUserId: pair.actorId,
       workspaceId: pair.workspaceId,
       name: "隔离模拟考试",
       examDate: new Date("2026-09-03T00:00:00.000Z"),
@@ -185,6 +186,7 @@ export async function seedCompleteSubjectMergeGraph(
   });
   const stagePlan = await prisma.stagePlan.create({
     data: {
+      ownerUserId: pair.actorId,
       workspaceId: pair.workspaceId,
       stableKey: `stage-${randomUUID()}`,
       name: "基础阶段",
@@ -197,6 +199,7 @@ export async function seedCompleteSubjectMergeGraph(
   });
   const milestone = await prisma.planMilestone.create({
     data: {
+      ownerUserId: pair.actorId,
       workspaceId: pair.workspaceId,
       stagePlanId: stagePlan.id,
       subjectId: pair.sourceSubjectId,

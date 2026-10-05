@@ -1,3 +1,4 @@
+import { SUPPORTED_TASK_TYPES } from "@areaforge/core";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser, readJson } from "@/lib/api/auth";
@@ -12,7 +13,7 @@ const patchSchema = z.object({
   plannedDate: z.string().datetime().nullable().optional(),
   estimatedMinutes: z.number().int().positive().nullable().optional(),
   priority: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
+  type: z.enum(SUPPORTED_TASK_TYPES).nullable().optional(),
   planMilestoneId: z.string().nullable().optional(),
   primaryNodeId: z.string().nullable().optional(),
   subjectId: z.string().nullable().optional(),

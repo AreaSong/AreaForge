@@ -128,7 +128,7 @@ test("Challenger 2 - Workspace Setup vs Normal Edit Mode State Machine & Edge Ca
   assert.equal(workspaceSetupErrorMessage("SUBJECT_STABLE_KEY_CONFLICT_WITH_TAKEOVER"), "新科目与已有科目的内部标识重复。请返回修改，或选择沿用已有科目。");
   assert.equal(workspaceSetupErrorMessage("TAKEOVER_SUBJECT_NOT_ELIGIBLE"), "旧数据状态已经变化，请刷新预览后重新确认。");
   assert.equal(workspaceSetupErrorMessage("SUBJECT_STABLE_KEY_DUPLICATE"), "新科目的内部标识重复，请返回修改。");
-  assert.equal(workspaceSetupErrorMessage("INTERNAL_ERROR"), "设置未完成，请刷新后重试；草稿仍保留。");
+  assert.equal(workspaceSetupErrorMessage("INTERNAL_ERROR"), "未能确认保存结果，草稿已保留；恢复网络后请使用原设置重试。");
 
   // Test CAS workspace edit baseline and conflict detection
   const workspaceA: ExamWorkspaceDto = {

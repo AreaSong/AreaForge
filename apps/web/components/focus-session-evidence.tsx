@@ -18,6 +18,8 @@ export function EvidenceWorkspace(props: {
   activeType: FocusEvidenceType;
   canRetest: boolean;
   receipts: FocusEvidenceReceipt[];
+  pending?: boolean;
+  editingReceiptType?: FocusEvidenceType;
   editingReceiptId?: string | null;
   onEditReceipt?: (receipt: FocusEvidenceReceipt) => void;
   onDeleteReceipt?: (receipt: FocusEvidenceReceipt) => void;
@@ -45,6 +47,7 @@ export function EvidenceWorkspace(props: {
           {/* Type Selector Buttons */}
           <div className="grid gap-2.5">
             <EvidenceTypeButton
+              disabled={props.pending}
               active={props.activeType === "note"}
               icon={<FileText />}
               label="知识卡片"
@@ -52,6 +55,7 @@ export function EvidenceWorkspace(props: {
               onClick={() => props.onTypeChange("note")}
             />
             <EvidenceTypeButton
+              disabled={props.pending}
               active={props.activeType === "mistake"}
               icon={<AlertTriangle />}
               label="错题记录"
@@ -60,7 +64,7 @@ export function EvidenceWorkspace(props: {
             />
             <EvidenceTypeButton
               active={props.activeType === "retest"}
-              disabled={!props.canRetest}
+              disabled={props.pending || !props.canRetest}
               icon={<Target />}
               label={props.canRetest ? "考纲复测" : "考纲复测（未关联节点）"}
               description="针对考纲节点进行即时掌握度检验"
@@ -68,6 +72,7 @@ export function EvidenceWorkspace(props: {
             />
           </div>
 
+          <p className="text-xs text-zinc-400">归档会归档原卡片或错题并暂停其复习计划；历史学习记录保留。</p>
           {/* Receipts list */}
           <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-xs">
             <div className="flex items-center justify-between text-zinc-400">
@@ -77,7 +82,7 @@ export function EvidenceWorkspace(props: {
             {props.receipts.length > 0 ? (
               <ul className="mt-3 space-y-2 border-t border-white/5 pt-2.5">
                 {props.receipts.map((receipt) => {
-                  const isEditing = props.editingReceiptId === receipt.evidenceId;
+                  const isEditing = props.editingReceiptType === receipt.evidenceType && props.editingReceiptId === receipt.evidenceId;
                   return (
                     <li
                       key={`${receipt.evidenceType}:${receipt.evidenceId}`}
@@ -105,6 +110,7 @@ export function EvidenceWorkspace(props: {
                             type="button"
                             size="sm"
                             variant="ghost"
+                            disabled={props.pending}
                             onClick={() => props.onEditReceipt?.(receipt)}
                             className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all ${
                               isEditing
@@ -119,18 +125,19 @@ export function EvidenceWorkspace(props: {
                           </Button>
                         ) : null}
 
-                        {props.onDeleteReceipt ? (
+                        {props.onDeleteReceipt && receipt.evidenceType !== "retest" ? (
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
+                            disabled={props.pending || Boolean(props.editingReceiptId)}
                             onClick={() => props.onDeleteReceipt?.(receipt)}
                             className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/25 hover:text-rose-200 transition-all"
-                            title="删除此条证据"
-                            aria-label={`删除证据 ${receipt.label}`}
+                            title="归档源对象并暂停其复习计划"
+                            aria-label={`归档证据 ${receipt.label}`}
                           >
                             <Trash2 className="size-3 shrink-0" />
-                            <span>删除</span>
+                            <span>{props.pending ? "归档中…" : "归档"}</span>
                           </Button>
                         ) : null}
                       </div>
@@ -168,6 +175,7 @@ export function EvidenceWorkspace(props: {
             <Button
               type="button"
               variant="primary"
+              disabled={props.pending}
               onClick={props.onComplete}
             >
               {props.receipts.length > 0 ? "完成证据接力" : "暂不沉淀，完成收口"}

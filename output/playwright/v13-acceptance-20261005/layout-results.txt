@@ -1,0 +1,109 @@
+### Result
+[
+  {
+    "route": "/today",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/settings/exams",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/roadmap/stages",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/focus",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/today",
+    "width": 390,
+    "scrollWidth": 390,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/settings/exams",
+    "width": 390,
+    "scrollWidth": 390,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/roadmap/stages",
+    "width": 390,
+    "scrollWidth": 390,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/focus",
+    "width": 390,
+    "scrollWidth": 390,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/today",
+    "width": 320,
+    "scrollWidth": 320,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/settings/exams",
+    "width": 320,
+    "scrollWidth": 320,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/roadmap/stages",
+    "width": 320,
+    "scrollWidth": 320,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  },
+  {
+    "route": "/focus",
+    "width": 320,
+    "scrollWidth": 320,
+    "lang": "zh-CN",
+    "theme": "standard",
+    "pass": true
+  }
+]
+### Ran Playwright code
+```js
+await page.evaluate('() => (window.__v13Layout)');
+```
+### Open tabs
+- 0: [今日行动中心 | AreaForge](http://127.0.0.1:43171/today)
+- 1: (current) [开始学习 | AreaForge](http://127.0.0.1:43171/focus)
+### Page
+- Page URL: http://127.0.0.1:43171/focus
+- Page Title: 开始学习 | AreaForge

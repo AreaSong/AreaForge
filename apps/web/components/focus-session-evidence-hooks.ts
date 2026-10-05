@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FocusEvidenceReceipt, FocusEvidenceType } from "@/components/focus-session-panels";
-import { linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
+import { archiveFocusEvidence, linkFocusSessionEvidence, setFocusEvidenceFlowOpen } from "@/lib/client/focus-evidence";
 import { isLocalFocusSessionId } from "@/lib/client/focus-offline-store";
-import { archiveNote } from "@/lib/api/notes";
-import { archiveMistake } from "@/lib/api/mistakes";
+import { createExclusiveOperationGate } from "@/lib/client/operation-gates";
 import type { StudySessionDto } from "@/lib/contracts";
 import type { FocusPhase } from "@/components/focus-session-draft";
 
@@ -31,6 +30,14 @@ export function useFocusEvidenceManager(params: UseFocusEvidenceManagerParams) {
   const [activeEvidenceType, setActiveEvidenceType] = useState<FocusEvidenceType>("note");
   const [evidenceReceipts, setEvidenceReceipts] = useState(initialEvidenceReceipts);
   const [editingReceipt, setEditingReceipt] = useState<FocusEvidenceReceipt | null>(null);
+  const archiveGate = useRef(createExclusiveOperationGate());
+  const [archiveScope, setArchiveScope] = useState<string | null>(null);
+  const scope = `${userId}:${session.id}`;
+  const evidencePending = archiveScope === scope;
+  useEffect(() => {
+    const gate = archiveGate.current;
+    return () => gate.invalidate();
+  }, [scope]);
 
   function openEvidenceFlow() {
     if (isLocalFocusSessionId(session.id)) {
@@ -80,34 +87,26 @@ export function useFocusEvidenceManager(params: UseFocusEvidenceManagerParams) {
   }
 
   async function handleDeleteReceipt(receipt: FocusEvidenceReceipt) {
+    if (receipt.evidenceType === "retest") return;
+    const token = archiveGate.current.acquire();
+    if (!token) return;
+    setArchiveScope(scope);
+    setError(null);
+    const sameReceipt = (item: FocusEvidenceReceipt) => item.evidenceType === receipt.evidenceType && item.evidenceId === receipt.evidenceId;
     try {
-      if (receipt.evidenceType === "note") {
-        void archiveNote(receipt.evidenceId, { expectedRevision: 1 }).catch(() => undefined);
-      } else if (receipt.evidenceType === "mistake") {
-        void archiveMistake(receipt.evidenceId, { expectedUpdatedAt: new Date().toISOString() }).catch(() => undefined);
-      }
-    } catch {
-      // Best-effort remote archival
-    }
-
-    setEvidenceReceipts((current) => {
-      const next = current.filter((r) => r.evidenceId !== receipt.evidenceId);
-      const hasRemainingNote = next.some((r) => r.evidenceType === "note");
-      const hasRemainingMistake = next.some((r) => r.evidenceType === "mistake");
-      setSession((prev) => ({
-        ...prev,
-        producedNote: hasRemainingNote,
-        producedMistake: hasRemainingMistake,
-      }));
-      return next;
-    });
-
-    if (editingReceipt?.evidenceId === receipt.evidenceId) {
-      setEditingReceipt(null);
+      await archiveFocusEvidence(receipt);
+      if (!archiveGate.current.isActive(token)) return;
+      setEvidenceReceipts((current) => current.filter((item) => !sameReceipt(item)));
+      setEditingReceipt((current) => current && sameReceipt(current) ? null : current);
+    } catch (error) {
+      if (archiveGate.current.isActive(token)) setError(error instanceof Error ? error.message : "归档失败，证据仍保留，请重试。");
+    } finally {
+      if (archiveGate.current.release(token)) setArchiveScope(null);
     }
   }
 
   return {
+    evidencePending,
     activeEvidenceType,
     setActiveEvidenceType,
     evidenceReceipts,

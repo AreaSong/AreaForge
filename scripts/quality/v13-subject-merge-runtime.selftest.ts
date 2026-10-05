@@ -180,7 +180,7 @@ async function verifyPreviewedUniqueConflicts(): Promise<void> {
     prisma.syllabusNode.create({ data: { subjectId: pair.sourceSubjectId, title: "来源节点", kind: "TOPIC", stableKey: sharedKey } }),
   ]);
   const exam = await prisma.simulationExam.create({
-    data: { workspaceId: pair.workspaceId, name: "冲突考试", examDate: new Date(), status: "CONFIRMED" },
+    data: { ownerUserId: pair.actorId, workspaceId: pair.workspaceId, name: "冲突考试", examDate: new Date(), status: "CONFIRMED" },
   });
   const [targetResult, sourceResult] = await Promise.all([
     prisma.simulationSubjectResult.create({ data: { simulationExamId: exam.id, subjectId: pair.targetSubjectId } }),

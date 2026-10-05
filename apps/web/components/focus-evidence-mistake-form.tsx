@@ -259,7 +259,7 @@ export function FocusMistakeForm(props: EvidenceContext & {
                 disabled={saving || loadingDetail}
                 leftIcon={<Trash2 className="size-4" aria-hidden="true" />}
               >
-                删除此条
+                归档此条
               </Button>
             ) : null}
 

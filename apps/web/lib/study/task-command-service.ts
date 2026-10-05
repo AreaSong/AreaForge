@@ -1,3 +1,4 @@
+import { requireSplitTaskType } from "./task-split-type";
 import { prisma, type Prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { getNextStudyDayStart, getStudyDayRange } from "./date";
@@ -478,7 +479,7 @@ export async function splitStudyTask(id: string, input: SplitTaskInput, actorId:
         planMilestoneId: existing.planMilestoneId,
         parentTaskId: existing.id,
         title: input.title,
-        type: existing.type === "simulation_exam" ? "review" : existing.type,
+        type: requireSplitTaskType(existing.type),
         status: "TODO",
         priority: existing.priority,
         debtStatus: "ACCEPTABLE",

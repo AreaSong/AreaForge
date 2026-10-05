@@ -269,10 +269,10 @@ test("Adversarial M5: first-use template materialization and takeover preview sa
   );
   assert.equal(
     workspaceSetupErrorMessage("INTERNAL_ERROR"),
-    "设置未完成，请刷新后重试；草稿仍保留。",
+    "未能确认保存结果，草稿已保留；恢复网络后请使用原设置重试。",
   );
   assert.equal(workspaceSetupErrorMessage("WORKSPACE_ALREADY_EXISTS"), "WORKSPACE_ALREADY_EXISTS");
-  assert.equal(workspaceSetupErrorMessage(undefined), "创建工作区失败，首次设置草稿已保留");
+  assert.equal(workspaceSetupErrorMessage(undefined), "未能确认保存结果，草稿已保留；恢复网络后请使用原设置重试。");
 });
 
 test("Adversarial M5: nextAvailableGeneratedKey prevents key collisions and handles gaps", () => {

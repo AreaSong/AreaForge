@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SubjectDuplicatePreview } from "./subject-duplicate-preview";
+import { SubjectDuplicatePreview, isMergeConfirmationCurrent, isUndoConfirmationCurrent } from "./subject-duplicate-preview";
 import type { SubjectDuplicateSetDto, SubjectMergeOperationDto } from "@/lib/contracts";
 
 function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDuplicateSetDto {
@@ -36,6 +36,8 @@ function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDup
     total: 52,
   };
   return {
+    referenceDetails: [],
+    privateReferenceCounts: {},
     id: "duplicate-set-1-subject-a-subject-b",
     workspaceRevision: 3,
     snapshotHash: "sha256:" + "a".repeat(64),
@@ -83,6 +85,22 @@ function subjectSet(overrides: Partial<SubjectDuplicateSetDto> = {}): SubjectDup
     ...overrides,
   };
 }
+
+test("合并确认绑定版本和快照，刷新不能静默替换已核对的范围", () => {
+  const selected = subjectSet();
+  assert.equal(isMergeConfirmationCurrent(selected, [subjectSet()]), true);
+  for (const sets of [[], [subjectSet({ snapshotHash: "changed" })], [subjectSet({ workspaceRevision: 4 })]]) {
+    assert.equal(isMergeConfirmationCurrent(selected, sets), false);
+  }
+});
+
+test("撤销确认在版本、快照、可用状态或记录变化后失效", () => {
+  const selected = mergeOperation();
+  assert.equal(isUndoConfirmationCurrent(selected, [mergeOperation()]), true);
+  for (const operations of [[], [mergeOperation({ workspaceRevision: 5 })], [mergeOperation({ undoSnapshotHash: "changed" })], [mergeOperation({ status: "UNDONE" })]]) {
+    assert.equal(isUndoConfirmationCurrent(selected, operations), false);
+  }
+});
 
 function mergeOperation(overrides: Partial<SubjectMergeOperationDto> = {}): SubjectMergeOperationDto {
   return {
@@ -147,4 +165,16 @@ test("SubjectDuplicatePreview renders recent merge operations and only offers av
   assert.match(html, /不可自动撤销/);
   assert.match(html, /模拟补救或计划收件箱关联已经变化/);
   assert.equal((html.match(/撤销合并/g) ?? []).length, 1);
+});
+
+test("预览提供共享考纲冲突键、本人定位入口和其他成员脱敏数量", () => {
+  const set = subjectSet({
+    referenceDetails: [{ conflict: "合并后唯一键冲突", kind: "syllabusNodes", id: "node-1", subjectId: "subject-a", label: "极限", key: "limit-key", href: "/knowledge/syllabi/node-1" }],
+    privateReferenceCounts: { notes: 3 },
+  });
+  const html = renderToStaticMarkup(React.createElement(SubjectDuplicatePreview, { sets: [set] }));
+  assert.match(html, /limit-key/);
+  assert.match(html, /href="\/knowledge\/syllabi\/node-1"/);
+  assert.match(html, /仅汇总/);
+  assert.match(html, /其他成员/);
 });

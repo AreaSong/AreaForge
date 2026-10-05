@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PlanDraftAdvice } from "@areaforge/ai";
 import {
   assertExpectedRevision,
+  resolveDraftTaskType,
   buildSimulationRemediationGroups,
   buildSimulationRemediationOriginSnapshot,
   buildOriginIdentity,
@@ -99,8 +100,9 @@ function parseStringArray(value: Prisma.JsonValue | null): string[] {
   return Array.isArray(value) ? Array.from(new Set(value.filter((item): item is string => typeof item === "string" && item.length > 0))) : [];
 }
 
-function missingFields(row: Pick<PlanInboxRow, "title" | "subjectId" | "plannedDate" | "estimatedMinutes" | "planMilestoneId">, requiredMilestoneKey?: string | null): string[] {
+function missingFields(row: Pick<PlanInboxRow, "title" | "subjectId" | "plannedDate" | "estimatedMinutes" | "planMilestoneId" | "type">, requiredMilestoneKey?: string | null): string[] {
   const missing: string[] = [];
+  if (!resolveDraftTaskType(row.type)) missing.push("type");
   if (!row.title.trim()) missing.push("title");
   if (!row.subjectId) missing.push("subjectId");
   if (!row.plannedDate) missing.push("plannedDate");
@@ -409,7 +411,7 @@ export async function adoptAiPlanDraftToInbox(
         plannedDate: task.plannedDate ?? null,
         estimatedMinutes: task.estimatedMinutes,
         priority: "MEDIUM",
-        type: "focus",
+        type: "study",
       }));
     }
     if (writes.some((write) => write.created)) {
@@ -516,7 +518,7 @@ export async function createLowConversionPlanInboxItem(
       plannedDate,
       estimatedMinutes: 15,
       priority: "HIGH",
-      type: "focus",
+      type: "study",
       primaryNodeId: session.syllabusNodeId,
     })).item;
   });
@@ -676,7 +678,7 @@ export async function createPlanInboxItemWithResult(
       plannedDate: input.plannedDate ? new Date(input.plannedDate) : null,
       estimatedMinutes: input.estimatedMinutes ?? null,
       priority: input.priority ?? null,
-      type: input.type ?? null,
+      type: requirePlanInboxTaskType(input.type),
       planMilestoneId: input.planMilestoneId ?? null,
       primaryNodeId: input.primaryNodeId ?? null,
       relatedNodeIds: input.relatedNodeIds?.length ? input.relatedNodeIds : undefined,
@@ -783,7 +785,7 @@ export async function updatePlanInboxItem(
       data: {
         title: input.title?.trim(), subjectId,
         plannedDate: input.plannedDate === undefined ? undefined : input.plannedDate ? new Date(input.plannedDate) : null,
-        estimatedMinutes: input.estimatedMinutes, priority: input.priority, type: input.type,
+        estimatedMinutes: input.estimatedMinutes, priority: input.priority, type: input.type === undefined ? undefined : requirePlanInboxTaskType(input.type),
         planMilestoneId: input.planMilestoneId, primaryNodeId: input.primaryNodeId,
         relatedNodeIds: input.relatedNodeIds ? input.relatedNodeIds : undefined,
         revision: { increment: 1 },
@@ -976,7 +978,7 @@ export async function convertPlanInboxItem(
         syllabusNodeId: existing.primaryNodeId,
         planMilestoneId: existing.planMilestoneId,
         title: existing.title.trim(),
-        type: existing.type?.trim() || "focus",
+        type: requirePlanInboxTaskType(existing.type),
         priority,
         plannedDate,
         estimatedMinutes,
@@ -1526,4 +1528,10 @@ function simulationOriginStale(item: PlanInboxRow, currentVersion?: number): Api
     latest: currentVersion == null ? undefined : { originKey: item.originKey, originVersion: currentVersion },
     conflictFields: ["originKey", "originVersion", "originSnapshot"],
   });
+}
+
+export function requirePlanInboxTaskType(value: string | null | undefined) {
+  const type = resolveDraftTaskType(value);
+  if (!type) throw new ApiError("PLAN_INBOX_TASK_TYPE_INVALID", 400, { conflictFields: ["type"], workbench: planInboxWorkbench });
+  return type;
 }

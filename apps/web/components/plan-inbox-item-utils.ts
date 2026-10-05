@@ -1,3 +1,4 @@
+import { resolveDraftTaskType } from "@areaforge/core";
 import type { ConflictComparison } from "@/components/conflict-resolution-modal";
 import type { PlanInboxItemDto } from "@/lib/contracts";
 import { formatDateKey, isoToShanghaiDateInput } from "@/lib/formatters";
@@ -18,7 +19,7 @@ export interface PlanInboxFormDraft {
   predecessors: Array<{ taskId: string; dependencyType: DependencyType }>;
 }
 
-export type PlanInboxRequiredFieldKey = "title" | "subjectId" | "plannedDate" | "estimatedMinutes" | "planMilestoneId";
+export type PlanInboxRequiredFieldKey = "title" | "subjectId" | "plannedDate" | "estimatedMinutes" | "planMilestoneId" | "type";
 export type PlanInboxEditorFields = "all" | PlanInboxRequiredFieldKey[] | null;
 
 export interface PlanInboxMissingField {
@@ -31,6 +32,7 @@ export function getPlanInboxMissingFields(
   requiredMilestoneKey: string | null,
 ): PlanInboxMissingField[] {
   return [
+    !resolveDraftTaskType(draft.type) ? { key: "type", label: "类型（请重新选择）" } : null,
     !draft.title.trim() ? { key: "title", label: "标题" } : null,
     !draft.subjectId ? { key: "subjectId", label: "科目" } : null,
     !draft.plannedDate ? { key: "plannedDate", label: "日期" } : null,
@@ -90,7 +92,7 @@ export function toPlanInboxFormDraft(item: PlanInboxItemDto): PlanInboxFormDraft
     plannedDate: dateInput(item.plannedDate),
     estimatedMinutes: item.estimatedMinutes?.toString() ?? "",
     priority: item.priority?.toUpperCase() ?? "MEDIUM",
-    type: item.type ?? "focus",
+    type: resolveDraftTaskType(item.type) ?? item.type ?? "study",
     planMilestoneId: item.planMilestoneId ?? "",
     primaryNodeId: item.primaryNodeId ?? "",
     relatedNodeIds: item.relatedNodeIds,

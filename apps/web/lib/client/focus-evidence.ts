@@ -1,3 +1,5 @@
+import { archiveNote, getNote } from "@/lib/api/notes";
+import { archiveMistake, getMistake } from "@/lib/api/mistakes";
 import { completeIdempotentCommand, getOrCreateIdempotencyKey } from "./idempotent-command";
 import { redirectToLoginWithCurrentLocation } from "./private-business-drafts";
 import { getBrowserStoragePort } from "./storage-port";
@@ -51,4 +53,32 @@ export async function linkFocusSessionEvidence(
 
 function focusEvidenceFlowKey(userId: string, sessionId: string): string {
   return `areaforge.focus.evidence-flow.v1.${userId}.${sessionId}`;
+}
+
+export async function archiveFocusEvidence(
+  receipt: StudySessionEvidenceReceiptDto,
+  api = { getNote, archiveNote, getMistake, archiveMistake },
+): Promise<void> {
+  if (receipt.evidenceType === "retest") throw new Error("复测记录不支持在此归档。");
+  if (receipt.evidenceType === "note") {
+    const detail = await api.getNote(receipt.evidenceId);
+    const note = detail.body?.note;
+    if (!detail.ok || !note || note.id !== receipt.evidenceId || !Number.isInteger(note.revision)) {
+      throw new Error("无法读取卡片当前版本，证据已保留；请刷新后重试。");
+    }
+    const result = await api.archiveNote(note.id, { expectedRevision: note.revision });
+    if (!result.ok || result.body?.note?.id !== note.id || !result.body.note.archivedAt) {
+      throw new Error("卡片归档未确认，可能已被其他页面修改；证据仍保留，请刷新核对后重试。");
+    }
+    return;
+  }
+  const detail = await api.getMistake(receipt.evidenceId);
+  const mistake = detail.body?.mistake;
+  if (!detail.ok || !mistake || mistake.id !== receipt.evidenceId || !mistake.updatedAt) {
+    throw new Error("无法读取错题当前版本，证据已保留；请刷新后重试。");
+  }
+  const result = await api.archiveMistake(mistake.id, { expectedUpdatedAt: mistake.updatedAt });
+  if (!result.ok || result.body?.mistake?.id !== mistake.id || !result.body.mistake.archivedAt) {
+    throw new Error("错题归档未确认，可能已被其他页面修改；证据仍保留，请刷新核对后重试。");
+  }
 }

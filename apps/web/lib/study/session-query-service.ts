@@ -1,7 +1,7 @@
 import { prisma } from "@areaforge/db";
 import { ApiError } from "@/lib/api/responses";
 import { resolveSelectedMemberWorkspace } from "./exam-workspace-service";
-import { parseSessionEvidenceReceipt } from "./session-evidence-contract";
+import { filterCurrentSessionEvidence, parseSessionEvidenceReceipt } from "./session-evidence-contract";
 import { serializeSession } from "./session-serializer";
 import type { StudySessionDto, StudySessionEvidenceReceiptDto } from "@/lib/contracts";
 
@@ -62,8 +62,8 @@ export async function listStudySessionEvidenceReceipts(
     orderBy: { createdAt: "asc" },
     select: { metadata: true },
   });
-  return events.flatMap((event) => {
+  return filterCurrentSessionEvidence(prisma, actorId, workspace.id, events.flatMap((event) => {
     const receipt = parseSessionEvidenceReceipt(event.metadata);
     return receipt ? [receipt] : [];
-  });
+  }));
 }
